@@ -2307,25 +2307,12 @@ Root
     - :Column Label=Shelf
     - :Action Handler="() => togglePicked(line)"
     - :Action Handler=submitDispatch Label="Dispatch \u2014 move real stock now"
-   "/stock/so" :Screen "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls listLocations">/Root/Application/Calls/listLocations "Calls postSalesOrder">/Root/Application/Calls/postSalesOrder "Calls stageSalesOrder">/Root/Application/Calls/stageSalesOrder Source="frontend/src/routes/stock/so/+page.svelte" Title="Sales Order"
-    - :Heading Text="Sales Order"
-    - :Heading Text=Date
-    - :Field Bind=transdate Control=input Label=Date Type=date
-    - :Heading Text=Reference
-    - :Field Bind=reference Control=input Label=Reference Placeholder="e.g. SO-1001"
-    - :Heading Text=Customer
-    - :Field Bind=customer Control=select Label=Customer
-    - :Heading Text=Item
-    - :Field Bind=item Control=select Label=Item
-    - :Heading Text=Quantity
-    - :Field Bind=quantity Control=input Label=Quantity Placeholder=0
-    - :Heading Text="Price per unit"
-    - :Field Bind=price Control=input Label="Price per unit" Placeholder=0.00
-    - :Heading Text="Dispatch location"
-    - :Field Bind=dispatchLocation Control=select Label="Dispatch location"
-    - :Heading Text=Description
-    - :Field Bind=description Control=input Label=Description Placeholder=optional
-    - :Action Handler=save Label=Saving
+   "/stock/so" :Screen Action=salesOrder Intro="A customer's committed order \u2014 memo only, no real ledger effect until a Stock Dispatch fulfills it (all or item)." Title="Sales Order" "Variant Of">/Root/Application/Screens/"/stock/po"
+    - :Field Name=reference Placeholder="e.g. SO-1001"
+    - :Field Name=provider Remove=yes
+    - :Field Name=item Reacts=""
+    - :Field After=reference Choices=customers Control=choose Empty="Select customer\u2026" Grow=yes Label=Customer Name=customer
+    - :Field Label="Dispatch location" Name=deliveryLocation
    "/stock/stock-dispatch" :Screen "Calls exportInvoicePdf">/Root/Application/Calls/exportInvoicePdf "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls getOrderStatus">/Root/Application/Calls/getOrderStatus "Calls postOrderDispatch">/Root/Application/Calls/postOrderDispatch "Calls stageOrderDispatch">/Root/Application/Calls/stageOrderDispatch Source="frontend/src/routes/stock/stock-dispatch/+page.svelte" Title="Stock Dispatch"
     - :Heading Text="Stock Dispatch"
     - :Action Handler=downloadDispatchInvoicePdf Label="Generating\u2026"
@@ -2353,30 +2340,18 @@ Root
     - :Heading Text=Description
     - :Field Bind=description Control=input Label=Description Placeholder=optional
     - :Action Handler=save Label=Saving
-   "/stock/stock-receipt" :Screen "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls getOrderStatus">/Root/Application/Calls/getOrderStatus "Calls postOrderReceipt">/Root/Application/Calls/postOrderReceipt "Calls stageOrderReceipt">/Root/Application/Calls/stageOrderReceipt Source="frontend/src/routes/stock/stock-receipt/+page.svelte" Title="Stock Receipt"
-    - :Heading Text="Stock Receipt"
-    - :Heading Text=Date
-    - :Field Bind=transdate Control=input Label=Date Type=date
-    - :Heading Text=Reference
-    - :Field Bind=reference Control=input Label=Reference Placeholder="e.g. RCPT-1001"
-    - :Heading Text="Purchase Order"
-    - :Field Bind=poReference Control=input Label="Purchase Order" Placeholder="e.g. PO-1001"
-    - :Heading Text=Provider
-    - :Field Bind=provider Control=select Label=Provider
-    - :Heading Text="Item / account (what this receipt is for)"
-    - :Field Bind=item Control=select Label="Item / account (what this receipt is for)"
-    - :Field Bind=isService Control=input Label="This is a service \u2014 no physical stock quantity to track" Type=checkbox
-    - :Heading Text="Stock quantity account"
-    - :Field Bind=itemQty Control=select Label="Stock quantity account"
-    - :Heading Text=Quantity
-    - :Field Bind=quantity Control=input Label=Quantity Placeholder=0
-    - :Heading Text=Value
-    - :Field Bind=value Control=input Label=Value Placeholder=0.00
-    - :Heading Text="Tax %"
-    - :Field Bind=taxRate Control=input Label="Tax %" Placeholder=0
-    - :Heading Text=Description
-    - :Field Bind=description Control=input Label=Description Placeholder=optional
-    - :Action Handler=save Label=Saving
+   "/stock/stock-receipt" :Screen Action=orderReceipt "Fail Text"="Could not record this receipt." Intro="Fulfills (all or item of) a Purchase Order. Toggle \"service\" off for a physical item to also track its stock quantity \u2014 leave it on for anything with no quantity to track (labour, a service performed)." "Submit Label"=Save Template=transaction Title="Stock Receipt" "Total Label"="Total owed to provider" Totals=valueTaxRate
+    - :Field Control=date Label=Date Name=transdate
+    - :Field Control=text Label=Reference Name=reference Placeholder="e.g. RCPT-1001" Reset=yes
+    - :Field Control=text Label="Purchase Order" Name=order Placeholder="e.g. PO-1001" Reacts=orderStatus
+    - :Field Choices=providers Control=choose Empty="Select provider\u2026" Grow=yes Label=Provider Name=provider
+    - :Field Choices=postableAccounts Control=choose Empty="Select account\u2026" Grow=yes Label="Item / account (what this receipt is for)" Name=item
+    - :Field Control=checkbox Label="This is a service \u2014 no physical stock quantity to track" Name=isService
+    - :Field Choices=postableAccounts Control=choose Empty="Select quantity account\u2026" Label="Stock quantity account" Name=itemQty Unless=isService
+    - :Field Control=quantity Label=Quantity Name=quantity Reset=yes
+    - :Field Control=amount Label=Value Name=value Reset=yes
+    - :Field Control=percent Label="Tax %" Name=taxRate Reset=yes
+    - :Field Control=text Grow=yes Label=Description Name=description Placeholder=optional Reset=yes
    "/stock/stock-take" :Screen "Calls completeStockTake">/Root/Application/Calls/completeStockTake "Calls createStockTake">/Root/Application/Calls/createStockTake "Calls getStockTake">/Root/Application/Calls/getStockTake "Calls listLocations">/Root/Application/Calls/listLocations "Calls recordStockTakeCount">/Root/Application/Calls/recordStockTakeCount Source="frontend/src/routes/stock/stock-take/+page.svelte" Title="Stock Take"
     - :Heading Text="Stock Take"
     - :Heading Text="Start a new stock take"
@@ -2477,6 +2452,7 @@ Root
    - :Rule Selector=".one-of label" align-items=center display=flex font-weight=normal gap=0.3rem
    - :Rule Selector=.error color="var(--debit, #a33a2e)"
    - :Rule Selector=.success background="#eaf5ea" border-radius=5px color="#2a5c2a" padding="0.5rem 0.7rem"
+   - :Rule Selector=.checkbox-label align-items=center display=flex gap=0.4rem
    - :Rule Selector=.record-list border-collapse=collapse margin-top=1.2rem width="100%"
    - :Rule Selector=".record-list th, .record-list td" border-bottom="1px solid var(--rule)" padding="0.4rem 0.6rem" text-align=start
    - :Rule Selector=.record-actions white-space=nowrap

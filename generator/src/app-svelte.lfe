@@ -113,7 +113,8 @@
       (if (== columns '()) #"" (grid s id inputs badge?))
       (if (== after '()) #"" (list #"    <div class='row'>\n" (lists:map (lambda (f) (field s f)) after) #"    </div>\n"))
       (if (andalso (== columns '()) (=/= (val s id #"Totals") 'undefined))
-        (list #"    {#if sums.totalMinor > 0}<p class='total-line'>" (t (val s id #"Total Label" #"Total")) #": <strong>{fmt(sums.totalMinor)}</strong></p>{/if}\n")
+        (list #"    {#if sums.totalMinor > 0}<p class='total-line'>" (t (val s id #"Total Label" #"Total")) #": <strong>{fmt(sums.totalMinor)}</strong>"
+              #"{#if sums.taxMinor > 0} (" (t #"Tax") #": {fmt(sums.taxMinor)}){/if}</p>{/if}\n")
         #"")
       #"    {#if error}<p class='error'>{error}</p>{/if}\n"
       #"    {#if message}<p class='success'>{message}</p>{/if}\n"
@@ -302,6 +303,11 @@
 ;; --- fields and columns ------------------------------------------------------
 
 (defun field (s f)
+  (case (val s f #"Unless")
+    ('undefined (control s f))
+    (other (list #"      {#if !values." other #"}\n" (control s f) #"      {/if}\n"))))
+
+(defun control (s f)
   (let* ((n (list #"values." (val s f #"Name")))
          (label (t (val s f #"Label" (val s f #"Name"))))
          (open (list #"      <fieldset" (if (== (val s f #"Grow") 'undefined) #"" #" class='grow'") #"><legend>" label #"</legend>")))
@@ -311,6 +317,8 @@
       (#"number" (list open #"<input type='number' value={" n #"} oninput={(e) => (" n #" = e.currentTarget.value)} /></fieldset>\n"))
       (#"quantity" (list open #"<input bind:value={" n #"} placeholder='0' inputmode='numeric' /></fieldset>\n"))
       (#"amount" (list open #"<input bind:value={" n #"} placeholder='0.00' inputmode='decimal' /></fieldset>\n"))
+      (#"checkbox" (list #"      <label class='checkbox-label'><input type='checkbox' checked={" n #" === 'yes'} onchange={(e) => (" n
+                         #" = e.currentTarget.checked ? 'yes' : '')} /> " label #"</label>\n"))
       (#"textarea" (list open #"<textarea bind:value={" n #"}></textarea></fieldset>\n"))
       (#"choose"
        (list open #"\n        <select bind:value={" n #"}>"

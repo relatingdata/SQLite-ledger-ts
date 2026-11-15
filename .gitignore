@@ -58,6 +58,8 @@ frontend/src/routes/arap/ap-purchase/+page.svelte
 frontend/src/routes/arap/ar-sale/+page.svelte
 frontend/src/routes/stock/transfer/+page.svelte
 frontend/src/routes/stock/po/+page.svelte
+frontend/src/routes/stock/so/+page.svelte
+frontend/src/routes/stock/stock-receipt/+page.svelte
 frontend/src/routes/gl/fx-adjustment/+page.svelte
 frontend/src/routes/cash/+page.svelte
 frontend/src/routes/jobs/+page.svelte

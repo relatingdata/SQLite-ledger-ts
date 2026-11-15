@@ -60,11 +60,11 @@ build output, ignored by git, written by `make generate`.
 
 ### Templates
 
-29 of the 84 routes are generated. Each screen names its template:
+31 of the 84 routes are generated. Each screen names its template:
 
 | Template | Screens | Reads |
 |---|---|---|
-| `transaction` | Cash Purchase, Cash Sale, AP Purchase, AR Sale, Purchase Order, Stock Transfer, Quotations, RFQ | `Title`, `Intro`, `Action`, `Totals`, `Total Label`, `Party` / `Party Label`, `Submit Label`, `Fail Text`; its `Field` and `Column` things |
+| `transaction` | Cash Purchase, Cash Sale, AP Purchase, AR Sale, Purchase Order, Sales Order, Stock Receipt, Stock Transfer, Quotations, RFQ | `Title`, `Intro`, `Action`, `Totals`, `Total Label`, `Party` / `Party Label`, `Submit Label`, `Fail Text`; its `Field` and `Column` things |
 | `tiles` | AR / AP, Stock, Reports (section index pages) | `Title`, `Intro`; one `Tile` (`Href`, `Title`, `Description`) per link |
 | `compose` | AP Payment, AR Receipt | One `Use` per component, its props as `Prop <name>` |
 | `not-implemented` | 16 screens not built yet | `Title`, `Description` |
@@ -72,10 +72,10 @@ build output, ignored by git, written by `make generate`.
 In `transaction`, fields before the first column go above the line grid
 and the rest below it. A `Field` has a `Name`, `Label` and `Control`:
 `text` (`Placeholder`), `date`, `number`, `quantity`, `amount`, `percent`,
-`textarea`, `choose` (choices from the named `Choices` source, an `Empty`
+`textarea`, `checkbox` (`yes` when ticked), `choose` (choices from the named `Choices` source, an `Empty`
 option, `Default=first`, a `Filter`, `Show All Label`) or `one-of`
 (`Options` as `value=Label value=Label`). `Reset` clears it after a
-successful submit; `Reacts` names a reaction run whenever it changes. A
+successful submit; `Unless` names a checkbox that hides it when ticked; `Reacts` names a reaction run whenever it changes. A
 `Column` is `text`, `number`, `money` or `storage-badge`.
 
 A screen with `Records` also lists records below its form (Quotations and
@@ -96,7 +96,8 @@ straight after the thing named by its `After`. `app-view` resolves this,
 and the templates see only the resolved screen. Cash Purchase and Cash
 Sale are variants of AP Purchase and AR Sale: `Party=Cash`, the line tax
 column, the payment method, and no reference, party or tax rate fields.
-RFQ is a variant of Quotations: `Side=AP`, providers instead of
+Sales Order is a variant of Purchase Order (a customer instead of the
+provider, placed `After=reference`). RFQ is a variant of Quotations: `Side=AP`, providers instead of
 customers, its own title, intro and labels.
 
 ### Reading the configuration as Lisp
@@ -117,11 +118,11 @@ hand, in the runtime module:
 - `filters`: narrowing one field's choices by the others (`sameCityAsFrom`);
 - `reactions`: run when a field changes, returning a patch of values,
   narrowed choices and an information line (`onHand`,
-  `fromLocationChanged`, `itemSources`, `providerPrice`);
-- `totals`: `lineTax`, `taxRate`, `quantityTimesPrice`;
+  `fromLocationChanged`, `itemSources`, `providerPrice`, `orderStatus`);
+- `totals`: `lineTax`, `taxRate`, `valueTaxRate`, `quantityTimesPrice`;
 - `actions`: the backend calls a submit makes (`purchase` and `sale`, on
   account or, when the party is `Cash`, paid at once; `transfer`,
-  `purchaseOrder`, `quotation`);
+  `purchaseOrder`, `salesOrder`, `orderReceipt`, `quotation`);
 - `records`: what a screen lists (`quotations`), and `commands`: what its
   record buttons do (`markSent`, `accept`, `reject`). A validation
   failure throws `Invalid`, whose message is shown.

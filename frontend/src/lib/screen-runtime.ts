@@ -9,7 +9,8 @@
 // calls, and returns the message to show. A validation failure throws
 // Invalid, whose message is shown as is.
 
-import { translations } from '$lib/state.svelte';
+import { auth, translations } from '$lib/state.svelte';
+import { formatAmount } from '$lib/format';
 import {
   getEntityTree,
   listItems,
@@ -28,6 +29,11 @@ import {
   listItemSources,
   stagePurchaseOrder,
   postPurchaseOrder,
+  stageSalesOrder,
+  stageOrderReceipt,
+  postOrderReceipt,
+  getOrderStatus,
+  postSalesOrder,
   createQuotation,
   createRfq,
   listQuotations,
@@ -127,6 +133,16 @@ async function onHandAtFrom(v: Values): Promise<string> {
 }
 
 export const reactions: Record<string, (c: Context, v: Values) => Promise<Patch>> = {
+  /** What is still open on the order named in the order field. */
+  orderStatus: async (_c, v) => {
+    if (!v.order?.trim()) return { info: '' };
+    try {
+      const open = await getOrderStatus(v.order);
+      return { info: `${t('Still open on that order:')} ${open.quantity} ${t('units')}, ${formatAmount(open.value_minor, auth.current?.user.number_format ?? '1 000.00')}` };
+    } catch {
+      return { info: '' };
+    }
+  },
   /** The stock on hand of the item at the location it leaves from. */
   onHand: async (_c, v) => ({ info: await onHandAtFrom(v) }),
   /** A new location to leave from: the destination must be chosen again. */
@@ -175,6 +191,12 @@ export const totals: Record<string, (lines: Line[], values: Values) => Totals> =
   quantityTimesPrice: (_lines, values) => {
     const totalMinor = values.quantity && values.price ? parseQuantity(values.quantity) * parseMinorUnits(values.price) : 0;
     return { subtotalMinor: totalMinor, taxMinor: 0, totalMinor };
+  },
+  /** A tax percentage (the taxRate field) of an amount (the value field). */
+  valueTaxRate: (_lines, values) => {
+    const subtotalMinor = values.value ? parseMinorUnits(values.value) : 0;
+    const taxMinor = values.taxRate ? Math.round(subtotalMinor * (Number(values.taxRate) / 100)) : 0;
+    return { subtotalMinor, taxMinor, totalMinor: subtotalMinor + taxMinor };
   },
   /** A tax percentage (the taxRate field) of the subtotal. */
   taxRate: (lines, values) => {
@@ -298,6 +320,39 @@ export const actions: Record<string, (c: Context, v: Values, lines: Line[]) => P
       await postJournalEntry(valueReference, business, ledger);
     }
     return `${t('Transferred')} ${quantity} ${v.item}: ${v.fromLocation} \u2192 ${v.toLocation}.`;
+  },
+  /** Goods or a service received against a purchase order. */
+  orderReceipt: async (c, v) => {
+    if (!v.reference?.trim() || !v.order?.trim() || !v.provider || !v.item || !v.quantity || !v.value) {
+      throw new Invalid('Reference, PO reference, provider, item, quantity, and value are all required.');
+    }
+    const business = asBusinessName(c.business);
+    const ledger = asLedgerName(c.ledger);
+    const value_minor = parseMinorUnits(v.value);
+    await stageOrderReceipt({
+      reference: v.reference, business, ledger, po_reference: v.order, item: v.item,
+      item_qty: v.isService ? undefined : v.itemQty || undefined,
+      vendor: v.provider, quantity: parseQuantity(v.quantity), value_minor,
+      tax_minor: v.taxRate ? Math.round(value_minor * (Number(v.taxRate) / 100)) : 0,
+      transdate: v.transdate, description: v.description || undefined,
+    });
+    await postOrderReceipt(v.reference, business, ledger);
+    return `Receipt ${v.reference} recorded against ${v.order}.`;
+  },
+  salesOrder: async (c, v) => {
+    if (!v.reference?.trim() || !v.customer || !v.item || !v.quantity || !v.price) {
+      throw new Invalid('Reference, customer, item, quantity, and price are all required.');
+    }
+    const business = asBusinessName(c.business);
+    const ledger = asLedgerName(c.ledger);
+    await stageSalesOrder({
+      reference: v.reference, business, ledger, customer: asCustomerName(v.customer), item: asAccountName(v.item),
+      quantity: parseQuantity(v.quantity), price_minor: parseMinorUnits(v.price),
+      location: v.deliveryLocation ? asLocationName(v.deliveryLocation) : undefined,
+      transdate: v.transdate, description: v.description || undefined,
+    });
+    await postSalesOrder(v.reference, business, ledger);
+    return `Sales Order ${v.reference} placed for ${v.customer}.`;
   },
   /** A quotation (side AR) or a request for quotation (side AP): an order
    * staged but not posted until it is accepted. */
