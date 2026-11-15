@@ -232,6 +232,20 @@ export class Store {
     return this.db.prepare(`SELECT account_id AS account, amount FROM journal_line WHERE entry_id = ? ORDER BY id`).all(entry) as Line[];
   }
 
+  /** Every line posted to any of `accounts`, oldest entry first: by entry
+   * date, then by the order the entries were posted. */
+  accountLines(accounts: number[]): (Line & { entry: number })[] {
+    if (accounts.length === 0) return [];
+    return this.db
+      .prepare(
+        `SELECT l.entry_id AS entry, l.account_id AS account, l.amount
+         FROM journal_line l JOIN journal j ON j.entry_id = l.entry_id
+         WHERE l.account_id IN (${accounts.map(() => '?').join(',')})
+         ORDER BY j.date, l.entry_id, l.id`
+      )
+      .all(...accounts) as (Line & { entry: number })[];
+  }
+
   balance(account: number): number {
     return (this.db.prepare(`SELECT COALESCE(SUM(amount), 0) AS n FROM journal_line WHERE account_id = ?`).get(account) as { n: number }).n;
   }

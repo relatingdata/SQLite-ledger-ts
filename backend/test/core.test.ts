@@ -286,6 +286,66 @@ test('write-off, stock-take and reversal', () => {
   assert.throws(() => ops.reverseEntry(ice, take.name), Refused);
 });
 
+test('stock leaves first in, first out, at the cost each receipt was bought at', () => {
+  const core = fresh();
+  const ice = business(core);
+  ops.createItem(ice, 'Ice');
+  ops.createLocation(ice, { name: 'Home' });
+  ops.createLocation(ice, { name: 'Stall' });
+  const cogs = () => reports.profitAndLoss(ice).total_expense_minor;
+  const inventory = (location: string) => ice.balance(ice.existingProductAccount('Inventory', { item: ice.item('Ice'), location: ice.location(location) })!.id);
+  ops.purchase(ice, { item: 'Ice', location: 'Home', quantity: 10, unitMinor: 100 });
+  ops.purchase(ice, { item: 'Ice', location: 'Home', quantity: 10, unitMinor: 130 });
+  // 12 sold: all 10 of the first receipt, then 2 of the second.
+  ops.sell(ice, { item: 'Ice', location: 'Home', quantity: 12, unitMinor: 300 });
+  assert.equal(cogs(), 10 * 100 + 2 * 130);
+  assert.equal(inventory('Home'), 8 * 130);
+  // A transfer carries the cost of the oldest stock at the place it leaves.
+  ops.purchase(ice, { item: 'Ice', location: 'Home', quantity: 5, unitMinor: 160 });
+  ops.transferStock(ice, 'T-1', 'Ice', 'Home', 'Stall', 9);
+  assert.equal(inventory('Stall'), 8 * 130 + 160);
+  assert.equal(inventory('Home'), 4 * 160);
+  // A write-off, too, takes the oldest first.
+  ops.writeOff(ice, 'Ice', 8, 'Stall');
+  assert.equal(cogs(), 10 * 100 + 2 * 130 + 8 * 130);
+  assert.equal(inventory('Stall'), 160);
+  // A part of a receipt takes its share, the last unit carrying the rounding.
+  ops.purchase(ice, { item: 'Ice', location: 'Stall', quantity: 3, unitMinor: 0 });
+  ice.post('ADJ-1', [
+    { account: ice.existingProductAccount('Inventory', { item: ice.item('Ice'), location: ice.location('Stall') })!.id, amount: 100 },
+    { account: ice.accountNamed('Cash and Bank').id, amount: -100 },
+  ]);
+  const before = cogs();
+  ops.sell(ice, { item: 'Ice', location: 'Stall', quantity: 2, unitMinor: 300 });
+  assert.equal(cogs() - before, 160 + 33);
+  ops.sell(ice, { item: 'Ice', location: 'Stall', quantity: 2, unitMinor: 300 });
+  assert.equal(cogs() - before, 160 + 100);
+  assert.equal(inventory('Stall'), 0);
+  assert.ok(reports.balanceSheet(ice).balanced);
+});
+
+test('a new ledger keeps the layers of the stock it brings forward', () => {
+  const core = fresh();
+  const ice = business(core);
+  ops.createItem(ice, 'Ice');
+  ops.purchase(ice, { item: 'Ice', quantity: 10, unitMinor: 100, date: '2027-05-01' });
+  ops.purchase(ice, { item: 'Ice', quantity: 10, unitMinor: 150, date: '2027-06-01' });
+  ops.sell(ice, { item: 'Ice', quantity: 5, unitMinor: 300, date: '2027-06-15' });
+  ops.closeBooks(ice, '2027-06-30', 'Retained Earnings');
+  ops.createLedger(ice, 'Actual 2027-28');
+  ops.rollover(ice, 'Actual 2027-28', '2027-07-01');
+  const next = ice.forLedger('Actual 2027-28');
+  const item = next.item('Ice');
+  assert.equal(next.balance(next.existingQuantityAccount('On Hand', { item })!.id), 15);
+  assert.equal(next.balance(next.existingProductAccount('Inventory', { item })!.id), 5 * 100 + 10 * 150);
+  // The opening stock's clearing accounts end at zero and show nowhere.
+  assert.equal(next.balance(next.existingQuantityAccount('Opening Stock', { item })!.id), 0);
+  assert.ok(reports.balanceSheet(next).balanced);
+  // The first sale of the new year is the last of last year's oldest stock.
+  ops.sell(next, { item: 'Ice', quantity: 7, unitMinor: 300, date: '2027-07-02' });
+  assert.equal(reports.profitAndLoss(next).total_expense_minor, 5 * 100 + 2 * 150);
+});
+
 test('wages: hourly or salaried, with the two rates as relations of the business', () => {
   const core = fresh();
   const ice = business(core);

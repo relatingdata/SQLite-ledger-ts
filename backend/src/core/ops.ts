@@ -715,13 +715,93 @@ export function dispatchStock(inst: Instance, reference: string, itemName: strin
   });
 }
 
-/** The cost of a quantity of stock: its share of the inventory value held
- * for that item (at that location). Zero where no value is held there. */
+/** A quantity of stock received together, and what is left of its cost. */
+interface Layer {
+  quantity: number;
+  value: number;
+}
+
+/** Takes `quantity` from the oldest layers first and returns what was
+ * taken, layer by layer. A part of a layer takes its share of what is left
+ * of the layer's value, so the last unit of a layer carries any rounding. */
+function take(layers: Layer[], quantity: number): Layer[] {
+  const taken: Layer[] = [];
+  let wanted = quantity;
+  while (wanted > 0 && layers.length > 0) {
+    const layer = layers[0];
+    const units = Math.min(wanted, layer.quantity);
+    const value = units === layer.quantity ? layer.value : Math.round((layer.value * units) / layer.quantity);
+    taken.push({ quantity: units, value });
+    layer.quantity -= units;
+    layer.value -= value;
+    wanted -= units;
+    if (layer.quantity === 0) layers.shift();
+  }
+  return taken;
+}
+
+function valueOf(layers: Layer[]): number {
+  return layers.reduce((total, layer) => total + layer.value, 0);
+}
+
+/** The stock of an item (at a location) still on hand, as the layers it
+ * was received in, oldest first, each at the cost it was received at.
+ * With `before`, as it stood just before that entry.
+ *
+ * Nothing is stored for this: the layers are read back from the journal.
+ * Each entry that moves the item's On Hand quantity is one movement: a
+ * quantity in, with the value posted to its Inventory account in the same
+ * entry, is a new layer; a quantity out takes the oldest layers first. A
+ * transfer in arrives as the very layers that left the other location.
+ * Value posted with no quantity, or the part of a quantity out that a
+ * quantity-only movement left behind, stays with the newest layer, so the
+ * layers always add up to the Inventory account's balance. */
+function stockLayers(inst: Instance, of: Product, before?: number): Layer[] {
+  const quantityAccount = inst.existingQuantityAccount('On Hand', of);
+  if (!quantityAccount) return [];
+  const valueAccount = inst.existingProductAccount('Inventory', of);
+  const movements = new Map<number, Layer>();
+  for (const line of inst.store.accountLines(valueAccount ? [quantityAccount.id, valueAccount.id] : [quantityAccount.id])) {
+    const movement = movements.get(line.entry) ?? { quantity: 0, value: 0 };
+    if (line.account === quantityAccount.id) movement.quantity += line.amount;
+    else movement.value += line.amount;
+    movements.set(line.entry, movement);
+  }
+  const layers: Layer[] = [];
+  let unplaced = 0;
+  const place = (value: number) => {
+    if (layers.length > 0) layers[layers.length - 1].value += value;
+    else unplaced += value;
+  };
+  for (const [entry, { quantity, value }] of movements) {
+    if (entry === before) break;
+    if (quantity > 0) {
+      const source = inst.core.related(entry, 'From Location');
+      const arrived = source && source.id !== of.location?.id ? take(stockLayers(inst, { ...of, location: source }, entry), quantity) : [];
+      const received = arrived.length > 0 ? arrived : [{ quantity, value: 0 }];
+      received[0].value += unplaced + value - valueOf(arrived);
+      unplaced = 0;
+      layers.push(...received);
+    } else if (quantity < 0) {
+      place(valueOf(take(layers, -quantity)) + value);
+    } else {
+      place(value);
+    }
+  }
+  return layers;
+}
+
+/** The cost of a quantity of stock leaving, first in, first out: the cost
+ * of the oldest stock received for that item (at that location). */
 function costOf(inst: Instance, of: Product, quantity: number): number {
-  const account = inst.existingProductAccount('Inventory', of);
-  const value = account ? inst.balance(account.id) : 0;
-  const held = onHand(inst, of);
-  return value > 0 && held > 0 ? Math.round((value * quantity) / held) : 0;
+  return valueOf(take(stockLayers(inst, of), quantity));
+}
+
+/** The cost of stock found that the books did not hold: at the unit cost
+ * of the most recent stock received, or nothing if none is held. */
+function costOfFound(inst: Instance, of: Product, quantity: number): number {
+  const newest = stockLayers(inst, of).at(-1);
+  return newest && newest.quantity > 0 ? Math.round((newest.value * quantity) / newest.quantity) : 0;
 }
 
 export function transferStock(inst: Instance, reference: string, itemName: string, fromName: string, toName: string, quantity: number): Node {
@@ -901,7 +981,8 @@ export function writeOff(inst: Instance, itemName: string, quantity: number, loc
 }
 
 /** A stock count that differs from the books: on hand is set to what was
- * counted, the difference in value going to Write-offs. */
+ * counted, the difference in value going to Write-offs. Stock missing is
+ * costed first in, first out; stock found at the latest receipt's cost. */
 export function stockTake(inst: Instance, itemName: string, counted: number, locationName?: string, reference?: string): Node | undefined {
   return inst.store.tx(() => {
     const of = product(inst, itemName, locationName);
@@ -909,8 +990,7 @@ export function stockTake(inst: Instance, itemName: string, counted: number, loc
     const held = onHand(inst, of);
     const difference = counted - held;
     if (difference === 0) return undefined;
-    const account = inst.existingProductAccount('Inventory', of);
-    const value = account && held > 0 ? Math.round((inst.balance(account.id) * difference) / held) : 0;
+    const value = difference < 0 ? -costOf(inst, of, -difference) : costOfFound(inst, of, difference);
     const lines: Line[] = [
       { account: inst.quantityAccount('On Hand', of).id, amount: difference },
       { account: inst.quantityAccount('Count Adjustment', { item: of.item }).id, amount: -difference },
@@ -1064,9 +1144,17 @@ export function rollover(inst: Instance, newLedgerName: string, asOfDate: string
     const lines: Line[] = [];
     let unclosed = 0;
     const flows = new Map<number, number>();
+    // Stock received at more than one cost keeps its layers in the new
+    // ledger, each brought in by an entry of its own (see stockOpenings).
+    const layered = stockOpenings(inst, next);
     for (const account of inst.core.all(inst.accountsRoot().id, 'Account')) {
       const balance = sums.get(account.id) ?? 0;
       if (balance === 0) continue;
+      const opening = layered.byAccount.get(account.id);
+      if (opening) {
+        lines.push(opening);
+        continue;
+      }
       const type = statement.get(account.id);
       if ((type === 'Income' || type === 'Expense') && inst.unitOf(account.id) === '') {
         unclosed += balance;
@@ -1088,8 +1176,55 @@ export function rollover(inst: Instance, newLedgerName: string, asOfDate: string
     }
     if (unclosed !== 0) lines.push({ account: next.accountNamed('Retained Earnings').id, amount: unclosed });
     if (lines.length === 0) throw new Refused('There are no balances to carry forward.');
-    return next.post(`OPENING-${asOfDate}`, lines, { date: asOfDate, relations: { Opening: true, 'Carried From': inst.ledger.id } });
+    const relations = { Opening: true, 'Carried From': inst.ledger.id };
+    const opening = next.post(`OPENING-${asOfDate}`, lines, { date: asOfDate, relations });
+    layered.layers.forEach((layerLines, n) => next.post(`OPENING-${asOfDate}-LAYER-${n + 1}`, layerLines, { date: asOfDate, relations }));
+    return opening;
   });
+}
+
+/** How a rollover carries forward stock held in more than one layer, so
+ * that the new ledger still issues the oldest stock first at its own cost.
+ *
+ * The opening entry brings the stock's whole quantity and value into an
+ * Opening Stock account (a quantity account, and a memorandum money
+ * account, so neither shows on a statement); one entry per layer, oldest
+ * first, then moves that layer from Opening Stock into On Hand and
+ * Inventory. Opening Stock ends at zero. Stock in a single layer is simply
+ * carried forward on the opening entry. */
+function stockOpenings(from: Instance, to: Instance): { byAccount: Map<number, Line>; layers: Line[][] } {
+  const byAccount = new Map<number, Line>();
+  const layers: Line[][] = [];
+  const quantities = from.store.child(from.accountsRoot().id, 'Quantities');
+  const folder = quantities && from.store.child(quantities.id, 'On Hand');
+  if (!folder) return { byAccount, layers };
+  for (const account of from.core.things(folder.id, 'Account')) {
+    if (from.core.value(account.id, 'Dimensions')) continue;
+    const item = from.core.related(account.id, 'Item');
+    if (!item) continue;
+    const location = from.core.related(account.id, 'Location');
+    const of: Product = { item, ...(location ? { location } : {}) };
+    const held = stockLayers(from, of);
+    if (held.length < 2) continue;
+    const inventory = from.existingProductAccount('Inventory', of);
+    const total = held.reduce((t, l) => ({ quantity: t.quantity + l.quantity, value: t.value + l.value }), { quantity: 0, value: 0 });
+    // Items and locations belong to the business, so are the same in both ledgers.
+    const quantityClearing = to.quantityAccount('Opening Stock', of);
+    const valueClearing = to.memoAccount('Opening Stock', of);
+    byAccount.set(account.id, { account: quantityClearing.id, amount: total.quantity });
+    if (inventory) byAccount.set(inventory.id, { account: valueClearing.id, amount: total.value });
+    const onHand = mirror(from, to, account).id;
+    const value = inventory ? mirror(from, to, inventory).id : undefined;
+    for (const layer of held) {
+      const lines: Line[] = [
+        { account: onHand, amount: layer.quantity },
+        { account: quantityClearing.id, amount: -layer.quantity },
+      ];
+      if (value !== undefined && layer.value !== 0) lines.push({ account: value, amount: layer.value }, { account: valueClearing.id, amount: -layer.value });
+      layers.push(lines);
+    }
+  }
+  return { byAccount, layers };
 }
 
 export { GLOBAL_BUSINESS, today };

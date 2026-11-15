@@ -108,13 +108,26 @@ and every quantity unit each adding up to zero on their own.
 - Stock: `receiveStock`, `dispatchStock`, `transferStock`, `writeOff`,
   `stockTake`, `openContainer`. A service item (Storable = no) is refused
   by all of them.
+- Cost of stock leaving (a sale's cost of goods sold, a transfer, a
+  write-off, stock missing at a count) is first in, first out, per item and
+  location. Nothing extra is stored: the layers are read back from the
+  journal, each entry that brings a quantity into On Hand with value into
+  Inventory being one layer at the cost it was bought at. A transfer arrives
+  at its destination as the very layers that left the source. Stock found
+  at a count is valued at the latest layer's unit cost. Value posted with
+  no quantity stays with the newest layer, so the layers always add up to
+  the Inventory account.
 - People and plant: `clockInToProject`, `clockOutOfProject`, `clockPlantIn`,
   `clockPlantOut`, and `payWages` (returning a `Payslip`). The Medicare levy
   and superannuation rates are relations of the business, defaulting to the
   statutory figures.
 - Corrections and period end: `reverseEntry`, `lockLedger`, `closeBooks`,
   `createLedger`, `rollover`. Each ledger has its own accounts; `rollover`
-  carries balances forward as the new ledger's opening entry.
+  carries balances forward as the new ledger's opening entry. Stock held
+  in more than one layer is carried through an Opening Stock clearing
+  account (quantity, and memorandum money) and brought into On Hand and
+  Inventory by one further entry per layer, oldest first, so the new
+  ledger keeps issuing the oldest stock first at its own cost.
 
 The legacy helper `ensureServiceItem` in `db.ts` has the same purpose as the
 core's own lazily created `Labour` and `Plant Hire` service items.
@@ -213,6 +226,8 @@ entity driver.
 - "buying and selling on credit, tax, and payment"
 - "an order is a commitment; a delivery related to it releases it"
 - "write-off, stock-take and reversal"
+- "stock leaves first in, first out, at the cost each receipt was bought at"
+- "a new ledger keeps the layers of the stock it brings forward"
 - "wages: hourly or salaried, with the two rates as relations of the business"
 - "closing the books, then a new ledger with its own accounts"
 - "copy makes an independent instance of a prototype"
