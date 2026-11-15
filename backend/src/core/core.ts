@@ -57,6 +57,9 @@ const ENGLISH_CHART: Record<string, (string | [string, string[]])[]> = {
 const KINDS = [
   'Business', 'Ledger', 'Account', 'Entry', 'User', 'Role', 'Contact', 'Contact Type', 'Location', 'Location Type',
   'Item', 'Plant', 'Skill', 'Grouping', 'Value', 'Prototype', 'Line', 'Project', 'Milestone', 'Bank Account', 'Word',
+  // The application's own source, stored as entities (see src/source/).
+  'Folder', 'File', 'Element', 'Attribute', 'Text', 'Expression', 'Block', 'Block Tag', 'Comment',
+  'Script', 'Statement', 'Style', 'Rule', 'At Rule', 'Declaration',
 ];
 
 const ROLES = ['Administrator', 'Security Administrator', 'Bookkeeper', 'Accountant', 'Read-Only', 'Developer'];
