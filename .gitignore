@@ -61,6 +61,8 @@ frontend/src/routes/stock/po/+page.svelte
 frontend/src/routes/stock/so/+page.svelte
 frontend/src/routes/stock/stock-receipt/+page.svelte
 frontend/src/routes/reports/balance-sheet/+page.svelte
+frontend/src/routes/reports/reminders/+page.svelte
+frontend/src/routes/reports/aged/+page.svelte
 frontend/src/routes/reports/storage-space/+page.svelte
 frontend/src/routes/reports/below-reorder/+page.svelte
 frontend/src/routes/reports/trial-balance/+page.svelte

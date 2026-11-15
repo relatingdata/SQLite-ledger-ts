@@ -35,6 +35,11 @@ import {
   getOrderStatus,
   getTrialBalance,
   getBelowReorderStock,
+  getAgedInvoices,
+  getAgedSummary,
+  getReminderCandidates,
+  sendReminder,
+  resetReminder,
   getStorageSpaceReport,
   getBalanceSheet,
   type CategoryTreeNode,
@@ -417,6 +422,14 @@ export const records: Record<string, (c: Context) => Promise<Row[]>> = {
 
 /** What a listed record's buttons do; each returns the message to show. */
 export const commands: Record<string, (c: Context, row: Row) => Promise<string>> = {
+  sendReminder: async (_c, row) => {
+    const { new_level } = await sendReminder(row.party);
+    return `Sent level ${new_level} reminder to ${row.party}.`;
+  },
+  resetReminder: async (_c, row) => {
+    await resetReminder(row.party);
+    return `Reset reminder level for ${row.party}.`;
+  },
   markSent: async (_c, row) => {
     await markQuotationSent(row.reference);
     return '';
@@ -453,6 +466,10 @@ export interface ReportRow {
 }
 export interface ReportGroup {
   title: string;
+  /** Which of the screen's tables shows it (its entries' Table); none: the default. */
+  table?: string;
+  /** Column headings that differ from the configured labels, by entry name. */
+  labels?: Record<string, string>;
   warn?: string;
   rows: ReportRow[];
   footer?: Record<string, string>;
@@ -465,6 +482,9 @@ export interface ReportColumn {
 }
 export interface Report {
   columns: ReportColumn[];
+  /** A title and intro that differ from the screen's, for these parameters. */
+  title?: string;
+  intro?: string;
   status?: { ok: boolean; text: string };
   note?: string;
 }
@@ -499,7 +519,36 @@ const line = (key: string, cells: Record<string, string>, more: Partial<ReportRo
 const units = (n: number) => n.toLocaleString(auth.current?.user.number_format?.includes(',') ? 'de-DE' : 'en-US');
 const count = (n: number | null | undefined) => (n == null ? '' : String(n));
 
+const reminderLevel = (l: number) => t(l === 0 ? 'None sent' : l === 1 ? 'Level 1 (polite)' : l === 2 ? 'Level 2' : 'Level 3 (firm)');
+
 export const reports: Record<string, (c: Context, v: Values) => Promise<Report>> = {
+  /** What is outstanding per customer or provider (side), as a summary or
+   * invoice by invoice (view), against each account's own terms. */
+  aged: async (c, v) => {
+    const side = v.side === 'AP' ? 'AP' : 'AR';
+    const [business, ledger] = [asBusinessName(c.business), asLedgerName(c.ledger)];
+    const labels = { party: t(side === 'AR' ? 'Customer' : 'Provider') };
+    const rows: ReportRow[] = v.view === 'detail'
+      ? (await getAgedInvoices(business, ledger, side, v.asOfDate || undefined)).map((r) => line(String(r.invoice_id),
+          { reference: r.reference, party: r.counterparty, due: r.due_date ?? '', outstanding: money(r.outstanding_minor), days: String(r.days_overdue), bucket: r.bucket }))
+      : (await getAgedSummary(business, ledger, side, v.asOfDate || undefined)).map((r) => line(r.counterparty,
+          { party: r.counterparty, outstanding: money(r.outstanding_minor), days: String(r.oldest_days_overdue) }));
+    return {
+      title: t(side === 'AR' ? 'Aged Receivables' : 'Aged Payables'),
+      intro: t(`What's outstanding, bucketed against each ${side === 'AR' ? 'customer' : 'provider'}'s own payment terms \u2014 not a fixed 30/60/90 for everyone, since account management practice genuinely varies per account.`),
+      columns: [{ groups: [{ title: '', table: v.view === 'detail' ? 'detail' : '', labels, rows }] }],
+    };
+  },
+  /** Customers overdue now, with the reminder level each has reached. */
+  reminders: async (c, v) => ({
+    columns: [{ groups: [{
+      title: '',
+      rows: (await getReminderCandidates(asBusinessName(c.business), asLedgerName(c.ledger), v.asOfDate || undefined)).map((r) => line(r.counterparty, {
+        party: r.counterparty, outstanding: money(r.outstanding_minor), days: String(r.oldest_days_overdue),
+        level: reminderLevel(r.current_level), next: reminderLevel(r.next_level), status: r.current_level > 0 ? 'sent' : 'none',
+      })),
+    }] }],
+  }),
   /** Every item at every location at or below its reorder level; critical
    * when at or below its minimum. */
   belowReorder: async () => {

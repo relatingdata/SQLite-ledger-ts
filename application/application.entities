@@ -1789,21 +1789,19 @@ Root
     - :Tile Description="Income and Expenses, and the resulting net income." Href="/reports/profit-and-loss" Title="Profit and Loss Statement"
     - :Tile Description="Actual vs. a budget or scenario, side by side, with variance." Href="/reports/compare" Title="Compare Ledgers"
     - :Tile Description="Each location's own, real, physical storage space \u2014 Installed, Occupied, and Remaining, per storage unit. Outside Chart of Accounts, so never on the Trial Balance." Href="/reports/storage-space" Title="Inventory and Storage"
-   "/reports/aged" :Screen "Calls getAgedInvoices">/Root/Application/Calls/getAgedInvoices "Calls getAgedSummary">/Root/Application/Calls/getAgedSummary Source="frontend/src/routes/reports/aged/+page.svelte" Title=Aged
-    - :Heading Text="Aged Receivables"
-    - :Action Handler="() => { invoiceType = 'AR'; load(); }" Label=AR
-    - :Action Handler="() => { invoiceType = 'AP'; load(); }" Label=AP
-    - :Action Handler="() => { view = 'summary'; load(); }" Label=Summary
-    - :Action Handler="() => { view = 'detail'; load(); }" Label=Detail
-    - :Heading Text="As of date"
-    - :Field Bind=asOfDate Control=input Label="As of date" Type=date
-    - :Column Label=Outstanding
-    - :Column Label="Oldest (days)"
-    - :Column Label=Reference
-    - :Column Label="Due date"
-    - :Column Label=Outstanding
-    - :Column Label="Days overdue"
-    - :Column Label=Bucket
+   "/reports/aged" :Screen "Empty Text"="Nothing outstanding." Intro="What's outstanding, bucketed against each customer's own payment terms \u2014 not a fixed 30/60/90 for everyone, since account management practice genuinely varies per account." Report=aged Template=report Title="Aged Receivables"
+    - :Field Control=toggle Default=AR Label=Side Name=side Options="AR=AR AP=AP" Query=type
+    - :Field Control=toggle Default=summary Label=View Name=view Options="summary=Summary detail=Detail"
+    - :Field Control=date Default=today Label="As of date" Name=asOfDate
+    - :Entry Label=Customer Name=party
+    - :Entry Control=amount Label=Outstanding Name=outstanding
+    - :Entry Control=amount Label="Oldest (days)" Name=days
+    - :Entry Label=Reference Name=reference Table=detail
+    - :Entry Label=Customer Name=party Table=detail
+    - :Entry Label="Due date" Name=due Table=detail
+    - :Entry Control=amount Label=Outstanding Name=outstanding Table=detail
+    - :Entry Control=amount Label="Days overdue" Name=days Table=detail
+    - :Entry Label=Bucket Name=bucket Table=detail
    "/reports/balance-sheet" :Screen "Clear Label"="Clear (show all time)" Intro="For {NAME} only." "Intro Name"=ledger Report=balanceSheet Template=report Title="Balance Sheet"
     - :Field Control=date Default=today Label="As of date" Name=asOfDate
     - :Entry Control=tree Label="" Name=name
@@ -1927,17 +1925,15 @@ Root
     - :Action Handler="() => { fromDate = ''; toDate = ''; load(); }" Label="Clear (show all time)"
     - :Use Component>/Root/Application/Components/AxisPLNode "Prop node"="{node}" "Prop openByDefault"="{true}"
     - :Use Component>/Root/Application/Components/AxisPLNode "Prop node"="{node}"
-   "/reports/reminders" :Screen "Calls getReminderCandidates">/Root/Application/Calls/getReminderCandidates "Calls resetReminder">/Root/Application/Calls/resetReminder "Calls sendReminder">/Root/Application/Calls/sendReminder Source="frontend/src/routes/reports/reminders/+page.svelte" Title=Reminders
-    - :Heading Text=Reminders
-    - :Heading Text="As of date"
-    - :Field Bind=asOfDate Control=input Label="As of date" Type=date
-    - :Column Label=Customer
-    - :Column Label=Outstanding
-    - :Column Label="Oldest (days)"
-    - :Column Label="Current level"
-    - :Column Label=Next
-    - :Action Handler="() => send(c.counterparty)" Label=Send
-    - :Action Handler="() => reset(c.counterparty)" Label=Reset
+   "/reports/reminders" :Screen "Command Fail Text"="Could not send." "Empty Text"="No overdue customers." Intro="Customers with an overdue balance right now. Sending a reminder advances their level (up to 3, the firmest) \u2014 the next one for the same customer is already pre-set to the following level." Report=reminders Template=report Title=Reminders
+    - :Field Control=date Default=today Label="As of date" Name=asOfDate
+    - :Entry Label=Customer Name=party
+    - :Entry Control=amount Label=Outstanding Name=outstanding
+    - :Entry Control=amount Label="Oldest (days)" Name=days
+    - :Entry Label="Current level" Name=level
+    - :Entry Label=Next Name=next
+    - :Command Command=sendReminder Label="Send reminder" Name=send
+    - :Command Command=resetReminder Label=Reset Name=reset Style=link-button When=sent
    "/reports/sales" :Screen "Calls getSalesReport">/Root/Application/Calls/getSalesReport Source="frontend/src/routes/reports/sales/+page.svelte" Title="Sales Report"
     - :Heading Text=Sales
     - :Heading Text=From
@@ -2457,6 +2453,8 @@ Root
    - :Rule Selector=.report-status.balanced color="var(--credit)"
    - :Rule Selector=".critical td" color="var(--debit)" font-weight=600
    - :Rule Selector=.ok color="var(--credit)"
+   - :Rule Selector=.toggle-group display=flex gap=0.3rem
+   - :Rule Selector=".toggle-group .active" background="var(--brass)" color=white
    - :Rule Selector=.record-list border-collapse=collapse margin-top=1.2rem width="100%"
    - :Rule Selector=".record-list th, .record-list td" border-bottom="1px solid var(--rule)" padding="0.4rem 0.6rem" text-align=start
    - :Rule Selector=.record-actions white-space=nowrap

@@ -331,6 +331,13 @@
                         (list #"        {#if narrowed." n #"}<button type='button' class='link-button' onclick={() => (showAll." n #" = !showAll." n #")}>"
                               #"{showAll." n #" ? t('Known only') : t(" (js label) #")}</button>{/if}\n"))))
              #"      </fieldset>\n"))
+      (#"toggle"
+       (list #"      <div class='toggle-group'>"
+             (lists:map (lambda (o)
+                          (let (((list v l) (binary:split o #"=")))
+                            (list #"<button type='button' class='btn secondary' class:active={" n #" === " (js v) #"} onclick={() => (" n #" = " (js v) #")}>" (t l) #"</button>")))
+                        (binary:split (val s f #"Options" #"") #" " '(global trim_all)))
+             #"</div>\n"))
       (#"one-of"
        (list #"      <fieldset class='one-of'><legend>" label #"</legend>\n"
              ;; Options are "value=Label value=Label".
@@ -388,7 +395,9 @@
          (params (lists:filter (lambda (f) (=/= (val s f #"Control") #"ledger")) fields))
          (ledger? (lists:any (lambda (f) (== (val s f #"Control") #"ledger")) fields))
          (dates (lists:filter (lambda (f) (== (val s f #"Control") #"date")) params))
-         (entries (lists:filter (lambda (p) (== (kind s p) #"Entry")) parts)))
+         (entries (lists:filter (lambda (p) (== (kind s p) #"Entry")) parts))
+         (commands (lists:filter (lambda (p) (== (kind s p) #"Command")) parts))
+         (queries (lists:filter (lambda (f) (=/= (val s f #"Query") 'undefined)) params)))
     (list
       #"<script lang='ts'>\n" (header s id)
       #"  import { onMount } from 'svelte';\n"
@@ -396,10 +405,10 @@
       #"  import { session, translations } from '$lib/state.svelte';\n"
       #"  import { getLedgers, asBusinessName, ApiError } from '$lib/api';\n"
       #"  import { todayIsoDate } from '$lib/format';\n"
-      #"  import { reports, type Report } from '$lib/screen-runtime';\n\n"
+      #"  import { reports, " (if (== commands '()) #"" #"commands, ") #"type Report } from '$lib/screen-runtime';\n\n"
       #"  const t = (word: string) => translations.current[word] ?? word;\n"
       #"  let business = $state('');\n  let ledger = $state('');\n  let ledgers: { name: string }[] = $state([]);\n"
-      #"  let ready = $state(false);\n  let loading = $state(true);\n  let error = $state('');\n"
+      #"  let ready = $state(false);\n  let loading = $state(true);\n  let error = $state('');\n  let message = $state('');\n"
       #"  let report: Report | null = $state(null);\n"
       #"  let values: Record<string, string> = $state({ "
       (lists:join #", " (lists:map (lambda (f) (list (val s f #"Name") #": "
@@ -419,15 +428,22 @@
       #"    } catch (e) {\n      if (request === latest) error = e instanceof ApiError ? e.message : 'Failed to load.';\n"
       #"    } finally {\n      if (request === latest) loading = false;\n    }\n  }\n"
       #"  $effect(() => {\n    JSON.stringify(values);\n    void ledger;\n    if (ready) load();\n  });\n"
+      (if (== commands '()) #""
+        (list #"  async function run(command: string, row: Record<string, string>) {\n    error = '';\n    message = '';\n"
+              #"    try {\n      message = await commands[command]({ business, ledger, party: '' }, row);\n      await load();\n"
+              #"    } catch (e) {\n      error = e instanceof ApiError ? e.message : t(" (js (val s id #"Command Fail Text" #"Could not update this record.")) #");\n    }\n  }\n"))
       #"  onMount(async () => {\n    if (!session.current) return;\n"
       #"    business = session.current.businessName;\n    ledger = session.current.ledgerName;\n"
       (if ledger? #"    try {\n      ledgers = await getLedgers(asBusinessName(business));\n    } catch {\n      /* the session's ledger still works */\n    }\n" #"")
+      (lists:map (lambda (f) (list #"    const " (val s f #"Name") #"Query = new URL(window.location.href).searchParams.get(" (js (val s f #"Query")) #");\n"
+                                   #"    if (" (val s f #"Name") #"Query) values." (val s f #"Name") #" = " (val s f #"Name") #"Query;\n"))
+                 queries)
       #"    ready = true;\n  });\n"
       #"</script>\n\n"
-      #"<svelte:head><title>" (t (val s id #"Title")) #"</title></svelte:head>\n\n"
+      #"<svelte:head><title>{report?.title ?? " (js-t (val s id #"Title")) #"}</title></svelte:head>\n\n"
       #"<fieldset class='page-title generated'>\n"
-      #"  <legend>" (t (val s id #"Title")) #"</legend>\n"
-      (intro-line s id)
+      #"  <legend>{report?.title ?? " (js-t (val s id #"Title")) #"}</legend>\n"
+      #"  {#if report?.intro}<p class='intro'>{report.intro}</p>{:else}\n" (intro-line s id) #"  {/if}\n"
       #"  <div class='row report-controls'>\n"
       (lists:map (lambda (f)
                    (if (== (val s f #"Control") #"ledger")
@@ -442,6 +458,7 @@
                      (lists:map (lambda (d) (list #"values." (val s d #"Name") #" = ''; ")) dates)
                      #"}}>" (t label) #"</button>{/if}\n")))
       #"  </div>\n\n"
+      #"  {#if message}<p class='success'>{message}</p>{/if}\n"
       #"  {#if loading && !report}\n    <p class='center-text'>Loading&hellip;</p>\n"
       #"  {:else if error}\n    <p class='error'>{error}</p>\n"
       #"  {:else if report && report.columns.every((c) => c.groups.length === 0)}\n    <p class='dim'>" (t (val s id #"Empty Text" #"None")) #"</p>\n"
@@ -451,27 +468,63 @@
       #"          {#each column.groups as group}\n"
       #"            <fieldset class='report-group'>\n"
       #"              {#if group.title}<legend>{group.title}{#if group.warn} <span class='warn'>&#x26A0; {group.warn}</span>{/if}</legend>{/if}\n"
-      #"              <table class='report-table'>\n"
-      #"                <thead><tr>" (lists:map (lambda (e) (list #"<th" (report-align s e) #">" (t (val s e #"Label" #"")) #"</th>")) entries) #"</tr></thead>\n"
-      #"                <tbody>\n"
-      #"                  {#each group.rows.filter((r) => r.ancestors.every((a) => open.has(a))) as row (row.key)}\n"
-      #"                    <tr class={row.mark ?? ''} class:clickable={row.parent} onclick={() => row.parent && toggle(row.key)}>\n"
-      (lists:map (lambda (e) (list #"                      " (report-cell s e) #"\n")) entries)
-      #"                    </tr>\n"
-      #"                  {:else}\n                    <tr><td colspan='" (integer_to_binary (length entries)) #"' class='dim'>" (t (val s id #"Empty Text" #"None")) #"</td></tr>\n"
-      #"                  {/each}\n                </tbody>\n"
-      #"                {#if group.footer}<tfoot><tr>"
-      (lists:map (lambda (e) (let ((n (val s e #"Name")))
-                               (list #"<td" (report-class s e n #"group.footerContra") #"><strong>{group.footer['" n #"'] ?? ''}</strong></td>")))
-                 entries)
-      #"</tr></tfoot>{/if}\n"
-      #"              </table>\n            </fieldset>\n          {/each}\n"
+      (report-tables s id entries commands)
+      #"            </fieldset>\n          {/each}\n"
       #"          {#if column.summary}<p class='report-summary'><strong>{column.summary.label}</strong> <span class='num mono'>{column.summary.value}</span></p>{/if}\n"
       #"        </div>\n      {/each}\n    </div>\n"
       #"    {#if report.status}<p class='report-status' class:balanced={report.status.ok}>{report.status.text}</p>{/if}\n"
       #"    {#if report.note}<p class='dim'>{report.note}</p>{/if}\n"
       #"  {/if}\n"
       #"</fieldset>\n")))
+
+;; A word as a JS expression: its translation.
+(defun js-t (word) (list #"t(" (js word) #")"))
+
+;; Each group shows the table its `table` names: the entries whose Table is
+;; that name (no Table: the default table).
+(defun report-tables (s id entries commands)
+  (let ((tables (lists:usort (lists:map (lambda (e) (val s e #"Table" #"")) entries))))
+    (case tables
+      ((list only) (report-table s id entries commands))
+      (_ (lists:map (lambda (tb)
+                      (list #"              {#if (group.table ?? '') === " (js tb) #"}\n"
+                            (report-table s id (lists:filter (lambda (e) (== (val s e #"Table" #"") tb)) entries) commands)
+                            #"              {/if}\n"))
+                    tables)))))
+
+(defun report-table (s id entries commands)
+  (let ((width (+ (length entries) (if (== commands '()) 0 1))))
+    (list
+      #"              <table class='report-table'>\n"
+      #"                <thead><tr>"
+      (lists:map (lambda (e) (list #"<th" (report-align s e) #">{group.labels?.['" (val s e #"Name") #"'] ?? " (js-t (val s e #"Label" #"")) #"}</th>")) entries)
+      (if (== commands '()) #"" #"<th></th>")
+      #"</tr></thead>\n"
+      #"                <tbody>\n"
+      #"                  {#each group.rows.filter((r) => r.ancestors.every((a) => open.has(a))) as row (row.key)}\n"
+      #"                    <tr class={row.mark ?? ''} class:clickable={row.parent} onclick={() => row.parent && toggle(row.key)}>\n"
+      (lists:map (lambda (e) (list #"                      " (report-cell s e) #"\n")) entries)
+      (if (== commands '()) #""
+        (list #"                      <td class='record-actions'>\n"
+              (lists:map (lambda (c) (report-command s c)) commands)
+              #"                      </td>\n"))
+      #"                    </tr>\n"
+      #"                  {:else}\n                    <tr><td colspan='" (integer_to_binary width) #"' class='dim'>" (t (val s id #"Empty Text" #"None")) #"</td></tr>\n"
+      #"                  {/each}\n                </tbody>\n"
+      #"                {#if group.footer}<tfoot><tr>"
+      (lists:map (lambda (e) (let ((n (val s e #"Name")))
+                               (list #"<td" (report-class s e n #"group.footerContra") #"><strong>{group.footer['" n #"'] ?? ''}</strong></td>")))
+                 entries)
+      (if (== commands '()) #"" #"<td></td>")
+      #"</tr></tfoot>{/if}\n"
+      #"              </table>\n")))
+
+(defun report-command (s c)
+  (let ((statuses (binary:split (val s c #"When" #"") #" " '(global trim_all))))
+    (list #"                        {#if " (if (== statuses '()) #"true"
+                                             (lists:join #" || " (lists:map (lambda (w) (list #"row.cells.status === " (js w))) statuses)))
+          #"}<button class='btn secondary small" (case (val s c #"Style") ('undefined #"") (st (list #" " st)))
+          #"' onclick={(e) => { e.stopPropagation(); run(" (js (val s c #"Command")) #", row.cells); }}>" (t (val s c #"Label")) #"</button>{/if}\n")))
 
 ;; The intro; {NAME} in it stands for the business or ledger (Intro Name).
 (defun intro-line (s id)

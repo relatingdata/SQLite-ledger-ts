@@ -60,12 +60,12 @@ build output, ignored by git, written by `make generate`.
 
 ### Templates
 
-35 of the 84 routes are generated. Each screen names its template:
+37 of the 84 routes are generated. Each screen names its template:
 
 | Template | Screens | Reads |
 |---|---|---|
 | `transaction` | Cash Purchase, Cash Sale, AP Purchase, AR Sale, Purchase Order, Sales Order, Stock Receipt, Stock Transfer, Quotations, RFQ | `Title`, `Intro`, `Action`, `Totals`, `Total Label`, `Party` / `Party Label`, `Submit Label`, `Fail Text`; its `Field` and `Column` things |
-| `report` | Trial Balance, Balance Sheet, Below Reorder, Inventory and Storage | `Title`, `Intro` (`{NAME}` in it is the business or ledger, by `Intro Name`), `Report`, `Clear Label`; parameter `Field`s (`Control=ledger` chooses the ledger); one `Entry` per column |
+| `report` | Trial Balance, Balance Sheet, Below Reorder, Inventory and Storage, Aged Receivables/Payables, Reminders | `Title`, `Intro` (`{NAME}` in it is the business or ledger, by `Intro Name`), `Report`, `Clear Label`; parameter `Field`s (`Control=ledger` chooses the ledger); one `Entry` per column |
 | `tiles` | AR / AP, Stock, Reports (section index pages) | `Title`, `Intro`; one `Tile` (`Href`, `Title`, `Description`) per link |
 | `compose` | AP Payment, AR Receipt | One `Use` per component, its props as `Prop <name>` |
 | `not-implemented` | 16 screens not built yet | `Title`, `Description` |
@@ -92,7 +92,13 @@ a footer, and the report a status line and a note. Rows can form a tree:
 a parent row opens and closes the rows under it. An `Entry`'s `Control` is
 `tree` (indented, with the open/close mark and any badge), `text`, `mono`
 or `amount` (right aligned, red when contra). The report reloads whenever
-a parameter changes.
+a parameter changes. Entries with a `Table` form another table, shown for
+groups whose `table` names it (Aged: summary or detail). A group can
+relabel headings (`labels`), and the report can give a title and intro of
+its own for its parameters (Aged Payables). `Command` things are buttons
+on each row, as in listed records; a `toggle` field is a row of buttons
+(`Options`), and a field's `Query` takes its first value from the page
+address (`/reports/aged?type=AP`).
 
 ### Variants
 
@@ -132,9 +138,9 @@ hand, in the runtime module:
 - `actions`: the backend calls a submit makes (`purchase` and `sale`, on
   account or, when the party is `Cash`, paid at once; `transfer`,
   `purchaseOrder`, `salesOrder`, `orderReceipt`, `quotation`);
-- `reports`: `trialBalance`, `balanceSheet`, `belowReorder`, `storageSpace` (a row can carry a class, `mark`, and cells classes, `marks`);
+- `reports`: `trialBalance`, `balanceSheet`, `belowReorder`, `storageSpace`, `aged`, `reminders` (a row can carry a class, `mark`, and cells classes, `marks`);
 - `records`: what a screen lists (`quotations`), and `commands`: what its
-  record buttons do (`markSent`, `accept`, `reject`). A validation
+  record buttons do (`markSent`, `accept`, `reject`, `sendReminder`, `resetReminder`). A validation
   failure throws `Invalid`, whose message is shown.
 
 ### Styling
