@@ -40,6 +40,7 @@ import {
   getReminderCandidates,
   getCustomerStatement,
   getSalesReport,
+  getCashFlowForecast,
   sendReminder,
   resetReminder,
   getStorageSpaceReport,
@@ -541,6 +542,33 @@ export const reports: Record<string, (c: Context, v: Values) => Promise<Report>>
       title: t(side === 'AR' ? 'Aged Receivables' : 'Aged Payables'),
       intro: t(`What's outstanding, bucketed against each ${side === 'AR' ? 'customer' : 'provider'}'s own payment terms \u2014 not a fixed 30/60/90 for everyone, since account management practice genuinely varies per account.`),
       columns: [{ groups: [{ title: '', table: v.view === 'detail' ? 'detail' : '', labels, rows }] }],
+    };
+  },
+  /** Cash projected forward: outstanding invoices on their due dates and
+   * recurring movements on their schedules, against the overdraft limit. */
+  cashFlow: async (c, v) => {
+    const f = await getCashFlowForecast(asBusinessName(c.business), asLedgerName(c.ledger), v.asOfDate || undefined, Number(v.horizon) || 90);
+    let running = f.starting_cash_minor;
+    return {
+      columns: [{ groups: [{
+        title: t('Anticipated movements'),
+        meta: [
+          { label: t('Starting cash'), value: money(f.starting_cash_minor) },
+          { label: t('Projected ending cash'), value: money(f.ending_cash_minor) },
+          { label: t('Lowest projected balance'), value: `${money(f.lowest_projected_balance_minor)} (${f.lowest_balance_date})` },
+          { label: t('Overdraft limit'), value: f.overdraft_limit_minor === null ? '\u2014' : money(f.overdraft_limit_minor) },
+        ],
+        rows: f.lines.map((l, i) => {
+          running += l.amount_minor;
+          return line(String(i), { date: l.date, description: l.description, source: l.source, amount: money(l.amount_minor), balance: money(running) },
+            { marks: running < 0 ? { balance: 'warn' } : undefined });
+        }),
+      }] }],
+      status: f.first_shortfall_date !== null
+        ? { ok: false, text: `${t('Projected shortfall')}: ${t('Cash is projected to fall below your arranged overdraft limit on')} ${f.first_shortfall_date}, ${t('by')} ${money(f.first_shortfall_amount_minor ?? 0)}.` }
+        : f.overdraft_limit_minor !== null
+          ? { ok: true, text: t('No shortfall projected \u2014 cash stays within your arranged overdraft limit throughout this horizon.') }
+          : undefined,
     };
   },
   /** Every posted sale in a period, by category or line by line (view). */

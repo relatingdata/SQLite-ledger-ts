@@ -331,6 +331,13 @@
                         (list #"        {#if narrowed." n #"}<button type='button' class='link-button' onclick={() => (showAll." n #" = !showAll." n #")}>"
                               #"{showAll." n #" ? t('Known only') : t(" (js label) #")}</button>{/if}\n"))))
              #"      </fieldset>\n"))
+      (#"pick"
+       (list open #"<select bind:value={" n #"}>"
+             (lists:map (lambda (o)
+                          (let (((list v l) (binary:split o #"=")))
+                            (list #"<option value=" (js v) #">" (t (spaced l)) #"</option>")))
+                        (binary:split (val s f #"Options" #"") #" " '(global trim_all)))
+             #"</select></fieldset>\n"))
       (#"toggle"
        (list #"      <div class='toggle-group'>"
              (lists:map (lambda (o)
