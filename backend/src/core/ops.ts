@@ -1046,6 +1046,98 @@ export function stockTake(inst: Instance, itemName: string, counted: number, loc
   });
 }
 
+// --- the year-end stock take ---------------------------------------------
+//
+// Counted per item per location. A point-of-sale terminal or a phone app
+// lists the count sheet, and confirms each line: the number counted, or,
+// left empty, the books' quantity. Whatever is not confirmed by hand can be
+// confirmed automatically at the books' quantities. Each confirmation is a
+// year-end stock take (see stockTake).
+
+export interface CountLine {
+  item: string;
+  /** Empty for a business that does not distinguish its places. */
+  location: string;
+  onHand: number;
+  /** The count confirmed for this date, if any. */
+  counted?: number;
+}
+
+/** Every item held (or once held) at every location, as the On Hand
+ * accounts record it. */
+function stocked(inst: Instance): Product[] {
+  const quantities = inst.store.child(inst.accountsRoot().id, 'Quantities');
+  const folder = quantities && inst.store.child(quantities.id, 'On Hand');
+  if (!folder) return [];
+  const out: Product[] = [];
+  for (const account of inst.core.things(folder.id, 'Account')) {
+    if (inst.core.value(account.id, 'Dimensions')) continue;
+    const item = inst.core.related(account.id, 'Item');
+    if (!item) continue;
+    const location = inst.core.related(account.id, 'Location');
+    out.push({ item, ...(location ? { location } : {}) });
+  }
+  return out;
+}
+
+/** The count confirmed for an item at a location on a date: the last
+ * year-end stock take of that date. */
+function confirmedCount(inst: Instance, of: Product, asOfDate: string): number | undefined {
+  let counted: number | undefined;
+  for (const entry of inst.entriesMarked(YEAR_END_COUNT)) {
+    if (inst.core.related(entry, 'Item')?.id !== of.item?.id || inst.core.related(entry, 'Location')?.id !== of.location?.id) continue;
+    if (inst.store.entryDate(entry) !== asOfDate) continue;
+    counted = inst.core.number(entry, 'Counted');
+  }
+  return counted;
+}
+
+/** The count sheet for a year end: each item at each location, what the
+ * books hold, and what has been confirmed so far. */
+export function stockTakeSheet(inst: Instance, asOfDate: string): CountLine[] {
+  return stocked(inst).map((of) => ({
+    item: of.item!.name,
+    location: of.location?.name ?? '',
+    onHand: onHand(inst, of),
+    counted: confirmedCount(inst, of, asOfDate),
+  }));
+}
+
+/** One line of the count, confirmed from a terminal or a phone: the number
+ * counted, or with none given, the books' quantity. Confirming again
+ * records the recount. */
+export function confirmCount(inst: Instance, itemName: string, locationName: string | undefined, counted: number | undefined, asOfDate: string): Node {
+  requireDate(asOfDate);
+  return inst.store.tx(() => {
+    const of = product(inst, itemName, locationName);
+    const count = counted ?? onHand(inst, of);
+    return stockTake(inst, itemName, count, locationName, inst.freeReference(`YEAR-END-COUNT-${asOfDate}-${productLabel(of)}`), { yearEnd: true, date: asOfDate })!;
+  });
+}
+
+/** The automatic option: every line not yet confirmed for the date is
+ * confirmed at the books' quantity. Returns how many were. */
+export function completeYearEndStockTake(inst: Instance, asOfDate: string): number {
+  requireDate(asOfDate);
+  return inst.store.tx(() => {
+    let confirmed = 0;
+    for (const of of stocked(inst)) {
+      if (confirmedCount(inst, of, asOfDate) !== undefined) continue;
+      confirmCount(inst, of.item!.name, of.location?.name, undefined, asOfDate);
+      confirmed += 1;
+    }
+    return confirmed;
+  });
+}
+
+function requireDate(date: string): void {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Refused(`The year-end date must be given as YYYY-MM-DD, not "${date}".`);
+}
+
+function productLabel(of: Product): string {
+  return of.location ? `${of.item!.name}@${of.location.name}` : of.item!.name;
+}
+
 /** Opening a container frees space in the container tier and takes up
  * space in the unit tier, at one location. */
 export function openContainer(inst: Instance, locationName: string, itemName: string, containersOpened: number, unitsProduced: number): Node {

@@ -20,7 +20,7 @@ It uses the TypeScript compiler, not a text search. A prototype is printed by th
 
 ## Summary
 
-- **Backend:** 1173 functions (1011 exported); 800 are called from production code; 51 only from tests or tooling; 322 from nowhere the compiler could find.
+- **Backend:** 1180 functions (1014 exported); 808 are called from production code; 50 only from tests or tooling; 322 from nowhere the compiler could find.
 - **Frontend library:** 328 functions (268 exported); 312 are called from production code; 2 only from tests or tooling; 14 from nowhere the compiler could find.
 
 ### Backend: functions with no callers found
@@ -2823,7 +2823,7 @@ Called from: production: core/api.ts (inst ×1, run ×5)
 inst(a: Args, s: Session): Instance
 ```
 
-Called from: production: core/api.ts (exists ×1, postStaged ×1, run ×60, sale ×1, stageLine ×1)
+Called from: production: core/api.ts (exists ×1, postStaged ×1, run ×63, sale ×1, stageLine ×1)
 
 **`stageKey`**
 
@@ -2961,7 +2961,7 @@ Called from: production: core/core.ts (Core.install ×4, Core.thing ×1, Instanc
 Core.related(thing: number, relation: string): Node | undefined
 ```
 
-Called from: production: core/api.ts (run ×1); core/core.ts (Core.instanceOf ×1, Core.is ×1, Core.kindOf ×1, Core.value ×1, Instance.contactAccount ×3, Instance.prototypeOf ×1, and 1 more); core/ops.ts (acceptProposal ×2, clockOff ×2, clockOn ×1, deleteDepartment ×2, plantClock ×1, projectMargin ×1, and 4 more); core/reports.ts (axisValue ×3, inventoryListing ×2) · tests: 2 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1); core/core.ts (Core.instanceOf ×1, Core.is ×1, Core.kindOf ×1, Core.value ×1, Instance.contactAccount ×3, Instance.prototypeOf ×1, and 1 more); core/ops.ts (acceptProposal ×2, clockOff ×2, clockOn ×1, confirmedCount ×2, deleteDepartment ×2, plantClock ×1, and 6 more); core/reports.ts (axisValue ×3, inventoryListing ×2) · tests: 2 call(s) in 1 file(s)
 
 **`Core.value`** *(exported)*
 
@@ -2969,7 +2969,7 @@ Called from: production: core/api.ts (run ×1); core/core.ts (Core.instanceOf ×
 Core.value(thing: number, relation: string): string | undefined
 ```
 
-Called from: production: core/api.ts (run ×3); core/core.ts (Core.number ×1, Instance.chartRoot ×1, Instance.contactAccount ×1, Instance.post ×1, Instance.sameProduct ×1, Instance.unitOf ×2, and 1 more); core/ops.ts (acceptProposal ×3, buildBankCurrencyStructure ×1, clockOff ×1, createBusiness ×1, getLines ×4, groupOf ×1, and 3 more) · tests: 5 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×3); core/core.ts (Core.number ×1, Instance.chartRoot ×1, Instance.contactAccount ×1, Instance.post ×1, Instance.sameProduct ×1, Instance.unitOf ×2, and 1 more); core/ops.ts (acceptProposal ×3, buildBankCurrencyStructure ×1, clockOff ×1, createBusiness ×1, getLines ×4, groupOf ×1, and 4 more) · tests: 5 call(s) in 1 file(s)
 
 **`Core.number`** *(exported)*
 
@@ -2977,7 +2977,7 @@ Called from: production: core/api.ts (run ×3); core/core.ts (Core.number ×1, I
 Core.number(thing: number, relation: string): number | undefined
 ```
 
-Called from: production: core/ops.ts (capacityLines ×1, employeeClock ×1, getLines ×3, itemSource ×2, payWages ×4, plantClock ×1)
+Called from: production: core/ops.ts (capacityLines ×1, confirmedCount ×1, employeeClock ×1, getLines ×3, itemSource ×2, payWages ×4, and 1 more)
 
 **`Core.is`** *(exported)*
 
@@ -3017,7 +3017,7 @@ Called from: production: core/api.ts (run ×1); core/core.ts (Core.install ×8, 
 Core.things(parent: number, kind?: string): Node[]
 ```
 
-Called from: production: core/core.ts (Core.find ×1, Instance.accountNamed ×1, Instance.contactAccount ×1, Instance.entriesMarked ×1, Instance.existingProductAccount ×1, Instance.existingQuantityAccount ×1, and 3 more); core/ops.ts (deleteDepartment ×3, getLines ×1, projects ×1, setEmployeeDepartment ×1); core/reports.ts (inventoryListing ×1) · tests: 3 call(s) in 1 file(s)
+Called from: production: core/core.ts (Core.find ×1, Instance.accountNamed ×1, Instance.contactAccount ×1, Instance.entriesMarked ×1, Instance.existingProductAccount ×1, Instance.existingQuantityAccount ×1, and 3 more); core/ops.ts (deleteDepartment ×3, getLines ×1, projects ×1, setEmployeeDepartment ×1, stocked ×1); core/reports.ts (inventoryListing ×1) · tests: 3 call(s) in 1 file(s)
 
 **`Core.find`** *(exported)*
 
@@ -3145,7 +3145,7 @@ Called from: production: core/api.ts (run ×1); core/core.ts (Instance.freeRefer
 Instance.freeReference(reference: string): string
 ```
 
-Called from: production: core/api.ts (run ×1); core/ops.ts (closeBooks ×1, transferStock ×1)
+Called from: production: core/api.ts (run ×1); core/ops.ts (closeBooks ×1, confirmCount ×1, transferStock ×1)
 
 **`Instance.branch`** *(exported)*
 
@@ -3273,7 +3273,7 @@ Called from: production: core/api.ts (ensureValue ×1, run ×3); core/ops.ts (ac
 Instance.accountsRoot(): Node
 ```
 
-Called from: production: core/api.ts (exists ×1); core/core.ts (Instance.accountNamed ×1, Instance.chartAccount ×1, Instance.existingProductAccount ×1, Instance.existingQuantityAccount ×1, Instance.folder ×1, Instance.instantiate ×1, and 2 more); core/ops.ts (mirror ×2, renameByName ×1, rollover ×1); core/reports.ts (inventoryListing ×1) · tests: 6 call(s) in 1 file(s)
+Called from: production: core/api.ts (exists ×1); core/core.ts (Instance.accountNamed ×1, Instance.chartAccount ×1, Instance.existingProductAccount ×1, Instance.existingQuantityAccount ×1, Instance.folder ×1, Instance.instantiate ×1, and 2 more); core/ops.ts (mirror ×2, renameByName ×1, rollover ×1, stocked ×1); core/reports.ts (inventoryListing ×1) · tests: 6 call(s) in 1 file(s)
 
 **`Instance.chartRoot`** *(exported)*
 
@@ -3449,7 +3449,7 @@ Called from: production: core/ops.ts (capacityLines ×1, onHand ×1, onOrder ×1
 Instance.entriesMarked(relation: string): number[]
 ```
 
-Called from: production: core/ops.ts (stockLayers ×1); core/reports.ts (profitAndLoss ×1, profitAndLossByAxis ×1)
+Called from: production: core/ops.ts (confirmedCount ×1, stockLayers ×1); core/reports.ts (profitAndLoss ×1, profitAndLossByAxis ×1)
 
 **`Instance.sums`** *(exported)*
 
@@ -3539,7 +3539,7 @@ Called from: production: core/api.ts (run ×1)
 createLocation(inst: Instance, input: NewLocation): Node
 ```
 
-Called from: production: core/api.ts (run ×1) · tests: 4 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1) · tests: 6 call(s) in 1 file(s)
 
 **`createItem`** *(exported)*
 
@@ -3547,7 +3547,7 @@ Called from: production: core/api.ts (run ×1) · tests: 4 call(s) in 1 file(s)
 createItem(inst: Instance, name: string, storable?: boolean): Node
 ```
 
-Called from: production: core/api.ts (run ×2); core/ops.ts (serviceItem ×1) · tests: 12 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×2); core/ops.ts (serviceItem ×1) · tests: 14 call(s) in 1 file(s)
 
 **`isStorable`** *(exported)*
 
@@ -3867,7 +3867,7 @@ Called from: production: core/api.ts (run ×1)
 product(inst: Instance, itemName: string, locationName?: string): { item: Node; location?: Node; }
 ```
 
-Called from: production: core/ops.ts (dispatchStock ×1, purchase ×1, receiveStock ×1, sell ×1, stockTake ×1, writeOff ×1)
+Called from: production: core/ops.ts (confirmCount ×1, dispatchStock ×1, purchase ×1, receiveStock ×1, sell ×1, stockTake ×1, and 1 more)
 
 **`onHand`**
 
@@ -3875,7 +3875,7 @@ Called from: production: core/ops.ts (dispatchStock ×1, purchase ×1, receiveSt
 onHand(inst: Instance, of: Product): number
 ```
 
-Called from: production: core/ops.ts (requireOnHand ×1, stockTake ×1)
+Called from: production: core/ops.ts (confirmCount ×1, requireOnHand ×1, stockTake ×1, stockTakeSheet ×1)
 
 **`capacityAccount`**
 
@@ -4003,7 +4003,7 @@ Called from: production: core/ops.ts (purchase ×1, sell ×1)
 purchase(inst: Instance, trade: Trade): Node
 ```
 
-Called from: production: core/api.ts (run ×1) · tests: 14 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1) · tests: 17 call(s) in 1 file(s)
 
 **`sell`** *(exported)*
 
@@ -4051,7 +4051,63 @@ Called from: tests: 3 call(s) in 1 file(s)
 stockTake(inst: Instance, itemName: string, counted: number, locationName?: string, reference?: string, options?: StockTakeOptions): Node | undefined
 ```
 
-Called from: tests: 5 call(s) in 1 file(s)
+Called from: production: core/ops.ts (confirmCount ×1) · tests: 5 call(s) in 1 file(s)
+
+**`stocked`**
+
+```
+stocked(inst: Instance): Product[]
+```
+
+Called from: production: core/ops.ts (completeYearEndStockTake ×1, stockTakeSheet ×1)
+
+**`confirmedCount`**
+
+```
+confirmedCount(inst: Instance, of: Product, asOfDate: string): number | undefined
+```
+
+Called from: production: core/ops.ts (completeYearEndStockTake ×1, stockTakeSheet ×1)
+
+**`stockTakeSheet`** *(exported)*
+
+```
+stockTakeSheet(inst: Instance, asOfDate: string): CountLine[]
+```
+
+Called from: production: core/api.ts (run ×1) · tests: 1 call(s) in 1 file(s)
+
+**`confirmCount`** *(exported)*
+
+```
+confirmCount(inst: Instance, itemName: string, locationName: string | undefined, counted: number | undefined, asOfDate: string): Node
+```
+
+Called from: production: core/api.ts (run ×1); core/ops.ts (completeYearEndStockTake ×1) · tests: 2 call(s) in 1 file(s)
+
+**`completeYearEndStockTake`** *(exported)*
+
+```
+completeYearEndStockTake(inst: Instance, asOfDate: string): number
+```
+
+Called from: production: core/api.ts (run ×1) · tests: 3 call(s) in 1 file(s)
+
+**`requireDate`**
+
+```
+requireDate(date: string): void
+```
+
+Called from: production: core/ops.ts (completeYearEndStockTake ×1, confirmCount ×1)
+
+**`productLabel`**
+
+```
+productLabel(of: Product): string
+```
+
+Called from: production: core/ops.ts (confirmCount ×1)
 
 **`openContainer`** *(exported)*
 
@@ -4149,7 +4205,7 @@ Called from: production: core/reports.ts (profitAndLoss ×1, profitAndLossByAxis
 profitAndLoss(inst: Instance, from?: string, to?: string): ProfitAndLoss
 ```
 
-Called from: production: core/api.ts (run ×1) · tests: 13 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1) · tests: 14 call(s) in 1 file(s)
 
 **`balanceSheet`** *(exported)*
 
@@ -4215,7 +4271,7 @@ Called from: production: core/store.ts (Store.create ×1, Store.load ×1)
 Store.tx<T>(fn: () => T): T
 ```
 
-Called from: production: core/api.ts (ensureValue ×1, postStaged ×1, run ×7, stageLine ×1); core/core.ts (Core.install ×1, Instance.copy ×1, Instance.create ×1, Instance.post ×1, Instance.relate ×1); core/ops.ts (acceptProposal ×1, buildBankCurrencyStructure ×1, clockOff ×1, clockOn ×1, closeBooks ×1, createBusiness ×1, and 34 more) · tests: 9 call(s) in 1 file(s)
+Called from: production: core/api.ts (ensureValue ×1, postStaged ×1, run ×7, stageLine ×1); core/core.ts (Core.install ×1, Instance.copy ×1, Instance.create ×1, Instance.post ×1, Instance.relate ×1); core/ops.ts (acceptProposal ×1, buildBankCurrencyStructure ×1, clockOff ×1, clockOn ×1, closeBooks ×1, completeYearEndStockTake ×1, and 36 more) · tests: 9 call(s) in 1 file(s)
 
 **`Store.get`** *(exported)*
 
@@ -4231,7 +4287,7 @@ Called from: production: core/core.ts (Core.copy ×1, Core.ensurePath ×1, Core.
 Store.child(parent: number | null, name: string): Node | undefined
 ```
 
-Called from: production: core/core.ts (Core.at ×2, Core.business ×1, Core.ensure ×1, Core.install ×2, Core.open ×4, Core.related ×1, and 9 more); core/ops.ts (acceptProposal ×1, createBusiness ×1, createUser ×1, getLines ×1, instantiateProposal ×1, itemSource ×1, and 3 more); core/reports.ts (inventoryListing ×2); core/store.ts (Store.create ×1, Store.rename ×1)
+Called from: production: core/core.ts (Core.at ×2, Core.business ×1, Core.ensure ×1, Core.install ×2, Core.open ×4, Core.related ×1, and 9 more); core/ops.ts (acceptProposal ×1, createBusiness ×1, createUser ×1, getLines ×1, instantiateProposal ×1, itemSource ×1, and 4 more); core/reports.ts (inventoryListing ×2); core/store.ts (Store.create ×1, Store.rename ×1)
 
 **`Store.children`** *(exported)*
 
@@ -4295,7 +4351,7 @@ Called from: production: core/core.ts (Instance.post ×1)
 Store.entryDate(entry: number): string | undefined
 ```
 
-Called from: production: core/api.ts (run ×1); core/ops.ts (acceptProposal ×1, stockLayers ×1)
+Called from: production: core/api.ts (run ×1); core/ops.ts (acceptProposal ×1, confirmedCount ×1, stockLayers ×1)
 
 **`Store.entryLines`** *(exported)*
 

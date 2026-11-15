@@ -355,6 +355,30 @@ test('the year-end stock take averages the cost of what is held, and the new led
   assert.ok(reports.balanceSheet(next).balanced);
 });
 
+test('the year-end count is per item per location, confirmed by hand or automatically', () => {
+  const core = fresh();
+  const ice = business(core);
+  ops.createItem(ice, 'Ice');
+  ops.createItem(ice, 'Cups');
+  ops.createLocation(ice, { name: 'Home' });
+  ops.createLocation(ice, { name: 'Stall' });
+  ops.purchase(ice, { item: 'Ice', location: 'Home', quantity: 10, unitMinor: 100 });
+  ops.purchase(ice, { item: 'Ice', location: 'Stall', quantity: 4, unitMinor: 100 });
+  ops.purchase(ice, { item: 'Cups', location: 'Stall', quantity: 50, unitMinor: 10 });
+  const sheet = () => ops.stockTakeSheet(ice, '2027-06-30').map((l) => `${l.item}@${l.location}=${l.onHand}/${l.counted ?? '-'}`);
+  assert.deepEqual(sheet(), ['Ice@Home=10/-', 'Ice@Stall=4/-', 'Cups@Stall=50/-']);
+  // Counted at the stall's terminal: three ice short; the cups as booked.
+  ops.confirmCount(ice, 'Ice', 'Stall', 1, '2027-06-30');
+  ops.confirmCount(ice, 'Cups', 'Stall', undefined, '2027-06-30');
+  assert.deepEqual(sheet(), ['Ice@Home=10/-', 'Ice@Stall=1/1', 'Cups@Stall=50/50']);
+  // The rest at the books' quantities; nothing left to confirm after.
+  assert.equal(ops.completeYearEndStockTake(ice, '2027-06-30'), 1);
+  assert.equal(ops.completeYearEndStockTake(ice, '2027-06-30'), 0);
+  assert.deepEqual(sheet(), ['Ice@Home=10/10', 'Ice@Stall=1/1', 'Cups@Stall=50/50']);
+  assert.equal(reports.profitAndLoss(ice).total_expense_minor, 300);
+  assert.throws(() => ops.completeYearEndStockTake(ice, '30/06/2027'), Refused);
+});
+
 test('wages: hourly or salaried, with the two rates as relations of the business', () => {
   const core = fresh();
   const ice = business(core);

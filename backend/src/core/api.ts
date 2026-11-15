@@ -462,6 +462,24 @@ export const CORE_CALLS: Record<string, CoreCall> = {
     run: (a, s) => void ops.rollover(instance(s.user, businessName(a.businessName), a.oldLedger), a.newLedger, a.asOfDate),
   },
 
+  // --- the year-end stock take, from a terminal or a phone ----------------------
+  // An empty `counted` confirms the books' quantity.
+  confirmStockCount: {
+    params: ['itemName', 'locationName', 'counted', 'asOfDate', 'businessName', 'ledger'],
+    run: (a, s) => void ops.confirmCount(inst(a, s), a.itemName, a.locationName || undefined, a.counted === '' ? undefined : Number(a.counted), a.asOfDate),
+  },
+  completeYearEndStockTake: {
+    params: ['asOfDate', 'businessName', 'ledger'],
+    run: (a, s) => ({ row: [ops.completeYearEndStockTake(inst(a, s), a.asOfDate)] }),
+  },
+  getStockTakeSheet: {
+    params: ['asOfDate', 'businessName', 'ledger'],
+    run: (a, s) => ({
+      header: ['location', 'item', 'on_hand', 'counted'],
+      rows: ops.stockTakeSheet(inst(a, s), a.asOfDate).map((l) => [l.location, l.item, l.onHand, l.counted]),
+    }),
+  },
+
   // --- reading ------------------------------------------------------------------------
   exists: { params: ['kind', 'name', 'businessName', 'ledger'], run: (a, s) => ({ row: [exists(a, s)] }) },
   getTrialBalance: {

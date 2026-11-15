@@ -123,6 +123,14 @@ and every quantity unit each adding up to zero on their own.
   `Year End Count`), values any difference at the average cost held, and
   merges the item's layers at that location into one at their average
   cost.
+- The year-end count is per item per location. `stockTakeSheet` lists
+  each item at each location (`CountLine`: what the books hold and any
+  count confirmed for the date) for a point-of-sale terminal or a phone
+  app; `confirmCount` confirms one line, with the number counted or, left
+  empty, the books' quantity; `completeYearEndStockTake` is the automatic
+  option, confirming every line not yet confirmed at the books' quantity.
+  Over the frontend API these are `getStockTakeSheet`, `confirmStockCount`
+  and `completeYearEndStockTake`.
 - People and plant: `clockInToProject`, `clockOutOfProject`, `clockPlantIn`,
   `clockPlantOut`, and `payWages` (returning a `Payslip`). The Medicare levy
   and superannuation rates are relations of the business, defaulting to the
@@ -232,6 +240,7 @@ entity driver.
 - "write-off, stock-take and reversal"
 - "stock leaves first in, first out, at the cost each receipt was bought at"
 - "the year-end stock take averages the cost of what is held, and the new ledger starts from it"
+- "the year-end count is per item per location, confirmed by hand or automatically"
 - "wages: hourly or salaried, with the two rates as relations of the business"
 - "closing the books, then a new ledger with its own accounts"
 - "copy makes an independent instance of a prototype"

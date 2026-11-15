@@ -65,6 +65,14 @@ test('the session holds the user, the business and the ledger; a form never has 
   assert.equal(call(token, 'exists', 'Item', 'Ice').body, 'ok,true');
   assert.equal(call(token, 'exists', 'Item', 'Fire').body, 'ok,false');
 
+  // The year-end count from a terminal or a phone: the sheet, a count, and
+  // the rest confirmed automatically.
+  const sheet = call(token, 'getStockTakeSheet', '2027-06-30');
+  assert.deepEqual(readCsv(sheet.body.slice(3)), [{ location: '', item: 'Ice', on_hand: '10', counted: '' }]);
+  assert.equal(call(token, 'confirmStockCount', 'Ice', '', '9', '2027-06-30').body, 'ok');
+  assert.equal(call(token, 'completeYearEndStockTake', '2027-06-30').body, 'ok,0');
+  assert.equal(readCsv(call(token, 'getStockTakeSheet', '2027-06-30').body.slice(3))[0].counted, '9');
+
   // Signing out ends the session.
   assert.equal(call(token, 'logout').body, 'ok');
   assert.equal(call(token, 'whoAmI').status, 401);
