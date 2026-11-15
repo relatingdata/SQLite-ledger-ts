@@ -60,11 +60,12 @@ build output, ignored by git, written by `make generate`.
 
 ### Templates
 
-31 of the 84 routes are generated. Each screen names its template:
+33 of the 84 routes are generated. Each screen names its template:
 
 | Template | Screens | Reads |
 |---|---|---|
 | `transaction` | Cash Purchase, Cash Sale, AP Purchase, AR Sale, Purchase Order, Sales Order, Stock Receipt, Stock Transfer, Quotations, RFQ | `Title`, `Intro`, `Action`, `Totals`, `Total Label`, `Party` / `Party Label`, `Submit Label`, `Fail Text`; its `Field` and `Column` things |
+| `report` | Trial Balance, Balance Sheet | `Title`, `Intro` (`{NAME}` in it is the business or ledger, by `Intro Name`), `Report`, `Clear Label`; parameter `Field`s (`Control=ledger` chooses the ledger); one `Entry` per column |
 | `tiles` | AR / AP, Stock, Reports (section index pages) | `Title`, `Intro`; one `Tile` (`Href`, `Title`, `Description`) per link |
 | `compose` | AP Payment, AR Receipt | One `Use` per component, its props as `Prop <name>` |
 | `not-implemented` | 16 screens not built yet | `Title`, `Description` |
@@ -84,6 +85,14 @@ thing is a column (`Name`, `Label`, `Control` `text` or `status`), and each
 `Command` thing a button on every record whose status its `When` names
 (`Command`, `Label`, `Style`); `Empty Text` shows when there are none. A
 screen's `Side` (`AR` or `AP`) is passed to its actions and records.
+
+In `report`, the named report (in the runtime's `reports`) returns
+columns of groups; each group is a table of rows, already formatted, with
+a footer, and the report a status line and a note. Rows can form a tree:
+a parent row opens and closes the rows under it. An `Entry`'s `Control` is
+`tree` (indented, with the open/close mark and any badge), `text`, `mono`
+or `amount` (right aligned, red when contra). The report reloads whenever
+a parameter changes.
 
 ### Variants
 
@@ -123,6 +132,7 @@ hand, in the runtime module:
 - `actions`: the backend calls a submit makes (`purchase` and `sale`, on
   account or, when the party is `Cash`, paid at once; `transfer`,
   `purchaseOrder`, `salesOrder`, `orderReceipt`, `quotation`);
+- `reports`: `trialBalance`, `balanceSheet`;
 - `records`: what a screen lists (`quotations`), and `commands`: what its
   record buttons do (`markSent`, `accept`, `reject`). A validation
   failure throws `Invalid`, whose message is shown.

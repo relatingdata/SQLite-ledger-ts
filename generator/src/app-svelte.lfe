@@ -22,6 +22,7 @@
     (#"not-implemented" (not-implemented s id))
     (#"tiles" (tiles s id))
     (#"compose" (compose s id))
+    (#"report" (report s id))
     (other (error (tuple 'no-template other (app-entities:name s id))))))
 
 ;; --- text helpers ------------------------------------------------------------
@@ -374,3 +375,122 @@
 (defun money-input (place)
   (list #"<input type='number' min='0' step='0.01' class='num-input' value={(" place #" / 100).toFixed(2)} "
         #"oninput={(e) => (" place #" = Math.round(Number(e.currentTarget.value) * 100))} />"))
+;; --- the report template -----------------------------------------------------
+;;
+;; Parameter fields (a Control=ledger field chooses the ledger), then the
+;; report the screen names, reloaded whenever a parameter changes: columns
+;; of groups, each a table with one Entry per column (Control tree, text,
+;; mono or amount), a footer, and the report's status line and note.
+
+(defun report (s id)
+  (let* ((parts (app-view:things s id))
+         (fields (lists:filter (lambda (p) (== (kind s p) #"Field")) parts))
+         (params (lists:filter (lambda (f) (=/= (val s f #"Control") #"ledger")) fields))
+         (ledger? (lists:any (lambda (f) (== (val s f #"Control") #"ledger")) fields))
+         (dates (lists:filter (lambda (f) (== (val s f #"Control") #"date")) params))
+         (entries (lists:filter (lambda (p) (== (kind s p) #"Entry")) parts)))
+    (list
+      #"<script lang='ts'>\n" (header s id)
+      #"  import { onMount } from 'svelte';\n"
+      #"  import '$lib/generated.css';\n"
+      #"  import { session, translations } from '$lib/state.svelte';\n"
+      #"  import { getLedgers, asBusinessName, ApiError } from '$lib/api';\n"
+      #"  import { todayIsoDate } from '$lib/format';\n"
+      #"  import { reports, type Report } from '$lib/screen-runtime';\n\n"
+      #"  const t = (word: string) => translations.current[word] ?? word;\n"
+      #"  let business = $state('');\n  let ledger = $state('');\n  let ledgers: { name: string }[] = $state([]);\n"
+      #"  let ready = $state(false);\n  let loading = $state(true);\n  let error = $state('');\n"
+      #"  let report: Report | null = $state(null);\n"
+      #"  let values: Record<string, string> = $state({ "
+      (lists:join #", " (lists:map (lambda (f) (list (val s f #"Name") #": "
+                                                     (case (tuple (val s f #"Control") (val s f #"Default"))
+                                                       ((tuple #"date" #"today") #"todayIsoDate()")
+                                                       ((tuple _ 'undefined) #"''")
+                                                       ((tuple _ d) (js d)))))
+                                   params))
+      #" });\n"
+      #"  let open = $state(new Set<string>());\n"
+      #"  const toggle = (key: string) => {\n    const next = new Set(open);\n    if (next.has(key)) next.delete(key);\n    else next.add(key);\n    open = next;\n  };\n"
+      #"  let latest = 0;\n"
+      #"  async function load() {\n"
+      #"    const request = ++latest;\n    loading = true;\n    error = '';\n"
+      #"    try {\n      const result = await reports." (val s id #"Report") #"({ business, ledger, party: '' }, $state.snapshot(values));\n"
+      #"      if (request === latest) report = result;\n"
+      #"    } catch (e) {\n      if (request === latest) error = e instanceof ApiError ? e.message : 'Failed to load.';\n"
+      #"    } finally {\n      if (request === latest) loading = false;\n    }\n  }\n"
+      #"  $effect(() => {\n    JSON.stringify(values);\n    void ledger;\n    if (ready) load();\n  });\n"
+      #"  onMount(async () => {\n    if (!session.current) return;\n"
+      #"    business = session.current.businessName;\n    ledger = session.current.ledgerName;\n"
+      (if ledger? #"    try {\n      ledgers = await getLedgers(asBusinessName(business));\n    } catch {\n      /* the session's ledger still works */\n    }\n" #"")
+      #"    ready = true;\n  });\n"
+      #"</script>\n\n"
+      #"<svelte:head><title>" (t (val s id #"Title")) #"</title></svelte:head>\n\n"
+      #"<fieldset class='page-title generated'>\n"
+      #"  <legend>" (t (val s id #"Title")) #"</legend>\n"
+      (intro-line s id)
+      #"  <div class='row report-controls'>\n"
+      (lists:map (lambda (f)
+                   (if (== (val s f #"Control") #"ledger")
+                     (list #"    <fieldset><legend>" (t (val s f #"Label" #"Ledger")) #"</legend>\n"
+                           #"      <select bind:value={ledger}>{#each ledgers as l}<option value={l.name}>{t(l.name)}</option>{/each}</select>\n    </fieldset>\n")
+                     (field s f)))
+                 fields)
+      (case (val s id #"Clear Label")
+        ('undefined #"")
+        (label (list #"    {#if " (lists:join #" || " (lists:map (lambda (d) (list #"values." (val s d #"Name"))) dates)) #"}"
+                     #"<button type='button' class='link-button' onclick={() => { "
+                     (lists:map (lambda (d) (list #"values." (val s d #"Name") #" = ''; ")) dates)
+                     #"}}>" (t label) #"</button>{/if}\n")))
+      #"  </div>\n\n"
+      #"  {#if loading && !report}\n    <p class='center-text'>Loading&hellip;</p>\n"
+      #"  {:else if error}\n    <p class='error'>{error}</p>\n"
+      #"  {:else if report}\n"
+      #"    <div class='report-columns' style='--columns: {report.columns.length}'>\n"
+      #"      {#each report.columns as column}\n        <div class='report-column'>\n"
+      #"          {#each column.groups as group}\n"
+      #"            <fieldset class='report-group'>\n"
+      #"              <legend>{group.title}{#if group.warn} <span class='warn'>&#x26A0; {group.warn}</span>{/if}</legend>\n"
+      #"              <table class='report-table'>\n"
+      #"                <thead><tr>" (lists:map (lambda (e) (list #"<th" (report-align s e) #">" (t (val s e #"Label" #"")) #"</th>")) entries) #"</tr></thead>\n"
+      #"                <tbody>\n"
+      #"                  {#each group.rows.filter((r) => r.ancestors.every((a) => open.has(a))) as row (row.key)}\n"
+      #"                    <tr class:clickable={row.parent} onclick={() => row.parent && toggle(row.key)}>\n"
+      (lists:map (lambda (e) (list #"                      " (report-cell s e) #"\n")) entries)
+      #"                    </tr>\n"
+      #"                  {:else}\n                    <tr><td colspan='" (integer_to_binary (length entries)) #"' class='dim'>" (t (val s id #"Empty Text" #"None")) #"</td></tr>\n"
+      #"                  {/each}\n                </tbody>\n"
+      #"                {#if group.footer}<tfoot><tr>"
+      (lists:map (lambda (e) (let ((n (val s e #"Name")))
+                               (list #"<td" (report-class s e n #"group.footerContra") #"><strong>{group.footer['" n #"'] ?? ''}</strong></td>")))
+                 entries)
+      #"</tr></tfoot>{/if}\n"
+      #"              </table>\n            </fieldset>\n          {/each}\n"
+      #"          {#if column.summary}<p class='report-summary'><strong>{column.summary.label}</strong> <span class='num mono'>{column.summary.value}</span></p>{/if}\n"
+      #"        </div>\n      {/each}\n    </div>\n"
+      #"    {#if report.status}<p class='report-status' class:balanced={report.status.ok}>{report.status.text}</p>{/if}\n"
+      #"    {#if report.note}<p class='dim'>{report.note}</p>{/if}\n"
+      #"  {/if}\n"
+      #"</fieldset>\n")))
+
+;; The intro; {NAME} in it stands for the business or ledger (Intro Name).
+(defun intro-line (s id)
+  (case (val s id #"Intro Name")
+    ('undefined (list #"  <p class='intro'>" (t (val s id #"Intro")) #"</p>\n"))
+    (who (list #"  {#each [t(" (js (val s id #"Intro")) #").split('{NAME}')] as parts}"
+               #"<p class='intro'>{parts[0]}<strong>{" who #"}</strong>{parts[1] ?? ''}</p>{/each}\n"))))
+
+(defun report-align (s e)
+  (case (val s e #"Control") ((binary "amount") #" class='num'") (_ #"")))
+
+(defun report-class (s e n contra)
+  (case (val s e #"Control")
+    (#"amount" (list #" class='num mono' class:contra={" contra #"?.includes('" n #"')}"))
+    (#"mono" #" class='mono'")
+    (_ #"")))
+
+(defun report-cell (s e)
+  (let ((n (val s e #"Name")))
+    (case (val s e #"Control")
+      (#"tree" (list #"<td style='padding-inline-start: {row.depth * 1.2}rem'>{#if row.parent}<span class='disclosure'>{open.has(row.key) ? '\\u25BE' : '\\u25B8'}</span>{/if}{row.cells['" n #"'] ?? ''}"
+                     #"{#if row.badge} <span class='badge' title={row.badgeTitle}>{row.badge}</span>{/if}</td>"))
+      (_ (list #"<td" (report-class s e n #"row.contra") #">{row.cells['" n #"'] ?? ''}</td>")))))

@@ -1804,20 +1804,11 @@ Root
     - :Column Label=Outstanding
     - :Column Label="Days overdue"
     - :Column Label=Bucket
-   "/reports/balance-sheet" :Screen "Calls getBalanceSheet">/Root/Application/Calls/getBalanceSheet Source="frontend/src/routes/reports/balance-sheet/+page.svelte" Title="Balance Sheet"
-    - :Heading Text="Balance Sheet"
-    - :Heading Text="As of date"
-    - :Field Bind=asOfDate Control=input Label="As of date" Type=date
-    - :Action Handler="() => { asOfDate = ''; load(); }" Label="Clear (show all time)"
-    - :Heading Text=Assets
-    - :Column Label=Debit
-    - :Column Label=Credit
-    - :Heading Text=Liabilities
-    - :Column Label=Debit
-    - :Column Label=Credit
-    - :Heading Text=Equity
-    - :Column Label=Debit
-    - :Column Label=Credit
+   "/reports/balance-sheet" :Screen "Clear Label"="Clear (show all time)" Intro="For {NAME} only." "Intro Name"=ledger Report=balanceSheet Template=report Title="Balance Sheet"
+    - :Field Control=date Default=today Label="As of date" Name=asOfDate
+    - :Entry Control=tree Label="" Name=name
+    - :Entry Control=amount Label=Debit Name=debit
+    - :Entry Control=amount Label=Credit Name=credit
    "/reports/below-reorder" :Screen "Calls getBelowReorderStock">/Root/Application/Calls/getBelowReorderStock Source="frontend/src/routes/reports/below-reorder/+page.svelte" Title="Below Reorder"
     - :Heading Text="Below Reorder"
     - :Column Label=Item
@@ -2017,18 +2008,13 @@ Root
     - :Column Label=Occupied
     - :Column Label=Remaining
     - :Column Label="Balanced?"
-   "/reports/trial-balance" :Screen "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls getTrialBalance">/Root/Application/Calls/getTrialBalance Source="frontend/src/routes/reports/trial-balance/+page.svelte" Title="Trial Balance"
-    - :Heading Text="Trial Balance"
-    - :Heading Text=Ledger
-    - :Field Bind=selectedLedger Control=select Label=Ledger
-    - :Heading Text="As of date"
-    - :Field Bind=asOfDate Control=input Label="As of date" Type=date
-    - :Action Handler="() => { asOfDate = ''; load(); }" Label="Clear (show all time)"
-    - :Heading Text="Home Currency"
-    - :Column Label="Account Number"
-    - :Column Label=Account
-    - :Column Label=Debit
-    - :Column Label=Credit
+   "/reports/trial-balance" :Screen "Clear Label"="Clear (show all time)" Intro="Every account with a posted balance, split into its debit or credit column. Any ledger in {NAME} should balance \u2014 Actual, or any proposed budget." "Intro Name"=business Report=trialBalance Template=report Title="Trial Balance"
+    - :Field Control=ledger Label=Ledger Name=ledger
+    - :Field Control=date Default=today Label="As of date" Name=asOfDate
+    - :Entry Control=mono Label="Account Number" Name=number
+    - :Entry Control=tree Label=Account Name=name
+    - :Entry Control=amount Label=Debit Name=debit
+    - :Entry Control=amount Label=Credit Name=credit
    "/session" :Screen "Calls getActiveLedger">/Root/Application/Calls/getActiveLedger "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getLanguageDirection">/Root/Application/Calls/getLanguageDirection "Calls getLanguages">/Root/Application/Calls/getLanguages "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls getLocalizedText">/Root/Application/Calls/getLocalizedText "Calls getProfitCenters">/Root/Application/Calls/getProfitCenters Source="frontend/src/routes/session/+page.svelte" Title="Choose business, ledger, and language"
     - :Heading Text="Choose a business, ledger, and language"
     - :Heading Text=Business
@@ -2453,6 +2439,24 @@ Root
    - :Rule Selector=.error color="var(--debit, #a33a2e)"
    - :Rule Selector=.success background="#eaf5ea" border-radius=5px color="#2a5c2a" padding="0.5rem 0.7rem"
    - :Rule Selector=.checkbox-label align-items=center display=flex gap=0.4rem
+   - :Rule Selector=.report-controls justify-content=center margin-bottom=1rem
+   - :Rule Selector=.report-columns align-items=end display=grid gap=1.2rem grid-template-columns="repeat(auto-fit, minmax(320px, 1fr))"
+   - :Rule Selector=.report-column display=flex flex-direction=column gap=1.2rem
+   - :Rule Selector=.report-group margin=0 padding="1rem 1.2rem 1.2rem"
+   - :Rule Selector=.report-table border-collapse=collapse margin=0 width="100%"
+   - :Rule Selector=".report-table th, .report-table td" border-bottom="1px solid var(--rule)" padding="0.35rem 0.6rem" text-align=start
+   - :Rule Selector=".report-table .num" text-align=end
+   - :Rule Selector=".report-table tfoot td" border-bottom=none border-top="2px solid var(--rule-strong)"
+   - :Rule Selector=.mono font-variant-numeric=tabular-nums
+   - :Rule Selector=.contra color="var(--debit, #b1442e)"
+   - :Rule Selector=.clickable cursor=pointer
+   - :Rule Selector=".clickable:hover td" background="var(--paper-dim, #f2ede1)"
+   - :Rule Selector=.disclosure color="var(--ink-soft)" display=inline-block width=1rem
+   - :Rule Selector=.warn color="var(--danger, #b00)" font-size=0.9em font-weight=600
+   - :Rule Selector=.badge background="var(--rule-strong)" border-radius=3px color="var(--ink-soft)" cursor=help display=inline-block font-size=0.75em margin-inline-start=0.4em padding="0.05em 0.4em"
+   - :Rule Selector=.report-summary display=flex font-size="var(--font-size-medium)" justify-content=space-between margin=0 padding="0 1.2rem"
+   - :Rule Selector=.report-status color="var(--debit)" font-weight=600 margin-top=1rem text-align=center
+   - :Rule Selector=.report-status.balanced color="var(--credit)"
    - :Rule Selector=.record-list border-collapse=collapse margin-top=1.2rem width="100%"
    - :Rule Selector=".record-list th, .record-list td" border-bottom="1px solid var(--rule)" padding="0.4rem 0.6rem" text-align=start
    - :Rule Selector=.record-actions white-space=nowrap

@@ -33,6 +33,9 @@ import {
   stageOrderReceipt,
   postOrderReceipt,
   getOrderStatus,
+  getTrialBalance,
+  getBalanceSheet,
+  type CategoryTreeNode,
   postSalesOrder,
   createQuotation,
   createRfq,
@@ -423,5 +426,118 @@ export const commands: Record<string, (c: Context, row: Row) => Promise<string>>
   reject: async (_c, row) => {
     await rejectQuotation(row.reference);
     return `${row.reference} marked rejected.`;
+  },
+};
+
+// --- reports -------------------------------------------------------------------
+
+/** One line of a report: its cells, already formatted, by column name. A
+ * line under others in a tree names them (ancestors), so it shows only when
+ * they are open; a parent line opens and closes. */
+export interface ReportRow {
+  key: string;
+  depth: number;
+  ancestors: string[];
+  parent: boolean;
+  cells: Record<string, string>;
+  /** Columns whose amount is contra (shown in red). */
+  contra?: string[];
+  /** A small tag after the first cell, with its explanation. */
+  badge?: string;
+  badgeTitle?: string;
+}
+export interface ReportGroup {
+  title: string;
+  warn?: string;
+  rows: ReportRow[];
+  footer?: Record<string, string>;
+  footerContra?: string[];
+}
+/** A column of the page: groups stacked, then an optional summary line. */
+export interface ReportColumn {
+  groups: ReportGroup[];
+  summary?: { label: string; value: string };
+}
+export interface Report {
+  columns: ReportColumn[];
+  status?: { ok: boolean; text: string };
+  note?: string;
+}
+
+const money = (minor: number) => formatAmount(minor, auth.current?.user.number_format ?? '1 000.00');
+
+/** A tree of categories as rows, each under its ancestors. */
+function treeRows(section: string, nodes: CategoryTreeNode[], cellOf: (n: CategoryTreeNode) => Record<string, string>, ancestors: string[] = []): ReportRow[] {
+  return nodes.flatMap((n) => {
+    const key = `${section}/${[...ancestors, n.name].join('/')}`;
+    const parent = !n.is_leaf && n.children.length > 0;
+    const row: ReportRow = {
+      key, depth: ancestors.length, ancestors: ancestors.map((_, i) => `${section}/${ancestors.slice(0, i + 1).join('/')}`), parent,
+      cells: { name: t(n.name), ...cellOf(n) },
+      contra: n.is_contra ? ['debit', 'credit'].filter((c) => (c === 'debit' ? n.debit_minor : n.credit_minor) > 0) : [],
+    };
+    return [row, ...(parent ? treeRows(section, n.children, cellOf, [...ancestors, n.name]) : [])];
+  });
+}
+
+/** A section total in its debit or credit column, parenthesised when it is
+ * on the other side than normal. */
+function totalCells(amountMinor: number, normal: 'debit' | 'credit'): { cells: Record<string, string>; contra: string[] } {
+  const isNormal = amountMinor >= 0;
+  const side = (normal === 'debit') === isNormal ? 'debit' : 'credit';
+  const shown = amountMinor === 0 ? '' : isNormal ? money(Math.abs(amountMinor)) : `(${money(Math.abs(amountMinor))})`;
+  return { cells: { [side]: shown }, contra: isNormal ? [] : [side] };
+}
+
+export const reports: Record<string, (c: Context, v: Values) => Promise<Report>> = {
+  /** Every account with a balance, by currency, in its debit or credit column. */
+  trialBalance: async (c, v) => {
+    const tb = await getTrialBalance(asBusinessName(c.business), asLedgerName(c.ledger), v.asOfDate || undefined);
+    const currencies = [...new Set(tb.rows.map((r) => r.currency))].sort((a, b) => (a ?? '').localeCompare(b ?? ''));
+    const shown = (minor: number, currency: string | null) => (currency === null || !currency.startsWith('SPACE-') ? money(minor) : minor.toLocaleString());
+    const groups: ReportGroup[] = currencies.map((currency) => {
+      const sub = tb.by_currency.find((s) => s.currency === currency);
+      return {
+        title: currency ?? t('Home Currency'),
+        warn: sub && !sub.balanced ? t('Out of balance') : undefined,
+        rows: tb.rows.filter((r) => r.currency === currency).map((r) => ({
+          key: String(r.id), depth: 0, ancestors: [], parent: false,
+          cells: { number: r.accountnumber ?? '', name: t(r.name), debit: r.debit_minor ? shown(r.debit_minor, currency) : '', credit: r.credit_minor ? shown(r.credit_minor, currency) : '' },
+          badge: r.has_quantity_postings ? t('qty') : undefined,
+          badgeTitle: r.has_quantity_postings ? t('This account mixes a real quantity-tracking posting with an ordinary dollar posting - its balance may not be a plain dollar figure without a closer look.') : undefined,
+        })),
+        footer: { name: t('Subtotal'), debit: shown(sub?.total_debit_minor ?? 0, currency), credit: shown(sub?.total_credit_minor ?? 0, currency) },
+      };
+    });
+    const balanced = tb.total_debit_minor === tb.total_credit_minor;
+    return {
+      columns: [{ groups }],
+      status: groups.length === 1 ? { ok: balanced, text: balanced ? `\u2713 ${t('Balanced')}` : t('Out of balance') } : undefined,
+      note: groups.length > 1 ? t("More than one currency is present - see each currency's own subtotal above; a single combined total across different currencies would not be a real number.") : undefined,
+    };
+  },
+  /** Assets against liabilities and equity, each a tree of categories. */
+  balanceSheet: async (c, v) => {
+    const bs = await getBalanceSheet(asBusinessName(c.business), asLedgerName(c.ledger), v.asOfDate || undefined);
+    const amount = (minor: number, contra: boolean) => (minor === 0 ? '' : contra ? `(${money(minor)})` : money(minor));
+    const cellOf = (n: CategoryTreeNode) => ({ debit: amount(n.debit_minor, n.is_contra), credit: amount(n.credit_minor, n.is_contra) });
+    const section = (title: string, nodes: CategoryTreeNode[], total: number, normal: 'debit' | 'credit', totalLabel: string): ReportGroup => {
+      const tot = totalCells(total, normal);
+      return { title: t(title), rows: treeRows(title, nodes, cellOf), footer: { name: t(totalLabel), ...tot.cells }, footerContra: tot.contra };
+    };
+    const [a, l, e] = [t('Assets'), t('Liabilities'), t('Equity')];
+    return {
+      columns: [
+        { groups: [section('Assets', bs.assets_tree, bs.total_assets_minor, 'debit', 'Total Assets')] },
+        {
+          groups: [
+            section('Liabilities', bs.liabilities_tree, bs.total_liabilities_minor, 'credit', 'Total Liabilities'),
+            section('Equity', bs.equity_tree, bs.total_equity_minor, 'credit', 'Total Equity'),
+          ],
+          summary: { label: t('Total Liabilities + Equity'), value: money(bs.total_liabilities_minor + bs.total_equity_minor) },
+        },
+      ],
+      status: { ok: bs.balanced, text: bs.balanced ? `\u2713 ${a} = ${l} + ${e}` : `${a} \u2260 ${l} + ${e}` },
+    };
   },
 };
