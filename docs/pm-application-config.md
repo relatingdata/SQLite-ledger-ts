@@ -60,12 +60,12 @@ build output, ignored by git, written by `make generate`.
 
 ### Templates
 
-40 of the 84 routes are generated. Each screen names its template:
+41 of the 84 routes are generated. Each screen names its template:
 
 | Template | Screens | Reads |
 |---|---|---|
 | `transaction` | Cash Purchase, Cash Sale, AP Purchase, AR Sale, Purchase Order, Sales Order, Stock Receipt, Stock Transfer, Quotations, RFQ | `Title`, `Intro`, `Action`, `Totals`, `Total Label`, `Party` / `Party Label`, `Submit Label`, `Fail Text`; its `Field` and `Column` things |
-| `report` | Trial Balance, Balance Sheet, Below Reorder, Inventory and Storage, Aged Receivables/Payables, Reminders, Customer Statement, Sales Report, Cash Flow Forecast | `Title`, `Intro` (`{NAME}` in it is the business or ledger, by `Intro Name`), `Report`, `Clear Label`; parameter `Field`s (`Control=ledger` chooses the ledger); one `Entry` per column |
+| `report` | Trial Balance, Balance Sheet, Below Reorder, Inventory and Storage, Aged Receivables/Payables, Reminders, Customer Statement, Sales Report, Cash Flow Forecast, Business Configuration Report | `Title`, `Intro` (`{NAME}` in it is the business or ledger, by `Intro Name`), `Report`, `Clear Label`; parameter `Field`s (`Control=ledger` chooses the ledger); one `Entry` per column |
 | `tiles` | AR / AP, Stock, Reports (section index pages) | `Title`, `Intro`; one `Tile` (`Href`, `Title`, `Description`) per link |
 | `compose` | AP Payment, AR Receipt | One `Use` per component, its props as `Prop <name>` |
 | `not-implemented` | 16 screens not built yet | `Title`, `Description` |
@@ -99,7 +99,8 @@ its own for its parameters (Aged Payables). `Command` things are buttons
 on each row, as in listed records; a `toggle` field is a row of buttons
 (`Options`), and a field's `Query` takes its first value from the page
 address (`/reports/aged?type=AP`). A `Print Label` adds a print button; a group's
-`meta` lines show above its table (who and when, on a statement). In
+`meta` lines show above its table (who and when, on a statement). A table whose entries all have an empty
+`Label` has no heading row. In
 `Options`, an underscore in a label stands for a space.
 
 ### Variants
@@ -140,7 +141,7 @@ hand, in the runtime module:
 - `actions`: the backend calls a submit makes (`purchase` and `sale`, on
   account or, when the party is `Cash`, paid at once; `transfer`,
   `purchaseOrder`, `salesOrder`, `orderReceipt`, `quotation`);
-- `reports`: `trialBalance`, `balanceSheet`, `belowReorder`, `storageSpace`, `aged`, `reminders`, `statement`, `sales`, `cashFlow` (a row can carry a class, `mark`, and cells classes, `marks`);
+- `reports`: `trialBalance`, `balanceSheet`, `belowReorder`, `storageSpace`, `aged`, `reminders`, `statement`, `sales`, `cashFlow`, `businessConfiguration` (a row can carry a class, `mark`, and cells classes, `marks`);
 - `records`: what a screen lists (`quotations`), and `commands`: what its
   record buttons do (`markSent`, `accept`, `reject`, `sendReminder`, `resetReminder`). A validation
   failure throws `Invalid`, whose message is shown.

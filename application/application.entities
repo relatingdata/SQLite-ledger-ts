@@ -1814,24 +1814,14 @@ Root
     - :Entry Control=amount Label="Reorder Level" Name=reorder
     - :Entry Control=amount Label=Min Name=min
     - :Entry Control=amount Label=Max Name=max
-   "/reports/business-configuration" :Screen "Calls getBusinessConfigurationReport">/Root/Application/Calls/getBusinessConfigurationReport Source="frontend/src/routes/reports/business-configuration/+page.svelte" Title="Business Configuration Report"
-    - :Heading Text="Business Configuration Report"
-    - :Heading Text="Business Name"
-    - :Heading Text=Addresses
-    - :Heading Text=Phones
-    - :Heading Text="Owner(s) / Partner(s)"
-    - :Heading Text="Banking Details"
-    - :Column Label="Bank Account"
-    - :Column Label="Routing Detail"
-    - :Column Label="Account Number"
-    - :Heading Text=Currencies
-    - :Heading Text=Hierarchies
-    - :Heading Text=Locations
-    - :Column Label=Name
-    - :Column Label=City
-    - :Column Label=Type
-    - :Heading Text=Categories
-    - :Heading Text="Notes to the Financial Statements"
+   "/reports/business-configuration" :Screen "Empty Text"="None recorded." Intro="Everything this business's own setup actually captured - name, addresses, phones, owner(s)/partner(s), banking details, currencies, hierarchies (such as Division), locations, and categories. Never item details - see Inventory Catalog for those." Report=businessConfiguration Template=report Title="Business Configuration Report"
+    - :Entry Label="" Name=text Table=lines
+    - :Entry Label="Bank Account" Name=name Table=banks
+    - :Entry Label="Routing Detail" Name=routing Table=banks
+    - :Entry Label="Account Number" Name=number Table=banks
+    - :Entry Label=Name Name=name Table=locations
+    - :Entry Label=City Name=city Table=locations
+    - :Entry Label=Type Name=type Table=locations
    "/reports/cash-flow-forecast" :Screen "Empty Text"="No anticipated movements within this horizon." Intro="A real, forward-looking projection \u2014 not the historical Cashflow Statement. Every real, outstanding invoice is assumed to land on its own due date; genuinely recurring cash movements (rent, subscriptions) are projected from their own real schedule. Home currency only, for now." Report=cashFlow Template=report Title="Cash Flow Forecast"
     - :Field Control=date Default=today Label="As of date" Name=asOfDate
     - :Field Control=pick Default=90 Label="Horizon (days)" Name=horizon Options="30=30 60=60 90=90 180=180"

@@ -41,6 +41,7 @@ import {
   getCustomerStatement,
   getSalesReport,
   getCashFlowForecast,
+  getBusinessConfigurationReport,
   sendReminder,
   resetReminder,
   getStorageSpaceReport,
@@ -543,6 +544,23 @@ export const reports: Record<string, (c: Context, v: Values) => Promise<Report>>
       intro: t(`What's outstanding, bucketed against each ${side === 'AR' ? 'customer' : 'provider'}'s own payment terms \u2014 not a fixed 30/60/90 for everyone, since account management practice genuinely varies per account.`),
       columns: [{ groups: [{ title: '', table: v.view === 'detail' ? 'detail' : '', labels, rows }] }],
     };
+  },
+  /** Everything the business's setup captured, section by section. */
+  businessConfiguration: async (c) => {
+    const r = await getBusinessConfigurationReport(c.business);
+    const lines = (title: string, texts: string[]): ReportGroup => ({ title: t(title), table: 'lines', rows: texts.map((text, i) => line(String(i), { text })) });
+    return { columns: [{ groups: [
+      lines('Business Name', [r.businessName]),
+      lines('Addresses', r.addresses.map((a) => `${a.address_type}: ${a.address1 ?? ''} ${a.city ?? ''}`)),
+      lines('Phones', r.phones.map((p) => `${p.phone_type}: ${p.phone ?? ''}`)),
+      lines('Owner(s) / Partner(s)', r.ownerOrPartners),
+      { title: t('Banking Details'), table: 'banks', rows: r.bankAccounts.map((b) => line(b.name, { name: b.name, routing: b.routingDetail, number: b.accountNumber })) },
+      lines('Currencies', [`${t('Home currency')}: ${r.homeCurrency ?? '\u2014'}`, ...(r.secondaryCurrencies.length > 0 ? [`${t('Also trades in')}: ${r.secondaryCurrencies.join(', ')}`] : [])]),
+      lines('Hierarchies', r.hierarchies.map((h) => `${t(h.grouping)}: ${h.values.length > 0 ? h.values.join(', ') : t('None recorded.')}`)),
+      { title: t('Locations'), table: 'locations', rows: r.locations.map((l) => line(l.name, { name: l.name, city: l.city, type: l.locationType })) },
+      lines('Categories', r.categories),
+      lines('Notes to the Financial Statements', r.notes.map((n) => n.text)),
+    ] }] };
   },
   /** Cash projected forward: outstanding invoices on their due dates and
    * recurring movements on their schedules, against the overdraft limit. */

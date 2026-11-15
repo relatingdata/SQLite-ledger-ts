@@ -518,10 +518,12 @@
   (let ((width (+ (length entries) (if (== commands '()) 0 1))))
     (list
       #"              <table class='report-table'>\n"
+      (if (andalso (== commands '()) (lists:all (lambda (e) (== (val s e #"Label" #"") #"")) entries)) #""
+        (list
       #"                <thead><tr>"
       (lists:map (lambda (e) (list #"<th" (report-align s e) #">{group.labels?.['" (val s e #"Name") #"'] ?? " (js-t (val s e #"Label" #"")) #"}</th>")) entries)
       (if (== commands '()) #"" #"<th></th>")
-      #"</tr></thead>\n"
+      #"</tr></thead>\n"))
       #"                <tbody>\n"
       #"                  {#each group.rows.filter((r) => r.ancestors.every((a) => open.has(a))) as row (row.key)}\n"
       #"                    <tr class={row.mark ?? ''} class:clickable={row.parent} onclick={() => row.parent && toggle(row.key)}>\n"
