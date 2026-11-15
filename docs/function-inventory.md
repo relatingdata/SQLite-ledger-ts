@@ -9191,7 +9191,7 @@ Called from: production: entities/entities-text.ts (path ×1, write ×4)
 dumpEntitiesText(store: Store): string
 ```
 
-Called from: tests: 2 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: tests: 2 call(s) in 1 file(s) · tooling: 2 call(s) in 2 file(s)
 
 **`tokenise`**
 
@@ -9215,7 +9215,7 @@ Called from: production: entities/entities-text.ts (loadEntitiesText ×3)
 loadEntitiesText(store: Store, text: string, by?: number): number
 ```
 
-Called from: tests: 1 call(s) in 1 file(s)
+Called from: tests: 1 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
 ### `backend/src/entity-driver-select.ts`
 
@@ -9689,7 +9689,7 @@ Called from: production: auth-middleware.ts (attachUser ×1) · tests: 1 call(s)
 asBusinessName(name: string): BusinessName
 ```
 
-Called from: production: session.ts (loadStored ×1); state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, CashTransaction.svelte ×4, PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×3, routes/arap/ar-sale ×3, routes/arap/quotations ×3, routes/arap/rfq ×3, routes/items ×2, and 14 more
+Called from: production: session.ts (loadStored ×1); state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, CashTransaction.svelte ×4, PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×3, routes/arap/ar-sale ×3, routes/arap/cash-purchase ×3, routes/arap/cash-sale ×3, routes/arap/quotations ×3, and 16 more
 
 **`asLedgerName`** *(exported)*
 
@@ -9697,7 +9697,7 @@ Called from: production: session.ts (loadStored ×1); state.svelte.ts (loadStore
 asLedgerName(name: string): LedgerName
 ```
 
-Called from: production: session.ts (loadStored ×1); state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): CashTransaction.svelte ×2, PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×2, routes/arap/ar-sale ×2, routes/arap/quotations ×2, routes/arap/rfq ×2, routes/items ×1, routes/locations ×1, and 12 more
+Called from: production: session.ts (loadStored ×1); state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): CashTransaction.svelte ×2, PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×2, routes/arap/ar-sale ×2, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/arap/quotations ×2, routes/arap/rfq ×2, and 14 more
 
 **`asAccountName`** *(exported)*
 
@@ -9713,7 +9713,7 @@ Called from: Svelte pages (by name in the file's imports): routes/arap/ap-purcha
 asLocationName(name: string): LocationName
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×2, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/items ×1, routes/pos ×1, routes/setup/business-setup ×5, routes/stock/listing ×1, routes/stock/po ×1, and 2 more
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×2, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/items ×1, routes/pos ×1, routes/setup/business-setup ×5, and 4 more
 
 **`asEmployeeName`** *(exported)*
 
@@ -9729,7 +9729,7 @@ Called from: Svelte pages (by name in the file's imports): routes/hr ×1, routes
 asCustomerName(name: string): CustomerName
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ar-sale ×0, routes/pos ×1
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ar-sale ×0, routes/arap/cash-sale ×1, routes/pos ×1
 
 **`asProviderName`** *(exported)*
 
@@ -9737,7 +9737,7 @@ Called from: Svelte pages (by name in the file's imports): CashTransaction.svelt
 asProviderName(name: string): ProviderName
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×0, routes/invoices ×1, routes/items ×1, routes/stock/po ×1
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×0, routes/arap/cash-purchase ×1, routes/invoices ×1, routes/items ×1, routes/stock/po ×1
 
 **`asItemName`** *(exported)*
 
@@ -9745,7 +9745,7 @@ Called from: Svelte pages (by name in the file's imports): CashTransaction.svelt
 asItemName(name: string): ItemName
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, routes/items ×6, routes/pos ×2, routes/stock/listing ×1, routes/stock/po ×1, routes/stock/stock-take ×1, routes/stock/transfer ×3, routes/stock/write-offs ×2
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/items ×6, routes/pos ×2, routes/stock/listing ×1, routes/stock/po ×1, routes/stock/stock-take ×1, and 2 more
 
 **`compareVersions`** *(exported)*
 
@@ -10297,7 +10297,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/new-busi
 getLedgers(businessName: string): Promise<{ id: number; name: string; }[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, routes/post ×1, routes/projects ×1, and 9 more
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, and 11 more
 
 **`getActiveLedger`** *(exported)*
 
@@ -10961,7 +10961,7 @@ Called from: Svelte pages (by name in the file's imports): routes/items ×1
 listItems(business: string, limit?: number, offset?: number): Promise<{ rows: ItemSummary[]; totalCount: number; }>
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/items ×5, routes/pos ×1, routes/stock/transfer ×1, routes/stock/write-offs ×1
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/items ×5, routes/pos ×1, routes/stock/transfer ×1, and 1 more
 
 **`getItem`** *(exported)*
 
@@ -11185,7 +11185,7 @@ Called from: Svelte pages (by name in the file's imports): routes/stock/write-of
 listLocations(business: BusinessName): Promise<LocationRecord[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, CashTransaction.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, routes/items ×1, routes/locations ×1, and 6 more
+Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, CashTransaction.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, and 8 more
 
 **`parseEmployeeClock`**
 
@@ -11609,7 +11609,7 @@ Called from: Svelte pages (by name in the file's imports): routes/pos ×1
 completePosSale(input: { business: BusinessName; ledger: LedgerName; locationName: LocationName; customerName: CustomerName; lines: PosSaleLineInput[]; revenueAccount?: string; taxAccount: string; paymentMethod?: string; cashTenderedMinor?: number; transdate?: string; terminalName?: string; }): Promise<PosSaleResult>
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, routes/pos ×1
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, routes/arap/cash-sale ×1, routes/pos ×1
 
 **`completeCashPurchase`** *(exported)*
 
@@ -11617,7 +11617,7 @@ Called from: Svelte pages (by name in the file's imports): CashTransaction.svelt
 completeCashPurchase(input: { business: BusinessName; ledger: LedgerName; locationName: LocationName; vendorName: ProviderName; lines: CashPurchaseLineInput[]; taxAccount: string; paymentMethod?: string; transdate?: string; }): Promise<CashPurchaseResult>
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, routes/arap/cash-purchase ×1
 
 **`receiveStock`** *(exported)*
 
@@ -11873,7 +11873,7 @@ Called from: production: format.ts (formatAmount ×1)
 formatAmount(smallestUnits: number, numberFormat: string, unitCode?: string): string
 ```
 
-Called from: tests: 16 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): AxisPLNode.svelte ×1, CashTransaction.svelte ×1, HierarchyGroupPLNode.svelte ×1, ProfitAndLossTable.svelte ×1, routes/account/password ×1, routes/arap/ap-purchase ×2, routes/arap/ar-sale ×4, routes/arap/quotations ×1, and 33 more
+Called from: tests: 16 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): AxisPLNode.svelte ×1, CashTransaction.svelte ×1, HierarchyGroupPLNode.svelte ×1, ProfitAndLossTable.svelte ×1, routes/account/password ×1, routes/arap/ap-purchase ×2, routes/arap/ar-sale ×4, routes/arap/cash-purchase ×1, and 35 more
 
 **`formatDate`** *(exported)*
 

@@ -1396,10 +1396,24 @@ Root
     - :Field Control=input Label="AR Sale" Type=number
     - :Action Handler="() => removeLine(line.key)" Label="\u2715"
     - :Action Handler=save Label=Saving
-   "/arap/cash-purchase" :Screen Source="frontend/src/routes/arap/cash-purchase/+page.svelte"
-    - :Use Component>/Root/Application/Components/CashTransaction "Prop direction"=purchase
-   "/arap/cash-sale" :Screen Source="frontend/src/routes/arap/cash-sale/+page.svelte"
-    - :Use Component>/Root/Application/Components/CashTransaction "Prop direction"=sale
+   "/arap/cash-purchase" :Screen "Done Label"="Purchase completed" "Fail Text"="Could not complete this purchase." Intro="A purchase from the 'Cash' provider \u2014 posted exactly like any on-account purchase, then paid off in full the same instant, so the balance is real even if only for a moment. Choose any real location to receive stock at, including a warehouse \u2014 possibly the start of a real wholesale channel." Party=Cash "Party Argument"=vendorName "Party Label"=Provider Submit>/Root/Application/Calls/completeCashPurchase "Submit Label"="Complete purchase" "Tax Account"="Sales Tax Payable" Template=line-items-transaction Title="Cash Purchase" "Total Label"="Total to pay"
+    - :Field Control=date Label=Date Name=transdate
+    - :Field Choices>/Root/Application/Calls/listLocations Control=choose Label="Receive at location" Name=locationName
+    - :Column Control=text Label=Item Name=itemName Placeholder="e.g. Golden Lager 330ml"
+    - :Column Control=number Default=1 Label=Quantity Min=1 Name=quantity
+    - :Column Control=money Label="Unit price" Name=unitPriceMinor
+    - :Column Control=money Label=Tax Name=taxMinor
+    - :Column Control=storage-badge Label=Storage Name=storage
+    - :Field Control=one-of Default=cash Label="Payment method" Name=paymentMethod Options="cash=Cash eft=EFT"
+   "/arap/cash-sale" :Screen "Done Label"="Sale completed" "Fail Text"="Could not complete this sale." Intro="A sale to the 'Cash' customer \u2014 posted exactly like any on-account sale, then paid off in full the same instant, so the balance is real even if only for a moment. Choose any real location to dispatch from, including a warehouse \u2014 possibly the start of a real wholesale channel. The everyday retail register is the real POS Terminal; this is the same real mechanism for a larger, non-register sale." Party=Cash "Party Argument"=customerName "Party Label"=Customer Submit>/Root/Application/Calls/completePosSale "Submit Label"="Complete sale" "Tax Account"="Sales Tax Payable" Template=line-items-transaction Title="Cash Sale" "Total Label"="Total owed"
+    - :Field Control=date Label=Date Name=transdate
+    - :Field Choices>/Root/Application/Calls/listLocations Control=choose Label="Dispatch from location" Name=locationName
+    - :Column Control=text Label=Item Name=itemName Placeholder="e.g. Golden Lager 330ml"
+    - :Column Control=number Default=1 Label=Quantity Min=1 Name=quantity
+    - :Column Control=money Label="Unit price" Name=unitPriceMinor
+    - :Column Control=money Label=Tax Name=taxMinor
+    - :Column Control=storage-badge Label=Storage Name=storage
+    - :Field Control=one-of Default=cash Label="Payment method" Name=paymentMethod Options="cash=Cash eft=EFT"
    "/arap/quotations" :Screen "Calls acceptQuotation">/Root/Application/Calls/acceptQuotation "Calls createQuotation">/Root/Application/Calls/createQuotation "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls listLocations">/Root/Application/Calls/listLocations "Calls listQuotations">/Root/Application/Calls/listQuotations "Calls markQuotationSent">/Root/Application/Calls/markQuotationSent "Calls rejectQuotation">/Root/Application/Calls/rejectQuotation Source="frontend/src/routes/arap/quotations/+page.svelte" Title=Quotations
     - :Heading Text=Quotations
     - :Heading Text=Date

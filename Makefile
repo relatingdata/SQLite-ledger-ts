@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-e2e test-e2e-tutorial test-e2e-tutorials test-e2e-tutorials-http test-storage-engine storage-engine-deps test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs test-e2e-manufacturing-tutorial test-e2e-manufacturing-tutorial-browser test-e2e-manufacturing-full test-e2e-project-builder-tutorial test-e2e-project-builder-tutorial-browser test-e2e-project-builder-full e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual historical-manual entity-tree-svg entity-tree-sample-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one release
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-e2e test-e2e-tutorial test-e2e-tutorials test-e2e-tutorials-http test-storage-engine storage-engine-deps generator generate format-application-config test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs test-e2e-manufacturing-tutorial test-e2e-manufacturing-tutorial-browser test-e2e-manufacturing-full test-e2e-project-builder-tutorial test-e2e-project-builder-tutorial-browser test-e2e-project-builder-full e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual historical-manual entity-tree-svg entity-tree-sample-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one release
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -72,7 +72,7 @@ clean:
 	rm -f docs/programmer-manual.md docs/old/historical-manual.md
 	rm -rf docs/manual-images docs/manual-images-german docs/manual-images-french docs/manual-images-danish docs/manual-images-italian
 
-dev:
+dev: generate
 	@echo "Starting backend (:3001) and frontend (:5173) — Ctrl+C stops both."
 	@( \
 	  cd backend && $(RUN_NPM_SCRIPT) dev & \
@@ -110,7 +110,7 @@ dev-no-demo: dev
 # that target has been removed rather than left pointing at a flag
 # that no longer does anything.
 
-dev-verbose:
+dev-verbose: generate
 	@echo "Starting backend (:3001, every SQL statement printed) and frontend (:5173) — Ctrl+C stops both."
 	@( \
 	  cd backend && DB_VERBOSE=1 $(RUN_NPM_SCRIPT) dev & \
@@ -133,7 +133,7 @@ backend-verbose:
 # same backend (see docs/tui-design.md). `frontend` itself stays as a
 # real, working alias so old muscle memory still works — same pattern
 # as `dev-no-demo: dev` above.
-web-frontend:
+web-frontend: generate
 	cd frontend && $(RUN_NPM_SCRIPT) dev
 
 frontend: web-frontend
@@ -154,7 +154,7 @@ text-frontend:
 # DB_PATH per test file the way an in-process SQL connection can. Testing
 # storage_engine itself is `gleam test` (its own suite) and the e2e
 # targets below, both against the one, real, shared database.
-test:
+test: generate
 	cd backend && ENTITY_DRIVER=sql $(RUN_TEST) test/*.test.ts scripts/*.test.ts
 	cd frontend && $(RUN_TEST) test/*.test.ts
 
@@ -228,6 +228,36 @@ test-e2e-tutorials-http: reset-db
 	  ( cd backend && STEP_RUNNER_API_URL=http://localhost:$(CORE_HTTP_PORT) MIDDLEWARE=core $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/$$f-steps.csv --path api --non-interactive ) || status=1; \
 	done; \
 	kill -- -$$(cat $(CORE_HTTP_PID)) 2>/dev/null || true; rm -f $(CORE_HTTP_PID); exit $$status
+
+# --- The frontends, generated from application/application.entities -----
+#
+# The screens that have a Template in the configuration entities are
+# generated by the LFE generator (generator/) into frontend/src/routes;
+# those files are build output, ignored by git. See "Application
+# Configuration as Entities" in the Programmer's Manual.
+APPLICATION_CONFIG ?= application/application.entities
+GENERATOR_LFE := $(CURDIR)/generator/deps/lfe
+GENERATOR_BEAMS := $(patsubst generator/src/%.lfe,generator/ebin/%.beam,$(wildcard generator/src/*.lfe))
+GENERATOR_ERL = erl -noshell -pa $(GENERATOR_LFE)/ebin -pa $(CURDIR)/generator/ebin
+
+$(GENERATOR_LFE)/ebin/lfe.beam:
+	sh generator/fetch_deps.sh
+
+generator/ebin/%.beam: generator/src/%.lfe | $(GENERATOR_LFE)/ebin/lfe.beam
+	@mkdir -p generator/ebin
+	PATH=$(GENERATOR_LFE)/bin:$$PATH lfec -o generator/ebin $<
+
+generator: $(GENERATOR_BEAMS)
+
+# Make-style: regenerates only when the entities or the generator changed.
+generate: application/.generated
+application/.generated: $(APPLICATION_CONFIG) $(GENERATOR_BEAMS)
+	$(GENERATOR_ERL) -eval "'app-generate':main([\"$(APPLICATION_CONFIG)\", \"frontend\"]), halt()."
+	@touch $@
+
+# After editing application/application.entities by hand.
+format-application-config:
+	cd backend && $(RUN_SCRIPT) scripts/entities-format.ts ../$(APPLICATION_CONFIG)
 
 # The Gleam storage engine's own suite (storage_engine/, in this
 # repository), including its implementation of the core's two stores and
@@ -471,7 +501,7 @@ servers-status:
 # screenshots calls in a row. Real pid files recorded so a later call
 # (by this target, by stop-servers, or by a person checking
 # servers-status directly) finds the exact, same, real process again.
-ensure-servers:
+ensure-servers: generate
 	@mkdir -p $(PID_DIR)
 	@if $(BACKEND_HEALTHY); then \
 	  echo "backend already healthy, reusing (pid $$(cat $(BACKEND_PID)))"; \
@@ -695,7 +725,7 @@ add-header-translations:
 add-brand-translation:
 	$(RUN_SCRIPT) shared-fixtures/add-brand-translation.ts
 
-check-frontend:
+check-frontend: generate
 	cd frontend && $(RUN_NPM_SCRIPT) check
 
 check-backend-types:

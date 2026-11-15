@@ -31,10 +31,56 @@ Calls and parameters, components and screens are ordered, through the
 `Ordered` relation on their kinds.
 
 `backend/scripts/extract-application-config.ts` wrote the first version of
-the file from what exists today; from here on the file is the source. It
-is not yet edited by any tool other than a text editor, and nothing is yet
-generated from it: the generator that produces the Svelte web and terminal
-screens from it is the next step.
+the file from what existed then; from here on the file is the source.
+After editing it by hand, `make format-application-config`
+(`backend/scripts/entities-format.ts`) rewrites it in canonical form.
+
+## The generator (`generator/`, LFE)
+
+Screens that have a `Template` relation are generated: their pages are
+build output, ignored by git, written by `make generate`.
+
+- `generator/fetch_deps.sh` fetches LFE, pinned at v2.1.5 (it runs on the
+  OTP 25 installed here), into `generator/deps/`.
+- `app-entities` reads the ASCII form into a store and answers: a node at a
+  path, its things in order, its kind, a relation's value or target.
+- `app-svelte` holds the templates. Each is an ordinary function run while
+  generating: it takes a screen's configuration and returns its page. They
+  share smaller functions (a field, a column's header and cell, a money
+  input), and the templates contain no characters outside ASCII (HTML
+  entities and `\u` escapes instead).
+- `app-generate` is the command line: `generate <application.entities>
+  <frontend-dir>` writes `<frontend-dir>/src/routes<route>/+page.svelte`
+  for each such screen, only when its text changed.
+
+`make generate` reruns only when the entities or the generator changed
+(stamp: `application/.generated`); `dev`, `dev-verbose`, `web-frontend`,
+`test`, `ensure-servers` and `check-frontend` depend on it.
+
+### The `line-items-transaction` template
+
+Generates Cash Purchase (`/arap/cash-purchase`) and Cash Sale
+(`/arap/cash-sale`). From the screen it reads `Title`, `Intro`, `Party`
+(the fixed contact) and `Party Label`, `Party Argument` (the input key the
+contact goes in), `Tax Account`, `Submit` (the call; its `Client` is the
+API function used), `Submit Label`, `Done Label`, `Fail Text` and
+`Total Label`. Its things, in order:
+
+| Kind | `Control` | Becomes |
+|---|---|---|
+| `Field` | `date` | A date input, today by default |
+| `Field` | `choose` | A select filled from the `Choices` call's client function |
+| `Field` | `one-of` | Radio buttons; `Options` is `value=Label value=Label` |
+| `Column` | `text` | A text cell (`Placeholder`); the line's `itemName` column is required |
+| `Column` | `number` | A number cell (`Min`, `Default`) |
+| `Column` | `money` | An amount typed as currency, held in minor units |
+| `Column` | `storage-badge` | The item's Cold/Hot storage tag (loads the item list) |
+
+Fields before the first column go above the grid; the rest go below the
+total. On submit, the call gets the session's business and ledger, each
+field by its `Name`, the contact under `Party Argument`, the tax account
+and the filled lines. The test of the generated screens is the tutorials'
+browser path (`make test-e2e-tutorial-browser`).
 
 ## The ASCII form (`backend/src/entities/entities-text.ts`)
 

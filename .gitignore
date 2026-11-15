@@ -44,3 +44,10 @@ docs/diagrams/.puppeteer-config.generated.json
 storage_engine/build/
 storage_engine/*.sqlite3*
 storage_engine/deps/
+generator/deps/
+generator/ebin/
+erl_crash.dump
+# Generated from application/application.entities by the generator (make generate)
+frontend/src/routes/arap/cash-purchase/+page.svelte
+frontend/src/routes/arap/cash-sale/+page.svelte
+application/.generated
