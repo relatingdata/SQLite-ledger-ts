@@ -379,6 +379,48 @@ test('the year-end count is per item per location, confirmed by hand or automati
   assert.throws(() => ops.completeYearEndStockTake(ice, '30/06/2027'), Refused);
 });
 
+test('a count confirmed after the new year opened corrects both ledgers', () => {
+  const core = fresh();
+  const ice = business(core);
+  ops.createItem(ice, 'Ice');
+  ops.purchase(ice, { item: 'Ice', quantity: 10, unitMinor: 100, date: '2027-05-01' });
+  ops.purchase(ice, { item: 'Ice', quantity: 10, unitMinor: 160, date: '2027-06-01' });
+  ops.sell(ice, { item: 'Ice', quantity: 5, unitMinor: 300, date: '2027-06-15' });
+  const oldProfit = reports.profitAndLoss(ice).net_income_minor;
+  // The year is closed and the new one opened at the books' 15 ($21.00).
+  ops.closeBooks(ice, '2027-06-30', 'Retained Earnings');
+  ops.createLedger(ice, 'Actual 2027-28');
+  ops.rollover(ice, 'Actual 2027-28', '2027-07-01');
+  const next = ice.forLedger('Actual 2027-28');
+  const item = next.item('Ice');
+  const onHand = (inst: Instance) => inst.balance(inst.existingQuantityAccount('On Hand', { item })!.id);
+  const inventory = (inst: Instance) => inst.balance(inst.existingProductAccount('Inventory', { item })!.id);
+  // Trading carries on in the new ledger before the count comes in.
+  ops.sell(next, { item: 'Ice', quantity: 3, unitMinor: 300, date: '2027-07-02' });
+  const newProfit = reports.profitAndLoss(next).net_income_minor;
+
+  // The count, as at the year end: 13, two short, at the average $1.40.
+  ops.confirmCount(ice, 'Ice', undefined, 13, '2027-06-30');
+  // The old year: two fewer, $2.80 less stock, $2.80 less profit; still closed.
+  assert.equal(onHand(ice), 13);
+  assert.equal(inventory(ice), 2100 - 280);
+  assert.equal(reports.profitAndLoss(ice).net_income_minor, oldProfit - 280);
+  assert.equal(reports.balanceSheet(ice).current_earnings_minor, 0);
+  assert.ok(reports.balanceSheet(ice).balanced);
+  // The new year: its opening stock corrected the same way, against
+  // Retained Earnings, so its own profit is untouched.
+  assert.equal(onHand(next), 13 - 3);
+  assert.equal(inventory(next), 2100 - 280 - 3 * 140);
+  assert.equal(reports.profitAndLoss(next).net_income_minor, newProfit);
+  assert.ok(reports.balanceSheet(next).balanced);
+  // A count found more: written on in both, the same way.
+  ops.confirmCount(ice, 'Ice', undefined, 14, '2027-06-30');
+  assert.equal(onHand(ice), 14);
+  assert.equal(onHand(next), 11);
+  assert.equal(reports.profitAndLoss(ice).net_income_minor, oldProfit - 140);
+  assert.ok(reports.balanceSheet(next).balanced);
+});
+
 test('wages: hourly or salaried, with the two rates as relations of the business', () => {
   const core = fresh();
   const ice = business(core);

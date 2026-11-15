@@ -1042,7 +1042,59 @@ export function stockTake(inst: Instance, itemName: string, counted: number, loc
     }
     const relations: Record<string, Target> = { ...about(of), Counted: String(counted) };
     if (options.yearEnd) relations[YEAR_END_COUNT] = true;
-    return inst.post(optional(reference) ?? generated(options.yearEnd ? 'YEAR-END-COUNT' : 'STOCKTAKE'), lines, { date: optional(options.date), relations });
+    const entry = inst.post(optional(reference) ?? generated(options.yearEnd ? 'YEAR-END-COUNT' : 'STOCKTAKE'), lines, { date: optional(options.date), relations });
+    if (options.yearEnd && (difference !== 0 || value !== 0)) {
+      reclose(inst, entry, of, value);
+      carryForward(inst, entry, of, difference, value);
+    }
+    return entry;
+  });
+}
+
+/** A year-end correction made after the year's books were closed: its
+ * write-off (or write-on) is closed to Retained Earnings too, so the old
+ * year's profit includes it and its balance sheet still balances. */
+function reclose(inst: Instance, correction: Node, of: Product, value: number): void {
+  if (value === 0) return;
+  const date = inst.store.entryDate(correction.id)!;
+  const closings = inst.entriesMarked('Closing').filter((e) => inst.store.entryDate(e)! >= date);
+  if (closings.length === 0) return;
+  const closedOn = closings.map((e) => inst.store.entryDate(e)!).sort().at(-1)!;
+  // The correction credited Write-offs with `value`; closing takes it out.
+  inst.post(
+    inst.freeReference(`CLOSE-${closedOn}-${correction.name}`),
+    [
+      { account: inst.productAccount('Write-offs', of).id, amount: value },
+      { account: inst.accountNamed('Retained Earnings').id, amount: -value },
+    ],
+    { date: closedOn, relations: { Closing: true, 'Correction Of': correction.id } }
+  );
+}
+
+/** A year-end correction made after the new year was opened, while the
+ * business trades on in the new ledger: the same quantity and value are
+ * corrected in the new ledger's opening stock, against Retained Earnings
+ * (the difference belongs to the old year's profit, not the new one's)
+ * and the quantity brought forward. Dated the new ledger's opening date. */
+function carryForward(inst: Instance, correction: Node, of: Product, difference: number, value: number): void {
+  const to = inst.core.related(inst.ledger.id, 'Carried Forward To');
+  if (!to) return;
+  const next = inst.forLedger(to.name);
+  const openedOn = inst.core.value(to.id, 'Opened On')!;
+  const lines: Line[] = [];
+  if (difference !== 0) {
+    lines.push(
+      { account: next.quantityAccount('On Hand', of).id, amount: difference },
+      { account: next.quantityAccount('Brought Forward', { item: of.item }).id, amount: -difference },
+      ...capacityLines(next, of.location, 'Bottle', difference)
+    );
+  }
+  if (value !== 0) {
+    lines.push({ account: next.productAccount('Inventory', of).id, amount: value }, { account: next.accountNamed('Retained Earnings').id, amount: -value });
+  }
+  next.post(next.freeReference(`OPENING-${openedOn}-${correction.name}`), lines, {
+    date: openedOn,
+    relations: { ...about(of), Opening: true, [YEAR_END_COUNT]: true, 'Correction Of': correction.id, 'Carried From': inst.ledger.id },
   });
 }
 
@@ -1306,6 +1358,10 @@ export function rollover(inst: Instance, newLedgerName: string, asOfDate: string
     // Each item's stock arrives in one opening movement, so the new ledger
     // holds it as one layer at the average cost: what the year-end stock
     // take established.
+    // The old ledger knows where it was carried, so that corrections to it
+    // (the year-end count, above all) can be carried there too.
+    inst.core.relate(inst.ledger.id, 'Carried Forward To', next.ledger.id, inst.id);
+    inst.core.relate(next.ledger.id, 'Opened On', asOfDate, inst.id);
     return next.post(`OPENING-${asOfDate}`, lines, { date: asOfDate, relations: { Opening: true, 'Carried From': inst.ledger.id } });
   });
 }

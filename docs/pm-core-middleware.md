@@ -131,6 +131,15 @@ and every quantity unit each adding up to zero on their own.
   option, confirming every line not yet confirmed at the books' quantity.
   Over the frontend API these are `getStockTakeSheet`, `confirmStockCount`
   and `completeYearEndStockTake`.
+- The business trades on in the new ledger while the count is done. A
+  year-end count confirmed after the old year was closed and rolled over
+  corrects both ledgers: in the old one, the write-off (or write-on) dated
+  at the year end, closed to Retained Earnings by a further closing entry
+  if the year's books were already closed; in the new one, the same
+  quantity and value in its opening stock, dated its opening date, against
+  Retained Earnings and the quantity brought forward, so the new year's
+  profit is untouched. `rollover` records the link: the old ledger's
+  `Carried Forward To` relation and the new ledger's `Opened On`.
 - People and plant: `clockInToProject`, `clockOutOfProject`, `clockPlantIn`,
   `clockPlantOut`, and `payWages` (returning a `Payslip`). The Medicare levy
   and superannuation rates are relations of the business, defaulting to the
@@ -241,6 +250,7 @@ entity driver.
 - "stock leaves first in, first out, at the cost each receipt was bought at"
 - "the year-end stock take averages the cost of what is held, and the new ledger starts from it"
 - "the year-end count is per item per location, confirmed by hand or automatically"
+- "a count confirmed after the new year opened corrects both ledgers"
 - "wages: hourly or salaried, with the two rates as relations of the business"
 - "closing the books, then a new ledger with its own accounts"
 - "copy makes an independent instance of a prototype"
