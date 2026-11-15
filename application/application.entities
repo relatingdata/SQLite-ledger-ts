@@ -1,0 +1,2509 @@
+Root
+ Active
+ Application
+  Calls
+   "Create Business" :Call Client=createBusiness
+    - :Parameter Name=businessName
+    - :Parameter Name=financialYearLabel
+    - :Parameter Name=coaPrototype
+    - :Parameter Name="secondaryCurrencies?.join('|')"
+    - :Parameter Name=entityStructure
+    - :Parameter Name="partnerNames?.join('|')"
+    - :Parameter Name=financialYearStart
+    - :Parameter Name=reportingFrequency
+   acceptProjectProposalSimple :Call
+    - :Parameter Name=reference Type=text
+    - :Parameter Name=projectName Type=text
+    - :Parameter Name=targetCompletionDate Type=text
+   acceptQuotation :Call Client=acceptQuotation
+    - :Parameter Name=reference
+   addDepartmentViaStructurePopup :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=departmentName Type=text
+   addDivisionViaStructurePopup :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=valueName Type=text
+   addOrUpdateItemSource :Call Client=addOrUpdateItemSource
+    - :Parameter Name=itemName
+    - :Parameter Name="source.manufacturerName ?? undefined"
+    - :Parameter Name=source.vendorName
+    - :Parameter Name="source.vendorSku ?? undefined"
+    - :Parameter Name="source.vendorUpc ?? undefined"
+    - :Parameter Name="source.priceMinor != null ? String(source.priceMinor) : undefined"
+    - :Parameter Name="source.currency ?? undefined"
+    - :Parameter Name="source.packageQuantity != null ? String(source.packageQuantity) : undefined"
+    - :Parameter Name="source.isPreferred ? 'true' : undefined"
+    - :Parameter Name="source.preferenceNotes ?? undefined"
+   addPrototypeLineSimple :Call
+    - :Parameter Name=prototypeName Type=text
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=kind Type=text
+    - :Parameter Name=resourceOrItemName Type=text
+    - :Parameter Name=quantity Type=text
+    - :Parameter Name=unit Type=text
+    - :Parameter Name=priceMinor Type=text
+    - :Parameter Name=durationHours Type=text
+    - :Parameter Name=scheduledStart Type=text
+   addTopLevelCategoryViaStructurePopup :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=categoryName Type=text
+   allocatePaymentToInvoice :Call Client=allocatePaymentToInvoice
+    - :Parameter Name="String(id)"
+    - :Parameter Name=paymentReference
+    - :Parameter Name="String(allocatedMinor)"
+    - :Parameter Name=allocationDate
+    - :Parameter Name=paymentAccount
+   assignEmployeeDepartmentViaStructurePopup :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=employeeName Type=text
+    - :Parameter Name=departmentName Type=select
+   buildBankCurrencyStructure :Call Client=buildBankCurrencyStructure
+    - :Parameter Name=businessName
+    - :Parameter Name=headerName
+    - :Parameter Name=leafKind
+    - :Parameter Name="encodeRecordList(['bankAccountName', 'currency'], selections)"
+    - :Parameter Name=homeCurrency
+   buildBankCurrencyStructureSimple :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=bankAccountName Type=text
+    - :Parameter Name=currency Type=text
+    - :Parameter Name=confirmCombination Type=check
+   cashPurchaseSimple :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=locationName Type=select
+    - :Parameter Name=itemName Type=text
+    - :Parameter Name=quantity Type=text
+    - :Parameter Name=unitCostMinor Type=money
+    - :Parameter Name=ledger Type=text
+   cashSaleSimple :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=locationName Type=select
+    - :Parameter Name=itemName Type=text
+    - :Parameter Name=quantity Type=text
+    - :Parameter Name=unitPriceMinor Type=money
+    - :Parameter Name=ledger Type=text
+   changeOwnPassword :Call Client=changeOwnPassword
+    - :Parameter Name=currentPassword
+    - :Parameter Name=newPassword
+   changeUserPassword :Call Client=changeUserPassword
+    - :Parameter Name="String(userId)"
+    - :Parameter Name=password
+   clockInToProject :Call Client=clockInToProject
+    - :Parameter Name=employeeName
+    - :Parameter Name=projectExpenseAccount
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+   clockInToProjectSimple :Call
+    - :Parameter Name=employeeName Type=text
+    - :Parameter Name=projectExpenseAccount Type=text
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=ledger Type=text
+   clockOutOfProject :Call Client=clockOutOfProject
+    - :Parameter Name=employeeName
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+   clockOutOfProjectSimple :Call
+    - :Parameter Name=employeeName Type=text
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=ledger Type=text
+   clockPlantInSimple :Call
+    - :Parameter Name=plantName Type=text
+    - :Parameter Name=projectExpenseAccount Type=text
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=ledger Type=text
+   clockPlantOutSimple :Call
+    - :Parameter Name=plantName Type=text
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=ledger Type=text
+   closeBooks :Call Client=closeBooks
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.asOfDate
+    - :Parameter Name=input.retainedEarningsAccount
+    - :Parameter Name="input.hierarchyPath?.length ? encodeStringList(input.hierarchyPath) : undefined"
+   closeBooksSimple :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=ledger Type=text
+    - :Parameter Name=asOfDate Type=text
+    - :Parameter Name=retainedEarningsAccount Type=select
+   closePeriod :Call Client=closePeriod
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+    - :Parameter Name=throughDate
+   completeCashPurchase :Call Client=completeCashPurchase
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.locationName
+    - :Parameter Name=input.vendorName
+    - :Parameter Name=input.taxAccount
+    - :Parameter Name=input.paymentMethod
+    - :Parameter Name=input.transdate
+   completePosSale :Call Client=completePosSale
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.locationName
+    - :Parameter Name=input.customerName
+    - :Parameter Name=input.revenueAccount
+    - :Parameter Name=input.taxAccount
+    - :Parameter Name=input.paymentMethod
+    - :Parameter Name="input.cashTenderedMinor === undefined ? undefined : String(input.cashTenderedMinor)"
+    - :Parameter Name=input.transdate
+    - :Parameter Name=input.terminalName
+   completeStockTake :Call Client=completeStockTake
+    - :Parameter Name="String(id)"
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+    - :Parameter Name=varianceExpenseAccount
+    - :Parameter Name=inventoryAccount
+    - :Parameter Name="encodeRecordList(['key', 'value'], Object.entries(unitCostMinorByItem).map(([key, value]) => ({ key, value: String(value) })))"
+   confirmRestockPickedLine :Call Client=confirmRestockPickedLine
+    - :Parameter Name=runReference
+    - :Parameter Name=item
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+   convertStorageSpace :Call Client=convertStorageSpace
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.itemName
+    - :Parameter Name="encodeShape(input.definitionDimensions)"
+    - :Parameter Name="encodeStringList(input.fromValues)"
+    - :Parameter Name="encodeStringList(input.toValues)"
+    - :Parameter Name="String(input.quantity)"
+    - :Parameter Name=input.reference
+   createAndConfigureLocation :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=locationName Type=text
+    - :Parameter Name=city Type=text
+    - :Parameter Name=locationType Type=select
+    - :Parameter Name=division Type=text
+    - :Parameter Name=bottleCapacity Type=text
+    - :Parameter Name=cartonCapacity Type=text
+   createBusiness :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=financialYearLabel Type=text
+    - :Parameter Name=businessType Type=select
+    - :Parameter Name=homeCurrency Type=text
+    - :Parameter Name=coaPrototype Type=select
+    - :Parameter Name=secondaryCurrencies Type=text
+   createCategorySimple :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=categoryName Type=text
+   createCustomer :Call Client=createCustomer
+    - :Parameter Name=name
+   createCustomerSimple :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=customerName Type=text
+    - :Parameter Name=parent Type=select
+   createDepartment :Call Client=createDepartment
+    - :Parameter Name=business
+    - :Parameter Name=name
+   createEmployeeAt :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=employeeName Type=text
+    - :Parameter Name=locationName Type=text
+   createEmployeeContact :Call Client=createEmployeeContact
+    - :Parameter Name=name
+    - :Parameter Name=placeOfEmployment
+   createEntity :Call Client=createEntity
+    - :Parameter Name=data.name
+    - :Parameter Name="data.parent ?? undefined"
+    - :Parameter Name="data.parentId != null ? String(data.parentId) : undefined"
+    - :Parameter Name="data.relation ?? undefined"
+    - :Parameter Name="data.accountnumber ?? undefined"
+   createEntitySimple :Call
+    - :Parameter Name=name Type=text
+    - :Parameter Name=parent Type=text
+   createHierarchyGrouping :Call Client=createHierarchyGrouping
+    - :Parameter Name=business
+    - :Parameter Name=groupingName
+   createHierarchyGroupingSimple :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=groupingName Type=text
+   createHierarchyValue :Call Client=createHierarchyValue
+    - :Parameter Name=business
+    - :Parameter Name=groupingName
+    - :Parameter Name=valueName
+    - :Parameter Name="parentValueName ?? undefined"
+   createHierarchyValueSimple :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=groupingName Type=text
+    - :Parameter Name=valueName Type=text
+   createInvoice :Call Client=createInvoice
+    - :Parameter Name=input.invoiceType
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.reference
+    - :Parameter Name=input.counterpartyName
+    - :Parameter Name=input.invoiceDate
+    - :Parameter Name=input.description
+   createItemUnderCategory :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=itemName Type=text
+    - :Parameter Name=category Type=text
+   createLedger :Call Client=createLedger
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+   createLedgerSimple :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=ledger Type=text
+   createLocation :Call Client=createLocation
+    - :Parameter Name=name
+    - :Parameter Name=business
+    - :Parameter Name=input.city
+    - :Parameter Name=input.location_type
+    - :Parameter Name="String(input.is_billing_address)"
+    - :Parameter Name="input.bottle_capacity == null ? '' : String(input.bottle_capacity)"
+    - :Parameter Name="input.carton_capacity == null ? '' : String(input.carton_capacity)"
+    - :Parameter Name=input.timezone
+   createLocationType :Call Client=createLocationType
+    - :Parameter Name=name
+   createPlantItemSimple :Call
+    - :Parameter Name=name Type=text
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=hourlyRateMinor Type=text
+    - :Parameter Name=ownedOrHired Type=text
+    - :Parameter Name=hireVendor Type=text
+   createPosTerminal :Call Client=createPosTerminal
+    - :Parameter Name=locationName
+    - :Parameter Name=terminalName
+    - :Parameter Name=currency
+   createProfitCenter :Call Client=createProfitCenter
+    - :Parameter Name=businessName
+    - :Parameter Name=profitCenterName
+   createPrototypeSimple :Call
+    - :Parameter Name=prototypeName Type=text
+    - :Parameter Name=businessName Type=text
+   createProvider :Call Client=createProvider
+    - :Parameter Name=name
+   createProviderSimple :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=providerName Type=text
+    - :Parameter Name=parent Type=select
+   createPurchaseOrderInCartons :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=providerName Type=select
+    - :Parameter Name=itemName Type=select
+    - :Parameter Name=cartons Type=text
+    - :Parameter Name=pricePerCartonMinor Type=money
+    - :Parameter Name=reference Type=text
+    - :Parameter Name=ledger Type=text
+   createQuotation :Call Client=createQuotation
+    - :Parameter Name=input.reference
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.customer
+    - :Parameter Name=input.item
+    - :Parameter Name="String(input.quantity)"
+    - :Parameter Name="String(input.price_minor)"
+    - :Parameter Name=input.location
+    - :Parameter Name=input.transdate
+    - :Parameter Name=input.description
+    - :Parameter Name=input.expiryDate
+   createRecurringJournal :Call Client=createRecurringJournal
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+    - :Parameter Name=reference
+    - :Parameter Name=startDate
+    - :Parameter Name=recurrence
+    - :Parameter Name=description
+    - :Parameter Name="recurrenceCount != null ? String(recurrenceCount) : undefined"
+   createRfq :Call Client=createRfq
+    - :Parameter Name=input.reference
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.vendor
+    - :Parameter Name=input.item
+    - :Parameter Name="String(input.quantity)"
+    - :Parameter Name="String(input.price_minor)"
+    - :Parameter Name=input.location
+    - :Parameter Name=input.transdate
+    - :Parameter Name=input.description
+    - :Parameter Name=input.expiryDate
+   createStockTake :Call Client=createStockTake
+    - :Parameter Name=locationName
+    - :Parameter Name=takeDate
+    - :Parameter Name=businessName
+   createUncategorizedItem :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=itemName Type=text
+   createUser :Call Client=createUserAccount
+    - :Parameter Name=username
+    - :Parameter Name=password
+    - :Parameter Name="encodeStringList(roles)"
+   createUserSimple :Call
+    - :Parameter Name=username Type=text
+    - :Parameter Name=password Type=text
+    - :Parameter Name=roles Type=check_by_text
+   defineProductShape :Call Client=defineProductShape
+    - :Parameter Name=business
+    - :Parameter Name="encodeShape(dimensions)"
+   deleteBomComponent :Call Client=deleteBomComponent
+    - :Parameter Name=itemName
+    - :Parameter Name=componentItem
+   deleteDepartment :Call Client=deleteDepartment
+    - :Parameter Name=name
+    - :Parameter Name=business
+   deleteDepartmentViaStructurePopup :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=departmentName Type=text
+   deleteEmployeeDepartment :Call Client=deleteEmployeeDepartment
+    - :Parameter Name=employeeName
+   deleteEmployeeManager :Call Client=deleteEmployeeManager
+    - :Parameter Name=employeeName
+   deleteHierarchyGrouping :Call Client=deleteHierarchyGrouping
+    - :Parameter Name=business
+    - :Parameter Name=groupingName
+   deleteHierarchyTag :Call Client=deleteHierarchyTag
+    - :Parameter Name=entityName
+    - :Parameter Name=hierarchyName
+   deleteHierarchyValue :Call Client=deleteHierarchyValue
+    - :Parameter Name=business
+    - :Parameter Name=groupingName
+    - :Parameter Name=valueName
+   deleteItemSource :Call Client=deleteItemSource
+    - :Parameter Name="String(id)"
+   deleteLocation :Call Client=deleteLocation
+    - :Parameter Name=name
+    - :Parameter Name=business
+   deleteTypedAddress :Call Client=deleteTypedAddress
+    - :Parameter Name=name
+    - :Parameter Name=addressType
+   deleteTypedContactPerson :Call Client=deleteTypedContactPerson
+    - :Parameter Name=name
+    - :Parameter Name=contactType
+   deleteTypedPhone :Call Client=deleteTypedPhone
+    - :Parameter Name=name
+    - :Parameter Name=phoneType
+   deleteVocabularyPreference :Call Client=deleteVocabularyPreference
+    - :Parameter Name=conceptName
+    - :Parameter Name=scope
+    - :Parameter Name="String(scopeId)"
+   deleteVocabularyWord :Call Client=deleteVocabularyWord
+    - :Parameter Name=word
+   dispatchRestockRun :Call Client=dispatchRestockRun
+    - :Parameter Name=runReference
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+    - :Parameter Name=warehouseName
+    - :Parameter Name=retailOutletName
+    - :Parameter Name=transdate
+   dispatchStock :Call Client=dispatchStock
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.reference
+    - :Parameter Name=input.locationName
+    - :Parameter Name=input.transdate
+   dispatchStockQuantitySimple :Call
+    - :Parameter Name=reference Type=text
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=ledger Type=text
+    - :Parameter Name=itemName Type=text
+    - :Parameter Name=locationName Type=text
+    - :Parameter Name=quantity Type=text
+   ensureItemInventoryAccountSimple :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=itemName Type=text
+   ensureSkillSimple :Call
+    - :Parameter Name=skillName Type=text
+   exportInvoiceAsEInvoice :Call Client=exportInvoiceAsEInvoice
+    - :Parameter Name="String(id)"
+   exportInvoicePdf :Call Client=exportInvoicePdf
+    - :Parameter Name=input.invoiceReference
+    - :Parameter Name=input.customerName
+    - :Parameter Name=input.date
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name="encodeStringList(input.lineReferences)"
+   getActiveLedger :Call Client=getActiveLedger
+    - :Parameter Name=businessName
+   getAgedInvoices :Call Client=getAgedInvoices
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+    - :Parameter Name=invoiceType
+    - :Parameter Name=asOfDate
+   getAgedSummary :Call Client=getAgedSummary
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+    - :Parameter Name=invoiceType
+    - :Parameter Name=asOfDate
+   getBalanceSheet :Call Client=getBalanceSheet
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+    - :Parameter Name=asOfDate
+   getBankAccounts :Call Client=getBankAccounts
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+   getBelowReorderStock :Call Client=getBelowReorderStock
+   getBomComponents :Call Client=getBomComponents
+    - :Parameter Name=itemName
+   getBusinessConfigurationReport :Call Client=getBusinessConfigurationReport
+    - :Parameter Name=businessName
+   getBusinessTypes :Call Client=getBusinessTypes
+   getBusinesses :Call Client=getBusinesses
+   getCashFlowForecast :Call Client=getCashFlowForecast
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+    - :Parameter Name=asOfDate
+    - :Parameter Name="horizonDays ? String(horizonDays) : undefined"
+   getCashPosition :Call Client=getCashPosition
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+   getCoaPrototypeAccounts :Call Client=getCoaPrototypeAccounts
+    - :Parameter Name=language
+   getConceptsWithAlternates :Call Client=getConceptsWithAlternates
+   getContact :Call Client=getContact
+    - :Parameter Name=name
+   getCounterpartyHistory :Call Client=getCounterpartyHistory
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+    - :Parameter Name=counterparty
+   getCreditStatus :Call Client=getCreditStatus
+    - :Parameter Name=name
+   getCustomerStatement :Call Client=getCustomerStatement
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+    - :Parameter Name=customer
+    - :Parameter Name=asOfDate
+   getDefaultLanguage :Call Client=getDefaultLanguage
+   getEmployeeSchedule :Call Client=getEmployeeSchedule
+    - :Parameter Name=employeeName
+   getEntityTree :Call Client=getEntityTree
+    - :Parameter Name=business
+   getExpiringStock :Call Client=getExpiringStock
+    - :Parameter Name=asOfDate
+    - :Parameter Name="String(withinDays)"
+   getHierarchy :Call Client=getHierarchy
+    - :Parameter Name=business
+   getHierarchyAssignments :Call Client=getHierarchyAssignments
+    - :Parameter Name=hierarchyName
+   getHierarchyGroups :Call Client=getHierarchyGroups
+    - :Parameter Name=hierarchyName
+   getHierarchyLinksPointingAt :Call Client=getHierarchyLinksPointingAt
+    - :Parameter Name="String(entityId)"
+   getHierarchyTag :Call Client=getHierarchyTag
+    - :Parameter Name=entityName
+    - :Parameter Name=hierarchyName
+   getInventoryListingByLocation :Call Client=getInventoryListingByLocation
+    - :Parameter Name=businessName
+    - :Parameter Name=hierarchyName
+   getInvoiceById :Call Client=getInvoiceById
+    - :Parameter Name="String(id)"
+   getInvoiceOutstanding :Call Client=getInvoiceOutstanding
+    - :Parameter Name="String(id)"
+   getItem :Call Client=getItem
+    - :Parameter Name=name
+   getItemLocation :Call Client=getItemLocation
+    - :Parameter Name=itemName
+    - :Parameter Name=locationName
+   getJournalEntry :Call Client=getJournalEntry
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+    - :Parameter Name="String(journalId)"
+    - :Parameter Name=occurrenceDate
+   getLanguageDirection :Call Client=getLanguageDirection
+    - :Parameter Name=language
+   getLanguages :Call Client=getLanguages
+   getLedgerDateRange :Call Client=getLedgerDateRange
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+   getLedgers :Call Client=getLedgers
+    - :Parameter Name=businessName
+   getLocalizedText :Call Client=getLocalizedText
+    - :Parameter Name=language
+    - :Parameter Name=businessName
+   getLocationByName :Call Client=getLocationByName
+    - :Parameter Name=name
+   getLocationCurrencies :Call Client=getLocationCurrencies
+    - :Parameter Name=locationName
+   getLocationOpenHours :Call Client=getLocationOpenHours
+    - :Parameter Name=locationName
+   getLocationTypes :Call Client=getLocationTypes
+   getMenuTree :Call Client=getMenuTree
+    - :Parameter Name=businessName
+   getOpenProjectClock :Call Client=getOpenProjectClock
+    - :Parameter Name=employeeName
+   getOrderStatus :Call Client=getOrderStatus
+    - :Parameter Name=reference
+   getOrgChartStructure :Call Client=getOrgChartStructure
+    - :Parameter Name=business
+   getOrganizationChart :Call Client=getOrganizationChart
+    - :Parameter Name=businessName
+   getPeriodStatus :Call Client=getPeriodStatus
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+   getPosTerminals :Call Client=getPosTerminals
+    - :Parameter Name=locationName
+   getProductShapes :Call Client=getProductShapes
+    - :Parameter Name=business
+   getProfitAndLoss :Call Client=getProfitAndLoss
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+    - :Parameter Name=fromDate
+    - :Parameter Name=toDate
+    - :Parameter Name=group
+    - :Parameter Name="hierarchyPath && hierarchyPath.length > 0 ? hierarchyPath.join(',') : undefined"
+    - :Parameter Name=hierarchyName
+   getProfitAndLossByHierarchy :Call Client=getProfitAndLossByHierarchy
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+    - :Parameter Name="hierarchyPath.join(',')"
+    - :Parameter Name=fromDate
+    - :Parameter Name=toDate
+   getProfitAndLossByHierarchyTree :Call Client=getProfitAndLossByHierarchyTree
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+    - :Parameter Name="hierarchyPath.join(',')"
+    - :Parameter Name=hierarchyName
+    - :Parameter Name=fromDate
+    - :Parameter Name=toDate
+   getProfitAndLossComparison :Call Client=getProfitAndLossComparison
+    - :Parameter Name=business
+    - :Parameter Name=a
+    - :Parameter Name=b
+   getProfitCenters :Call Client=getProfitCenters
+    - :Parameter Name=businessName
+   getQuotation :Call Client=getQuotation
+    - :Parameter Name=reference
+   getReminderCandidates :Call Client=getReminderCandidates
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+    - :Parameter Name=asOfDate
+   getReportingPeriods :Call Client=getReportingPeriods
+    - :Parameter Name=businessName
+    - :Parameter Name=asOf
+   getRestockPickingList :Call Client=getRestockPickingList
+    - :Parameter Name=runReference
+    - :Parameter Name=warehouseName
+   getRoles :Call Client=getRoles
+   getSalesReport :Call Client=getSalesReport
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+    - :Parameter Name=fromDate
+    - :Parameter Name=toDate
+   getStockMovementReport :Call Client=getStockMovementReport
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+    - :Parameter Name=fromDate
+    - :Parameter Name=toDate
+    - :Parameter Name=hierarchyName
+   getStockOutRiskReport :Call Client=getStockOutRiskReport
+    - :Parameter Name="String(windowDays)"
+   getStockTake :Call Client=getStockTake
+    - :Parameter Name="String(id)"
+   getStorageSpaceReport :Call Client=getStorageSpaceReport
+   getTrialBalance :Call Client=getTrialBalance
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+    - :Parameter Name=asOfDate
+   getTrialBalanceComparison :Call Client=getTrialBalanceComparison
+    - :Parameter Name=business
+    - :Parameter Name=a
+    - :Parameter Name=b
+   getTypedAddresses :Call Client=getTypedAddresses
+    - :Parameter Name=name
+   getTypedContactPersons :Call Client=getTypedContactPersons
+    - :Parameter Name=name
+   getTypedPhones :Call Client=getTypedPhones
+    - :Parameter Name=name
+   getUserRoleMatrix :Call Client=getUserRoleMatrix
+    - :Parameter Name=business
+   getUsers :Call Client=getUsers
+   getVocabularyWords :Call Client=getVocabularyWords
+   importEInvoice :Call Client=importEInvoice
+    - :Parameter Name=xml
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+    - :Parameter Name=vendorName
+    - :Parameter Name=poReference
+   instantiateProjectProposalSimple :Call
+    - :Parameter Name=prototypeName Type=text
+    - :Parameter Name=reference Type=text
+    - :Parameter Name=client Type=text
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=ledger Type=text
+    - :Parameter Name=headerItem Type=text
+    - :Parameter Name=transdate Type=text
+    - :Parameter Name=targetCompletionDate Type=text
+   listAddressTypes :Call Client=listAddressTypes
+   listContactPersonTypes :Call Client=listContactPersonTypes
+   listDepartments :Call Client=listDepartments
+    - :Parameter Name=business
+   listInvoices :Call Client=listInvoices
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+    - :Parameter Name=invoiceType
+    - :Parameter Name=source
+    - :Parameter Name="String(limit)"
+    - :Parameter Name="String(offset)"
+   listItemSources :Call Client=listItemSources
+    - :Parameter Name=itemName
+   listItems :Call Client=listItems
+    - :Parameter Name=business
+    - :Parameter Name="limit != null ? String(limit) : undefined"
+    - :Parameter Name="limit != null ? String(offset) : undefined"
+   listJournalEntries :Call Client=listJournalEntries
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+    - :Parameter Name="String(limit)"
+    - :Parameter Name="String(offset)"
+   listLocations :Call Client=listLocations
+    - :Parameter Name=business
+   listPendingCustomers :Call Client=listPendingCustomers
+   listPhoneTypes :Call Client=listPhoneTypes
+   listQuotations :Call Client=listQuotations
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+    - :Parameter Name=direction
+   login :Call Client=apiLogin
+    - :Parameter Name=username
+    - :Parameter Name=password
+   logout :Call Client=apiLogout
+   lookupByUpc :Call Client=lookupItemByUpc
+    - :Parameter Name=upc
+   markQuotationSent :Call Client=markQuotationSent
+    - :Parameter Name=reference
+   nominateBankAccount :Call Client=nominateBankAccount
+    - :Parameter Name=businessName
+    - :Parameter Name=bankAccountName
+    - :Parameter Name=routingDetail
+    - :Parameter Name=accountNumber
+   nominateBankAccountSimple :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=bankAccountName Type=text
+    - :Parameter Name=routingDetail Type=text
+    - :Parameter Name=accountNumber Type=text
+   nominateLocationCurrency :Call Client=nominateLocationCurrency
+    - :Parameter Name=locationName
+    - :Parameter Name=currencyCode
+   openContainer :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=locationName Type=text
+    - :Parameter Name=itemName Type=text
+    - :Parameter Name=containerValue Type=select
+    - :Parameter Name=cartonsOpened Type=text
+    - :Parameter Name=unitValue Type=select
+    - :Parameter Name=unitsProduced Type=text
+    - :Parameter Name=ledger Type=text
+   openStorageContainer :Call Client=openStorageContainer
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.location
+    - :Parameter Name=input.item
+    - :Parameter Name="encodeShape(input.definitionDimensions)"
+    - :Parameter Name="encodeStringList(input.containerValues)"
+    - :Parameter Name="String(input.cartonsOpened)"
+    - :Parameter Name="encodeStringList(input.unitValues)"
+    - :Parameter Name="String(input.unitsProduced)"
+    - :Parameter Name=input.reference
+   payEmployeeWages :Call Client=payEmployeeWages
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.employeeName
+    - :Parameter Name="input.hours === undefined ? undefined : String(input.hours)"
+    - :Parameter Name=input.wagesExpenseAccount
+    - :Parameter Name=input.paymentMethod
+    - :Parameter Name=input.transdate
+   posSaleInLedgerSimple :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=locationName Type=text
+    - :Parameter Name=ledger Type=text
+    - :Parameter Name=itemName Type=text
+    - :Parameter Name=quantity Type=text
+    - :Parameter Name=unitPriceMinor Type=text
+   posSaleSimple :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=locationName Type=select_value
+    - :Parameter Name=itemName Type=text_enter
+    - :Parameter Name=quantity Type=text
+    - :Parameter Name=unitPriceMinor Type=money
+    - :Parameter Name=ledger Type=text
+   postAPPayment :Call Client=postAPPayment
+    - :Parameter Name=reference
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+   postARReceipt :Call Client=postARReceipt
+    - :Parameter Name=reference
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+   postInvoiceById :Call Client=postInvoiceById
+    - :Parameter Name="String(id)"
+    - :Parameter Name=revenueOrExpenseAccount
+    - :Parameter Name=taxAccount
+    - :Parameter Name="String(restockInventory)"
+   postJournalEntry :Call Client=postJournalEntry
+    - :Parameter Name=reference
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+   postJournalEntrySimple :Call
+    - :Parameter Name=reference Type=text
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=ledger Type=text
+   postOrderDispatch :Call Client=postOrderDispatch
+    - :Parameter Name=reference
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+   postOrderReceipt :Call Client=postOrderReceipt
+    - :Parameter Name=reference
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+   postPurchaseOrder :Call Client=postPurchaseOrder
+    - :Parameter Name=reference
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+   postPurchaseOrderSimple :Call
+    - :Parameter Name=reference Type=text
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=ledger Type=text
+   postSalesOrder :Call Client=postSalesOrder
+    - :Parameter Name=reference
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+   previewCloseBooks :Call Client=previewCloseBooks
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.asOfDate
+    - :Parameter Name=input.retainedEarningsAccount
+    - :Parameter Name="input.hierarchyPath?.length ? encodeStringList(input.hierarchyPath) : undefined"
+   receiveIntoStorageStock :Call Client=receiveIntoStorageStock
+    - :Parameter Name=locationName
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.reference
+    - :Parameter Name=input.itemName
+    - :Parameter Name="String(input.quantity)"
+    - :Parameter Name=input.transdate
+    - :Parameter Name="encodeStringList(input.combinationValues)"
+    - :Parameter Name="encodeShape(input.combinationShape)"
+   receiveItems :Call Client=receiveItems
+    - :Parameter Name=locationName
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.reference
+    - :Parameter Name=input.itemName
+    - :Parameter Name="String(input.quantity)"
+    - :Parameter Name=input.transdate
+    - :Parameter Name="encodeStringList(input.combinationValues)"
+    - :Parameter Name="encodeShape(input.combinationShape)"
+   receiveLot :Call Client=receiveLot
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.reference
+    - :Parameter Name=input.itemName
+    - :Parameter Name=input.lotNumber
+    - :Parameter Name=input.receivedDate
+    - :Parameter Name="input.expirationDate ?? undefined"
+    - :Parameter Name="String(input.quantity)"
+   receiveStock :Call Client=receiveStock
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.reference
+    - :Parameter Name=input.locationName
+    - :Parameter Name=input.transdate
+   receiveStockQuantitySimple :Call
+    - :Parameter Name=reference Type=text
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=ledger Type=text
+    - :Parameter Name=itemName Type=text
+    - :Parameter Name=locationName Type=text
+    - :Parameter Name=quantity Type=text
+   receiveStockWithCombination :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=itemName Type=text
+    - :Parameter Name=locationName Type=select
+    - :Parameter Name=quantity Type=text
+    - :Parameter Name=groupingName Type=select
+    - :Parameter Name=storageValue Type=select
+    - :Parameter Name=ledger Type=text
+   recordStockTakeCount :Call Client=recordStockTakeCount
+    - :Parameter Name="String(id)"
+    - :Parameter Name=itemName
+    - :Parameter Name="String(countedQuantity)"
+   registerBankAccount :Call Client=registerBankAccount
+    - :Parameter Name=accountName
+    - :Parameter Name=business
+    - :Parameter Name=scopeName
+    - :Parameter Name="overdraftLimitMinor != null ? String(overdraftLimitMinor) : undefined"
+   registerCustomer :Call Client=registerCustomer
+    - :Parameter Name=input.name
+    - :Parameter Name=input.email
+    - :Parameter Name="input.phone ?? undefined"
+    - :Parameter Name="input.address_line1 ?? undefined"
+    - :Parameter Name="input.address_line2 ?? undefined"
+    - :Parameter Name="input.city ?? undefined"
+    - :Parameter Name="input.region ?? undefined"
+    - :Parameter Name="input.postal_code ?? undefined"
+    - :Parameter Name="input.country ?? undefined"
+    - :Parameter Name="input.preferred_language ?? undefined"
+    - :Parameter Name=input.password
+    - :Parameter Name="input.card_label ?? undefined"
+   rejectQuotation :Call Client=rejectQuotation
+    - :Parameter Name=reference
+   renameEntitySimple :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=oldName Type=text
+    - :Parameter Name=newName Type=text
+    - :Parameter Name=parentName Type=text
+   reopenPeriod :Call Client=reopenPeriod
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+   resetReminder :Call Client=resetReminder
+    - :Parameter Name=counterparty
+   resolveOpenContainerAccounts :Call Client=resolveOpenContainerAccounts
+    - :Parameter Name=input.business
+    - :Parameter Name=input.location
+    - :Parameter Name=input.item
+    - :Parameter Name="encodeShape(input.definitionDimensions)"
+    - :Parameter Name="encodeStringList(input.containerValues)"
+    - :Parameter Name="encodeStringList(input.unitValues)"
+   resolveReceiveAccounts :Call Client=resolveReceiveAccounts
+    - :Parameter Name=input.business
+    - :Parameter Name=input.itemName
+    - :Parameter Name="encodeStringList(input.combinationValues)"
+    - :Parameter Name="encodeShape(input.combinationShape)"
+   resolveRolloverLines :Call Client=resolveRolloverLines
+    - :Parameter Name=input.business
+    - :Parameter Name=input.oldLedger
+    - :Parameter Name=input.newLedger
+    - :Parameter Name=input.asOfDate
+   resolveTransferAccounts :Call Client=resolveTransferAccounts
+    - :Parameter Name=input.business
+    - :Parameter Name=input.itemName
+    - :Parameter Name=input.fromLocationName
+    - :Parameter Name=input.toLocationName
+   reverseJournalEntry :Call Client=reverseJournalEntry
+    - :Parameter Name=business
+    - :Parameter Name=ledger
+    - :Parameter Name="String(journalId)"
+    - :Parameter Name=occurrenceDate
+    - :Parameter Name=reversalDate
+   revokeEntity :Call Client=revokeEntity
+    - :Parameter Name="String(id)"
+   rolloverToNewPeriodSimple :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=oldLedger Type=text
+    - :Parameter Name=newLedger Type=text
+    - :Parameter Name=asOfDate Type=text
+   saveBusinessTypeAnswers :Call Client=saveBusinessTypeAnswers
+    - :Parameter Name=businessName
+    - :Parameter Name="encodeRecordList(['key', 'value'], Object.entries(answers).map(([key, value]) => ({ key, value })))"
+   saveLocation :Call Client=saveLocation
+    - :Parameter Name=name
+    - :Parameter Name=business
+    - :Parameter Name=input.city
+    - :Parameter Name=input.location_type
+    - :Parameter Name="String(input.is_billing_address)"
+    - :Parameter Name="input.bottle_capacity == null ? '' : String(input.bottle_capacity)"
+    - :Parameter Name="input.carton_capacity == null ? '' : String(input.carton_capacity)"
+    - :Parameter Name=input.timezone
+   sendReminder :Call Client=sendReminder
+    - :Parameter Name=counterparty
+   setBomComponent :Call Client=setBomComponent
+    - :Parameter Name=itemName
+    - :Parameter Name=business
+    - :Parameter Name=componentItem
+    - :Parameter Name="String(quantity)"
+    - :Parameter Name=unit
+   setBomComponentSimple :Call
+    - :Parameter Name=assemblyItem Type=text
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=componentItem Type=select
+    - :Parameter Name=quantity Type=text
+    - :Parameter Name=unit Type=select
+   setContact :Call Client=setContact
+    - :Parameter Name=name
+    - :Parameter Name="...CONTACT_FIELD_ORDER.map((field) => (contact[field] == null ? undefined : String(contact[field])))"
+   setDefaultLanguage :Call Client=setDefaultLanguage
+    - :Parameter Name=language
+   setEmployeeDepartment :Call Client=setEmployeeDepartment
+    - :Parameter Name=employeeName
+    - :Parameter Name=departmentName
+   setEmployeeManager :Call Client=setEmployeeManager
+    - :Parameter Name=employeeName
+    - :Parameter Name=managerName
+   setEmployeeManagerViaStructurePopup :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=employeeName Type=text
+    - :Parameter Name=managerName Type=select
+   setEmployeeSchedule :Call Client=setEmployeeSchedule
+    - :Parameter Name=employeeName
+    - :Parameter Name=locationName
+   setEmployeeWageSimple :Call
+    - :Parameter Name=employeeName Type=text
+    - :Parameter Name=wageMinorPerHour Type=text
+   setEntityRelationship :Call Client=setEntityRelationship
+    - :Parameter Name=entityName
+    - :Parameter Name=relationshipType
+    - :Parameter Name=targetName
+   setHierarchyTag :Call Client=setHierarchyTag
+    - :Parameter Name=entityName
+    - :Parameter Name=hierarchyName
+    - :Parameter Name=parentName
+   setHierarchyTagSimple :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=locationName Type=text
+    - :Parameter Name=division Type=select
+   setItem :Call Client=setItem
+    - :Parameter Name=name
+    - :Parameter Name="item.description ?? undefined"
+    - :Parameter Name="item.unit_of_measure ?? undefined"
+    - :Parameter Name="item.upc ?? undefined"
+   setItemCostAndPackSize :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=itemName Type=text
+    - :Parameter Name=providerName Type=select
+    - :Parameter Name=unitCostMinor Type=money
+    - :Parameter Name=packageQuantity Type=text
+   setItemLocationLevels :Call Client=setItemLocationLevels
+    - :Parameter Name=itemName
+    - :Parameter Name=locationName
+    - :Parameter Name="levels.minLevel == null ? '' : String(levels.minLevel)"
+    - :Parameter Name="levels.maxLevel == null ? '' : String(levels.maxLevel)"
+    - :Parameter Name="levels.reorderLevel == null ? '' : String(levels.reorderLevel)"
+    - :Parameter Name="levels.shelfSide ?? ''"
+    - :Parameter Name="levels.rack ?? ''"
+    - :Parameter Name="levels.level == null ? '' : String(levels.level)"
+    - :Parameter Name=businessName
+    - :Parameter Name=ledgerName
+   setLanguageDirection :Call Client=setLanguageDirection
+    - :Parameter Name=language
+    - :Parameter Name="direction ?? ''"
+   setLocationOpenHours :Call Client=setLocationOpenHours
+    - :Parameter Name=locationName
+   setOwnDateFormat :Call Client=setOwnDateFormat
+    - :Parameter Name=dateFormat
+   setOwnNumberFormat :Call Client=setOwnNumberFormat
+    - :Parameter Name=numberFormat
+   setOwnPageSize :Call Client=setOwnPageSize
+    - :Parameter Name="String(pageSize)"
+   setSessionProfitCenter :Call Client=setSessionProfitCenter
+    - :Parameter Name="profitCenterName ?? undefined"
+   setTranslation :Call Client=setTranslation
+    - :Parameter Name=entity
+    - :Parameter Name=language
+    - :Parameter Name=text
+   setTranslationSimple :Call
+    - :Parameter Name=concept Type=search_and_select
+    - :Parameter Name=language Type=text
+    - :Parameter Name=translationText Type=text
+   setTypedAddress :Call Client=setTypedAddress
+    - :Parameter Name=name
+    - :Parameter Name=address.address_type
+    - :Parameter Name="address.business_name ?? undefined"
+    - :Parameter Name="address.address_line1 ?? undefined"
+    - :Parameter Name="address.address_line2 ?? undefined"
+    - :Parameter Name="address.city ?? undefined"
+    - :Parameter Name="address.region ?? undefined"
+    - :Parameter Name="address.postal_code ?? undefined"
+    - :Parameter Name="address.country ?? undefined"
+   setTypedContactPerson :Call Client=setTypedContactPerson
+    - :Parameter Name=name
+    - :Parameter Name=contactType
+    - :Parameter Name=value.name
+    - :Parameter Name="value.phone ?? undefined"
+    - :Parameter Name="value.email ?? undefined"
+   setTypedPhone :Call Client=setTypedPhone
+    - :Parameter Name=name
+    - :Parameter Name=phoneType
+    - :Parameter Name=phone
+    - :Parameter Name="businessName ?? undefined"
+   setUserActiveApi :Call Client=setUserActiveApi
+    - :Parameter Name="String(userId)"
+    - :Parameter Name="String(active)"
+   setUserRoleInBusiness :Call Client=setUserRoleInBusiness
+    - :Parameter Name=business
+    - :Parameter Name=username
+    - :Parameter Name=roleName
+   setUserRolesApi :Call Client=setUserRolesApi
+    - :Parameter Name="String(userId)"
+    - :Parameter Name="encodeStringList(roles)"
+   setUserRolesSimple :Call
+    - :Parameter Name=username Type=text
+    - :Parameter Name=roles Type=text
+   setVocabularyPreference :Call Client=setVocabularyPreference
+    - :Parameter Name=conceptName
+    - :Parameter Name=scope
+    - :Parameter Name="String(scopeId)"
+    - :Parameter Name=preferredAlternateName
+   stageAPPayment :Call Client=stageAPPayment
+    - :Parameter Name=input.reference
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.vendor
+    - :Parameter Name="String(input.amount_minor)"
+    - :Parameter Name=input.transdate
+    - :Parameter Name=input.description
+   stageARReceipt :Call Client=stageARReceipt
+    - :Parameter Name=input.reference
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.customer
+    - :Parameter Name="String(input.amount_minor)"
+    - :Parameter Name=input.transdate
+    - :Parameter Name=input.description
+   stageJournalLine :Call
+    - :Parameter Name=reference Type=text
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=ledger Type=text
+    - :Parameter Name=account Type=select
+    - :Parameter Name=amountMinor Type=signed_money
+   stageLine :Call Client=stageLine
+    - :Parameter Name=line.reference
+    - :Parameter Name=line.business
+    - :Parameter Name=line.ledger
+    - :Parameter Name=line.description
+    - :Parameter Name=line.transdate
+    - :Parameter Name=line.account
+    - :Parameter Name="line.accountId != null ? String(line.accountId) : undefined"
+    - :Parameter Name="String(line.amount_minor)"
+    - :Parameter Name=line.memo
+   stageOrderDispatch :Call Client=stageOrderDispatch
+    - :Parameter Name=input.reference
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.so_reference
+    - :Parameter Name=input.item
+    - :Parameter Name=input.item_qty
+    - :Parameter Name=input.customer
+    - :Parameter Name="String(input.quantity)"
+    - :Parameter Name="input.unit_cost_minor === undefined ? undefined : String(input.unit_cost_minor)"
+    - :Parameter Name="String(input.sale_price_minor)"
+    - :Parameter Name="input.tax_minor === undefined ? undefined : String(input.tax_minor)"
+    - :Parameter Name=input.transdate
+    - :Parameter Name=input.description
+   stageOrderReceipt :Call Client=stageOrderReceipt
+    - :Parameter Name=input.reference
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.po_reference
+    - :Parameter Name=input.item
+    - :Parameter Name=input.item_qty
+    - :Parameter Name=input.vendor
+    - :Parameter Name="String(input.quantity)"
+    - :Parameter Name="String(input.value_minor)"
+    - :Parameter Name="input.tax_minor === undefined ? undefined : String(input.tax_minor)"
+    - :Parameter Name=input.transdate
+    - :Parameter Name=input.description
+   stagePurchaseOrder :Call Client=stagePurchaseOrder
+    - :Parameter Name=input.reference
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.vendor
+    - :Parameter Name=input.item
+    - :Parameter Name="String(input.quantity)"
+    - :Parameter Name="String(input.price_minor)"
+    - :Parameter Name=input.location
+    - :Parameter Name=input.transdate
+    - :Parameter Name=input.description
+   stagePurchaseOrderSimple :Call
+    - :Parameter Name=reference Type=text
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=ledger Type=text
+    - :Parameter Name=vendor Type=text
+    - :Parameter Name=item Type=text
+    - :Parameter Name=quantity Type=text
+    - :Parameter Name=priceMinor Type=text
+   stageSalesOrder :Call Client=stageSalesOrder
+    - :Parameter Name=input.reference
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.customer
+    - :Parameter Name=input.item
+    - :Parameter Name="String(input.quantity)"
+    - :Parameter Name="String(input.price_minor)"
+    - :Parameter Name=input.location
+    - :Parameter Name=input.transdate
+    - :Parameter Name=input.description
+   supersedeEntity :Call Client=supersedeEntity
+    - :Parameter Name="String(id)"
+    - :Parameter Name="data.name ?? undefined"
+    - :Parameter Name="data.parent ?? undefined"
+    - :Parameter Name="data.relation ?? undefined"
+    - :Parameter Name="data.accountnumber ?? undefined"
+   tagItemHierarchy :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=itemName Type=text
+    - :Parameter Name=groupingName Type=text
+    - :Parameter Name=valueName Type=text
+   tagSkillSimple :Call
+    - :Parameter Name=contactName Type=text
+    - :Parameter Name=skillName Type=text
+    - :Parameter Name=rateMinorPerHour Type=text
+   transferItems :Call Client=transferItems
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.itemName
+    - :Parameter Name=input.fromLocationName
+    - :Parameter Name=input.toLocationName
+    - :Parameter Name="String(input.quantity)"
+    - :Parameter Name=input.reference
+    - :Parameter Name=undefined
+   transferItemsSimple :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=itemName Type=select
+    - :Parameter Name=fromLocationName Type=select
+    - :Parameter Name=toLocationName Type=select
+    - :Parameter Name=quantity Type=text
+    - :Parameter Name=reference Type=text
+    - :Parameter Name=ledger Type=text
+   transferStock :Call Client=transferStock
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.itemName
+    - :Parameter Name=input.fromLocationName
+    - :Parameter Name=input.toLocationName
+    - :Parameter Name="String(input.quantity)"
+    - :Parameter Name=input.reference
+    - :Parameter Name=input.transdate
+   unregisterBankAccount :Call Client=unregisterBankAccount
+    - :Parameter Name=accountName
+   unsetUserRoleInBusiness :Call Client=unsetUserRoleInBusiness
+    - :Parameter Name=business
+    - :Parameter Name=username
+    - :Parameter Name=roleName
+   updatePrototypeLineSimple :Call
+    - :Parameter Name=prototypeName Type=text
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=resourceOrItemName Type=text
+    - :Parameter Name=newDurationHours Type=text
+    - :Parameter Name=newPriceMinor Type=text
+   verifyCustomer :Call Client=verifyCustomer
+    - :Parameter Name=name
+    - :Parameter Name="String(approve)"
+   writeOffItems :Call Client=writeOffItems
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.reference
+    - :Parameter Name=input.itemName
+    - :Parameter Name="String(input.quantity)"
+    - :Parameter Name="String(input.unitCostMinor)"
+    - :Parameter Name=input.writeOffExpenseAccount
+    - :Parameter Name=input.inventoryAccount
+    - :Parameter Name=input.reason
+    - :Parameter Name=input.transdate
+  Components
+   AddressList :Component "Calls deleteTypedAddress">/Root/Application/Calls/deleteTypedAddress "Calls getTypedAddresses">/Root/Application/Calls/getTypedAddresses "Calls listAddressTypes">/Root/Application/Calls/listAddressTypes "Calls setTypedAddress">/Root/Application/Calls/setTypedAddress Source="frontend/src/lib/components/AddressList.svelte"
+    - :Use Component>/Root/Application/Components/TypedList "Prop canSave"="{(values) => !!String(values.lines ?? '').trim()}" "Prop emptyText"="No addresses yet \u2014 click here and press Insert to add one." "Prop entityName"="{entityName}" "Prop getItems"="{getTypedAddresses}" "Prop initialValues"="{() => ({ businessName: '', lines: '', city: '', region: '', postal: '', country: '' })}" "Prop kindLabel"=Addresses "Prop listTypes"="{listAddressTypes}" "Prop newTypePlaceholder"="e.g. Head Office, Warehouse, Site Office" "Prop remove"="{deleteTypedAddress}" "Prop save"="{(name, type, values) => {\n    const lines = String(values.lines ?? '').split('\\n');\n    return setTypedAddress(name, {\n      address_type: type,\n      business_name: (values.businessName as string) || null,\n      address_line1: lines[0] || null,\n      address_line2: lines.slice(1).join('\\n') || null,\n      city: (values.city as string) || null,\n      region: (values.region as string) || null,\n      postal_code: (values.postal as string) || null,\n      country: (values.country as string) || null,\n    });\n  }}" "Prop typeField"=address_type
+    - :Field Control=input Placeholder="e.g. Acme Pty Ltd \u2014 leave blank if this is a personal address"
+    - :Field Control=textarea Placeholder="e.g. Unit 4, 42 Market Street"
+    - :Field Control=input Placeholder="{translations.current['City'] ?? 'City'}"
+    - :Field Control=input Placeholder="Region / State"
+    - :Field Control=input Placeholder="{translations.current['Postal code'] ?? 'Postal code'}"
+    - :Field Control=input Placeholder="{translations.current['Country'] ?? 'Country'}"
+   AxisPLNode :Component Source="frontend/src/lib/components/AxisPLNode.svelte"
+    - :Action Handler="() => (open = !open)"
+    - :Use Component>/Root/Application/Components/ProfitAndLossTable "Prop pl"="{node.profitAndLoss}"
+    - :Use Component>/Root/Application/Components/AxisPLNode "Prop depth"="{depth + 1}" "Prop node"="{child}"
+   BusinessStructurePopup :Component "Calls createDepartment">/Root/Application/Calls/createDepartment "Calls createHierarchyGrouping">/Root/Application/Calls/createHierarchyGrouping "Calls createHierarchyValue">/Root/Application/Calls/createHierarchyValue "Calls createLocation">/Root/Application/Calls/createLocation "Calls deleteDepartment">/Root/Application/Calls/deleteDepartment "Calls deleteEmployeeDepartment">/Root/Application/Calls/deleteEmployeeDepartment "Calls deleteEmployeeManager">/Root/Application/Calls/deleteEmployeeManager "Calls deleteHierarchyGrouping">/Root/Application/Calls/deleteHierarchyGrouping "Calls deleteHierarchyTag">/Root/Application/Calls/deleteHierarchyTag "Calls deleteHierarchyValue">/Root/Application/Calls/deleteHierarchyValue "Calls deleteLocation">/Root/Application/Calls/deleteLocation "Calls getHierarchy">/Root/Application/Calls/getHierarchy "Calls getHierarchyAssignments">/Root/Application/Calls/getHierarchyAssignments "Calls getHierarchyTag">/Root/Application/Calls/getHierarchyTag "Calls getLocationTypes">/Root/Application/Calls/getLocationTypes "Calls getOrgChartStructure">/Root/Application/Calls/getOrgChartStructure "Calls listDepartments">/Root/Application/Calls/listDepartments "Calls listLocations">/Root/Application/Calls/listLocations "Calls setEmployeeDepartment">/Root/Application/Calls/setEmployeeDepartment "Calls setEmployeeManager">/Root/Application/Calls/setEmployeeManager "Calls setHierarchyTag">/Root/Application/Calls/setHierarchyTag Source="frontend/src/lib/components/BusinessStructurePopup.svelte"
+    - :Heading Text="Business Structure"
+    - :Action Handler=onClose Label="\u00d7"
+    - :Action Handler="() => goToStep(i)"
+    - :Use Component>/Root/Application/Components/OrgChartNode "Prop managerOptions"="{managerOptions}" "Prop moveOptions"="{moveStructureOptions}" "Prop movingKey"="{movingStructureKey}" "Prop nodes"="{orgChartNodes}" "Prop onAddChild"="{onAddChildStructureTab}" "Prop onCancelMove"="{() => (movingStructureKey = null)}" "Prop onCancelReassignManager"="{() => (reassigningManagerKey = null)}" "Prop onConfirmMove"="{confirmMoveStructureNode}" "Prop onConfirmReassignManager"="{confirmReassignManager}" "Prop onSelect"="{selectNode}" "Prop onStartMove"="{startMoveStructureNode}" "Prop onStartReassignManager"="{startReassignManager}" "Prop reassigningManagerKey"="{reassigningManagerKey}" "Prop selectedKey"="{selectedKey}"
+    - :Action Handler="() => (addingLocationForm = true)" Label=+
+    - :Action Handler="() => (addingDivisionValue = true)" Label=+
+    - :Action Handler="() => (addingDepartmentForm = true)" Label=+
+    - :Use Component>/Root/Application/Components/Form "Prop fields"="{locationFields}" "Prop onSubmit"="{submitNewLocation}" "Prop submitLabel"="Create Location" "Prop values"="{newLocationValues}"
+    - :Field Bind=newDivisionValueName Control=input Placeholder="{translations.current['Division name, e.g. Adelaide Metro'] ?? 'Division name, e.g. Adelaide Metro'}"
+    - :Action Handler=submitNewDivisionValue Label=Create
+    - :Action Handler="() => (addingDivisionValue = false)" Label=Cancel
+    - :Field Bind=newDepartmentName Control=input Placeholder="{translations.current['Department name, e.g. Sales'] ?? 'Department name, e.g. Sales'}"
+    - :Action Handler=submitNewDepartment Label=Create
+    - :Action Handler="() => (addingDepartmentForm = false)" Label=Cancel
+    - :Use Component>/Root/Application/Components/StructureTreeNode "Prop moveOptions"="{moveCategoryOptions}" "Prop movingKey"="{movingCategoryKey}" "Prop node"="{node}" "Prop onAddChild"="{onAddChildCategoriesTab}" "Prop onCancelMove"="{() => (movingCategoryKey = null)}" "Prop onConfirmMove"="{confirmMoveCategory}" "Prop onSelect"="{selectNode}" "Prop onStartMove"="{startMoveCategory}" "Prop selectedKey"="{selectedKey}"
+    - :Action Handler=addTopLevelCategory Label=+
+    - :Field Bind=newCategoryName Control=input Placeholder="{translations.current['Category name'] ?? 'Category name'}"
+    - :Action Handler=submitNewCategory Label=Create
+    - :Action Handler="() => (addingCategoryUnder = null)" Label=Cancel
+    - :Use Component>/Root/Application/Components/StructureTreeNode "Prop moveOptions"="{[]}" "Prop movingKey"="{null}" "Prop node"="{node}" "Prop onAddChild"="{onAddChildHierarchiesTab}" "Prop onCancelMove"="{() => {}}" "Prop onConfirmMove"="{() => {}}" "Prop onSelect"="{selectNode}" "Prop onStartMove"="{() => {}}" "Prop selectedKey"="{selectedKey}"
+    - :Action Handler="() => (addingGrouping = true)" Label=+
+    - :Field Bind=newGroupingName Control=input Placeholder="{translations.current['Hierarchy name, e.g. Storage'] ?? 'Hierarchy name, e.g. Storage'}"
+    - :Action Handler=submitNewGrouping Label=Create
+    - :Action Handler="() => (addingGrouping = false)" Label=Cancel
+    - :Field Bind=newHierarchyValueName Control=input Placeholder="{translations.current['Value name, e.g. Secure'] ?? 'Value name, e.g. Secure'}"
+    - :Action Handler=submitNewHierarchyValue Label=Create
+    - :Action Handler="() => (addingValueUnderGrouping = null)" Label=Cancel
+    - :Action Handler=prevStep Label=Back
+    - :Action Handler=nextStep Label=Finish
+   CashTransaction :Component "Calls completeCashPurchase">/Root/Application/Calls/completeCashPurchase "Calls completePosSale">/Root/Application/Calls/completePosSale "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls listItems">/Root/Application/Calls/listItems "Calls listLocations">/Root/Application/Calls/listLocations Source="frontend/src/lib/components/CashTransaction.svelte"
+    - :Heading Text=Date
+    - :Field Bind=transdate Control=input Label=Date Type=date
+    - :Field Bind=locationName Control=select
+    - :Column Label=Item
+    - :Column Label=Quantity
+    - :Column Label="Unit price"
+    - :Column Label=Tax
+    - :Column Label=Storage
+    - :Field Bind=line.itemName Control=input Placeholder="e.g. Golden Lager 330ml"
+    - :Field Bind=line.quantity Control=input Type=number
+    - :Field Control=input Type=number
+    - :Field Control=input Type=number
+    - :Action Handler="() => removeLine(line.key)" Label="\u2715"
+    - :Heading Text="Payment method"
+    - :Field Bind=paymentMethod Control=input Label=Cash Type=radio
+    - :Field Bind=paymentMethod Control=input Label=EFT Type=radio
+    - :Action Handler=submit
+   ContactList :Component "Calls deleteTypedContactPerson">/Root/Application/Calls/deleteTypedContactPerson "Calls getTypedContactPersons">/Root/Application/Calls/getTypedContactPersons "Calls listContactPersonTypes">/Root/Application/Calls/listContactPersonTypes "Calls setTypedContactPerson">/Root/Application/Calls/setTypedContactPerson Source="frontend/src/lib/components/ContactList.svelte"
+    - :Use Component>/Root/Application/Components/TypedList "Prop canSave"="{(values) => !!String(values.name ?? '').trim()}" "Prop emptyText"="No contacts yet \u2014 click here and press Insert to add one." "Prop entityName"="{entityName}" "Prop getItems"="{getTypedContactPersons}" "Prop initialValues"="{() => ({ name: '', phone: '', email: '' })}" "Prop kindLabel"=Contacts "Prop listTypes"="{listContactPersonTypes}" "Prop newTypePlaceholder"="e.g. Store Man, Dispatch, Help Desk" "Prop remove"="{deleteTypedContactPerson}" "Prop save"="{(name, type, values) =>\n    setTypedContactPerson(name, type, {\n      name: String(values.name ?? '').trim(),\n      phone: (values.phone as string) || null,\n      email: (values.email as string) || null,\n    })}" "Prop typeField"=contact_type
+    - :Field Control=input Placeholder="e.g. Jordan Reyes, or Help Desk"
+    - :Field Control=input Placeholder="{translations.current['Phone'] ?? 'Phone'}"
+    - :Field Control=input Placeholder="{translations.current['Email (optional)'] ?? 'Email (optional)'}"
+   ContactPersonList :Component Source="frontend/src/lib/components/ContactPersonList.svelte"
+    - :Use Component>/Root/Application/Components/ContactList "Prop entityName"="{entityName}"
+   Form :Component Source="frontend/src/lib/components/Form.svelte"
+    - :Field Bind="values[field.name]" Control=select
+    - :Field Control=input Type=checkbox
+    - :Field Bind="values[field.name]" Control=input Type=number
+    - :Field Bind="values[field.name]" Control=input Type=password
+    - :Field Bind="values[field.name]" Control=input Type=date
+    - :Field Bind="values[field.name]" Control=input Type=text
+    - :Action Handler=submit
+   FromToDateFields :Component Source="frontend/src/lib/components/FromToDateFields.svelte"
+    - :Heading Text=From
+    - :Field Bind=fromDate Control=input Label=From Type=date
+    - :Heading Text=To
+    - :Field Bind=toDate Control=input Label=To Type=date
+   HierarchyGroupPLNode :Component Source="frontend/src/lib/components/HierarchyGroupPLNode.svelte"
+    - :Action Handler="() => (open = !open)" Label="(No group)"
+    - :Use Component>/Root/Application/Components/ProfitAndLossTable "Prop pl"="{node.profitAndLoss}"
+   HierarchyGroupTreeNode :Component Source="frontend/src/lib/components/HierarchyGroupTreeNode.svelte"
+    - :Action Handler="() => onSelect(name)"
+   HierarchyGroupTreePicker :Component Source="frontend/src/lib/components/HierarchyGroupTreePicker.svelte"
+    - :Action Handler="() => (open = !open)" Label=Consolidated
+    - :Action Handler="() => pick('')" Label=Consolidated
+    - :Use Component>/Root/Application/Components/HierarchyGroupTreeNode "Prop children"="{node.children}" "Prop depth"="{1}" "Prop hierarchyName"="{hierarchyName}" "Prop name"="{translations.current[node.name] ?? node.name}" "Prop onSelect"="{pick}" "Prop selected"="{selected}"
+   NotImplemented :Component
+   OrgChartNode :Component Source="frontend/src/lib/components/OrgChartNode.svelte"
+    - :Action Handler="() => onAddChild(selectedNode)" Label=+
+    - :Action Handler="() => onStartMove(selectedNode)" Label="Move\u2026"
+    - :Action Handler="() => onStartReassignManager(selectedNode)" Label="Reports to\u2026"
+    - :Field Bind=moveSelectEl Control=select
+    - :Field Bind=managerSelectEl Control=select
+   Pager :Component
+   PaymentReceipt :Component "Calls allocatePaymentToInvoice">/Root/Application/Calls/allocatePaymentToInvoice "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getInvoiceOutstanding">/Root/Application/Calls/getInvoiceOutstanding "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls listInvoices">/Root/Application/Calls/listInvoices "Calls postAPPayment">/Root/Application/Calls/postAPPayment "Calls postARReceipt">/Root/Application/Calls/postARReceipt "Calls stageAPPayment">/Root/Application/Calls/stageAPPayment "Calls stageARReceipt">/Root/Application/Calls/stageARReceipt Source="frontend/src/lib/components/PaymentReceipt.svelte"
+    - :Heading Text=Date
+    - :Field Bind=transdate Control=input Label=Date Type=date
+    - :Heading Text=Reference
+    - :Field Bind=reference Control=input Label=Reference Placeholder="{referencePlaceholder}"
+    - :Field Bind=partyName Control=select
+    - :Heading Text=Amount
+    - :Field Bind=amount Control=input Label=Amount Placeholder=0.00
+    - :Heading Text=Description
+    - :Field Bind=description Control=input Label=Description Placeholder=optional
+    - :Action Handler=save Label=Saving
+    - :Heading Text="Allocate to outstanding invoices (optional)"
+    - :Column Label=Reference
+    - :Column Label="Invoice Date"
+    - :Column Label=Outstanding
+    - :Column Label=Allocate
+    - :Field Bind="allocations[inv.id]" Control=input Placeholder=0.00
+   PhoneList :Component "Calls deleteTypedPhone">/Root/Application/Calls/deleteTypedPhone "Calls getTypedPhones">/Root/Application/Calls/getTypedPhones "Calls listPhoneTypes">/Root/Application/Calls/listPhoneTypes "Calls setTypedPhone">/Root/Application/Calls/setTypedPhone Source="frontend/src/lib/components/PhoneList.svelte"
+    - :Use Component>/Root/Application/Components/TypedList "Prop canSave"="{(values) => !!String(values.number ?? '').trim()}" "Prop emptyText"="No phone numbers yet \u2014 click here and press Insert to add one." "Prop entityName"="{entityName}" "Prop getItems"="{getTypedPhones}" "Prop initialValues"="{() => ({ number: '', businessName: '' })}" "Prop kindLabel"="Phone numbers" "Prop listTypes"="{listPhoneTypes}" "Prop newTypePlaceholder"="e.g. Direct Line, After Hours" "Prop remove"="{deleteTypedPhone}" "Prop save"="{(name, type, values) => setTypedPhone(name, type, String(values.number ?? ''), (values.businessName as string) || null)}" "Prop typeField"=phone_type
+    - :Field Control=input Placeholder="{translations.current['Number'] ?? 'Number'}" Type=tel
+    - :Field Control=input Placeholder="Business / company name (optional)"
+   ProfitAndLossTable :Component Source="frontend/src/lib/components/ProfitAndLossTable.svelte"
+    - :Column Label=Debit
+    - :Column Label=Credit
+   SelectableListEditor :Component Source="frontend/src/lib/components/SelectableListEditor.svelte"
+   Self :Component
+   StructureTreeNode :Component Source="frontend/src/lib/components/StructureTreeNode.svelte"
+    - :Action Handler="(e) => { e.stopPropagation(); onAddChild(node); }" Label=+
+    - :Action Handler="(e) => { e.stopPropagation(); onStartMove(node); }" Label="Move\u2026"
+    - :Field Bind=moveSelectEl Control=select
+    - :Use Component>/Root/Application/Components/Self "Prop depth"="{depth + 1}" "Prop moveOptions"="{moveOptions}" "Prop movingKey"="{movingKey}" "Prop node"="{child}" "Prop onAddChild"="{onAddChild}" "Prop onCancelMove"="{onCancelMove}" "Prop onConfirmMove"="{onConfirmMove}" "Prop onSelect"="{onSelect}" "Prop onStartMove"="{onStartMove}" "Prop selectedKey"="{selectedKey}"
+   Tree :Component
+   TreeEditor :Component Source="frontend/src/lib/components/TreeEditor.svelte"
+   TypedList :Component Source="frontend/src/lib/components/TypedList.svelte"
+    - :Field Bind=newTypeText Control=input Placeholder="{newTypePlaceholder}"
+    - :Field Bind=newType Control=select
+    - :Action Handler="() => { addingNewType = true; newType = ''; }" Label="+ New type"
+    - :Action Handler="() => (adding = false)" Label=Cancel
+    - :Action Handler=doSave
+   WeeklyHoursGrid :Component Source="frontend/src/lib/components/WeeklyHoursGrid.svelte"
+    - :Field Bind=d.on Control=input Type=checkbox
+    - :Field Bind=d.from_time Control=input Type=time
+    - :Field Bind=d.to_time Control=input Type=time
+  Kinds
+   Action
+   Call Ordered>/Root/Active
+   Column
+   Component Ordered>/Root/Active
+   Field
+   Heading
+   Parameter
+   Screen Ordered>/Root/Active
+   Use
+  Screens
+   "/" :Screen Source="frontend/src/routes/+page.svelte"
+    - :Heading Text=Welcome
+   "/account/password" :Screen "Calls changeOwnPassword">/Root/Application/Calls/changeOwnPassword "Calls setOwnDateFormat">/Root/Application/Calls/setOwnDateFormat "Calls setOwnNumberFormat">/Root/Application/Calls/setOwnNumberFormat "Calls setOwnPageSize">/Root/Application/Calls/setOwnPageSize Source="frontend/src/routes/account/password/+page.svelte" Title="Account Settings"
+    - :Heading Text="Account Settings"
+    - :Heading Text="Page size"
+    - :Use Component>/Root/Application/Components/Form "Prop fields"="{[\n      {\n        name: 'pageSize',\n        label: 'Rows per page',\n        type: 'number',\n        min: 5,\n        max: 200,\n        hint: 'How many rows any paginated list (journal, stock listing, and more) shows per page.',\n      },\n    ]}" "Prop onSubmit"="{savePageSize}" "Prop submitLabel"="Save page size"
+    - :Heading Text="Number and date format"
+    - :Use Component>/Root/Application/Components/Form "Prop fields"="{[\n      { name: 'numberFormat', label: 'Number format', type: 'select', options: NUMBER_FORMAT_OPTIONS },\n      { name: 'dateFormat', label: 'Date format', type: 'select', options: DATE_FORMAT_OPTIONS },\n    ]}" "Prop onSubmit"="{saveFormats}" "Prop submitLabel"="Save format"
+    - :Heading Text="Change password"
+    - :Use Component>/Root/Application/Components/Form "Prop fields"="{[\n      { name: 'currentPassword', label: 'Current password', type: 'password', autocomplete: 'current-password' },\n      { name: 'newPassword', label: 'New password', type: 'password', autocomplete: 'new-password' },\n      { name: 'confirmPassword', label: 'Confirm new password', type: 'password', autocomplete: 'new-password' },\n    ]}" "Prop onSubmit"="{savePassword}" "Prop submitLabel"="Change password"
+   "/arap" :Screen Source="frontend/src/routes/arap/+page.svelte" Title="AR / AP"
+    - :Heading Text="AR / AP"
+   "/arap/ap-payment" :Screen Source="frontend/src/routes/arap/ap-payment/+page.svelte"
+    - :Use Component>/Root/Application/Components/PaymentReceipt "Prop direction"=payment
+   "/arap/ap-purchase" :Screen "Calls createInvoice">/Root/Application/Calls/createInvoice "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls listItems">/Root/Application/Calls/listItems "Calls listLocations">/Root/Application/Calls/listLocations "Calls postInvoiceById">/Root/Application/Calls/postInvoiceById "Calls receiveStock">/Root/Application/Calls/receiveStock Source="frontend/src/routes/arap/ap-purchase/+page.svelte" Title="AP Purchase"
+    - :Heading Text="AP Purchase"
+    - :Heading Text=Date
+    - :Field Bind=transdate Control=input Label=Date Type=date
+    - :Heading Text=Reference
+    - :Field Bind=reference Control=input Label=Reference Placeholder="e.g. PO-1001"
+    - :Heading Text=Provider
+    - :Field Bind=provider Control=select Label=Provider
+    - :Heading Text="Account (what this purchase was for)"
+    - :Field Bind=expenseAccount Control=select Label="Account (what this purchase was for)"
+    - :Heading Text="Tax %"
+    - :Field Bind=taxRate Control=input Label="Tax %" Placeholder=0
+    - :Heading Text=Location
+    - :Field Bind=purchaseLocation Control=select Label=Location
+    - :Heading Text=Description
+    - :Field Bind=description Control=input Label=Description Placeholder=optional
+    - :Column Label=Item
+    - :Column Label=Quantity
+    - :Column Label="Unit price"
+    - :Column Label=Storage
+    - :Field Bind=line.itemName Control=input Label="AP Purchase" Placeholder="e.g. Golden Lager 330ml"
+    - :Field Bind=line.quantity Control=input Label="AP Purchase" Type=number
+    - :Field Control=input Label="AP Purchase" Type=number
+    - :Action Handler="() => removeLine(line.key)" Label="\u2715"
+    - :Action Handler=save Label=Saving
+   "/arap/ar-receipt" :Screen Source="frontend/src/routes/arap/ar-receipt/+page.svelte"
+    - :Use Component>/Root/Application/Components/PaymentReceipt "Prop direction"=receipt
+   "/arap/ar-sale" :Screen "Calls createInvoice">/Root/Application/Calls/createInvoice "Calls dispatchStock">/Root/Application/Calls/dispatchStock "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getCreditStatus">/Root/Application/Calls/getCreditStatus "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls listItems">/Root/Application/Calls/listItems "Calls listLocations">/Root/Application/Calls/listLocations "Calls postInvoiceById">/Root/Application/Calls/postInvoiceById Source="frontend/src/routes/arap/ar-sale/+page.svelte" Title="AR Sale"
+    - :Heading Text="AR Sale"
+    - :Heading Text=Date
+    - :Field Bind=transdate Control=input Label=Date Type=date
+    - :Heading Text=Reference
+    - :Field Bind=reference Control=input Label=Reference Placeholder="e.g. INV-1001"
+    - :Heading Text=Customer
+    - :Field Bind=customer Control=select Label=Customer
+    - :Heading Text=Location
+    - :Field Bind=saleLocation Control=select Label=Location
+    - :Heading Text="Tax %"
+    - :Field Bind=taxRate Control=input Label="Tax %" Placeholder=0
+    - :Heading Text=Description
+    - :Field Bind=description Control=input Label=Description Placeholder=optional
+    - :Column Label=Item
+    - :Column Label=Quantity
+    - :Column Label="Unit price"
+    - :Column Label=Storage
+    - :Field Bind=line.itemName Control=input Label="AR Sale" Placeholder="e.g. Golden Lager 330ml"
+    - :Field Bind=line.quantity Control=input Label="AR Sale" Type=number
+    - :Field Control=input Label="AR Sale" Type=number
+    - :Action Handler="() => removeLine(line.key)" Label="\u2715"
+    - :Action Handler=save Label=Saving
+   "/arap/cash-purchase" :Screen Source="frontend/src/routes/arap/cash-purchase/+page.svelte"
+    - :Use Component>/Root/Application/Components/CashTransaction "Prop direction"=purchase
+   "/arap/cash-sale" :Screen Source="frontend/src/routes/arap/cash-sale/+page.svelte"
+    - :Use Component>/Root/Application/Components/CashTransaction "Prop direction"=sale
+   "/arap/quotations" :Screen "Calls acceptQuotation">/Root/Application/Calls/acceptQuotation "Calls createQuotation">/Root/Application/Calls/createQuotation "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls listLocations">/Root/Application/Calls/listLocations "Calls listQuotations">/Root/Application/Calls/listQuotations "Calls markQuotationSent">/Root/Application/Calls/markQuotationSent "Calls rejectQuotation">/Root/Application/Calls/rejectQuotation Source="frontend/src/routes/arap/quotations/+page.svelte" Title=Quotations
+    - :Heading Text=Quotations
+    - :Heading Text=Date
+    - :Field Bind=transdate Control=input Label=Date Type=date
+    - :Heading Text=Reference
+    - :Field Bind=reference Control=input Label=Reference Placeholder="e.g. QUOTE-1001"
+    - :Heading Text=Expires
+    - :Field Bind=expiryDate Control=input Label=Expires Type=date
+    - :Heading Text=Customer
+    - :Field Bind=customer Control=select Label=Customer
+    - :Heading Text=Item
+    - :Field Bind=item Control=select Label=Item
+    - :Heading Text=Quantity
+    - :Field Bind=quantity Control=input Label=Quantity Placeholder=0
+    - :Heading Text="Price per unit"
+    - :Field Bind=price Control=input Label="Price per unit" Placeholder=0.00
+    - :Heading Text="Dispatch location"
+    - :Field Bind=dispatchLocation Control=select Label="Dispatch location"
+    - :Heading Text=Description
+    - :Field Bind=description Control=input Label=Description Placeholder=optional
+    - :Action Handler=save Label=Saving
+    - :Column Label=Reference
+    - :Column Label=Customer
+    - :Column Label=Item
+    - :Column Label=Status
+    - :Column Label=Expires
+    - :Action Handler="() => doMarkSent(q)" Label="Mark sent"
+    - :Action Handler="() => doAccept(q)" Label="Accept \u2192 Order"
+    - :Action Handler="() => doReject(q)" Label=Reject
+   "/arap/rfq" :Screen "Calls acceptQuotation">/Root/Application/Calls/acceptQuotation "Calls createRfq">/Root/Application/Calls/createRfq "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls listLocations">/Root/Application/Calls/listLocations "Calls listQuotations">/Root/Application/Calls/listQuotations "Calls markQuotationSent">/Root/Application/Calls/markQuotationSent "Calls rejectQuotation">/Root/Application/Calls/rejectQuotation Source="frontend/src/routes/arap/rfq/+page.svelte" Title="RFQ (Request for Quotation)"
+    - :Heading Text="RFQ (Request for Quotation)"
+    - :Heading Text=Date
+    - :Field Bind=transdate Control=input Label=Date Type=date
+    - :Heading Text=Reference
+    - :Field Bind=reference Control=input Label=Reference Placeholder="e.g. RFQ-1001"
+    - :Heading Text=Expires
+    - :Field Bind=expiryDate Control=input Label=Expires Type=date
+    - :Heading Text=Provider
+    - :Field Bind=vendor Control=select Label=Provider
+    - :Heading Text=Item
+    - :Field Bind=item Control=select Label=Item
+    - :Heading Text=Quantity
+    - :Field Bind=quantity Control=input Label=Quantity Placeholder=0
+    - :Heading Text="Price per unit"
+    - :Field Bind=price Control=input Label="Price per unit" Placeholder=0.00
+    - :Heading Text="Delivery location"
+    - :Field Bind=deliveryLocation Control=select Label="Delivery location"
+    - :Heading Text=Description
+    - :Field Bind=description Control=input Label=Description Placeholder=optional
+    - :Action Handler=save Label=Saving
+    - :Column Label=Reference
+    - :Column Label=Provider
+    - :Column Label=Item
+    - :Column Label=Status
+    - :Column Label=Expires
+    - :Action Handler="() => doMarkSent(q)" Label="Mark sent"
+    - :Action Handler="() => doAccept(q)" Label="Accept \u2192 Order"
+    - :Action Handler="() => doReject(q)" Label=Reject
+   "/cash" :Screen Source="frontend/src/routes/cash/+page.svelte"
+    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Cash Sale and Cash Receipt \u2014 settling straight to Cash and Bank with no receivable ever created, unlike AR Sale/Receipt. Discussed alongside the tax and service work, not yet built." "Prop title"=Cash
+   "/contacts" :Screen "Calls getContact">/Root/Application/Calls/getContact "Calls getCounterpartyHistory">/Root/Application/Calls/getCounterpartyHistory "Calls getCreditStatus">/Root/Application/Calls/getCreditStatus "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getLanguages">/Root/Application/Calls/getLanguages "Calls setContact">/Root/Application/Calls/setContact Source="frontend/src/routes/contacts/+page.svelte" Title=Contacts
+    - :Action Handler="() => goto('/contacts')" Label="Show everything (employees, customers, providers, manufacturers)"
+    - :Action Handler="() => select(emp.name)"
+    - :Action Handler="() => select(c.name)"
+    - :Action Handler="() => select(v.name)"
+    - :Action Handler="() => select(m.name)"
+    - :Heading Text=Employees
+    - :Action Handler="() => select(emp.name)"
+    - :Heading Text=Customers
+    - :Action Handler="() => select(c.name)"
+    - :Heading Text=Providers
+    - :Action Handler="() => select(v.name)"
+    - :Heading Text=Manufacturers
+    - :Action Handler="() => select(m.name)"
+    - :Use Component>/Root/Application/Components/AddressList "Prop entityName"="{selectedName}"
+    - :Use Component>/Root/Application/Components/PhoneList "Prop entityName"="{selectedName}"
+    - :Use Component>/Root/Application/Components/ContactList "Prop entityName"="{selectedName}"
+    - :Heading Text=Email
+    - :Field Bind=contact.email Control=input Label=Email Placeholder=optional
+    - :Heading Text="Payment terms (days)"
+    - :Field Bind=contact.payment_terms_days Control=input Label="Payment terms (days)" Placeholder="e.g. 30 \u2014 leave blank if not yet set" Type=number
+    - :Heading Text="Credit limit"
+    - :Field Control=input Label="Credit limit" Placeholder="e.g. 5000.00 \u2014 leave blank for no limit" Type=number
+    - :Heading Text="Wage per hour"
+    - :Field Control=input Label="Wage per hour" Placeholder="e.g. 28.50 \u2014 an hourly employee" Type=number
+    - :Heading Text="Salary per year"
+    - :Field Control=input Label="Salary per year" Placeholder="e.g. 88000.00 \u2014 a salaried employee, instead of an hourly wage" Type=number
+    - :Heading Text=Language
+    - :Field Bind=contact.preferred_language Control=select Label=Language
+    - :Action Handler=save Label=Save
+    - :Heading Text=History
+    - :Column Label=Date
+    - :Column Label=Reference
+    - :Column Label=Item
+    - :Column Label=Qty
+    - :Column Label=Amount
+   "/customer-terminal" :Screen "Calls getLanguages">/Root/Application/Calls/getLanguages "Calls registerCustomer">/Root/Application/Calls/registerCustomer Source="frontend/src/routes/customer-terminal/+page.svelte" Title="Customer Registration"
+    - :Heading Text="Thanks,"
+    - :Heading Text="Register as a customer"
+    - :Use Component>/Root/Application/Components/Form "Prop fields"="{[\n          { name: 'name', label: 'Full name', type: 'text' },\n          { name: 'email', label: 'Email', type: 'text' },\n          { name: 'phone', label: 'Phone', type: 'text' },\n          { name: 'addressLine1', label: 'Address', type: 'text' },\n          { name: 'city', label: 'City', type: 'text' },\n          { name: 'region', label: 'Region', type: 'text' },\n          { name: 'postalCode', label: 'Postal code', type: 'text' },\n          { name: 'country', label: 'Country', type: 'text' },\n          ...(languages.length > 0 ? [{ name: 'preferredLanguage', label: 'Preferred language', type: 'select' as const, options: languages.map((l) => l.name) }] : []),\n          { name: 'cardType', label: 'Card type', type: 'select', options: ['Visa', 'Mastercard', 'Amex'] },\n          { name: 'cardLast4', label: 'Last 4 digits', type: 'text' },\n          { name: 'password', label: 'Password', type: 'password' },\n          { name: 'confirmPassword', label: 'Confirm password', type: 'password' },\n        ]}" "Prop onSubmit"="{submit}" "Prop savingLabel"="Registering\u2026" "Prop submitLabel"=Register
+   "/editor" :Screen "Calls createCustomer">/Root/Application/Calls/createCustomer "Calls createEntity">/Root/Application/Calls/createEntity "Calls createProvider">/Root/Application/Calls/createProvider "Calls getContact">/Root/Application/Calls/getContact "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getHierarchyLinksPointingAt">/Root/Application/Calls/getHierarchyLinksPointingAt "Calls revokeEntity">/Root/Application/Calls/revokeEntity "Calls setContact">/Root/Application/Calls/setContact "Calls supersedeEntity">/Root/Application/Calls/supersedeEntity Source="frontend/src/routes/editor/+page.svelte" Title="Structured Editor"
+    - :Heading Text="Structured Editor"
+    - :Column Label=Name
+    - :Column Label=Parent
+    - :Column Label=Relation
+    - :Heading Text=Edit
+    - :Heading Text=Name
+    - :Field Bind=editName Control=input Label=Name
+    - :Heading Text=Parent
+    - :Field Bind=editParent Control=select Label=Parent
+    - :Heading Text=Relation
+    - :Field Bind=editRelation Control=select Label=Relation
+    - :Heading Text="Account Number"
+    - :Field Bind=editAccountnumber Control=input Label="Account Number" Placeholder=optional
+    - :Heading Text="Contact details"
+    - :Use Component>/Root/Application/Components/AddressList "Prop entityName"="{editName}"
+    - :Use Component>/Root/Application/Components/PhoneList "Prop entityName"="{editName}"
+    - :Use Component>/Root/Application/Components/ContactList "Prop entityName"="{editName}"
+    - :Heading Text=Email
+    - :Field Bind=contact.email Control=input Label=Email Placeholder=optional
+    - :Heading Text="Payment terms (days)"
+    - :Field Bind=contact.payment_terms_days Control=input Label="Payment terms (days)" Placeholder="e.g. 30 \u2014 leave blank if not yet set" Type=number
+    - :Action Handler=saveContact Label=Save
+    - :Heading Text=New
+    - :Heading Text=Name
+    - :Field Bind=newName Control=input Label=Name Placeholder="e.g. Gamma LLC"
+    - :Heading Text=Parent
+    - :Field Bind=newParent Control=select Label=Parent
+    - :Heading Text=Relation
+    - :Field Bind=newRelation Control=select Label=Relation
+    - :Heading Text="Account Number"
+    - :Field Bind=newAccountnumber Control=input Label="Account Number" Placeholder=optional
+   "/exchange-rates" :Screen Source="frontend/src/routes/exchange-rates/+page.svelte"
+    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Recording and looking up historical exchange rates for the real, working multi-currency mechanism already built \u2014 the rates themselves currently have to be known and entered directly on each transaction." "Prop title"="Exchange Rates"
+   "/gl/fx-adjustment" :Screen Source="frontend/src/routes/gl/fx-adjustment/+page.svelte"
+    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="A period-end revaluation of foreign-currency balances against a current exchange rate. Related to the real, working multi-currency validator already built, but this specific adjustment posting is not yet implemented." "Prop title"="FX Adjustment"
+   "/goods-services" :Screen Source="frontend/src/routes/goods-services/+page.svelte"
+    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="A dedicated product/service catalog \u2014 pricing, categories, barcodes \u2014 distinct from creating a stock item through the general Structured Editor." "Prop title"="Goods &amp; Services"
+   "/hr" :Screen "Calls getContact">/Root/Application/Calls/getContact "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getOrganizationChart">/Root/Application/Calls/getOrganizationChart "Calls payEmployeeWages">/Root/Application/Calls/payEmployeeWages Source="frontend/src/routes/hr/+page.svelte" Title="HR / Payroll"
+    - :Heading Text="HR / Payroll"
+    - :Action Handler="() => switchTab('pay')" Label="Pay Wages"
+    - :Action Handler="() => switchTab('directory')" Label="Org Chart"
+    - :Heading Text=Employee
+    - :Field Control=select Label=Employee
+    - :Heading Text=Date
+    - :Field Bind=transdate Control=input Label=Date Type=date
+    - :Heading Text="Hours worked"
+    - :Field Bind=hours Control=input Label="Hours worked" Placeholder="e.g. 38.5" Type=number
+    - :Heading Text="Payment method"
+    - :Field Bind=paymentMethod Control=input Label="On account (pay later)" Type=radio
+    - :Field Bind=paymentMethod Control=input Label=Cash Type=radio
+    - :Field Bind=paymentMethod Control=input Label=EFT Type=radio
+    - :Action Handler=submitPayment Label="Pay employee"
+    - :Heading Text="Company-wide staff"
+   "/invoices" :Screen "Calls allocatePaymentToInvoice">/Root/Application/Calls/allocatePaymentToInvoice "Calls createInvoice">/Root/Application/Calls/createInvoice "Calls exportInvoiceAsEInvoice">/Root/Application/Calls/exportInvoiceAsEInvoice "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getInvoiceById">/Root/Application/Calls/getInvoiceById "Calls getInvoiceOutstanding">/Root/Application/Calls/getInvoiceOutstanding "Calls importEInvoice">/Root/Application/Calls/importEInvoice "Calls listInvoices">/Root/Application/Calls/listInvoices "Calls postInvoiceById">/Root/Application/Calls/postInvoiceById Source="frontend/src/routes/invoices/+page.svelte" Title=Invoices
+    - :Action Handler="() => { invoiceTypeFilter = 'AR'; selected = null; changeFilter(); }" Label="AR (Sales)"
+    - :Action Handler="() => { invoiceTypeFilter = 'AP'; selected = null; changeFilter(); }" Label="AP (Purchases)"
+    - :Heading Text=Show
+    - :Field Bind=sourceFilter Control=select Label=Show
+    - :Heading Text=Invoices
+    - :Action Handler="() => selectInvoice(inv.id)" Label="\u00b7"
+    - :Action Handler="() => { pageIndex -= 1; loadAll(); }" Label=Prev
+    - :Action Handler="() => { pageIndex += 1; loadAll(); }" Label=Next
+    - :Action Handler="() => startNew('invoice')" Label="+ New Invoice"
+    - :Action Handler="() => startNew('credit_note')" Label=+
+    - :Action Handler="() => (showImportForm = !showImportForm)" Label="Import e-invoice"
+    - :Heading Text="Import e-invoice (UBL 2.1)"
+    - :Heading Text="XML file"
+    - :Field Control=input Label="XML file" Type=file
+    - :Heading Text=Provider
+    - :Field Bind=importProvider Control=select Label=Provider
+    - :Heading Text="Matching PO reference (optional)"
+    - :Field Bind=importPoReference Control=input Label="Matching PO reference (optional)" Placeholder="e.g. PO-4-Warehouse-2-PO"
+    - :Action Handler="() => importResult && selectInvoice(importResult.invoiceId)" Label="Review the draft"
+    - :Action Handler=submitImport Label=Import
+    - :Action Handler="() => (showImportForm = false)" Label=Cancel
+    - :Heading Text=New
+    - :Heading Text=Reference
+    - :Field Bind=newReference Control=input Label=Reference Placeholder="e.g. INV-1001"
+    - :Heading Text=Date
+    - :Field Bind=newDate Control=input Label=Date Type=date
+    - :Field Bind=newCounterparty Control=select
+    - :Heading Text="Referencing which invoice"
+    - :Field Bind=newReferencesInvoiceId Control=select Label="Referencing which invoice"
+    - :Heading Text=Description
+    - :Field Bind=newDescription Control=input Label=Description Placeholder=optional
+    - :Heading Text=Lines
+    - :Field Bind=line.description Control=input Placeholder="{translations.current['Description'] ?? 'Description'}"
+    - :Field Bind=line.quantity Control=input Placeholder="{translations.current['Qty'] ?? 'Qty'}"
+    - :Field Bind=line.unitPriceMinor Control=input Placeholder="{translations.current['Unit price'] ?? 'Unit price'}"
+    - :Field Bind=line.amountMinor Control=input Placeholder="{translations.current['Amount (minor units)'] ?? 'Amount (minor units)'}"
+    - :Field Bind=line.taxMinor Control=input Placeholder="{translations.current['Tax (minor units)'] ?? 'Tax (minor units)'}"
+    - :Action Handler="() => removeLine(i)" Label="\u2715"
+    - :Action Handler=addLine Label="+ Add line"
+    - :Action Handler=submitNew
+    - :Action Handler="() => (showNewForm = false)" Label=Cancel
+    - :Column Label=Description
+    - :Column Label=Qty
+    - :Column Label="Unit price"
+    - :Column Label=Amount
+    - :Column Label=Tax
+    - :Heading Text="Post to the ledger"
+    - :Field Bind=revenueOrExpenseAccount Control=input Placeholder="e.g. Sales Revenue"
+    - :Heading Text="Tax account"
+    - :Field Bind=taxAccount Control=input Label="Tax account" Placeholder="e.g. Sales Tax Payable"
+    - :Field Bind=restockInventory Control=input Label="Restock inventory (goods were physically returned)" Type=checkbox
+    - :Action Handler=submitPost
+    - :Action Handler=downloadEInvoice Label="Export as e-invoice (UBL 2.1)"
+    - :Heading Text="Allocate a payment"
+    - :Heading Text="Payment reference"
+    - :Field Bind=allocPaymentReference Control=input Label="Payment reference" Placeholder="e.g. RCPT-1001"
+    - :Heading Text=Date
+    - :Field Bind=allocDate Control=input Label=Date Type=date
+    - :Heading Text=Amount
+    - :Field Bind=allocAmount Control=input Label=Amount Placeholder=0.00
+    - :Heading Text="Paid into"
+    - :Field Bind=allocPaymentAccount Control=input Label="Paid into" Placeholder="{translations.current['Cash and Bank'] ?? 'Cash and Bank'}"
+    - :Action Handler=submitAllocation
+   "/items" :Screen "Calls addOrUpdateItemSource">/Root/Application/Calls/addOrUpdateItemSource "Calls createEntity">/Root/Application/Calls/createEntity "Calls createHierarchyValue">/Root/Application/Calls/createHierarchyValue "Calls deleteBomComponent">/Root/Application/Calls/deleteBomComponent "Calls deleteHierarchyValue">/Root/Application/Calls/deleteHierarchyValue "Calls deleteItemSource">/Root/Application/Calls/deleteItemSource "Calls getBomComponents">/Root/Application/Calls/getBomComponents "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getHierarchy">/Root/Application/Calls/getHierarchy "Calls getHierarchyAssignments">/Root/Application/Calls/getHierarchyAssignments "Calls getItem">/Root/Application/Calls/getItem "Calls listItemSources">/Root/Application/Calls/listItemSources "Calls listItems">/Root/Application/Calls/listItems "Calls listLocations">/Root/Application/Calls/listLocations "Calls postJournalEntry">/Root/Application/Calls/postJournalEntry "Calls receiveIntoStorageStock">/Root/Application/Calls/receiveIntoStorageStock "Calls resolveReceiveAccounts">/Root/Application/Calls/resolveReceiveAccounts "Calls revokeEntity">/Root/Application/Calls/revokeEntity "Calls setBomComponent">/Root/Application/Calls/setBomComponent "Calls setHierarchyTag">/Root/Application/Calls/setHierarchyTag "Calls setItem">/Root/Application/Calls/setItem "Calls stageLine">/Root/Application/Calls/stageLine Source="frontend/src/routes/items/+page.svelte" Title="Inventory Catalog"
+    - :Action Handler="() => selectCategory(node.name)"
+    - :Action Handler="() => selectItem(it.name, node.name)"
+    - :Field Bind=newItemNameField Control=input Placeholder="{translations.current['New item name'] ?? 'New item name'}"
+    - :Field Bind=newSubcategoryName Control=input Placeholder="{translations.current['Subcategory name'] ?? 'Subcategory name'}"
+    - :Action Handler="() => startAddingSubcategory(node.name)" Label=+
+    - :Heading Text="Inventory Catalog"
+    - :Use Component>/Root/Application/Components/TreeEditor "Prop hintText"="{hintText}" "Prop legend"="{translations.current['Categories and items'] ?? 'Categories and items'}" "Prop onDelete"="{handleDelete}" "Prop onInsert"="{handleInsert}"
+    - :Action Handler="() => selectItem(it.name, itemsRoot()?.name ?? 'Items')"
+    - :Field Bind=newItemNameField Control=input Label="Inventory Catalog" Placeholder="{translations.current['New item name'] ?? 'New item name'}"
+    - :Field Bind=newCategoryNameRoot Control=input Label="Inventory Catalog" Placeholder="{translations.current['Category name'] ?? 'Category name'}"
+    - :Action Handler="() => { addingItemUnder = NO_CATEGORY; newItemNameField = ''; itemAddError = ''; }" Label=+
+    - :Heading Text=Description
+    - :Field Bind=item.description Control=input Label=Description Placeholder=optional
+    - :Heading Text="Unit of measure"
+    - :Field Bind=item.unit_of_measure Control=input Label="Unit of measure" Placeholder="e.g. each"
+    - :Heading Text=UPC
+    - :Field Bind=item.upc Control=input Label=UPC Placeholder=optional
+    - :Action Handler=saveItem Label=Saving
+    - :Heading Text=Sources
+    - :Action Handler="() => removeSource(s.id)" Label="\u2715"
+    - :Heading Text="Add a source"
+    - :Heading Text=Manufacturer
+    - :Field Bind=sourceManufacturer Control=select Label=Manufacturer
+    - :Heading Text=Provider
+    - :Field Bind=sourceProvider Control=select Label=Provider
+    - :Heading Text="Provider SKU"
+    - :Field Bind=sourceSku Control=input Label="Provider SKU" Placeholder=optional
+    - :Heading Text="Provider UPC"
+    - :Field Bind=sourceUpc Control=input Label="Provider UPC" Placeholder=optional
+    - :Heading Text=Price
+    - :Field Bind=sourcePrice Control=input Label=Price Placeholder=0.00
+    - :Heading Text=Currency
+    - :Field Bind=sourceCurrency Control=input Label=Currency Placeholder="{translations.current['home'] ?? 'home'}"
+    - :Heading Text="Package quantity"
+    - :Field Bind=sourcePackageQty Control=input Label="Package quantity" Placeholder="e.g. 100"
+    - :Field Bind=sourcePreferred Control=input Label="Preferred source" Type=checkbox
+    - :Heading Text="Why (not required to be about price)"
+    - :Field Bind=sourceNotes Control=input Label="Why (not required to be about price)" Placeholder="e.g. keeps more in local stock"
+    - :Action Handler=addSource
+    - :Heading Text="Receive Into Storage"
+    - :Heading Text=Location
+    - :Field Bind=receiveLocation Control=select Label=Location
+    - :Heading Text=Quantity
+    - :Field Bind=receiveQuantity Control=input Label=Quantity Placeholder="e.g. 24"
+    - :Heading Text="Storage grouping (optional)"
+    - :Field Bind=receiveGrouping Control=select Label="Storage grouping (optional)"
+    - :Heading Text=Value
+    - :Field Bind=receiveStorageValue Control=select Label=Value
+    - :Action Handler=doReceiveIntoStorage Label=Receive
+    - :Heading Text="Bill of Materials"
+    - :Action Handler="() => removeBomComponent(c.component)" Label="\u2715"
+    - :Heading Text="Add a component"
+    - :Heading Text=Component
+    - :Field Bind=bomComponentItem Control=select Label=Component
+    - :Heading Text=Quantity
+    - :Field Bind=bomQuantity Control=input Label=Quantity Placeholder="e.g. 30"
+    - :Heading Text=Unit
+    - :Field Bind=bomUnit Control=select Label=Unit
+    - :Action Handler=addBomComponent Label="Add component"
+   "/jobs" :Screen Source="frontend/src/routes/jobs/+page.svelte"
+    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="A Job differs from a Project in the original SQL-Ledger by tracking materials consumed (Stores Cards) alongside labor (Time Cards) \u2014 relevant for light manufacturing or service work, not yet built." "Prop title"=Jobs
+   "/journal" :Screen "Calls listJournalEntries">/Root/Application/Calls/listJournalEntries Source="frontend/src/routes/journal/+page.svelte" Title="Journal Entries"
+    - :Heading Text="Journal Entries"
+    - :Column Label=Date
+    - :Column Label=Reference
+    - :Column Label=Description
+    - :Column Label=Debit
+    - :Column Label=Credit
+    - :Use Component>/Root/Application/Components/Pager "Prop paginator"="{journal}"
+   "/journal/[id]/[date]" :Screen "Calls getJournalEntry">/Root/Application/Calls/getJournalEntry Source="frontend/src/routes/journal/[id]/[date]/+page.svelte" Title="Journal Entry"
+    - :Action Handler=reverse
+    - :Column Label=Account
+    - :Column Label="Account Number"
+    - :Column Label=Memo
+    - :Column Label=Debit
+    - :Column Label=Credit
+   "/locations" :Screen "Calls convertStorageSpace">/Root/Application/Calls/convertStorageSpace "Calls createEntity">/Root/Application/Calls/createEntity "Calls createLocation">/Root/Application/Calls/createLocation "Calls createLocationType">/Root/Application/Calls/createLocationType "Calls deleteLocation">/Root/Application/Calls/deleteLocation "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getHierarchy">/Root/Application/Calls/getHierarchy "Calls getLocationCurrencies">/Root/Application/Calls/getLocationCurrencies "Calls getLocationTypes">/Root/Application/Calls/getLocationTypes "Calls listLocations">/Root/Application/Calls/listLocations "Calls nominateLocationCurrency">/Root/Application/Calls/nominateLocationCurrency "Calls postJournalEntry">/Root/Application/Calls/postJournalEntry "Calls resolveOpenContainerAccounts">/Root/Application/Calls/resolveOpenContainerAccounts "Calls saveLocation">/Root/Application/Calls/saveLocation "Calls stageLine">/Root/Application/Calls/stageLine Source="frontend/src/routes/locations/+page.svelte" Title=Locations
+    - :Heading Text=Locations
+    - :Field Bind=newLocationType Control=input Label=Locations Placeholder="{translations.current['New type\u2026'] ?? 'New type\u2026'}" Type=text
+    - :Action Handler=addLocationType Label="+ Add type"
+    - :Use Component>/Root/Application/Components/Form "Prop fields"="{[\n            { name: 'name', label: 'Location name, e.g. Downtown Cellar', type: 'text' },\n            { name: 'city', label: 'City', type: 'text' },\n            { name: 'locationType', label: 'Type', type: 'select', options: locationTypes },\n            { name: 'timezone', label: 'Timezone', type: 'select', options: ALL_TIMEZONES },\n          ]}" "Prop onCancel"="{closeInsert}" "Prop onSubmit"="{createNewLocation}" "Prop showSubmitButton"="{false}"
+    - :Heading Text=Type
+    - :Field Bind=locationType Control=select Label=Type
+    - :Field Bind=newLocationType Control=input Label=Type Placeholder="{translations.current['New type\u2026'] ?? 'New type\u2026'}" Type=text
+    - :Action Handler=addLocationType Label="+ Add type"
+    - :Use Component>/Root/Application/Components/AddressList "Prop entityName"="{selectedName}"
+    - :Use Component>/Root/Application/Components/PhoneList "Prop entityName"="{selectedName}"
+    - :Use Component>/Root/Application/Components/ContactList "Prop entityName"="{selectedName}"
+    - :Heading Text=City
+    - :Field Bind=city Control=input Label=City
+    - :Heading Text=Timezone
+    - :Field Bind=timezone Control=select Label=Timezone
+    - :Heading Text=Capacity
+    - :Column Label=Bottles
+    - :Column Label=Cartons
+    - :Field Bind=bottleCapacity Control=input Label=Capacity Placeholder="e.g. 2000"
+    - :Field Bind=cartonCapacity Control=input Label=Capacity Placeholder="e.g. 100"
+    - :Field Bind=coldBottleCapacity Control=input Label=Capacity Placeholder="e.g. 200"
+    - :Field Bind=coldCartonCapacity Control=input Label=Capacity Placeholder="e.g. 20"
+    - :Action Handler="() => (addingCold = true)" Label="+ Add refrigerated section"
+    - :Action Handler=createColdSection
+    - :Action Handler=saveCold
+    - :Heading Text="Currencies this location trades in"
+    - :Action Handler="() => (addingCurrency = true)" Label=+
+    - :Field Bind=newCurrencyCode Control=input Label="Currencies this location trades in" Placeholder="e.g. USD"
+    - :Action Handler=addCurrencyToLocation Label=Add
+    - :Heading Text="Carton capacity"
+    - :Field Bind=cartonCapacity Control=input Label="Carton capacity" Placeholder="e.g. 6000"
+    - :Heading Text="Storage Actions"
+    - :Heading Text="Open a Container"
+    - :Field Bind=openContainerItem Control=input Label="Storage Actions" Placeholder="{translations.current['Item name\u2026'] ?? 'Item name\u2026'}"
+    - :Field Bind=openContainerGrouping Control=select Label="Storage Actions"
+    - :Field Bind=openContainerFrom Control=select Label="Storage Actions"
+    - :Field Bind=openContainerCartonsOpened Control=input Label="Storage Actions" Placeholder=1
+    - :Field Bind=openContainerTo Control=select Label="Storage Actions"
+    - :Field Bind=openContainerUnitsProduced Control=input Label="Storage Actions" Placeholder="e.g. 24"
+    - :Action Handler=doOpenContainer Label="Open Container"
+    - :Heading Text="Convert Storage"
+    - :Field Bind=convertGrouping Control=select Label="Storage Actions"
+    - :Field Bind=convertFrom Control=select Label="Storage Actions"
+    - :Field Bind=convertTo Control=select Label="Storage Actions"
+    - :Field Bind=convertQuantity Control=input Label="Storage Actions" Placeholder="{translations.current['Quantity'] ?? 'Quantity'}"
+    - :Action Handler=doConvertStorage Label=Convert
+    - :Action Handler=cancelEdit Label=Cancel
+    - :Action Handler=save Label=Save
+   "/login" :Screen "Calls getDefaultLanguage">/Root/Application/Calls/getDefaultLanguage "Calls getLanguageDirection">/Root/Application/Calls/getLanguageDirection "Calls getLanguages">/Root/Application/Calls/getLanguages "Calls getLocalizedText">/Root/Application/Calls/getLocalizedText "Calls login">/Root/Application/Calls/login Source="frontend/src/routes/login/+page.svelte" Title="Log in"
+    - :Heading Text="Log in"
+    - :Heading Text=Language
+    - :Field Bind=displayLanguage Control=select Label=Language
+    - :Use Component>/Root/Application/Components/Form "Prop fields"="{[\n        { name: 'username', label: translations.current['Username'] ?? 'Username', type: 'text', autocomplete: 'username' },\n        { name: 'password', label: translations.current['Password'] ?? 'Password', type: 'password', autocomplete: 'current-password' },\n      ]}" "Prop onSubmit"="{submit}" "Prop savingLabel"="{translations.current['Logging in\u2026'] ?? 'Logging in\u2026'}" "Prop submitLabel"="{translations.current['Log in'] ?? 'Log in'}"
+   "/logistics/assembly-bom" :Screen Source="frontend/src/routes/logistics/assembly-bom/+page.svelte"
+    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Consuming a Bill of Materials' component items to produce a finished assembly \u2014 relevant if this ever needs to model a manufactured/kitted product, not just resold wine." "Prop title"="Assembly BOM Transfer"
+   "/order-entry/generate-invoices" :Screen Source="frontend/src/routes/order-entry/generate-invoices/+page.svelte"
+    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Consolidating open Sales Orders into real invoices automatically, mirroring Generate Purchase Orders on the sales side." "Prop title"="Generate Sales Invoices"
+   "/order-entry/generate-po" :Screen Source="frontend/src/routes/order-entry/generate-po/+page.svelte"
+    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Automatically proposing purchase orders from real reorder levels and stock on hand, staged for a human to actually approve, not auto-posted. Discussed at length but not yet built." "Prop title"="Generate Purchase Orders"
+   "/pos" :Screen "Calls completePosSale">/Root/Application/Calls/completePosSale "Calls createPosTerminal">/Root/Application/Calls/createPosTerminal "Calls getPosTerminals">/Root/Application/Calls/getPosTerminals "Calls listItems">/Root/Application/Calls/listItems "Calls listLocations">/Root/Application/Calls/listLocations "Calls listPendingCustomers">/Root/Application/Calls/listPendingCustomers "Calls lookupByUpc">/Root/Application/Calls/lookupByUpc "Calls verifyCustomer">/Root/Application/Calls/verifyCustomer Source="frontend/src/routes/pos/+page.svelte" Title="POS Terminal"
+    - :Heading Text="POS Terminal"
+    - :Action Handler="() => (showPending = !showPending)" Label="customer registration"
+    - :Column Label=Name
+    - :Column Label=Email
+    - :Column Label=Phone
+    - :Column Label="Card on file"
+    - :Action Handler="() => decideCustomer(c.name, true)" Label=Approve
+    - :Action Handler="() => decideCustomer(c.name, false)" Label=Reject
+    - :Heading Text="Sale complete"
+    - :Action Handler="() => window.print()" Label="Print receipt"
+    - :Action Handler=newSale Label="New sale"
+    - :Heading Text=Store
+    - :Field Bind=locationName Control=select Label=Store
+    - :Heading Text=Terminal
+    - :Field Bind=terminalName Control=select Label=Terminal
+    - :Action Handler="() => (showAddTerminal = true)" Label=+
+    - :Field Bind=newTerminalName Control=input Label=Terminal Placeholder="{translations.current['Terminal name'] ?? 'Terminal name'}"
+    - :Field Bind=newTerminalCurrency Control=input Label=Terminal Placeholder="e.g. USD"
+    - :Action Handler=addTerminal Label=Add
+    - :Action Handler="() => (showAddTerminal = false)" Label=Cancel
+    - :Action Handler="() => (showAddTerminal = true)" Label=+
+    - :Field Bind=onAccount Control=input Label="Sell on account (existing customer, no immediate payment)" Type=checkbox
+    - :Heading Text=Customer
+    - :Field Bind=customerName Control=input Label=Customer Placeholder="{translations.current['Customer name'] ?? 'Customer name'}"
+    - :Heading Text="Scan or search a product"
+    - :Field Bind=productInput Control=input Label="Scan or search a product" Placeholder="Scan barcode or type a name\u2026"
+    - :Action Handler="() => addToCart(p)"
+    - :Heading Text=Cart
+    - :Column Label=Item
+    - :Column Label=Qty
+    - :Column Label="Unit price"
+    - :Column Label=Tax
+    - :Column Label="Line total"
+    - :Field Bind=line.quantity Control=input Label="POS Terminal" Type=number
+    - :Field Control=input Label="POS Terminal" Type=number
+    - :Field Control=input Label="POS Terminal" Type=number
+    - :Action Handler="() => removeLine(line.id)" Label="\u00d7"
+    - :Heading Text="Payment method"
+    - :Field Bind=paymentMethod Control=select Label="Payment method"
+    - :Heading Text="Cash tendered"
+    - :Field Bind=cashTendered Control=input Label="Cash tendered" Placeholder=0.00
+    - :Action Handler=completeSale
+   "/post" :Screen "Calls createRecurringJournal">/Root/Application/Calls/createRecurringJournal "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls getPeriodStatus">/Root/Application/Calls/getPeriodStatus "Calls postJournalEntry">/Root/Application/Calls/postJournalEntry "Calls stageLine">/Root/Application/Calls/stageLine Source="frontend/src/routes/post/+page.svelte" Title="General Journal"
+    - :Heading Text="General Journal"
+    - :Heading Text=Date
+    - :Field Bind=transdate Control=input Label=Date Type=date
+    - :Heading Text=Reference
+    - :Field Bind=reference Control=input Label=Reference Placeholder="e.g. GJ-1001"
+    - :Heading Text=Description
+    - :Field Bind=description Control=input Label=Description Placeholder="{translations.current['optional'] ?? 'optional'}"
+    - :Heading Text=Recurrence
+    - :Field Bind=recurrence Control=select Label=Recurrence
+    - :Heading Text="Number of occurrences"
+    - :Field Bind=recurrenceCount Control=input Label="Number of occurrences" Placeholder="leave blank for ongoing"
+    - :Column Label=Account
+    - :Column Label=Memo
+    - :Column Label=Debit
+    - :Column Label=Credit
+    - :Field Bind=row.account Control=select Label="General Journal"
+    - :Field Bind=row.memo Control=input Label="General Journal" Placeholder="{translations.current['optional'] ?? 'optional'}"
+    - :Field Bind=row.debit Control=input Label="General Journal" Placeholder=0.00
+    - :Field Bind=row.credit Control=input Label="General Journal" Placeholder=0.00
+    - :Action Handler=save Label=Save
+    - :Action Handler=cancel Label=Cancel
+   "/projects" :Screen "Calls clockInToProject">/Root/Application/Calls/clockInToProject "Calls clockOutOfProject">/Root/Application/Calls/clockOutOfProject "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls getOpenProjectClock">/Root/Application/Calls/getOpenProjectClock Source="frontend/src/routes/projects/+page.svelte" Title=Projects
+    - :Heading Text=Projects
+    - :Heading Text=Employee
+    - :Field Bind=employeeName Control=select Label=Employee
+    - :Heading Text="Currently clocked in against"
+    - :Action Handler=clockOut Label="Clock out"
+    - :Heading Text="Project (expense account)"
+    - :Field Bind=projectExpenseAccount Control=select Label="Project (expense account)"
+    - :Action Handler=clockIn Label="Clock in"
+   "/reconciliation" :Screen Source="frontend/src/routes/reconciliation/+page.svelte"
+    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Matching posted bank-account transactions against a real bank statement \u2014 a documented, confirmed gap (docs/TODO.md). Bank reconciliation itself, not the currency-conversion clearing accounts already built." "Prop title"=Reconciliation
+   "/recurring" :Screen Source="frontend/src/routes/recurring/+page.svelte"
+    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Scheduling a journal entry (a lease payment, a subscription) to post automatically on a repeating basis. The underlying self-healing migration infrastructure already treats &quot;recurring journals&quot; as a real concept; no user-facing screen exists yet." "Prop title"="Recurring Transactions"
+   "/reports" :Screen Source="frontend/src/routes/reports/+page.svelte" Title=Reports
+    - :Heading Text=Reports
+   "/reports/aged" :Screen "Calls getAgedInvoices">/Root/Application/Calls/getAgedInvoices "Calls getAgedSummary">/Root/Application/Calls/getAgedSummary Source="frontend/src/routes/reports/aged/+page.svelte" Title=Aged
+    - :Heading Text="Aged Receivables"
+    - :Action Handler="() => { invoiceType = 'AR'; load(); }" Label=AR
+    - :Action Handler="() => { invoiceType = 'AP'; load(); }" Label=AP
+    - :Action Handler="() => { view = 'summary'; load(); }" Label=Summary
+    - :Action Handler="() => { view = 'detail'; load(); }" Label=Detail
+    - :Heading Text="As of date"
+    - :Field Bind=asOfDate Control=input Label="As of date" Type=date
+    - :Column Label=Outstanding
+    - :Column Label="Oldest (days)"
+    - :Column Label=Reference
+    - :Column Label="Due date"
+    - :Column Label=Outstanding
+    - :Column Label="Days overdue"
+    - :Column Label=Bucket
+   "/reports/balance-sheet" :Screen "Calls getBalanceSheet">/Root/Application/Calls/getBalanceSheet Source="frontend/src/routes/reports/balance-sheet/+page.svelte" Title="Balance Sheet"
+    - :Heading Text="Balance Sheet"
+    - :Heading Text="As of date"
+    - :Field Bind=asOfDate Control=input Label="As of date" Type=date
+    - :Action Handler="() => { asOfDate = ''; load(); }" Label="Clear (show all time)"
+    - :Heading Text=Assets
+    - :Column Label=Debit
+    - :Column Label=Credit
+    - :Heading Text=Liabilities
+    - :Column Label=Debit
+    - :Column Label=Credit
+    - :Heading Text=Equity
+    - :Column Label=Debit
+    - :Column Label=Credit
+   "/reports/below-reorder" :Screen "Calls getBelowReorderStock">/Root/Application/Calls/getBelowReorderStock Source="frontend/src/routes/reports/below-reorder/+page.svelte" Title="Below Reorder"
+    - :Heading Text="Below Reorder"
+    - :Column Label=Item
+    - :Column Label=Locations
+    - :Column Label="On hand"
+    - :Column Label="Reorder Level"
+    - :Column Label=Min
+    - :Column Label=Max
+   "/reports/business-configuration" :Screen "Calls getBusinessConfigurationReport">/Root/Application/Calls/getBusinessConfigurationReport Source="frontend/src/routes/reports/business-configuration/+page.svelte" Title="Business Configuration Report"
+    - :Heading Text="Business Configuration Report"
+    - :Heading Text="Business Name"
+    - :Heading Text=Addresses
+    - :Heading Text=Phones
+    - :Heading Text="Owner(s) / Partner(s)"
+    - :Heading Text="Banking Details"
+    - :Column Label="Bank Account"
+    - :Column Label="Routing Detail"
+    - :Column Label="Account Number"
+    - :Heading Text=Currencies
+    - :Heading Text=Hierarchies
+    - :Heading Text=Locations
+    - :Column Label=Name
+    - :Column Label=City
+    - :Column Label=Type
+    - :Heading Text=Categories
+    - :Heading Text="Notes to the Financial Statements"
+   "/reports/cash-flow-forecast" :Screen "Calls getCashFlowForecast">/Root/Application/Calls/getCashFlowForecast Source="frontend/src/routes/reports/cash-flow-forecast/+page.svelte" Title="Cash Flow Forecast"
+    - :Heading Text="Cash Flow Forecast"
+    - :Heading Text="As of date"
+    - :Field Bind=asOfDate Control=input Label="As of date" Type=date
+    - :Heading Text="Horizon (days)"
+    - :Field Bind=horizonDays Control=select Label="Horizon (days)"
+    - :Heading Text="Anticipated movements"
+    - :Column Label=Date
+    - :Column Label=Description
+    - :Column Label=Source
+    - :Column Label=Amount
+    - :Column Label="Running balance"
+   "/reports/compare" :Screen "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls getProfitAndLossComparison">/Root/Application/Calls/getProfitAndLossComparison "Calls getTrialBalanceComparison">/Root/Application/Calls/getTrialBalanceComparison Source="frontend/src/routes/reports/compare/+page.svelte" Title="Compare Ledgers"
+    - :Heading Text="Compare Ledgers"
+    - :Heading Text="Ledger A"
+    - :Field Bind=ledgerA Control=select Label="Ledger A"
+    - :Heading Text=Ledger
+    - :Field Bind=compareToLedger Control=select Label=Ledger
+    - :Heading Text="Profit and Loss Statement"
+    - :Column Label=Account
+    - :Column Label=Variance
+    - :Heading Text="Trial Balance"
+    - :Column Label=Account
+    - :Column Label=Debit
+    - :Column Label=Credit
+    - :Column Label=Debit
+    - :Column Label=Credit
+   "/reports/new-new-pl" :Screen Source="frontend/src/routes/reports/new-new-pl/+page.svelte" Title="New New P&L"
+    - :Heading Text="New New P&L"
+    - :Heading Text="Outer grouping"
+    - :Field Bind=outerSelection Control=select Label="Outer grouping"
+    - :Heading Text="Inner grouping"
+    - :Field Bind=innerSelection Control=select Label="Inner grouping"
+    - :Use Component>/Root/Application/Components/FromToDateFields "Prop onchange"="{load}"
+    - :Action Handler="() => { fromDate = ''; toDate = ''; load(); }" Label="Clear (show all time)"
+    - :Use Component>/Root/Application/Components/AxisPLNode "Prop node"="{node}" "Prop openByDefault"="{true}"
+    - :Use Component>/Root/Application/Components/AxisPLNode "Prop node"="{node}"
+   "/reports/new-pl" :Screen "Calls getHierarchy">/Root/Application/Calls/getHierarchy Source="frontend/src/routes/reports/new-pl/+page.svelte" Title="New P&L (Matrix)"
+    - :Heading Text="New P&L (Matrix)"
+    - :Heading Text=Rows
+    - :Field Bind=rowAxis Control=select Label=Rows
+    - :Heading Text=Columns
+    - :Field Bind=colAxis Control=select Label=Columns
+    - :Use Component>/Root/Application/Components/FromToDateFields "Prop onchange"="{load}"
+    - :Action Handler="() => { fromDate = ''; toDate = ''; load(); }" Label="Clear (show all time)"
+    - :Column Label=Total
+    - :Column Label=Sales
+    - :Column Label=COGS
+    - :Column Label=Sales
+    - :Column Label=COGS
+   "/reports/new-stock-on-hand" :Screen "Calls getHierarchy">/Root/Application/Calls/getHierarchy Source="frontend/src/routes/reports/new-stock-on-hand/+page.svelte" Title="New Stock on Hand (Matrix)"
+    - :Heading Text="New Stock on Hand (Matrix)"
+    - :Heading Text=Rows
+    - :Field Bind=rowAxis Control=select Label=Rows
+    - :Heading Text=Columns
+    - :Field Bind=colAxis Control=select Label=Columns
+    - :Column Label=Total
+    - :Column Label=Qty
+    - :Column Label="Cost/unit"
+    - :Column Label=Value
+    - :Column Label=Realizable
+    - :Column Label=Qty
+    - :Column Label=Value
+    - :Column Label=Realizable
+   "/reports/old-pl" :Screen "Calls getHierarchyGroups">/Root/Application/Calls/getHierarchyGroups "Calls getLedgerDateRange">/Root/Application/Calls/getLedgerDateRange "Calls getProfitAndLoss">/Root/Application/Calls/getProfitAndLoss "Calls getProfitAndLossByHierarchyTree">/Root/Application/Calls/getProfitAndLossByHierarchyTree Source="frontend/src/routes/reports/old-pl/+page.svelte" Title="Profit and Loss"
+    - :Heading Text="Profit and Loss"
+    - :Heading Text=View
+    - :Action Handler="() => setViewMode('consolidated')" Label=Consolidated
+    - :Action Handler="() => setViewMode('per-group')" Label="Per Division"
+    - :Heading Text=Division
+    - :Use Component>/Root/Application/Components/HierarchyGroupTreePicker "Prop groups"="{groups}" "Prop hierarchyName"="{hierarchyName}" "Prop onSelect"="{(name) => { selectedGroup = name; load(); }}" "Prop selected"="{selectedGroup}"
+    - :Use Component>/Root/Application/Components/FromToDateFields "Prop onchange"="{load}"
+    - :Action Handler="() => { fromDate = ''; toDate = ''; load(); }" Label="Clear (show all time)"
+    - :Use Component>/Root/Application/Components/ProfitAndLossTable "Prop pl"="{pl}"
+    - :Use Component>/Root/Application/Components/HierarchyGroupPLNode "Prop hierarchyName"="{hierarchyName}" "Prop node"="{node}"
+   "/reports/pl-pivot" :Screen Source="frontend/src/routes/reports/pl-pivot/+page.svelte" Title="P&L Pivot Builder"
+    - :Heading Text="P&L Pivot Builder"
+    - :Field Bind=rowFilter Control=select Label="P&L Pivot Builder"
+    - :Field Bind=colFilter Control=select Label="P&L Pivot Builder"
+    - :Use Component>/Root/Application/Components/FromToDateFields "Prop onchange"="{load}"
+    - :Action Handler="() => { fromDate = ''; toDate = ''; load(); }" Label="Clear (show all time)"
+    - :Use Component>/Root/Application/Components/AxisPLNode "Prop node"="{node}" "Prop openByDefault"="{true}"
+    - :Use Component>/Root/Application/Components/AxisPLNode "Prop node"="{node}"
+   "/reports/profit-and-loss" :Screen Source="frontend/src/routes/reports/profit-and-loss/+page.svelte" Title="Profit and Loss"
+    - :Heading Text="Profit and Loss"
+    - :Heading Text="Outer grouping"
+    - :Field Bind=outerSelection Control=select Label="Outer grouping"
+    - :Heading Text="Inner grouping"
+    - :Field Bind=innerSelection Control=select Label="Inner grouping"
+    - :Use Component>/Root/Application/Components/FromToDateFields "Prop onchange"="{load}"
+    - :Action Handler="() => { fromDate = ''; toDate = ''; load(); }" Label="Clear (show all time)"
+    - :Use Component>/Root/Application/Components/AxisPLNode "Prop node"="{node}" "Prop openByDefault"="{true}"
+    - :Use Component>/Root/Application/Components/AxisPLNode "Prop node"="{node}"
+   "/reports/reminders" :Screen "Calls getReminderCandidates">/Root/Application/Calls/getReminderCandidates "Calls resetReminder">/Root/Application/Calls/resetReminder "Calls sendReminder">/Root/Application/Calls/sendReminder Source="frontend/src/routes/reports/reminders/+page.svelte" Title=Reminders
+    - :Heading Text=Reminders
+    - :Heading Text="As of date"
+    - :Field Bind=asOfDate Control=input Label="As of date" Type=date
+    - :Column Label=Customer
+    - :Column Label=Outstanding
+    - :Column Label="Oldest (days)"
+    - :Column Label="Current level"
+    - :Column Label=Next
+    - :Action Handler="() => send(c.counterparty)" Label=Send
+    - :Action Handler="() => reset(c.counterparty)" Label=Reset
+   "/reports/sales" :Screen "Calls getSalesReport">/Root/Application/Calls/getSalesReport Source="frontend/src/routes/reports/sales/+page.svelte" Title="Sales Report"
+    - :Heading Text=Sales
+    - :Heading Text=From
+    - :Field Bind=fromDate Control=input Label=From Type=date
+    - :Heading Text=To
+    - :Field Bind=toDate Control=input Label=To Type=date
+    - :Heading Text=View
+    - :Action Handler="() => (view = 'summary')" Label="Category Summary"
+    - :Action Handler="() => (view = 'detailed')" Label=Detailed
+    - :Column Label=Category
+    - :Column Label=Quantity
+    - :Column Label=Amount
+    - :Column Label="% of Total"
+    - :Column Label=Date
+    - :Column Label=Reference
+    - :Column Label=Item
+    - :Column Label=Qty
+    - :Column Label="Unit price"
+    - :Column Label=Amount
+    - :Action Handler="() => page--" Label="\u2190 Newer"
+    - :Action Handler="() => page++" Label="Older \u2192"
+   "/reports/statement" :Screen "Calls getCustomerStatement">/Root/Application/Calls/getCustomerStatement "Calls getEntityTree">/Root/Application/Calls/getEntityTree Source="frontend/src/routes/reports/statement/+page.svelte" Title="Customer Statement"
+    - :Heading Text="Customer Statement"
+    - :Heading Text=Customer
+    - :Field Bind=selectedCustomer Control=select Label=Customer
+    - :Heading Text="As of date"
+    - :Field Bind=asOfDate Control=input Label="As of date" Type=date
+    - :Action Handler=printStatement Label=Print
+    - :Heading Text="Statement of Account"
+    - :Column Label=Reference
+    - :Column Label="Invoice Date"
+    - :Column Label="Due date"
+    - :Column Label=Total
+    - :Column Label=Paid
+    - :Column Label=Outstanding
+    - :Column Label=Status
+   "/reports/stock-movement" :Screen "Calls getHierarchy">/Root/Application/Calls/getHierarchy "Calls getStockMovementReport">/Root/Application/Calls/getStockMovementReport Source="frontend/src/routes/reports/stock-movement/+page.svelte" Title="Stock Movement Report"
+    - :Heading Text="Stock Movement Report"
+    - :Action Handler="() => (tab = 'receipts')" Label=Purchases
+    - :Action Handler="() => (tab = 'transfers')" Label=Transfers
+    - :Action Handler="() => (tab = 'sales')" Label=Sales
+    - :Heading Text="Group by"
+    - :Field Bind=groupBy Control=select Label="Group by"
+    - :Use Component>/Root/Application/Components/FromToDateFields "Prop onchange"="{load}"
+    - :Action Handler="() => toggleGroup(g.name)"
+    - :Column Label=Item
+    - :Column Label=Date
+    - :Column Label=Location
+    - :Column Label=Provider
+    - :Column Label=From
+    - :Column Label=To
+    - :Column Label=Location
+    - :Column Label=Qty
+    - :Column Label=Amount
+   "/reports/stock-out-risk" :Screen "Calls getStockOutRiskReport">/Root/Application/Calls/getStockOutRiskReport Source="frontend/src/routes/reports/stock-out-risk/+page.svelte" Title="Stock-Out Risk"
+    - :Heading Text="Stock-Out Risk"
+    - :Column Label=Item
+    - :Column Label=Locations
+    - :Column Label="On hand"
+    - :Column Label="Daily use"
+    - :Column Label="Days left"
+    - :Column Label="Lead time (days)"
+   "/reports/storage-space" :Screen "Calls getStorageSpaceReport">/Root/Application/Calls/getStorageSpaceReport Source="frontend/src/routes/reports/storage-space/+page.svelte" Title="Inventory and Storage"
+    - :Heading Text="Inventory and Storage"
+    - :Column Label="Storage Unit"
+    - :Column Label=Installed
+    - :Column Label=Occupied
+    - :Column Label=Remaining
+    - :Column Label="Balanced?"
+   "/reports/trial-balance" :Screen "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls getTrialBalance">/Root/Application/Calls/getTrialBalance Source="frontend/src/routes/reports/trial-balance/+page.svelte" Title="Trial Balance"
+    - :Heading Text="Trial Balance"
+    - :Heading Text=Ledger
+    - :Field Bind=selectedLedger Control=select Label=Ledger
+    - :Heading Text="As of date"
+    - :Field Bind=asOfDate Control=input Label="As of date" Type=date
+    - :Action Handler="() => { asOfDate = ''; load(); }" Label="Clear (show all time)"
+    - :Heading Text="Home Currency"
+    - :Column Label="Account Number"
+    - :Column Label=Account
+    - :Column Label=Debit
+    - :Column Label=Credit
+   "/session" :Screen "Calls getActiveLedger">/Root/Application/Calls/getActiveLedger "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getLanguageDirection">/Root/Application/Calls/getLanguageDirection "Calls getLanguages">/Root/Application/Calls/getLanguages "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls getLocalizedText">/Root/Application/Calls/getLocalizedText "Calls getProfitCenters">/Root/Application/Calls/getProfitCenters Source="frontend/src/routes/session/+page.svelte" Title="Choose business, ledger, and language"
+    - :Heading Text="Choose a business, ledger, and language"
+    - :Heading Text=Business
+    - :Field Bind=selectedBusinessId Control=select Label=Business
+    - :Heading Text=Ledger
+    - :Field Bind=selectedLedgerId Control=select Label=Ledger
+    - :Heading Text="Profit Center"
+    - :Field Bind=selectedProfitCenterId Control=select Label="Profit Center"
+    - :Heading Text=Language
+    - :Field Bind=selectedLanguageId Control=select Label=Language
+    - :Action Handler=continueToApp Label=Continue
+   "/setup" :Screen "Calls getDefaultLanguage">/Root/Application/Calls/getDefaultLanguage "Calls getLanguages">/Root/Application/Calls/getLanguages Source="frontend/src/routes/setup/+page.svelte" Title=Setup
+    - :Heading Text=Configuration
+    - :Heading Text="System default language"
+    - :Field Bind=defaultLanguage Control=select Label=Configuration
+    - :Action Handler=saveDefaultLanguage Label=Saving
+   "/setup/bank-accounts" :Screen "Calls getBankAccounts">/Root/Application/Calls/getBankAccounts "Calls getCashPosition">/Root/Application/Calls/getCashPosition "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getHierarchy">/Root/Application/Calls/getHierarchy "Calls getHierarchyGroups">/Root/Application/Calls/getHierarchyGroups "Calls registerBankAccount">/Root/Application/Calls/registerBankAccount "Calls unregisterBankAccount">/Root/Application/Calls/unregisterBankAccount Source="frontend/src/routes/setup/bank-accounts/+page.svelte" Title="Bank Accounts"
+    - :Heading Text="Bank Accounts"
+    - :Heading Text="Current cash position"
+    - :Column Label=Currency
+    - :Column Label=Balance
+    - :Column Label="Overdraft limit"
+    - :Column Label=Headroom
+    - :Use Component>/Root/Application/Components/SelectableListEditor "Prop emptyText"="{translations.current['No bank accounts registered yet.'] ?? 'No bank accounts registered yet.'}" "Prop getId"="{(a) => a.name}" "Prop hintText"="{translations.current['Insert registers a bank account. Delete unregisters the selected one.'] ?? 'Insert registers a bank account. Delete unregisters the selected one.'}" "Prop inserting"="{inserting}" "Prop items"="{bankAccounts}" "Prop legend"="{translations.current['Registered bank accounts'] ?? 'Registered bank accounts'}" "Prop onDelete"="{(a) => unregister(a.name)}" "Prop onInsert"="{openInsert}" "Prop onSelect"="{(a) => (selectedAccountName = a.name)}" "Prop selectedId"="{selectedAccountName}"
+    - :Use Component>/Root/Application/Components/Form "Prop fields"="{[\n            { name: 'account', label: 'Account', type: 'select', options: candidateAccounts.map((acc) => acc.name) },\n            {\n              name: 'scope',\n              label: 'Scope (business or group)',\n              type: 'select',\n              options: [...(session.current ? [session.current.businessName] : []), ...groupNames],\n            },\n            { name: 'overdraftLimit', label: 'Overdraft limit (optional)', type: 'number', step: 0.01 },\n          ]}" "Prop onCancel"="{closeInsert}" "Prop onSubmit"="{register}" "Prop showSubmitButton"="{false}"
+   "/setup/business-setup" :Screen "Calls createEmployeeContact">/Root/Application/Calls/createEmployeeContact "Calls createEntity">/Root/Application/Calls/createEntity "Calls createHierarchyValue">/Root/Application/Calls/createHierarchyValue "Calls deleteHierarchyTag">/Root/Application/Calls/deleteHierarchyTag "Calls getContact">/Root/Application/Calls/getContact "Calls getEmployeeSchedule">/Root/Application/Calls/getEmployeeSchedule "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getHierarchy">/Root/Application/Calls/getHierarchy "Calls getHierarchyTag">/Root/Application/Calls/getHierarchyTag "Calls getLocationByName">/Root/Application/Calls/getLocationByName "Calls getLocationOpenHours">/Root/Application/Calls/getLocationOpenHours "Calls getOrganizationChart">/Root/Application/Calls/getOrganizationChart "Calls revokeEntity">/Root/Application/Calls/revokeEntity "Calls saveLocation">/Root/Application/Calls/saveLocation "Calls setContact">/Root/Application/Calls/setContact "Calls setEmployeeSchedule">/Root/Application/Calls/setEmployeeSchedule "Calls setEntityRelationship">/Root/Application/Calls/setEntityRelationship "Calls setHierarchyTag">/Root/Application/Calls/setHierarchyTag "Calls setLocationOpenHours">/Root/Application/Calls/setLocationOpenHours Source="frontend/src/routes/setup/business-setup/+page.svelte" Title="Business Setup"
+    - :Heading Text="Business Setup"
+    - :Use Component>/Root/Application/Components/TreeEditor "Prop hintText"="{hintText}" "Prop legend"="{`${chart.business} \u2014 ${translations.current[locationHierarchyName] ?? locationHierarchyName} ${translations.current['for Locations'] ?? 'for Locations'}`}" "Prop onDelete"="{handleDelete}" "Prop onInsert"="{handleInsert}"
+    - :Action Handler="() => selectEmployee(emp, undefined, undefined)"
+    - :Action Handler="() => selectGroup(group.group)"
+    - :Action Handler="() => selectLocation(loc.location, group.group)"
+    - :Action Handler="() => selectEmployee(emp, group.group, loc.location)"
+    - :Field Bind=newEmployeeName Control=input Label="Business Setup" Placeholder="{translations.current['Employee name'] ?? 'Employee name'}"
+    - :Field Bind=newLocationName Control=input Label="Business Setup" Placeholder="{translations.current['Location name'] ?? 'Location name'}"
+    - :Field Bind=newLocationCity Control=input Label="Business Setup" Placeholder="{translations.current['City'] ?? 'City'}"
+    - :Field Bind=newLocationType Control=select Label="Business Setup"
+    - :Field Bind=newLocationTimezone Control=select Label="Business Setup"
+    - :Field Bind="newLocationDimensionValues[h.grouping]" Control=select Label="Business Setup"
+    - :Field Bind=newGroupName Control=input Label="Business Setup" Placeholder="{`${translations.current[locationHierarchyName] ?? locationHierarchyName} ${translations.current['name'] ?? 'name'}`}"
+    - :Heading Text=Details
+    - :Heading Text=City
+    - :Field Bind=locationRecord.city Control=input Label=City
+    - :Heading Text=Type
+    - :Field Bind=locationRecord.location_type Control=select Label=Type
+    - :Field Bind="locationDimensionValues[h.grouping]" Control=select Label=Details
+    - :Heading Text="Open hours"
+    - :Use Component>/Root/Application/Components/WeeklyHoursGrid "Prop fromLabel"=Opens "Prop toLabel"=Closes
+    - :Action Handler=saveLocationDetail Label=Save
+    - :Heading Text=Addresses
+    - :Use Component>/Root/Application/Components/AddressList "Prop entityName"="{translations.current[selection.name] ?? selection.name}"
+    - :Heading Text="Phone numbers"
+    - :Use Component>/Root/Application/Components/PhoneList "Prop entityName"="{translations.current[selection.name] ?? selection.name}"
+    - :Heading Text="Wage per hour"
+    - :Field Control=input Label="Wage per hour" Type=number
+    - :Heading Text="Salary per year"
+    - :Field Control=input Label="Salary per year" Type=number
+    - :Heading Text="Weekly schedule"
+    - :Use Component>/Root/Application/Components/WeeklyHoursGrid "Prop fromLabel"=Starts "Prop toLabel"=Ends
+    - :Action Handler=saveEmployeeDetail Label=Save
+    - :Heading Text="Additional locations"
+    - :Heading Text="Additional locations"
+    - :Action Handler="() => selectAdditionalLocation(loc)"
+    - :Action Handler=startAddingAdditionalLocation Label=+
+    - :Field Bind=newAdditionalLocation Control=select Label=Location
+    - :Use Component>/Root/Application/Components/WeeklyHoursGrid "Prop fromLabel"=Starts "Prop toLabel"=Ends
+    - :Action Handler=saveAdditionalLocationSchedule Label=Save
+    - :Use Component>/Root/Application/Components/WeeklyHoursGrid "Prop fromLabel"=Starts "Prop toLabel"=Ends
+    - :Action Handler=saveAdditionalLocationSchedule Label=Save
+    - :Heading Text=Addresses
+    - :Use Component>/Root/Application/Components/AddressList "Prop entityName"="{translations.current[selection.name] ?? selection.name}"
+    - :Heading Text="Phone numbers"
+    - :Use Component>/Root/Application/Components/PhoneList "Prop entityName"="{translations.current[selection.name] ?? selection.name}"
+    - :Use Component>/Root/Application/Components/ContactList "Prop entityName"="{translations.current[selection.name] ?? selection.name}"
+   "/setup/business-structure" :Screen Source="frontend/src/routes/setup/business-structure/+page.svelte" Title="Business Structure"
+    - :Heading Text="Business Structure"
+    - :Action Handler="() => (showPopup = true)" Label=Open
+    - :Use Component>/Root/Application/Components/BusinessStructurePopup "Prop business"="{session.current.businessName}" "Prop onClose"="{() => (showPopup = false)}"
+   "/setup/chart-of-accounts" :Screen "Calls createEntity">/Root/Application/Calls/createEntity "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls revokeEntity">/Root/Application/Calls/revokeEntity "Calls supersedeEntity">/Root/Application/Calls/supersedeEntity Source="frontend/src/routes/setup/chart-of-accounts/+page.svelte" Title="Chart of Accounts"
+    - :Heading Text="Chart of Accounts"
+    - :Use Component>/Root/Application/Components/Tree "Prop data"="{treeData}" "Prop displayValueMember"=name "Prop expandLevel"="{2}" "Prop idMember"=path "Prop onNodeClicked"="{onNodeClicked}" "Prop pathMember"=path "Prop selectedNodeClass"=node-selected
+    - :Heading Text="Add a new account under this one"
+    - :Field Bind=newChildName Control=input Label="Add a new account under this one" Placeholder="e.g. Office Supplies"
+    - :Heading Text=Rename
+    - :Field Bind=renameValue Control=input Label=Rename
+   "/setup/currencies" :Screen Source="frontend/src/routes/setup/currencies/+page.svelte"
+    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Managing which currencies this business actually transacts in \u2014 registering a new currency's own Cash at Bank/Clearing/Gain-Loss accounts (ensureItemSalesCogsAccounts' currency equivalent, still a prototype) through a real screen instead of a script." "Prop title"=Currencies
+   "/setup/hierarchy" :Screen "Calls createHierarchyGrouping">/Root/Application/Calls/createHierarchyGrouping "Calls createHierarchyValue">/Root/Application/Calls/createHierarchyValue "Calls deleteHierarchyGrouping">/Root/Application/Calls/deleteHierarchyGrouping "Calls deleteHierarchyValue">/Root/Application/Calls/deleteHierarchyValue "Calls getHierarchy">/Root/Application/Calls/getHierarchy "Calls getProductShapes">/Root/Application/Calls/getProductShapes Source="frontend/src/routes/setup/hierarchy/+page.svelte" Title=Hierarchies
+    - :Heading Text=Hierarchies
+    - :Heading Text=Groupings
+    - :Use Component>/Root/Application/Components/SelectableListEditor "Prop emptyText"="{translations.current['No real hierarchy groupings yet.'] ?? 'No real hierarchy groupings yet.'}" "Prop getId"="{(g) => g.grouping}" "Prop hintText"="{translations.current['Insert adds a grouping. Delete removes the selected grouping.'] ?? 'Insert adds a grouping. Delete removes the selected grouping.'}" "Prop inserting"="{insertingGrouping}" "Prop items"="{groupings}" "Prop legend"="{translations.current['Groupings'] ?? 'Groupings'}" "Prop onDelete"="{deleteGrouping}" "Prop onInsert"="{openInsertGrouping}" "Prop onSelect"="{selectGrouping}" "Prop selectedId"="{selectedGroupingName}"
+    - :Field Bind=newGroupingName Control=input Label=Hierarchies Placeholder="{translations.current['New grouping name (e.g. Storage, Glass Size)'] ?? 'New grouping name (e.g. Storage, Glass Size)'}" Type=text
+    - :Use Component>/Root/Application/Components/SelectableListEditor "Prop emptyText"="{translations.current['No real values yet.'] ?? 'No real values yet.'}" "Prop getId"="{(v) => v}" "Prop hintText"="{translations.current['Insert adds a value. Delete removes the selected value.'] ?? 'Insert adds a value. Delete removes the selected value.'}" "Prop inserting"="{insertingValue}" "Prop items"="{selectedGrouping.values}" "Prop legend"="{`${T('Values in')} \"${T(selectedGrouping.grouping)}\"`}" "Prop onDelete"="{deleteValue}" "Prop onInsert"="{openInsertValue}" "Prop onSelect"="{selectValue}" "Prop selectedId"="{selectedValueName}"
+    - :Field Bind="valueForGrouping[selectedGrouping.grouping]" Control=input Label=Hierarchies Placeholder="{translations.current['New value'] ?? 'New value'}" Type=text
+    - :Heading Text="Product Shapes"
+    - :Field Bind=row.dimension Control=input Label=Hierarchies Placeholder="{translations.current['Dimension name (e.g. Location)'] ?? 'Dimension name (e.g. Location)'}" Type=text
+    - :Field Bind=row.grouping Control=input Label=Hierarchies Placeholder="{translations.current['Hierarchy grouping (e.g. Location)'] ?? 'Hierarchy grouping (e.g. Location)'}" Type=text
+    - :Action Handler="() => removeShapeRow(i)" Label="\u00d7"
+    - :Action Handler=addShapeRow Label="+ Add dimension"
+    - :Action Handler=saveShape Label="Save shape"
+   "/setup/new-business" :Screen "Calls Create Business">/Root/Application/Calls/"Create Business" "Calls buildBankCurrencyStructure">/Root/Application/Calls/buildBankCurrencyStructure "Calls getBusinessTypes">/Root/Application/Calls/getBusinessTypes "Calls getCoaPrototypeAccounts">/Root/Application/Calls/getCoaPrototypeAccounts "Calls nominateBankAccount">/Root/Application/Calls/nominateBankAccount "Calls saveBusinessTypeAnswers">/Root/Application/Calls/saveBusinessTypeAnswers Source="frontend/src/routes/setup/new-business/+page.svelte" Title="New Business"
+    - :Heading Text="New Business"
+    - :Heading Text="Does the business bank at one bank, or more than one?"
+    - :Field Bind=banksAtOneOrMore Control=input Label="One bank" Type=radio
+    - :Field Bind=banksAtOneOrMore Control=input Label="More than one bank" Type=radio
+    - :Heading Text="Nominate each real bank account"
+    - :Field Bind=newBankName Control=input Label="Nominate each real bank account" Placeholder="Bank name, e.g. Westpac Business Cheque"
+    - :Field Bind=newRoutingDetail Control=input Label="Nominate each real bank account" Placeholder="BSB / routing detail"
+    - :Field Bind=newAccountNumber Control=input Label="Nominate each real bank account" Placeholder="Account number"
+    - :Action Handler=nominateBank Label="+ Add bank account"
+    - :Heading Text="Does the business trade in one currency, or more than one?"
+    - :Field Bind=wizardTradesInOneOrMore Control=input Label="One currency" Type=radio
+    - :Field Bind=wizardTradesInOneOrMore Control=input Label="More than one currency" Type=radio
+    - :Heading Text="Home currency"
+    - :Field Bind=wizardHomeCurrency Control=input Label="Home currency" Placeholder="e.g. AUD"
+    - :Field Bind=wizardNewCurrency Control=input Label="Home currency" Placeholder="e.g. EUR"
+    - :Action Handler=addWizardCurrency Label="+ Add currency"
+    - :Heading Text="Bank accounts \u00d7 currencies \u2014 tick every real combination that actually exists"
+    - :Field Bind="tickedCombinations[comboKey(b.name, c)]" Control=input Label="Bank accounts \u00d7 currencies \u2014 tick every real combination that actually exists" Type=checkbox
+    - :Action Handler=buildRealBankCurrencyStructure
+    - :Action Handler="() => (showStructurePopup = true)" Label="Set up your business structure"
+    - :Action Handler="() => goto('/post')" Label="Go to General Journal"
+    - :Use Component>/Root/Application/Components/BusinessStructurePopup "Prop business"="{result.business}" "Prop onClose"="{() => (showStructurePopup = false)}"
+    - :Heading Text="Business Name"
+    - :Field Bind=businessName Control=input Label="Business Name" Placeholder="e.g. Corner Store Pty Ltd"
+    - :Heading Text="Financial Year"
+    - :Field Bind=financialYearLabel Control=input Label="Financial Year" Placeholder="e.g. 2026-27"
+    - :Heading Text="Financial Year Start Date"
+    - :Field Bind=financialYearStart Control=input Label="Financial Year Start Date" Type=date
+    - :Heading Text="Reporting Period"
+    - :Field Bind=reportingFrequency Control=select Label="Reporting Period"
+    - :Heading Text="Chart of Accounts prototype to reuse"
+    - :Field Bind=selectedPrototype Control=select Label="Chart of Accounts prototype to reuse"
+    - :Heading Text="Business type"
+    - :Field Control=select Label="Business type"
+    - :Field Bind="questionAnswers[q]" Control=input Label="Business type"
+    - :Action Handler="() => removePartner(name)" Label="\u00d7"
+    - :Field Bind=newPartnerName Control=input Label="Business type" Placeholder="e.g. Alice Nguyen"
+    - :Action Handler=addPartner Label=Add
+    - :Action Handler="() => (showCurrencies = true)" Label=+
+    - :Heading Text="Additional currencies accepted as cash"
+    - :Action Handler="() => removeCurrency(code)" Label="\u00d7"
+    - :Field Bind=newCurrencyCode Control=input Label="Additional currencies accepted as cash" Placeholder="e.g. EUR"
+    - :Action Handler=addCurrency Label=Add
+    - :Action Handler=submit
+   "/setup/periods" :Screen "Calls closePeriod">/Root/Application/Calls/closePeriod "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls getPeriodStatus">/Root/Application/Calls/getPeriodStatus "Calls reopenPeriod">/Root/Application/Calls/reopenPeriod Source="frontend/src/routes/setup/periods/+page.svelte" Title="Accounting Periods"
+    - :Heading Text="Accounting Periods"
+    - :Heading Text="Close through date"
+    - :Field Bind=throughDate Control=input Label="Close through date" Type=date
+    - :Action Handler=doClose Label="Close period"
+    - :Action Handler=doReopen Label="Reopen period"
+   "/setup/taxes" :Screen Source="frontend/src/routes/setup/taxes/+page.svelte"
+    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Configuring real tax rates and jurisdictions as their own maintained list, rather than the current fixed Sales Tax Payable account used throughout the simulation." "Prop title"=Taxes
+   "/setup/translations" :Screen "Calls createEntity">/Root/Application/Calls/createEntity "Calls deleteVocabularyWord">/Root/Application/Calls/deleteVocabularyWord "Calls getLanguageDirection">/Root/Application/Calls/getLanguageDirection "Calls getLanguages">/Root/Application/Calls/getLanguages "Calls getVocabularyWords">/Root/Application/Calls/getVocabularyWords "Calls revokeEntity">/Root/Application/Calls/revokeEntity "Calls setLanguageDirection">/Root/Application/Calls/setLanguageDirection "Calls setTranslation">/Root/Application/Calls/setTranslation Source="frontend/src/routes/setup/translations/+page.svelte" Title=Translations
+    - :Heading Text=Translations
+    - :Heading Text=Mode
+    - :Action Handler="() => (mode = 'single')" Label="Edit one word"
+    - :Action Handler="() => (mode = 'translate')" Label="Translate between languages"
+    - :Heading Text="Reference language"
+    - :Field Bind=referenceLanguage Control=select Label="Reference language"
+    - :Heading Text="Target language"
+    - :Field Bind=targetLanguage Control=select Label="Target language"
+    - :Heading Text=Search
+    - :Field Bind=search Control=input Label=Search Placeholder="e.g. Provider"
+    - :Field Control=input Label=Translations
+    - :Action Handler="() => saveTranslateRow(word)" Label=Save
+    - :Heading Text="Add a new word"
+    - :Heading Text=Name
+    - :Field Bind=newWordName Control=input Label=Name Placeholder="e.g. Balance Sheet"
+    - :Action Handler=addWord Label="Add word"
+    - :Heading Text="Add a new language"
+    - :Heading Text=Name
+    - :Field Bind=newLanguageName Control=input Label=Name Placeholder="e.g. Spanish"
+    - :Heading Text="Text Direction"
+    - :Field Bind=newLanguageDirection Control=select Label="Text Direction"
+    - :Action Handler=addLanguage Label="Add language"
+    - :Heading Text=Search
+    - :Field Bind=search Control=input Label=Search Placeholder="e.g. Provider"
+    - :Use Component>/Root/Application/Components/SelectableListEditor "Prop emptyText"="{translations.current['No matching words.'] ?? 'No matching words.'}" "Prop getId"="{(w) => w.name}" "Prop hintText"="{translations.current['Insert adds a word. Delete removes the selected word.'] ?? 'Insert adds a word. Delete removes the selected word.'}" "Prop inserting"="{insertingWord}" "Prop items"="{filteredWords.slice(0, 200)}" "Prop legend"="{translations.current['Words'] ?? 'Words'}" "Prop onDelete"="{deleteWord}" "Prop onInsert"="{openInsertWord}" "Prop onSelect"="{select}" "Prop selectedId"="{selectedWord?.name ?? null}"
+    - :Field Bind=newWordName Control=input Label=Translations Placeholder="e.g. Balance Sheet" Type=text
+    - :Field Bind="editValues[lang.name]" Control=input Label=Translations
+    - :Action Handler="() => saveTranslation(lang.name)" Label=Save
+    - :Heading Text=Languages
+    - :Use Component>/Root/Application/Components/SelectableListEditor "Prop emptyText"="{translations.current['No real languages yet.'] ?? 'No real languages yet.'}" "Prop getId"="{(l) => l.id}" "Prop hintText"="{translations.current['Insert adds a language. Delete removes the selected language.'] ?? 'Insert adds a language. Delete removes the selected language.'}" "Prop inserting"="{insertingLanguage}" "Prop items"="{languages}" "Prop legend"="{translations.current['Languages'] ?? 'Languages'}" "Prop onDelete"="{deleteLanguage}" "Prop onInsert"="{openInsertLanguage}" "Prop onSelect"="{selectLanguage}" "Prop selectedId"="{selectedLanguageId}"
+    - :Heading Text=Name
+    - :Field Bind=newLanguageName Control=input Label=Name Placeholder="e.g. Spanish" Type=text
+    - :Heading Text="Text Direction"
+    - :Field Bind=newLanguageDirection Control=select Label="Text Direction"
+   "/setup/tree" :Screen "Calls getEntityTree">/Root/Application/Calls/getEntityTree Source="frontend/src/routes/setup/tree/+page.svelte" Title="Entity Tree"
+    - :Heading Text="Entity Tree"
+    - :Use Component>/Root/Application/Components/Tree "Prop data"="{treeData}" "Prop displayValueMember"=name "Prop idMember"=path "Prop pathMember"=path
+   "/setup/users" :Screen "Calls changeUserPassword">/Root/Application/Calls/changeUserPassword "Calls createUser">/Root/Application/Calls/createUser "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getRoles">/Root/Application/Calls/getRoles "Calls getUserRoleMatrix">/Root/Application/Calls/getUserRoleMatrix "Calls getUsers">/Root/Application/Calls/getUsers "Calls setUserActiveApi">/Root/Application/Calls/setUserActiveApi "Calls setUserRoleInBusiness">/Root/Application/Calls/setUserRoleInBusiness "Calls setUserRolesApi">/Root/Application/Calls/setUserRolesApi "Calls unsetUserRoleInBusiness">/Root/Application/Calls/unsetUserRoleInBusiness Source="frontend/src/routes/setup/users/+page.svelte" Title=Users
+    - :Heading Text=Users
+    - :Column Label=Username
+    - :Column Label=Active
+    - :Action Handler="(e) => { e.stopPropagation(); reactivate(u); }" Label=Reactivate
+    - :Field Control=input Label=Users Type=checkbox
+    - :Field Bind=resetPassword Control=input Label=Users Placeholder="new password" Type=password
+    - :Action Handler="(e) => { e.stopPropagation(); submitReset(u.id); }" Label=Save
+    - :Action Handler="(e) => { e.stopPropagation(); resettingId = u.id; resetPassword = ''; }" Label="Reset password"
+    - :Heading Text="Roles per business"
+    - :Field Bind=matrixBusiness Control=select Label=Business
+    - :Column Label=Username
+    - :Field Control=input Label=Business Type=checkbox
+    - :Heading Text="New user"
+    - :Use Component>/Root/Application/Components/Form "Prop fields"="{[\n          { name: 'username', label: 'Username', type: 'text' },\n          { name: 'password', label: 'Password', type: 'password', hint: 'at least 8 characters' },\n          { name: 'roles', label: 'Roles', type: 'multiselect', options: roles.map((r) => r.name) },\n        ]}" "Prop onCancel"="{closeInsert}" "Prop onSubmit"="{create}" "Prop showSubmitButton"="{false}"
+   "/setup/vocabulary" :Screen "Calls deleteVocabularyPreference">/Root/Application/Calls/deleteVocabularyPreference "Calls getConceptsWithAlternates">/Root/Application/Calls/getConceptsWithAlternates "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls setVocabularyPreference">/Root/Application/Calls/setVocabularyPreference Source="frontend/src/routes/setup/vocabulary/+page.svelte" Title=Vocabulary
+    - :Heading Text=Vocabulary
+    - :Heading Text="This business prefers:"
+    - :Field Control=select Label="This business prefers:"
+    - :Action Handler="() => save(concept)" Label=Save
+   "/setup/yearend" :Screen "Calls createLedger">/Root/Application/Calls/createLedger "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getHierarchy">/Root/Application/Calls/getHierarchy "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls getReportingPeriods">/Root/Application/Calls/getReportingPeriods "Calls postJournalEntry">/Root/Application/Calls/postJournalEntry "Calls previewCloseBooks">/Root/Application/Calls/previewCloseBooks "Calls resolveRolloverLines">/Root/Application/Calls/resolveRolloverLines "Calls stageLine">/Root/Application/Calls/stageLine Source="frontend/src/routes/setup/yearend/+page.svelte" Title="Year End Close"
+    - :Heading Text="Year End Close"
+    - :Heading Text="Reporting period"
+    - :Field Bind=selectedPeriodLabel Control=select Label="Reporting period"
+    - :Heading Text="As of date"
+    - :Field Bind=asOfDate Control=input Label="As of date" Type=date
+    - :Heading Text="Retained earnings account"
+    - :Field Bind=retainedEarningsAccount Control=select Label="Retained earnings account"
+    - :Action Handler=fetchPreview Label="Preview the close"
+    - :Column Label=Account
+    - :Column Label=Debit
+    - :Column Label=Credit
+    - :Action Handler=reject Label=Reject
+    - :Action Handler=acceptAndClose Label="Accept and close"
+    - :Heading Text="Roll over to a new period"
+    - :Heading Text="New ledger"
+    - :Field Bind=selectedLedgerOption Control=select Label="New ledger"
+    - :Field Bind=newLedgerName Control=input Label="New ledger" Placeholder="{translations.current['New ledger name'] ?? 'New ledger name'}" Type=text
+    - :Action Handler=resolveRollover Label="Resolve opening balances"
+    - :Column Label=Account
+    - :Column Label=Debit
+    - :Column Label=Credit
+    - :Action Handler=rejectRollover Label=Reject
+    - :Action Handler=acceptRollover Label="Accept and roll over"
+   "/shipping" :Screen Source="frontend/src/routes/shipping/+page.svelte"
+    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Freight, carrier details, and shipment tracking attached to a Stock Dispatch." "Prop title"=Shipping
+   "/stock" :Screen Source="frontend/src/routes/stock/+page.svelte" Title="Stock / Orders"
+    - :Heading Text="Stock / Orders"
+   "/stock/listing" :Screen "Calls getHierarchy">/Root/Application/Calls/getHierarchy "Calls getInventoryListingByLocation">/Root/Application/Calls/getInventoryListingByLocation "Calls setItemLocationLevels">/Root/Application/Calls/setItemLocationLevels Source="frontend/src/routes/stock/listing/+page.svelte" Title="Inventory Listing"
+    - :Heading Text="Inventory Listing"
+    - :Action Handler="() => toggleGroup(dg.name)" Label="No group"
+    - :Action Handler="() => toggleLocation(loc.location)"
+    - :Column Label=Item
+    - :Column Label="On hand"
+    - :Column Label=Min
+    - :Column Label=Max
+    - :Column Label="Reorder Level"
+    - :Field Bind=row.min_level Control=input Label="Inventory Listing" Type=number
+    - :Field Bind=row.max_level Control=input Label="Inventory Listing" Type=number
+    - :Field Bind=row.reorder_level Control=input Label="Inventory Listing" Type=number
+   "/stock/po" :Screen "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls listItemSources">/Root/Application/Calls/listItemSources "Calls listLocations">/Root/Application/Calls/listLocations "Calls postPurchaseOrder">/Root/Application/Calls/postPurchaseOrder "Calls stagePurchaseOrder">/Root/Application/Calls/stagePurchaseOrder Source="frontend/src/routes/stock/po/+page.svelte" Title="Purchase Order"
+    - :Heading Text="Purchase Order"
+    - :Heading Text=Date
+    - :Field Bind=transdate Control=input Label=Date Type=date
+    - :Heading Text=Reference
+    - :Field Bind=reference Control=input Label=Reference Placeholder="e.g. PO-1001"
+    - :Heading Text=Item
+    - :Field Bind=item Control=select Label=Item
+    - :Heading Text=Provider
+    - :Field Bind=provider Control=select Label=Provider
+    - :Action Handler="() => (showAllProviders = false)" Label="Known suppliers only"
+    - :Action Handler="() => (showAllProviders = true)" Label="Show all providers"
+    - :Heading Text=Quantity
+    - :Field Bind=quantity Control=input Label=Quantity Placeholder=0
+    - :Heading Text="Price per unit"
+    - :Field Bind=price Control=input Label="Price per unit" Placeholder=0.00
+    - :Heading Text="Delivery location"
+    - :Field Bind=deliveryLocation Control=select Label="Delivery location"
+    - :Heading Text=Description
+    - :Field Bind=description Control=input Label=Description Placeholder=optional
+    - :Action Handler=save Label=Saving
+   "/stock/restock" :Screen "Calls confirmRestockPickedLine">/Root/Application/Calls/confirmRestockPickedLine "Calls dispatchRestockRun">/Root/Application/Calls/dispatchRestockRun "Calls getBelowReorderStock">/Root/Application/Calls/getBelowReorderStock "Calls getRestockPickingList">/Root/Application/Calls/getRestockPickingList "Calls listLocations">/Root/Application/Calls/listLocations Source="frontend/src/routes/stock/restock/+page.svelte" Title="Restock Retail Outlets"
+    - :Heading Text="Restock Retail Outlets"
+    - :Heading Text=Warehouse
+    - :Field Bind=warehouseName Control=select Label=Warehouse
+    - :Heading Text="Retail outlet"
+    - :Field Bind=outletName Control=select Label="Retail outlet"
+    - :Column Label=Item
+    - :Column Label=Quantity
+    - :Field Bind=line.item Control=input Placeholder="e.g. Golden Lager 330ml"
+    - :Field Bind=line.quantity Control=input Type=number
+    - :Action Handler="() => removeLine(i)" Label="\u2715"
+    - :Action Handler=addLine Label=+
+    - :Action Handler=generatePickingList Label="Generate picking list"
+    - :Heading Text="Picking List"
+    - :Column Label=Item
+    - :Column Label=Quantity
+    - :Column Label=Shelf
+    - :Action Handler="() => togglePicked(line)"
+    - :Action Handler=submitDispatch Label="Dispatch \u2014 move real stock now"
+   "/stock/so" :Screen "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls listLocations">/Root/Application/Calls/listLocations "Calls postSalesOrder">/Root/Application/Calls/postSalesOrder "Calls stageSalesOrder">/Root/Application/Calls/stageSalesOrder Source="frontend/src/routes/stock/so/+page.svelte" Title="Sales Order"
+    - :Heading Text="Sales Order"
+    - :Heading Text=Date
+    - :Field Bind=transdate Control=input Label=Date Type=date
+    - :Heading Text=Reference
+    - :Field Bind=reference Control=input Label=Reference Placeholder="e.g. SO-1001"
+    - :Heading Text=Customer
+    - :Field Bind=customer Control=select Label=Customer
+    - :Heading Text=Item
+    - :Field Bind=item Control=select Label=Item
+    - :Heading Text=Quantity
+    - :Field Bind=quantity Control=input Label=Quantity Placeholder=0
+    - :Heading Text="Price per unit"
+    - :Field Bind=price Control=input Label="Price per unit" Placeholder=0.00
+    - :Heading Text="Dispatch location"
+    - :Field Bind=dispatchLocation Control=select Label="Dispatch location"
+    - :Heading Text=Description
+    - :Field Bind=description Control=input Label=Description Placeholder=optional
+    - :Action Handler=save Label=Saving
+   "/stock/stock-dispatch" :Screen "Calls exportInvoicePdf">/Root/Application/Calls/exportInvoicePdf "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls getOrderStatus">/Root/Application/Calls/getOrderStatus "Calls postOrderDispatch">/Root/Application/Calls/postOrderDispatch "Calls stageOrderDispatch">/Root/Application/Calls/stageOrderDispatch Source="frontend/src/routes/stock/stock-dispatch/+page.svelte" Title="Stock Dispatch"
+    - :Heading Text="Stock Dispatch"
+    - :Action Handler=downloadDispatchInvoicePdf Label="Generating\u2026"
+    - :Heading Text=Date
+    - :Field Bind=transdate Control=input Label=Date Type=date
+    - :Heading Text=Reference
+    - :Field Bind=reference Control=input Label=Reference Placeholder="e.g. INV-1001"
+    - :Heading Text="Sales Order"
+    - :Field Bind=soReference Control=input Label="Sales Order" Placeholder="e.g. SO-1001"
+    - :Heading Text=Customer
+    - :Field Bind=customer Control=select Label=Customer
+    - :Field Bind=isService Control=input Label="This is a service \u2014 no physical stock or cost of goods sold to recognize" Type=checkbox
+    - :Heading Text="Item / cost account"
+    - :Field Bind=item Control=select Label="Item / cost account"
+    - :Heading Text="Stock quantity account"
+    - :Field Bind=itemQty Control=select Label="Stock quantity account"
+    - :Heading Text="Unit cost"
+    - :Field Bind=unitCost Control=input Label="Unit cost" Placeholder=0.00
+    - :Heading Text=Quantity
+    - :Field Bind=quantity Control=input Label=Quantity Placeholder=0
+    - :Heading Text="Sale price per unit"
+    - :Field Bind=salePrice Control=input Label="Sale price per unit" Placeholder=0.00
+    - :Heading Text="Tax %"
+    - :Field Bind=taxRate Control=input Label="Tax %" Placeholder=0
+    - :Heading Text=Description
+    - :Field Bind=description Control=input Label=Description Placeholder=optional
+    - :Action Handler=save Label=Saving
+   "/stock/stock-receipt" :Screen "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls getOrderStatus">/Root/Application/Calls/getOrderStatus "Calls postOrderReceipt">/Root/Application/Calls/postOrderReceipt "Calls stageOrderReceipt">/Root/Application/Calls/stageOrderReceipt Source="frontend/src/routes/stock/stock-receipt/+page.svelte" Title="Stock Receipt"
+    - :Heading Text="Stock Receipt"
+    - :Heading Text=Date
+    - :Field Bind=transdate Control=input Label=Date Type=date
+    - :Heading Text=Reference
+    - :Field Bind=reference Control=input Label=Reference Placeholder="e.g. RCPT-1001"
+    - :Heading Text="Purchase Order"
+    - :Field Bind=poReference Control=input Label="Purchase Order" Placeholder="e.g. PO-1001"
+    - :Heading Text=Provider
+    - :Field Bind=provider Control=select Label=Provider
+    - :Heading Text="Item / account (what this receipt is for)"
+    - :Field Bind=item Control=select Label="Item / account (what this receipt is for)"
+    - :Field Bind=isService Control=input Label="This is a service \u2014 no physical stock quantity to track" Type=checkbox
+    - :Heading Text="Stock quantity account"
+    - :Field Bind=itemQty Control=select Label="Stock quantity account"
+    - :Heading Text=Quantity
+    - :Field Bind=quantity Control=input Label=Quantity Placeholder=0
+    - :Heading Text=Value
+    - :Field Bind=value Control=input Label=Value Placeholder=0.00
+    - :Heading Text="Tax %"
+    - :Field Bind=taxRate Control=input Label="Tax %" Placeholder=0
+    - :Heading Text=Description
+    - :Field Bind=description Control=input Label=Description Placeholder=optional
+    - :Action Handler=save Label=Saving
+   "/stock/stock-take" :Screen "Calls completeStockTake">/Root/Application/Calls/completeStockTake "Calls createStockTake">/Root/Application/Calls/createStockTake "Calls getStockTake">/Root/Application/Calls/getStockTake "Calls listLocations">/Root/Application/Calls/listLocations "Calls recordStockTakeCount">/Root/Application/Calls/recordStockTakeCount Source="frontend/src/routes/stock/stock-take/+page.svelte" Title="Stock Take"
+    - :Heading Text="Stock Take"
+    - :Heading Text="Start a new stock take"
+    - :Use Component>/Root/Application/Components/Form "Prop fields"="{[\n            { name: 'location', label: 'Location', type: 'select', options: locations.map((l) => l.name) },\n            { name: 'date', label: 'Date', type: 'date' },\n          ]}" "Prop onSubmit"="{startNew}" "Prop submitLabel"="Create sheet"
+    - :Heading Text="\u2014"
+    - :Column Label="Shelf Side"
+    - :Column Label=Rack
+    - :Column Label=Level
+    - :Column Label=Item
+    - :Column Label=Expected
+    - :Column Label=Counted
+    - :Field Bind="counts[line.item]" Control=input Label="\u2014" Placeholder="{String(line.expected_quantity)}"
+    - :Action Handler="() => saveCount(line.item)" Label=Save
+    - :Heading Text=Complete
+    - :Field Bind="unitCosts[line.item]" Control=input Label="\u2014" Placeholder="{translations.current['Unit cost'] ?? 'Unit cost'}"
+    - :Heading Text="Variance account"
+    - :Field Bind=varianceExpenseAccount Control=input Label="Variance account" Placeholder="e.g. Miscellaneous"
+    - :Heading Text="Inventory account"
+    - :Field Bind=inventoryAccount Control=input Label="Inventory account"
+    - :Action Handler=submitComplete Label="Complete stock take"
+    - :Action Handler="() => (take = null)" Label="Start a different sheet"
+   "/stock/transfer" :Screen "Calls getItemLocation">/Root/Application/Calls/getItemLocation "Calls listItems">/Root/Application/Calls/listItems "Calls listLocations">/Root/Application/Calls/listLocations "Calls postJournalEntry">/Root/Application/Calls/postJournalEntry "Calls resolveTransferAccounts">/Root/Application/Calls/resolveTransferAccounts "Calls stageLine">/Root/Application/Calls/stageLine "Calls transferStock">/Root/Application/Calls/transferStock Source="frontend/src/routes/stock/transfer/+page.svelte" Title="Stock Transfer"
+    - :Heading Text="Stock Transfer"
+    - :Use Component>/Root/Application/Components/Form "Prop fields"="{[\n        { name: 'item', label: 'Item', type: 'select', options: items.map((p) => p.name) },\n        { name: 'fromLocation', label: 'From location', type: 'select', options: locations.map((l) => l.name) },\n        { name: 'toLocation', label: 'To location', type: 'select', options: sameCity.map((l) => l.name) },\n        { name: 'quantity', label: 'Quantity', type: 'number' },\n        { name: 'reference', label: 'Reference', type: 'text' },\n      ]}" "Prop onSubmit"="{submit}" "Prop savingLabel"="Transferring\u2026" "Prop submitLabel"=Transfer
+   "/stock/write-offs" :Screen "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getExpiringStock">/Root/Application/Calls/getExpiringStock "Calls listItems">/Root/Application/Calls/listItems "Calls receiveLot">/Root/Application/Calls/receiveLot "Calls writeOffItems">/Root/Application/Calls/writeOffItems Source="frontend/src/routes/stock/write-offs/+page.svelte" Title="Stock Write-offs & Expiration"
+    - :Heading Text="Write-offs & Expiration"
+    - :Heading Text="Write off stock"
+    - :Heading Text=Reference
+    - :Field Bind=woReference Control=input Label=Reference Placeholder="e.g. WO-1001"
+    - :Heading Text=Date
+    - :Field Bind=woDate Control=input Label=Date Type=date
+    - :Heading Text=Item
+    - :Field Bind=woItem Control=select Label=Item
+    - :Heading Text=Quantity
+    - :Field Bind=woQuantity Control=input Label=Quantity Placeholder="e.g. 15"
+    - :Heading Text="Unit cost"
+    - :Field Bind=woUnitCost Control=input Label="Unit cost" Placeholder=0.00
+    - :Heading Text="Write-off expense account"
+    - :Field Bind=woExpenseAccount Control=select Label="Write-off expense account"
+    - :Heading Text="Inventory account"
+    - :Field Bind=woInventoryAccount Control=select Label="Inventory account"
+    - :Heading Text=Reason
+    - :Field Bind=woReason Control=input Label=Reason Placeholder="e.g. Spoiled, damaged in transit"
+    - :Action Handler=submitWriteOff
+    - :Heading Text="Receive a lot"
+    - :Heading Text=Reference
+    - :Field Bind=lotReference Control=input Label=Reference Placeholder="e.g. LOT-REC-1001"
+    - :Heading Text="Lot number"
+    - :Field Bind=lotNumber Control=input Label="Lot number" Placeholder="e.g. L-2027-03"
+    - :Heading Text=Item
+    - :Field Bind=lotItem Control=select Label=Item
+    - :Heading Text="Received date"
+    - :Field Bind=lotReceivedDate Control=input Label="Received date" Type=date
+    - :Heading Text="Expiration date"
+    - :Field Bind=lotExpirationDate Control=input Label="Expiration date" Placeholder=optional Type=date
+    - :Heading Text=Quantity
+    - :Field Bind=lotQuantity Control=input Label=Quantity Placeholder="e.g. 100"
+    - :Action Handler=submitReceiveLot
+    - :Heading Text="Expiring Stock"
+    - :Heading Text="Within (days)"
+    - :Field Bind=withinDays Control=input Label="Within (days)" Type=number
+    - :Column Label=Item
+    - :Column Label=Lot
+    - :Column Label=Expires
+    - :Column Label=Quantity
+    - :Column Label=Days
+   "/vouchers/general-ledger" :Screen Source="frontend/src/routes/vouchers/general-ledger/+page.svelte"
+    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Batch approval for general journal entries \u2014 the same staged-then-approved workflow already used for journal_entry_staging, exposed as its own reviewable batch rather than one entry at a time." "Prop title"="General Ledger Batch"
+   "/vouchers/payable" :Screen Source="frontend/src/routes/vouchers/payable/+page.svelte"
+    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Batch approval of accounts payable \u2014 stage several provider bills for a second person to review and approve together, rather than one at a time. A documented, confirmed gap (docs/TODO.md)." "Prop title"="Payable Batch"
+   "/vouchers/payment" :Screen Source="frontend/src/routes/vouchers/payment/+page.svelte"
+    - :Use Component>/Root/Application/Components/NotImplemented "Prop description"="Batch approval of a group of provider payments together, mirroring Payable Batch on the payment side." "Prop title"="Payment Batch"

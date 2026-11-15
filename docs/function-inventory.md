@@ -20,7 +20,7 @@ It uses the TypeScript compiler, not a text search. A prototype is printed by th
 
 ## Summary
 
-- **Backend:** 1182 functions (1014 exported); 810 are called from production code; 50 only from tests or tooling; 322 from nowhere the compiler could find.
+- **Backend:** 1187 functions (1016 exported); 813 are called from production code; 52 only from tests or tooling; 322 from nowhere the compiler could find.
 - **Frontend library:** 328 functions (268 exported); 312 are called from production code; 2 only from tests or tooling; 14 from nowhere the compiler could find.
 
 ### Backend: functions with no callers found
@@ -4287,7 +4287,7 @@ Called from: production: core/store.ts (Store.create ×1, Store.load ×1)
 Store.tx<T>(fn: () => T): T
 ```
 
-Called from: production: core/api.ts (ensureValue ×1, postStaged ×1, run ×7, stageLine ×1); core/core.ts (Core.install ×1, Instance.copy ×1, Instance.create ×1, Instance.post ×1, Instance.relate ×1); core/ops.ts (acceptProposal ×1, buildBankCurrencyStructure ×1, clockOff ×1, clockOn ×1, closeBooks ×1, completeYearEndStockTake ×1, and 36 more) · tests: 9 call(s) in 1 file(s)
+Called from: production: core/api.ts (ensureValue ×1, postStaged ×1, run ×7, stageLine ×1); core/core.ts (Core.install ×1, Instance.copy ×1, Instance.create ×1, Instance.post ×1, Instance.relate ×1); core/ops.ts (acceptProposal ×1, buildBankCurrencyStructure ×1, clockOff ×1, clockOn ×1, closeBooks ×1, completeYearEndStockTake ×1, and 36 more); entities/entities-text.ts (loadEntitiesText ×1) · tests: 9 call(s) in 1 file(s)
 
 **`Store.get`** *(exported)*
 
@@ -4295,7 +4295,7 @@ Called from: production: core/api.ts (ensureValue ×1, postStaged ×1, run ×7, 
 Store.get(id: number): Node
 ```
 
-Called from: production: core/core.ts (Core.copy ×1, Core.ensurePath ×1, Core.related ×1, Instance.instantiate ×1, Instance.post ×1, Instance.typeOf ×2); core/ops.ts (mirror ×2, renameByName ×1, rollover ×2); core/store.ts (Store.point ×1, Store.rename ×1)
+Called from: production: core/core.ts (Core.copy ×1, Core.ensurePath ×1, Core.related ×1, Instance.instantiate ×1, Instance.post ×1, Instance.typeOf ×2); core/ops.ts (mirror ×2, renameByName ×1, rollover ×2); core/store.ts (Store.point ×1, Store.rename ×1); entities/entities-text.ts (path ×1, target ×1, write ×1) · tests: 2 call(s) in 1 file(s)
 
 **`Store.child`** *(exported)*
 
@@ -4303,7 +4303,7 @@ Called from: production: core/core.ts (Core.copy ×1, Core.ensurePath ×1, Core.
 Store.child(parent: number | null, name: string): Node | undefined
 ```
 
-Called from: production: core/core.ts (Core.at ×2, Core.business ×1, Core.ensure ×1, Core.install ×2, Core.open ×4, Core.related ×1, and 9 more); core/ops.ts (acceptProposal ×1, createBusiness ×1, createUser ×1, getLines ×1, instantiateProposal ×1, itemSource ×1, and 4 more); core/reports.ts (inventoryListing ×2); core/store.ts (Store.create ×1, Store.rename ×1)
+Called from: production: core/core.ts (Core.at ×2, Core.business ×1, Core.ensure ×1, Core.install ×2, Core.open ×4, Core.related ×1, and 9 more); core/ops.ts (acceptProposal ×1, createBusiness ×1, createUser ×1, getLines ×1, instantiateProposal ×1, itemSource ×1, and 4 more); core/reports.ts (inventoryListing ×2); core/store.ts (Store.create ×1, Store.rename ×1); entities/entities-text.ts (childNamed ×1, dumpEntitiesText ×4, loadEntitiesText ×3) · tests: 12 call(s) in 1 file(s) · tooling: 3 call(s) in 1 file(s)
 
 **`Store.children`** *(exported)*
 
@@ -4311,7 +4311,7 @@ Called from: production: core/core.ts (Core.at ×2, Core.business ×1, Core.ensu
 Store.children(parent: number): Node[]
 ```
 
-Called from: production: core/core.ts (Core.copy ×1, Core.things ×1); core/ops.ts (mirror ×1, renameByName ×1, userRoles ×1)
+Called from: production: core/core.ts (Core.copy ×1, Core.things ×1); core/ops.ts (mirror ×1, renameByName ×1, userRoles ×1); entities/entities-text.ts (kids ×1) · tests: 2 call(s) in 1 file(s)
 
 **`Store.create`** *(exported)*
 
@@ -4319,7 +4319,7 @@ Called from: production: core/core.ts (Core.copy ×1, Core.things ×1); core/ops
 Store.create(name: string, parent: number | null, by: number): Node
 ```
 
-Called from: production: core/core.ts (Core.ensure ×1, Core.thing ×1); core/ops.ts (mirror ×1)
+Called from: production: core/core.ts (Core.ensure ×1, Core.thing ×1); core/ops.ts (mirror ×1); entities/entities-text.ts (loadEntitiesText ×5) · tooling: 10 call(s) in 1 file(s)
 
 **`Store.version`** *(exported)*
 
@@ -4335,7 +4335,7 @@ Called from: production: core/store.ts (Store.point ×1, Store.rename ×1)
 Store.point(id: number, target: number | null, by: number): void
 ```
 
-Called from: production: core/core.ts (Core.copy ×1, Core.relate ×4)
+Called from: production: core/core.ts (Core.copy ×1, Core.relate ×4); entities/entities-text.ts (loadEntitiesText ×2) · tooling: 2 call(s) in 1 file(s)
 
 **`Store.rename`** *(exported)*
 
@@ -9174,6 +9174,48 @@ SqlEntityDriver.findByNameContaining(fragment: string, parentId?: number): Entit
 ```
 
 Called from: nowhere the compiler could find.
+
+### `backend/src/entities/entities-text.ts`
+
+**`token`**
+
+```
+token(s: string): string
+```
+
+Called from: production: entities/entities-text.ts (path ×1, write ×4)
+
+**`dumpEntitiesText`** *(exported)*
+
+```
+dumpEntitiesText(store: Store): string
+```
+
+Called from: tests: 2 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
+**`tokenise`**
+
+```
+tokenise(text: string): Token[][]
+```
+
+Called from: production: entities/entities-text.ts (loadEntitiesText ×1)
+
+**`words`**
+
+```
+words(tokens: Token[]): string[]
+```
+
+Called from: production: entities/entities-text.ts (loadEntitiesText ×3)
+
+**`loadEntitiesText`** *(exported)*
+
+```
+loadEntitiesText(store: Store, text: string, by?: number): number
+```
+
+Called from: tests: 1 call(s) in 1 file(s)
 
 ### `backend/src/entity-driver-select.ts`
 
