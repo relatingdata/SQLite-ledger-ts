@@ -234,16 +234,16 @@ export class Store {
 
   /** Every line posted to any of `accounts`, oldest entry first: by entry
    * date, then by the order the entries were posted. */
-  accountLines(accounts: number[]): (Line & { entry: number })[] {
+  accountLines(accounts: number[]): (Line & { entry: number; date: string })[] {
     if (accounts.length === 0) return [];
     return this.db
       .prepare(
-        `SELECT l.entry_id AS entry, l.account_id AS account, l.amount
+        `SELECT l.entry_id AS entry, j.date, l.account_id AS account, l.amount
          FROM journal_line l JOIN journal j ON j.entry_id = l.entry_id
          WHERE l.account_id IN (${accounts.map(() => '?').join(',')})
          ORDER BY j.date, l.entry_id, l.id`
       )
-      .all(...accounts) as (Line & { entry: number })[];
+      .all(...accounts) as (Line & { entry: number; date: string })[];
   }
 
   balance(account: number): number {

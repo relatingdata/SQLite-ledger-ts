@@ -9,7 +9,7 @@
 // the lines for stock, cost and storage capacity are added only when the
 // business has given the system something to add them from.
 
-import { Instance, Refused, NotFound, GLOBAL_BUSINESS, today, type Product } from './core.js';
+import { Instance, Refused, NotFound, GLOBAL_BUSINESS, today, type Product, type Target } from './core.js';
 import type { Node, Line } from './store.js';
 import { hashPassword } from '../password.js';
 
@@ -755,25 +755,40 @@ function valueOf(layers: Layer[]): number {
  * transfer in arrives as the very layers that left the other location.
  * Value posted with no quantity, or the part of a quantity out that a
  * quantity-only movement left behind, stays with the newest layer, so the
- * layers always add up to the Inventory account's balance. */
+ * layers always add up to the Inventory account's balance. A year-end
+ * stock take merges every layer into one, at their average cost. */
 function stockLayers(inst: Instance, of: Product, before?: number): Layer[] {
   const quantityAccount = inst.existingQuantityAccount('On Hand', of);
   if (!quantityAccount) return [];
   const valueAccount = inst.existingProductAccount('Inventory', of);
-  const movements = new Map<number, Layer>();
-  for (const line of inst.store.accountLines(valueAccount ? [quantityAccount.id, valueAccount.id] : [quantityAccount.id])) {
-    const movement = movements.get(line.entry) ?? { quantity: 0, value: 0 };
-    if (line.account === quantityAccount.id) movement.quantity += line.amount;
-    else movement.value += line.amount;
-    movements.set(line.entry, movement);
+  interface Movement extends Layer {
+    entry: number;
+    date: string;
+    average: boolean;
   }
+  const movements = new Map<number, Movement>();
+  const movement = (entry: number, date: string) => {
+    let found = movements.get(entry);
+    if (!found) movements.set(entry, (found = { entry, date, quantity: 0, value: 0, average: false }));
+    return found;
+  };
+  for (const line of inst.store.accountLines(valueAccount ? [quantityAccount.id, valueAccount.id] : [quantityAccount.id])) {
+    const m = movement(line.entry, line.date);
+    if (line.account === quantityAccount.id) m.quantity += line.amount;
+    else m.value += line.amount;
+  }
+  for (const entry of inst.entriesMarked(YEAR_END_COUNT)) {
+    if (inst.core.related(entry, 'Item')?.id !== of.item?.id || inst.core.related(entry, 'Location')?.id !== of.location?.id) continue;
+    movement(entry, inst.store.entryDate(entry) ?? '').average = true;
+  }
+  const ordered = [...movements.values()].sort((a, b) => (a.date === b.date ? a.entry - b.entry : a.date < b.date ? -1 : 1));
   const layers: Layer[] = [];
   let unplaced = 0;
   const place = (value: number) => {
     if (layers.length > 0) layers[layers.length - 1].value += value;
     else unplaced += value;
   };
-  for (const [entry, { quantity, value }] of movements) {
+  for (const { entry, quantity, value, average } of ordered) {
     if (entry === before) break;
     if (quantity > 0) {
       const source = inst.core.related(entry, 'From Location');
@@ -786,6 +801,10 @@ function stockLayers(inst: Instance, of: Product, before?: number): Layer[] {
       place(valueOf(take(layers, -quantity)) + value);
     } else {
       place(value);
+    }
+    if (average && layers.length > 1) {
+      const merged = { quantity: layers.reduce((t, l) => t + l.quantity, 0), value: valueOf(layers) };
+      layers.splice(0, layers.length, merged);
     }
   }
   return layers;
@@ -980,26 +999,50 @@ export function writeOff(inst: Instance, itemName: string, quantity: number, loc
   });
 }
 
+/** The relation marking a year-end stock take's entry. */
+const YEAR_END_COUNT = 'Year End Count';
+
+export interface StockTakeOptions {
+  /** The count closing a year: it is posted even when it agrees with the
+   * books, values any difference at the average cost held, and from then
+   * on the stock is held as one layer at that average cost. */
+  yearEnd?: boolean;
+  date?: string;
+}
+
 /** A stock count that differs from the books: on hand is set to what was
- * counted, the difference in value going to Write-offs. Stock missing is
- * costed first in, first out; stock found at the latest receipt's cost. */
-export function stockTake(inst: Instance, itemName: string, counted: number, locationName?: string, reference?: string): Node | undefined {
+ * counted, the difference in value going to Write-offs. During the year,
+ * stock missing is costed first in, first out, and stock found at the
+ * latest receipt's cost. At year end both are at the average cost held. */
+export function stockTake(inst: Instance, itemName: string, counted: number, locationName?: string, reference?: string, options: StockTakeOptions = {}): Node | undefined {
   return inst.store.tx(() => {
     const of = product(inst, itemName, locationName);
     requireStorable(inst, of.item, 'counted');
+    if (counted < 0) throw new Refused('A count cannot be negative.');
     const held = onHand(inst, of);
     const difference = counted - held;
-    if (difference === 0) return undefined;
-    const value = difference < 0 ? -costOf(inst, of, -difference) : costOfFound(inst, of, difference);
-    const lines: Line[] = [
-      { account: inst.quantityAccount('On Hand', of).id, amount: difference },
-      { account: inst.quantityAccount('Count Adjustment', { item: of.item }).id, amount: -difference },
-      ...capacityLines(inst, of.location, 'Bottle', difference),
-    ];
+    if (difference === 0 && !options.yearEnd) return undefined;
+    let value: number;
+    if (options.yearEnd) {
+      const total = valueOf(stockLayers(inst, of));
+      value = held > 0 ? Math.round((total * difference) / held) : 0;
+    } else {
+      value = difference < 0 ? -costOf(inst, of, -difference) : costOfFound(inst, of, difference);
+    }
+    const lines: Line[] = [];
+    if (difference !== 0) {
+      lines.push(
+        { account: inst.quantityAccount('On Hand', of).id, amount: difference },
+        { account: inst.quantityAccount('Count Adjustment', { item: of.item }).id, amount: -difference },
+        ...capacityLines(inst, of.location, 'Bottle', difference)
+      );
+    }
     if (value !== 0) {
       lines.push({ account: inst.productAccount('Inventory', of).id, amount: value }, { account: inst.productAccount('Write-offs', of).id, amount: -value });
     }
-    return inst.post(optional(reference) ?? generated('STOCKTAKE'), lines, { relations: about(of) });
+    const relations: Record<string, Target> = { ...about(of), Counted: String(counted) };
+    if (options.yearEnd) relations[YEAR_END_COUNT] = true;
+    return inst.post(optional(reference) ?? generated(options.yearEnd ? 'YEAR-END-COUNT' : 'STOCKTAKE'), lines, { date: optional(options.date), relations });
   });
 }
 
@@ -1144,17 +1187,9 @@ export function rollover(inst: Instance, newLedgerName: string, asOfDate: string
     const lines: Line[] = [];
     let unclosed = 0;
     const flows = new Map<number, number>();
-    // Stock received at more than one cost keeps its layers in the new
-    // ledger, each brought in by an entry of its own (see stockOpenings).
-    const layered = stockOpenings(inst, next);
     for (const account of inst.core.all(inst.accountsRoot().id, 'Account')) {
       const balance = sums.get(account.id) ?? 0;
       if (balance === 0) continue;
-      const opening = layered.byAccount.get(account.id);
-      if (opening) {
-        lines.push(opening);
-        continue;
-      }
       const type = statement.get(account.id);
       if ((type === 'Income' || type === 'Expense') && inst.unitOf(account.id) === '') {
         unclosed += balance;
@@ -1176,55 +1211,12 @@ export function rollover(inst: Instance, newLedgerName: string, asOfDate: string
     }
     if (unclosed !== 0) lines.push({ account: next.accountNamed('Retained Earnings').id, amount: unclosed });
     if (lines.length === 0) throw new Refused('There are no balances to carry forward.');
-    const relations = { Opening: true, 'Carried From': inst.ledger.id };
-    const opening = next.post(`OPENING-${asOfDate}`, lines, { date: asOfDate, relations });
-    layered.layers.forEach((layerLines, n) => next.post(`OPENING-${asOfDate}-LAYER-${n + 1}`, layerLines, { date: asOfDate, relations }));
-    return opening;
+    // Each item's stock arrives in one opening movement, so the new ledger
+    // holds it as one layer at the average cost: what the year-end stock
+    // take established.
+    return next.post(`OPENING-${asOfDate}`, lines, { date: asOfDate, relations: { Opening: true, 'Carried From': inst.ledger.id } });
   });
 }
 
-/** How a rollover carries forward stock held in more than one layer, so
- * that the new ledger still issues the oldest stock first at its own cost.
- *
- * The opening entry brings the stock's whole quantity and value into an
- * Opening Stock account (a quantity account, and a memorandum money
- * account, so neither shows on a statement); one entry per layer, oldest
- * first, then moves that layer from Opening Stock into On Hand and
- * Inventory. Opening Stock ends at zero. Stock in a single layer is simply
- * carried forward on the opening entry. */
-function stockOpenings(from: Instance, to: Instance): { byAccount: Map<number, Line>; layers: Line[][] } {
-  const byAccount = new Map<number, Line>();
-  const layers: Line[][] = [];
-  const quantities = from.store.child(from.accountsRoot().id, 'Quantities');
-  const folder = quantities && from.store.child(quantities.id, 'On Hand');
-  if (!folder) return { byAccount, layers };
-  for (const account of from.core.things(folder.id, 'Account')) {
-    if (from.core.value(account.id, 'Dimensions')) continue;
-    const item = from.core.related(account.id, 'Item');
-    if (!item) continue;
-    const location = from.core.related(account.id, 'Location');
-    const of: Product = { item, ...(location ? { location } : {}) };
-    const held = stockLayers(from, of);
-    if (held.length < 2) continue;
-    const inventory = from.existingProductAccount('Inventory', of);
-    const total = held.reduce((t, l) => ({ quantity: t.quantity + l.quantity, value: t.value + l.value }), { quantity: 0, value: 0 });
-    // Items and locations belong to the business, so are the same in both ledgers.
-    const quantityClearing = to.quantityAccount('Opening Stock', of);
-    const valueClearing = to.memoAccount('Opening Stock', of);
-    byAccount.set(account.id, { account: quantityClearing.id, amount: total.quantity });
-    if (inventory) byAccount.set(inventory.id, { account: valueClearing.id, amount: total.value });
-    const onHand = mirror(from, to, account).id;
-    const value = inventory ? mirror(from, to, inventory).id : undefined;
-    for (const layer of held) {
-      const lines: Line[] = [
-        { account: onHand, amount: layer.quantity },
-        { account: quantityClearing.id, amount: -layer.quantity },
-      ];
-      if (value !== undefined && layer.value !== 0) lines.push({ account: value, amount: layer.value }, { account: valueClearing.id, amount: -layer.value });
-      layers.push(lines);
-    }
-  }
-  return { byAccount, layers };
-}
 
 export { GLOBAL_BUSINESS, today };

@@ -324,26 +324,35 @@ test('stock leaves first in, first out, at the cost each receipt was bought at',
   assert.ok(reports.balanceSheet(ice).balanced);
 });
 
-test('a new ledger keeps the layers of the stock it brings forward', () => {
+test('the year-end stock take averages the cost of what is held, and the new ledger starts from it', () => {
   const core = fresh();
   const ice = business(core);
   ops.createItem(ice, 'Ice');
+  const inventory = (inst: Instance) => inst.balance(inst.existingProductAccount('Inventory', { item: inst.item('Ice') })!.id);
   ops.purchase(ice, { item: 'Ice', quantity: 10, unitMinor: 100, date: '2027-05-01' });
-  ops.purchase(ice, { item: 'Ice', quantity: 10, unitMinor: 150, date: '2027-06-01' });
+  ops.purchase(ice, { item: 'Ice', quantity: 10, unitMinor: 160, date: '2027-06-01' });
   ops.sell(ice, { item: 'Ice', quantity: 5, unitMinor: 300, date: '2027-06-15' });
+  // Held: 5 at $1.00 and 10 at $1.60, $21.00 in all, an average of $1.40.
+  assert.equal(inventory(ice), 2100);
+  // One is missing at the count: it goes at the average, not the oldest cost.
+  const count = ops.stockTake(ice, 'Ice', 14, undefined, undefined, { yearEnd: true, date: '2027-06-30' })!;
+  assert.equal(ice.core.value(count.id, 'Counted'), '14');
+  assert.equal(inventory(ice), 2100 - 140);
+  // A year-end count that agrees with the books is still recorded.
+  assert.ok(ops.stockTake(ice, 'Ice', 14, undefined, 'YE-AGAIN', { yearEnd: true, date: '2027-06-30' }));
+  // From the count on, the 14 are one layer at $1.40.
+  ops.sell(ice, { item: 'Ice', quantity: 2, unitMinor: 300, date: '2027-06-30' });
+  assert.equal(inventory(ice), 12 * 140);
   ops.closeBooks(ice, '2027-06-30', 'Retained Earnings');
   ops.createLedger(ice, 'Actual 2027-28');
   ops.rollover(ice, 'Actual 2027-28', '2027-07-01');
   const next = ice.forLedger('Actual 2027-28');
-  const item = next.item('Ice');
-  assert.equal(next.balance(next.existingQuantityAccount('On Hand', { item })!.id), 15);
-  assert.equal(next.balance(next.existingProductAccount('Inventory', { item })!.id), 5 * 100 + 10 * 150);
-  // The opening stock's clearing accounts end at zero and show nowhere.
-  assert.equal(next.balance(next.existingQuantityAccount('Opening Stock', { item })!.id), 0);
+  assert.equal(inventory(next), 12 * 140);
+  ops.purchase(next, { item: 'Ice', quantity: 10, unitMinor: 200, date: '2027-07-02' });
+  // The new year issues the brought-forward stock first, at its average.
+  ops.sell(next, { item: 'Ice', quantity: 13, unitMinor: 300, date: '2027-07-03' });
+  assert.equal(reports.profitAndLoss(next).total_expense_minor, 12 * 140 + 200);
   assert.ok(reports.balanceSheet(next).balanced);
-  // The first sale of the new year is the last of last year's oldest stock.
-  ops.sell(next, { item: 'Ice', quantity: 7, unitMinor: 300, date: '2027-07-02' });
-  assert.equal(reports.profitAndLoss(next).total_expense_minor, 5 * 100 + 2 * 150);
 });
 
 test('wages: hourly or salaried, with the two rates as relations of the business', () => {
