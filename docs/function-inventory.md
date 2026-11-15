@@ -20,7 +20,7 @@ It uses the TypeScript compiler, not a text search. A prototype is printed by th
 
 ## Summary
 
-- **Backend:** 1199 functions (1017 exported); 825 are called from production code; 52 only from tests or tooling; 322 from nowhere the compiler could find.
+- **Backend:** 1182 functions (1014 exported); 810 are called from production code; 50 only from tests or tooling; 322 from nowhere the compiler could find.
 - **Frontend library:** 328 functions (268 exported); 312 are called from production code; 2 only from tests or tooling; 14 from nowhere the compiler could find.
 
 ### Backend: functions with no callers found
@@ -2921,7 +2921,7 @@ Called from: production: routes/core-call.ts ((module level) ×1) · tests: 2 ca
 Core.close(): void
 ```
 
-Called from: production: core/api.ts (resetCore ×1) · tests: 2 call(s) in 2 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: core/api.ts (resetCore ×1) · tests: 1 call(s) in 1 file(s)
 
 **`Core.ensure`** *(exported)*
 
@@ -2937,7 +2937,7 @@ Called from: production: core/core.ts (Core.copy ×2, Core.ensurePath ×1, Core.
 Core.ensurePath(from: number, path: string[], by: number): Node
 ```
 
-Called from: production: core/core.ts (Core.install ×2) · tests: 1 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: core/core.ts (Core.install ×2)
 
 **`Core.at`** *(exported)*
 
@@ -2945,7 +2945,7 @@ Called from: production: core/core.ts (Core.install ×2) · tests: 1 call(s) in 
 Core.at(path: string[]): Node
 ```
 
-Called from: production: core/core.ts (Core.business ×1, Instance.chartRoot ×1, Instance.globalBranch ×1); core/ops.ts (createBusiness ×1) · tests: 1 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: core/core.ts (Core.business ×1, Instance.chartRoot ×1, Instance.globalBranch ×1); core/ops.ts (createBusiness ×1)
 
 **`Core.relate`** *(exported)*
 
@@ -2953,7 +2953,7 @@ Called from: production: core/core.ts (Core.business ×1, Instance.chartRoot ×1
 Core.relate(thing: number, relation: string, target: Target, by: number): void
 ```
 
-Called from: production: core/core.ts (Core.install ×4, Core.thing ×1, Instance.contactAccount ×1, Instance.instantiate ×1, Instance.localise ×1, Instance.post ×1, and 3 more); core/ops.ts (acceptProposal ×12, buildBankCurrencyStructure ×2, clockOff ×1, clockOn ×1, createBusiness ×2, createContact ×1, and 19 more); source/svelte-to-entities.ts (writeTree ×1) · tooling: 2 call(s) in 1 file(s)
+Called from: production: core/core.ts (Core.install ×4, Core.thing ×1, Instance.contactAccount ×1, Instance.instantiate ×1, Instance.localise ×1, Instance.post ×1, and 3 more); core/ops.ts (acceptProposal ×12, buildBankCurrencyStructure ×2, clockOff ×1, clockOn ×1, createBusiness ×2, createContact ×1, and 19 more)
 
 **`Core.related`** *(exported)*
 
@@ -2969,7 +2969,7 @@ Called from: production: core/api.ts (run ×1); core/core.ts (Core.instanceOf ×
 Core.value(thing: number, relation: string): string | undefined
 ```
 
-Called from: production: core/api.ts (run ×3); core/core.ts (Core.number ×1, Instance.chartRoot ×1, Instance.contactAccount ×1, Instance.post ×1, Instance.sameProduct ×1, Instance.unitOf ×2, and 1 more); core/ops.ts (acceptProposal ×3, buildBankCurrencyStructure ×1, carryForward ×1, clockOff ×1, createBusiness ×1, getLines ×4, and 5 more) · tests: 11 call(s) in 2 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×3); core/core.ts (Core.number ×1, Instance.chartRoot ×1, Instance.contactAccount ×1, Instance.post ×1, Instance.sameProduct ×1, Instance.unitOf ×2, and 1 more); core/ops.ts (acceptProposal ×3, buildBankCurrencyStructure ×1, carryForward ×1, clockOff ×1, createBusiness ×1, getLines ×4, and 5 more) · tests: 5 call(s) in 1 file(s)
 
 **`Core.number`** *(exported)*
 
@@ -2985,7 +2985,7 @@ Called from: production: core/ops.ts (capacityLines ×1, confirmedCount ×1, emp
 Core.is(thing: number, relation: string): boolean
 ```
 
-Called from: production: core/core.ts (Core.open ×1, Core.things ×1, Instance.entriesMarked ×1, Instance.existing ×1, Instance.isHeader ×2) · tests: 2 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: core/core.ts (Core.open ×1, Core.things ×1, Instance.entriesMarked ×1, Instance.existing ×1, Instance.isHeader ×2) · tests: 2 call(s) in 1 file(s)
 
 **`Core.kind`** *(exported)*
 
@@ -3001,7 +3001,7 @@ Called from: production: core/core.ts (Core.thing ×1)
 Core.kindOf(id: number): string | undefined
 ```
 
-Called from: production: core/core.ts (Core.findNamed ×1, Core.things ×1, Instance.existing ×1, walk ×1); core/ops.ts (mirror ×1) · tests: 2 call(s) in 1 file(s) · tooling: 2 call(s) in 1 file(s)
+Called from: production: core/core.ts (Core.findNamed ×1, Core.things ×1, Instance.existing ×1, walk ×1); core/ops.ts (mirror ×1)
 
 **`Core.thing`** *(exported)*
 
@@ -3009,7 +3009,7 @@ Called from: production: core/core.ts (Core.findNamed ×1, Core.things ×1, Inst
 Core.thing(name: string, parent: number, kind: string, by: number): Node
 ```
 
-Called from: production: core/api.ts (run ×1); core/core.ts (Core.install ×8, Instance.contactAccount ×1, Instance.folder ×1, Instance.groupValue ×1, Instance.instantiate ×1, Instance.localise ×1, and 4 more); core/ops.ts (acceptProposal ×2, buildBankCurrencyStructure ×2, createBusiness ×3, createDepartment ×2, createLedger ×1, createUser ×1, and 2 more); source/svelte-to-entities.ts (writeTree ×1) · tooling: 1 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1); core/core.ts (Core.install ×8, Instance.contactAccount ×1, Instance.folder ×1, Instance.groupValue ×1, Instance.instantiate ×1, Instance.localise ×1, and 4 more); core/ops.ts (acceptProposal ×2, buildBankCurrencyStructure ×2, createBusiness ×3, createDepartment ×2, createLedger ×1, createUser ×1, and 2 more)
 
 **`Core.things`** *(exported)*
 
@@ -3017,7 +3017,7 @@ Called from: production: core/api.ts (run ×1); core/core.ts (Core.install ×8, 
 Core.things(parent: number, kind?: string): Node[]
 ```
 
-Called from: production: core/core.ts (Core.find ×1, Instance.accountNamed ×1, Instance.contactAccount ×1, Instance.entriesMarked ×1, Instance.existingProductAccount ×1, Instance.existingQuantityAccount ×1, and 3 more); core/ops.ts (deleteDepartment ×3, getLines ×1, projects ×1, setEmployeeDepartment ×1, stocked ×1); core/reports.ts (inventoryListing ×1) · tests: 6 call(s) in 2 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: core/core.ts (Core.find ×1, Instance.accountNamed ×1, Instance.contactAccount ×1, Instance.entriesMarked ×1, Instance.existingProductAccount ×1, Instance.existingQuantityAccount ×1, and 3 more); core/ops.ts (deleteDepartment ×3, getLines ×1, projects ×1, setEmployeeDepartment ×1, stocked ×1); core/reports.ts (inventoryListing ×1) · tests: 3 call(s) in 1 file(s)
 
 **`Core.find`** *(exported)*
 
@@ -4287,7 +4287,7 @@ Called from: production: core/store.ts (Store.create ×1, Store.load ×1)
 Store.tx<T>(fn: () => T): T
 ```
 
-Called from: production: core/api.ts (ensureValue ×1, postStaged ×1, run ×7, stageLine ×1); core/core.ts (Core.install ×1, Instance.copy ×1, Instance.create ×1, Instance.post ×1, Instance.relate ×1); core/ops.ts (acceptProposal ×1, buildBankCurrencyStructure ×1, clockOff ×1, clockOn ×1, closeBooks ×1, completeYearEndStockTake ×1, and 36 more) · tests: 9 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: core/api.ts (ensureValue ×1, postStaged ×1, run ×7, stageLine ×1); core/core.ts (Core.install ×1, Instance.copy ×1, Instance.create ×1, Instance.post ×1, Instance.relate ×1); core/ops.ts (acceptProposal ×1, buildBankCurrencyStructure ×1, clockOff ×1, clockOn ×1, closeBooks ×1, completeYearEndStockTake ×1, and 36 more) · tests: 9 call(s) in 1 file(s)
 
 **`Store.get`** *(exported)*
 
@@ -4343,7 +4343,7 @@ Called from: production: core/core.ts (Core.copy ×1, Core.relate ×4)
 Store.rename(id: number, name: string, by: number): void
 ```
 
-Called from: production: core/ops.ts (renameByName ×1) · tests: 1 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: core/ops.ts (renameByName ×1) · tests: 1 call(s) in 1 file(s)
 
 **`Store.within`** *(exported)*
 
@@ -9636,144 +9636,6 @@ runInSessionContext<T>(context: SessionContext, fn: () => T): T
 ```
 
 Called from: production: auth-middleware.ts (attachUser ×1) · tests: 1 call(s) in 1 file(s)
-
-### `backend/src/source/svelte-to-entities.ts`
-
-**`node`**
-
-```
-node(kind: string, rel?: Record<string, string | undefined>, children?: SourceNode[]): SourceNode
-```
-
-Called from: production: source/svelte-to-entities.ts (Converter.attribute ×4, Converter.block ×1, Converter.css ×4, Converter.element ×1, Converter.file ×1, Converter.gap ×2, and 3 more)
-
-**`Converter.slice`**
-
-```
-Converter.slice(a: number, b: number): string
-```
-
-Called from: production: source/svelte-to-entities.ts (Converter.attribute ×3, Converter.attributes ×1, Converter.css ×4, Converter.element ×3, Converter.part ×2, Converter.script ×4, and 2 more)
-
-**`Converter.seq`**
-
-```
-Converter.seq(lo: number, hi: number, items: Span[], convert: (s: Span) => SourceNode, gapKind?: string): SourceNode[]
-```
-
-Called from: production: source/svelte-to-entities.ts (Converter.attribute ×1, Converter.block ×1, Converter.cssBlock ×1, Converter.element ×1, Converter.file ×1, Converter.style ×1)
-
-**`Converter.gap`**
-
-```
-Converter.gap(kind: string, text: string): SourceNode
-```
-
-Called from: production: source/svelte-to-entities.ts (Converter.seq ×2)
-
-**`Converter.file`**
-
-```
-Converter.file(): SourceNode
-```
-
-Called from: production: source/svelte-to-entities.ts (svelteToTree ×1)
-
-**`Converter.part`**
-
-```
-Converter.part(s: Span): SourceNode
-```
-
-Called from: production: source/svelte-to-entities.ts (Converter.block ×1, Converter.element ×1, Converter.file ×1)
-
-**`Converter.element`**
-
-```
-Converter.element(s: Span, name: string, attributes: Span[], content: Span[], contentSpan?: [number, number]): SourceNode
-```
-
-Called from: production: source/svelte-to-entities.ts (Converter.part ×1)
-
-**`Converter.attributes`**
-
-```
-Converter.attributes(from: number, attributes: Span[]): { attrs: SourceNode[]; at: number; }
-```
-
-Called from: production: source/svelte-to-entities.ts (Converter.element ×1, Converter.script ×1, Converter.style ×1)
-
-**`Converter.attribute`**
-
-```
-Converter.attribute(a: Span, space: string): SourceNode
-```
-
-Called from: production: source/svelte-to-entities.ts (Converter.attributes ×1)
-
-**`Converter.block`**
-
-```
-Converter.block(s: Span): SourceNode
-```
-
-Called from: production: source/svelte-to-entities.ts (Converter.part ×1)
-
-**`Converter.script`**
-
-```
-Converter.script(s: Span): SourceNode
-```
-
-Called from: production: source/svelte-to-entities.ts (Converter.part ×1)
-
-**`Converter.style`**
-
-```
-Converter.style(s: Span): SourceNode
-```
-
-Called from: production: source/svelte-to-entities.ts (Converter.part ×1)
-
-**`Converter.cssBlock`**
-
-```
-Converter.cssBlock(b: Span): SourceNode[]
-```
-
-Called from: production: source/svelte-to-entities.ts (Converter.css ×2)
-
-**`Converter.css`**
-
-```
-Converter.css(r: Span): SourceNode
-```
-
-Called from: production: source/svelte-to-entities.ts (Converter.cssBlock ×1, Converter.style ×1)
-
-**`svelteToTree`** *(exported)*
-
-```
-svelteToTree(src: string): SourceNode
-```
-
-Called from: tests: 3 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
-
-**`emitTree`** *(exported)*
-
-```
-emitTree(n: SourceNode): string
-```
-
-Called from: production: source/svelte-to-entities.ts (all (as a value), attrs (as a value), content (as a value)) · tests: 2 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
-
-**`writeTree`** *(exported)*
-
-```
-writeTree(core: Core, parent: number, name: string, tree: SourceNode, by: number): number
-```
-
-Called from: tests: 1 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
 ## Frontend library
 

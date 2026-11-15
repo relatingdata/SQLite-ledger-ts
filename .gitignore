@@ -44,9 +44,3 @@ docs/diagrams/.puppeteer-config.generated.json
 storage_engine/build/
 storage_engine/*.sqlite3*
 storage_engine/deps/
-source_compiler/deps/
-source_compiler/ebin/
-application/.regenerated
-application/*.sqlite-wal
-application/*.sqlite-shm
-erl_crash.dump

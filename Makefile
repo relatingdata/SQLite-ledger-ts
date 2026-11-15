@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-e2e test-e2e-tutorial test-e2e-tutorials test-e2e-tutorials-http test-storage-engine storage-engine-deps source source-compiler source-regenerate source-print source-absorb source-import-fresh check-source-regenerates test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs test-e2e-manufacturing-tutorial test-e2e-manufacturing-tutorial-browser test-e2e-manufacturing-full test-e2e-project-builder-tutorial test-e2e-project-builder-tutorial-browser test-e2e-project-builder-full e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual historical-manual entity-tree-svg entity-tree-sample-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one release
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-e2e test-e2e-tutorial test-e2e-tutorials test-e2e-tutorials-http test-storage-engine storage-engine-deps test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs test-e2e-manufacturing-tutorial test-e2e-manufacturing-tutorial-browser test-e2e-manufacturing-full test-e2e-project-builder-tutorial test-e2e-project-builder-tutorial-browser test-e2e-project-builder-full e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual historical-manual entity-tree-svg entity-tree-sample-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one release
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -228,67 +228,6 @@ test-e2e-tutorials-http: reset-db
 	  ( cd backend && STEP_RUNNER_API_URL=http://localhost:$(CORE_HTTP_PORT) MIDDLEWARE=core $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/$$f-steps.csv --path api --non-interactive ) || status=1; \
 	done; \
 	kill -- -$$(cat $(CORE_HTTP_PID)) 2>/dev/null || true; rm -f $(CORE_HTTP_PID); exit $$status
-
-# --- The application's own source, stored as entities ---------------------
-#
-# application/application.sqlite holds the frontend's .svelte files as
-# entities under Application/Source (see "Application Source as Entities" in
-# the Programmer's Manual). The LFE source compiler (source_compiler/)
-# regenerates the files on disk from it; only files whose text changed are
-# written, so make, Vite and svelte-check see no change for the rest.
-APPLICATION_DB ?= application/application.sqlite
-SOURCE_LFE := $(CURDIR)/source_compiler/deps/lfe
-SOURCE_BEAMS := $(patsubst source_compiler/src/%.lfe,source_compiler/ebin/%.beam,$(wildcard source_compiler/src/*.lfe))
-SOURCE_ERL = erl -noshell -pa $(SOURCE_LFE)/ebin -pa $(CURDIR)/source_compiler/ebin
-
-$(SOURCE_LFE)/ebin/lfe.beam:
-	sh source_compiler/fetch_deps.sh
-
-source_compiler/ebin/%.beam: source_compiler/src/%.lfe | $(SOURCE_LFE)/ebin/lfe.beam
-	@mkdir -p source_compiler/ebin
-	PATH=$(SOURCE_LFE)/bin:$$PATH lfec -o source_compiler/ebin $<
-
-source-compiler: $(SOURCE_BEAMS)
-
-# Make-style: regenerates only when the entities or the compiler changed.
-source: application/.regenerated
-application/.regenerated: $(APPLICATION_DB) $(SOURCE_BEAMS)
-	$(SOURCE_ERL) -eval "'source-cli':main([\"regenerate\", \"$(APPLICATION_DB)\", \".\"]), halt()."
-	@touch $@
-
-# Regenerates every file now, whatever make thinks.
-source-regenerate: source-compiler
-	$(SOURCE_ERL) -eval "'source-cli':main([\"regenerate\", \"$(APPLICATION_DB)\", \".\"]), halt()."
-	@touch application/.regenerated
-
-# The Lisp view of one file: make source-print FILE=frontend/src/lib/components/CashTransaction.svelte
-source-print: source-compiler
-	@$(SOURCE_ERL) -eval "'source-cli':main([\"print\", \"$(APPLICATION_DB)\", \"$(FILE)\"]), halt()."
-
-# Until the source tree editor exists: takes .svelte files edited by hand
-# back into the entities (changed files are retired into the history and
-# written again; nothing is deleted).
-source-absorb:
-	cd backend && $(RUN_SCRIPT) scripts/source-import.ts ../$(APPLICATION_DB) ../frontend/src
-
-# Rebuilds the database from the files on disk, discarding its history.
-source-import-fresh:
-	cd backend && $(RUN_SCRIPT) scripts/source-import.ts --fresh ../$(APPLICATION_DB) ../frontend/src
-
-# Gate: the .svelte files on disk are exactly what the entities generate.
-SOURCE_CHECK_DIR := /tmp/sql-ledger-ts-source-check
-check-source-regenerates: source-compiler
-	@rm -rf $(SOURCE_CHECK_DIR)
-	@$(SOURCE_ERL) -eval "'source-cli':main([\"regenerate\", \"$(APPLICATION_DB)\", \"$(SOURCE_CHECK_DIR)\"]), halt()."
-	@status=0; \
-	for f in $$(cd frontend/src && find . -name '*.svelte' | sort); do \
-	  cmp -s frontend/src/$$f $(SOURCE_CHECK_DIR)/frontend/src/$$f || { echo "✗ frontend/src/$$f differs from its entities (make source-absorb, or make source-regenerate)"; status=1; }; \
-	done; \
-	for f in $$(cd $(SOURCE_CHECK_DIR)/frontend/src && find . -name '*.svelte' | sort); do \
-	  [ -f frontend/src/$$f ] || { echo "✗ frontend/src/$$f exists only in the entities"; status=1; }; \
-	done; \
-	rm -rf $(SOURCE_CHECK_DIR); \
-	[ $$status -eq 0 ] && echo "✅ Every .svelte file regenerates exactly from $(APPLICATION_DB)"; exit $$status
 
 # The Gleam storage engine's own suite (storage_engine/, in this
 # repository), including its implementation of the core's two stores and
@@ -655,7 +594,7 @@ verify-fresh: reset-db
 	@# Every independent gate runs and reports; one failing gate must never
 	@# hide the others (make normally stops at the first failure, which
 	@# silently masked two of these for a long time).
-	@fail=0; for g in check-docs-coverage check-docs-staleness check-test-docs check-function-inventory check-cycles check-schema-table-count check-unused check-no-python check-journal-staging-only check-source-regenerates; do \
+	@fail=0; for g in check-docs-coverage check-docs-staleness check-test-docs check-function-inventory check-cycles check-schema-table-count check-unused check-no-python check-journal-staging-only; do \
 	  $(MAKE) $$g || { echo "GATE FAILED: $$g"; fail=1; }; \
 	done; exit $$fail
 
