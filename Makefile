@@ -1,4 +1,4 @@
-.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-e2e test-e2e-tutorial test-e2e-tutorials test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs test-e2e-manufacturing-tutorial test-e2e-manufacturing-tutorial-browser test-e2e-manufacturing-full test-e2e-project-builder-tutorial test-e2e-project-builder-tutorial-browser test-e2e-project-builder-full e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual historical-manual entity-tree-svg entity-tree-sample-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one release
+.PHONY: all install clean seed dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-e2e test-e2e-tutorial test-e2e-tutorials test-e2e-tutorials-http test-storage-engine storage-engine-deps test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs test-e2e-manufacturing-tutorial test-e2e-manufacturing-tutorial-browser test-e2e-manufacturing-full test-e2e-project-builder-tutorial test-e2e-project-builder-tutorial-browser test-e2e-project-builder-full e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual historical-manual entity-tree-svg entity-tree-sample-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one release
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -211,6 +211,34 @@ test-e2e-tutorials:
 	$(MAKE) test-e2e-tutorial
 	$(MAKE) test-e2e-manufacturing-tutorial
 	$(MAKE) test-e2e-project-builder-tutorial
+
+# The same three fixtures through the core middleware's frontend API over
+# real HTTP: starts a backend of its own on CORE_HTTP_PORT with a fresh
+# database, sends every step as a POST to /api/core/call, and stops the
+# backend again whatever the outcome. The targets above send the same
+# requests to the same handler in-process, with no server.
+CORE_HTTP_PORT ?= 3101
+CORE_HTTP_PID = $(PID_DIR)/core-http-backend.pid
+test-e2e-tutorials-http: reset-db
+	@mkdir -p $(PID_DIR)
+	@echo "starting a backend for the core frontend API on port $(CORE_HTTP_PORT)..."
+	@( cd backend && PORT=$(CORE_HTTP_PORT) MIDDLEWARE=core SEED_DEMO_BUSINESSES=false setsid nohup $(RUN_SCRIPT) src/server.ts > /tmp/sql-ledger-ts-core-http.log 2>&1 < /dev/null & echo $$! > $(CORE_HTTP_PID) )
+	@for i in $$(seq 1 40); do curl -sf http://localhost:$(CORE_HTTP_PORT)/api/health > /dev/null 2>&1 && break; sleep 1; done
+	@status=0; for f in tutorial manufacturing-tutorial project-builder-tutorial; do \
+	  ( cd backend && STEP_RUNNER_API_URL=http://localhost:$(CORE_HTTP_PORT) MIDDLEWARE=core $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/$$f-steps.csv --path api --non-interactive ) || status=1; \
+	done; \
+	kill -- -$$(cat $(CORE_HTTP_PID)) 2>/dev/null || true; rm -f $(CORE_HTTP_PID); exit $$status
+
+# The Gleam storage engine's own suite (storage_engine/, in this
+# repository), including its implementation of the core's two stores and
+# four calls.
+test-storage-engine: storage-engine-deps
+	cd storage_engine && gleam test
+
+# The engine's Gleam dependencies, cloned at pinned commits into
+# storage_engine/deps/ (ignored by git) the first time they are needed.
+storage-engine-deps:
+	@sh storage_engine/fetch_deps.sh
 
 # The exact, same, real tutorial fixture, driven through an actual,
 # real, live browser instead - genuinely proving the real UI screens
@@ -471,13 +499,13 @@ ensure-servers:
 # first thing to ever touch a freshly-reset database file, never
 # storage_engine's own, much smaller one (see bootstrap-schema.ts's
 # header for exactly why that ordering is load-bearing, not cosmetic).
-ensure-storage-engine:
+ensure-storage-engine: storage-engine-deps
 	@mkdir -p $(PID_DIR)
 	@if $(STORAGE_ENGINE_HEALTHY); then \
 	  echo "storage_engine already healthy, reusing (pid $$(cat $(STORAGE_ENGINE_PID)))"; \
 	else \
 	  echo "starting storage_engine (db=$(STORAGE_ENGINE_DB_PATH), port=$(STORAGE_ENGINE_PORT))..."; \
-	  ( cd /home/claude/storage_engine && STORAGE_ENGINE_DB_PATH=$(STORAGE_ENGINE_DB_PATH) STORAGE_ENGINE_PORT=$(STORAGE_ENGINE_PORT) setsid nohup gleam run > /tmp/sql-ledger-ts-storage-engine.log 2>&1 < /dev/null & echo $$! > $(STORAGE_ENGINE_PID) ); \
+	  ( cd $(CURDIR)/storage_engine && STORAGE_ENGINE_DB_PATH=$(STORAGE_ENGINE_DB_PATH) STORAGE_ENGINE_PORT=$(STORAGE_ENGINE_PORT) setsid nohup gleam run > /tmp/sql-ledger-ts-storage-engine.log 2>&1 < /dev/null & echo $$! > $(STORAGE_ENGINE_PID) ); \
 	  for i in $$(seq 1 30); do [ "$$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 http://localhost:$(STORAGE_ENGINE_PORT)/entities)" != "000" ] && break; sleep 1; done; \
 	fi
 

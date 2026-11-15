@@ -39,3 +39,8 @@ test-results/
 COMMIT_MSG.txt
 
 docs/diagrams/.puppeteer-config.generated.json
+
+# The Gleam storage engine: build output and its own scratch databases.
+storage_engine/build/
+storage_engine/*.sqlite3*
+storage_engine/deps/

@@ -1,0 +1,20 @@
+# Do not manually edit this file, it is managed by Gleam.
+#
+# This file locks the dependency versions used, to make your build
+# deterministic and to prevent unexpected versions from being included
+# in your application.
+#
+# You should check this file into your source control repository.
+
+packages = [
+  { name = "gleam_erlang", version = "1.3.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], source = "local", path = "deps/gleam-lang/erlang" },
+  { name = "gleam_otp", version = "1.3.0", build_tools = ["gleam"], requirements = ["gleam_erlang", "gleam_stdlib"], source = "local", path = "deps/gleam-lang/otp" },
+  { name = "gleam_stdlib", version = "1.0.5", build_tools = ["gleam"], requirements = [], source = "local", path = "deps/gleam-lang/stdlib" },
+  { name = "gleeunit", version = "1.11.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], source = "local", path = "deps/lpil/gleeunit" },
+]
+
+[requirements]
+gleam_erlang = { path = "deps/gleam-lang/erlang" }
+gleam_otp = { path = "deps/gleam-lang/otp" }
+gleam_stdlib = { path = "deps/gleam-lang/stdlib" }
+gleeunit = { path = "deps/lpil/gleeunit" }

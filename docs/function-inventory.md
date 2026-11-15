@@ -20,7 +20,7 @@ It uses the TypeScript compiler, not a text search. A prototype is printed by th
 
 ## Summary
 
-- **Backend:** 1252 functions (1091 exported); 797 are called from production code; 52 only from tests or tooling; 403 from nowhere the compiler could find.
+- **Backend:** 1168 functions (1010 exported); 795 are called from production code; 51 only from tests or tooling; 322 from nowhere the compiler could find.
 - **Frontend library:** 328 functions (268 exported); 312 are called from production code; 2 only from tests or tooling; 14 from nowhere the compiler could find.
 
 ### Backend: functions with no callers found
@@ -53,7 +53,6 @@ Candidates to review, not proof of dead code: a function may be reached in a way
 - `backend/src/call-dispatch/reports.ts`: `reportsFunctions.getBusinessReports`, `reportsFunctions.getChartOfAccounts`, `reportsFunctions.getBankAccounts`, `reportsFunctions.getCashPosition`, `reportsFunctions.getCashFlowForecast`, `reportsFunctions.registerBankAccount`, `reportsFunctions.unregisterBankAccount`, `reportsFunctions.getSalesReport`, `reportsFunctions.getTrialBalance`, `reportsFunctions.getBalanceSheet`, `reportsFunctions.getLedgerDateRange`, `reportsFunctions.getProfitAndLoss`, `reportsFunctions.getDrillDown`, `reportsFunctions.getProfitAndLossByHierarchy`, `reportsFunctions.getProfitAndLossByHierarchyTree`, `reportsFunctions.getTrialBalanceComparison`, `reportsFunctions.getProfitAndLossComparison`
 - `backend/src/call-dispatch/stock-lots.ts`: `stockLotsFunctions.writeOffItems`, `stockLotsFunctions.receiveLot`, `stockLotsFunctions.consumeFromLots`, `stockLotsFunctions.getExpiringStock`
 - `backend/src/call-dispatch/stock.ts`: `stockFunctions.stagePurchaseOrder`, `stockFunctions.postPurchaseOrder`, `stockFunctions.getOrderStatus`, `stockFunctions.stageOrderReceipt`, `stockFunctions.postOrderReceipt`, `stockFunctions.stageSalesOrder`, `stockFunctions.postSalesOrder`, `stockFunctions.stageOrderDispatch`, `stockFunctions.postOrderDispatch`
-- `backend/src/core/screens.ts`: `CORE_API_REGISTRY.createBusiness`, `CORE_API_REGISTRY.nominateBankAccountSimple`, `CORE_API_REGISTRY.buildBankCurrencyStructureSimple`, `CORE_API_REGISTRY.createAndConfigureLocation`, `CORE_API_REGISTRY.createEmployeeAt`, `CORE_API_REGISTRY.createProviderSimple`, `CORE_API_REGISTRY.createCustomerSimple`, `CORE_API_REGISTRY.setEmployeeWageSimple`, `CORE_API_REGISTRY.createPlantItemSimple`, `CORE_API_REGISTRY.ensureSkillSimple`, `CORE_API_REGISTRY.tagSkillSimple`, `CORE_API_REGISTRY.createUncategorizedItem`, `CORE_API_REGISTRY.createItemUnderCategory`, `CORE_API_REGISTRY.createItemAndCategory`, `CORE_API_REGISTRY.createCategorySimple`, `CORE_API_REGISTRY.addTopLevelCategoryViaStructurePopup`, `CORE_API_REGISTRY.addDivisionViaStructurePopup`, `CORE_API_REGISTRY.createHierarchyGroupingSimple`, `CORE_API_REGISTRY.createHierarchyValueSimple`, `CORE_API_REGISTRY.tagItemHierarchy`, `CORE_API_REGISTRY.setHierarchyTagSimple`, `CORE_API_REGISTRY.addDepartmentViaStructurePopup`, `CORE_API_REGISTRY.deleteDepartmentViaStructurePopup`, `CORE_API_REGISTRY.assignEmployeeDepartmentViaStructurePopup`, `CORE_API_REGISTRY.setEmployeeManagerViaStructurePopup`, `CORE_API_REGISTRY.renameEntitySimple`, `CORE_API_REGISTRY.createEntitySimple`, `CORE_API_REGISTRY.setTranslationSimple`, `CORE_API_REGISTRY.ensureItemInventoryAccountSimple`, `CORE_API_REGISTRY.setItemCostAndPackSize`, `CORE_API_REGISTRY.createPurchaseOrderInCartons`, `CORE_API_REGISTRY.stagePurchaseOrderSimple`, `CORE_API_REGISTRY.postPurchaseOrderSimple`, `CORE_API_REGISTRY.cashPurchaseSimple`, `CORE_API_REGISTRY.transferItemsSimple`, `CORE_API_REGISTRY.receiveStockQuantitySimple`, `CORE_API_REGISTRY.dispatchStockQuantitySimple`, `CORE_API_REGISTRY.receiveStockWithCombination`, `CORE_API_REGISTRY.openContainer`, `CORE_API_REGISTRY.setBomComponentSimple`, `CORE_API_REGISTRY.createPrototypeSimple`, `CORE_API_REGISTRY.addPrototypeLineSimple`, `CORE_API_REGISTRY.updatePrototypeLineSimple`, `CORE_API_REGISTRY.instantiateProjectProposalSimple`, `CORE_API_REGISTRY.acceptProjectProposalSimple`, `CORE_API_REGISTRY.clockInToProjectSimple`, `CORE_API_REGISTRY.clockOutOfProjectSimple`, `CORE_API_REGISTRY.clockPlantInSimple`, `CORE_API_REGISTRY.clockPlantOutSimple`, `CORE_API_REGISTRY.closeBooksSimple`, `CORE_API_REGISTRY.createLedgerSimple`, `CORE_API_REGISTRY.rolloverToNewPeriodSimple`, `CORE_API_REGISTRY.createUserSimple`, `CORE_API_REGISTRY.setUserRolesSimple`, `CORE_VERIFY_REGISTRY.business_exists`, `CORE_VERIFY_REGISTRY.location_exists`, `CORE_VERIFY_REGISTRY.cash_at_bank_exists`, `CORE_VERIFY_REGISTRY.transfer_landed`, `CORE_VERIFY_REGISTRY.purchase_order_posted`, `CORE_VERIFY_REGISTRY.item_source_registered`, `CORE_VERIFY_REGISTRY.bom_components_recorded`, `CORE_VERIFY_REGISTRY.stock_on_hand_nonnegative`, `CORE_VERIFY_REGISTRY.schedule_risk_absent`, `CORE_VERIFY_REGISTRY.schedule_risk_flagged`, `CORE_VERIFY_REGISTRY.project_margin_sign`, `CORE_VERIFY_REGISTRY.prototype_line_updated`, `CORE_VERIFY_REGISTRY.trial_balance_balanced`, `CORE_VERIFY_REGISTRY.balance_sheet_balanced`, `CORE_VERIFY_REGISTRY.record_trial_balance_total`, `CORE_VERIFY_REGISTRY.trial_balance_total_matches_recorded`, `CORE_VERIFY_REGISTRY.profit_and_loss_positive`, `CORE_VERIFY_REGISTRY.profit_and_loss_zero`, `CORE_VERIFY_REGISTRY.record_profit_and_loss_net_income`, `CORE_VERIFY_REGISTRY.profit_and_loss_net_income_matches_recorded`, `CORE_VERIFY_REGISTRY.profit_and_loss_by_item_single_row`, `CORE_VERIFY_REGISTRY.profit_and_loss_by_category_detailed`, `CORE_VERIFY_REGISTRY.profit_and_loss_by_division_consolidated`, `CORE_VERIFY_REGISTRY.user_has_exact_roles`, `CORE_VERIFY_REGISTRY.translation_matches`, `CORE_VERIFY_REGISTRY.entity_named_exists`, `CORE_VERIFY_REGISTRY.location_in_hierarchy_group`
 - `backend/src/db-journal.ts`: `ensureLocationScopedAccount`
 - `backend/src/db-reports.ts`: `getLedgerBalancesByLocationStructural`
 - `backend/src/db.ts`: `typeCategoryOrItemsRootName.validate`
@@ -2784,6 +2783,136 @@ stockFunctions.postOrderDispatch(v: string[], user: AuthenticatedUser): CallResu
 
 Called from: nowhere the compiler could find.
 
+### `backend/src/core/api.ts`
+
+**`openCore`** *(exported)*
+
+```
+openCore(path?: string): Core
+```
+
+Called from: production: core/api.ts (exists ×1, instance ×1, run ×2)
+
+**`resetCore`** *(exported)*
+
+```
+resetCore(remove?: boolean, path?: string): void
+```
+
+Called from: tooling: 1 call(s) in 1 file(s)
+
+**`businessName`**
+
+```
+businessName(name: string): string
+```
+
+Called from: production: core/api.ts (exists ×1, inst ×1, run ×4)
+
+**`instance`**
+
+```
+instance(user: string, business: string, ledger: string): Instance
+```
+
+Called from: production: core/api.ts (inst ×1, run ×5)
+
+**`inst`**
+
+```
+inst(a: Args, s: Session): Instance
+```
+
+Called from: production: core/api.ts (exists ×1, postStaged ×1, run ×60, sale ×1, stageLine ×1)
+
+**`stageKey`**
+
+```
+stageKey(i: Instance, reference: string): string
+```
+
+Called from: production: core/api.ts (postStaged ×1, stageLine ×1)
+
+**`stageLine`**
+
+```
+stageLine(a: Args, s: Session): void
+```
+
+Called from: production: core/api.ts ((module level) (as a value))
+
+**`postStaged`**
+
+```
+postStaged(a: Args, s: Session): void
+```
+
+Called from: production: core/api.ts ((module level) (as a value))
+
+**`list`**
+
+```
+list(text: string | undefined): string[]
+```
+
+Called from: production: core/api.ts (run ×2)
+
+**`ensureValue`**
+
+```
+ensureValue(i: Instance, grouping: string, value: string): void
+```
+
+Called from: production: core/api.ts (run ×4)
+
+**`sale`**
+
+```
+sale(a: Args, s: Session): void
+```
+
+Called from: production: core/api.ts ((module level) (as a value))
+
+**`optionalDate`**
+
+```
+optionalDate(text: string): string
+```
+
+Called from: production: core/api.ts (run ×6)
+
+**`exists`**
+
+```
+exists(a: Args, s: Session): boolean
+```
+
+Called from: production: core/api.ts (run ×1)
+
+**`text`**
+
+```
+text(value: Scalar): string
+```
+
+Called from: production: core/api.ts (callCore ×2)
+
+**`failure`**
+
+```
+failure(status: number, message: string): CoreReply
+```
+
+Called from: production: core/api.ts (callCore ×7)
+
+**`callCore`** *(exported)*
+
+```
+callCore(body: string, token?: string): CoreReply
+```
+
+Called from: production: routes/core-call.ts ((module level) ×1) · tests: 2 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+
 ### `backend/src/core/core.ts`
 
 **`Core.close`** *(exported)*
@@ -2792,7 +2921,7 @@ Called from: nowhere the compiler could find.
 Core.close(): void
 ```
 
-Called from: production: core/screens.ts (resetCore ×1) · tests: 1 call(s) in 1 file(s)
+Called from: production: core/api.ts (resetCore ×1) · tests: 1 call(s) in 1 file(s)
 
 **`Core.ensure`** *(exported)*
 
@@ -2832,7 +2961,7 @@ Called from: production: core/core.ts (Core.install ×4, Core.thing ×1, Instanc
 Core.related(thing: number, relation: string): Node | undefined
 ```
 
-Called from: production: core/core.ts (Core.instanceOf ×1, Core.is ×1, Core.kindOf ×1, Core.value ×1, Instance.contactAccount ×3, Instance.prototypeOf ×1, and 1 more); core/ops.ts (acceptProposal ×2, clockOff ×2, clockOn ×1, deleteDepartment ×2, plantClock ×1, projectMargin ×1, and 3 more); core/reports.ts (axisValue ×3, inventoryListing ×2) · tests: 2 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1); core/core.ts (Core.instanceOf ×1, Core.is ×1, Core.kindOf ×1, Core.value ×1, Instance.contactAccount ×3, Instance.prototypeOf ×1, and 1 more); core/ops.ts (acceptProposal ×2, clockOff ×2, clockOn ×1, deleteDepartment ×2, plantClock ×1, projectMargin ×1, and 3 more); core/reports.ts (axisValue ×3, inventoryListing ×2) · tests: 2 call(s) in 1 file(s)
 
 **`Core.value`** *(exported)*
 
@@ -2840,7 +2969,7 @@ Called from: production: core/core.ts (Core.instanceOf ×1, Core.is ×1, Core.ki
 Core.value(thing: number, relation: string): string | undefined
 ```
 
-Called from: production: core/core.ts (Core.number ×1, Instance.chartRoot ×1, Instance.contactAccount ×1, Instance.post ×1, Instance.sameProduct ×1, Instance.unitOf ×2, and 1 more); core/ops.ts (acceptProposal ×3, buildBankCurrencyStructure ×1, clockOff ×1, createBusiness ×1, getLines ×4, groupOf ×1, and 3 more); core/screens.ts (CORE_VERIFY_REGISTRY.purchase_order_posted ×1, CORE_VERIFY_REGISTRY.translation_matches ×1, coreSessionStep ×1) · tests: 4 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×3); core/core.ts (Core.number ×1, Instance.chartRoot ×1, Instance.contactAccount ×1, Instance.post ×1, Instance.sameProduct ×1, Instance.unitOf ×2, and 1 more); core/ops.ts (acceptProposal ×3, buildBankCurrencyStructure ×1, clockOff ×1, createBusiness ×1, getLines ×4, groupOf ×1, and 3 more) · tests: 4 call(s) in 1 file(s)
 
 **`Core.number`** *(exported)*
 
@@ -2880,7 +3009,7 @@ Called from: production: core/core.ts (Core.findNamed ×1, Core.things ×1, Inst
 Core.thing(name: string, parent: number, kind: string, by: number): Node
 ```
 
-Called from: production: core/core.ts (Core.install ×8, Instance.contactAccount ×1, Instance.folder ×1, Instance.groupValue ×1, Instance.instantiate ×1, Instance.localise ×1, and 4 more); core/ops.ts (acceptProposal ×2, buildBankCurrencyStructure ×2, createBusiness ×3, createDepartment ×2, createLedger ×1, createUser ×1, and 2 more); core/screens.ts (CORE_API_REGISTRY.createEntitySimple ×1)
+Called from: production: core/api.ts (run ×1); core/core.ts (Core.install ×8, Instance.contactAccount ×1, Instance.folder ×1, Instance.groupValue ×1, Instance.instantiate ×1, Instance.localise ×1, and 4 more); core/ops.ts (acceptProposal ×2, buildBankCurrencyStructure ×2, createBusiness ×3, createDepartment ×2, createLedger ×1, createUser ×1, and 2 more)
 
 **`Core.things`** *(exported)*
 
@@ -2904,7 +3033,7 @@ Called from: production: core/core.ts (Core.findNamed ×1, Core.instanceOf ×1)
 Core.findNamed(under: number, name: string, kind?: string): Node | undefined
 ```
 
-Called from: production: core/core.ts (Instance.accountNamed ×1, Instance.chartAccount ×1, Instance.existingProductAccount ×1, Instance.lookup ×2); core/screens.ts (CORE_VERIFY_REGISTRY.cash_at_bank_exists ×1) · tests: 3 call(s) in 1 file(s)
+Called from: production: core/api.ts (exists ×1); core/core.ts (Instance.accountNamed ×1, Instance.chartAccount ×1, Instance.existingProductAccount ×1, Instance.lookup ×2) · tests: 3 call(s) in 1 file(s)
 
 **`Core.all`** *(exported)*
 
@@ -2944,7 +3073,7 @@ Called from: production: core/core.ts ((module level) ×1)
 Core.business(name: string): Node
 ```
 
-Called from: production: core/core.ts (Core.open ×1); core/screens.ts (CORE_VERIFY_REGISTRY.business_exists ×1)
+Called from: production: core/api.ts (exists ×1); core/core.ts (Core.open ×1)
 
 **`Core.open`** *(exported)*
 
@@ -2952,7 +3081,7 @@ Called from: production: core/core.ts (Core.open ×1); core/screens.ts (CORE_VER
 Core.open(user: string, business: string, ledger?: string): Instance
 ```
 
-Called from: production: core/core.ts (Instance.forLedger ×1); core/ops.ts (createBusiness ×1); core/screens.ts (coreSessionStep ×1, instance ×1) · tests: 5 call(s) in 1 file(s)
+Called from: production: core/api.ts (instance ×1, run ×1); core/core.ts (Instance.forLedger ×1); core/ops.ts (createBusiness ×1) · tests: 5 call(s) in 1 file(s)
 
 **`today`** *(exported)*
 
@@ -2984,7 +3113,7 @@ Called from: tests: 1 call(s) in 1 file(s)
 Instance.relate(thing: number, relation: string, target: Target): void
 ```
 
-Called from: production: core/ops.ts (lockLedger ×1); core/screens.ts (CORE_API_REGISTRY.setEmployeeWageSimple ×1, CORE_API_REGISTRY.setTranslationSimple ×1) · tests: 8 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×2); core/ops.ts (lockLedger ×1) · tests: 8 call(s) in 1 file(s)
 
 **`Instance.copy`** *(exported)*
 
@@ -3000,7 +3129,7 @@ Called from: tests: 1 call(s) in 1 file(s)
 Instance.post(reference: string, lines: Line[], options?: PostOptions): Node
 ```
 
-Called from: production: core/ops.ts (acceptProposal ×1, clockOff ×1, clockOn ×1, closeBooks ×1, dispatchStock ×1, instantiateProposal ×1, and 12 more); core/screens.ts (postStaged ×1) · tests: 13 call(s) in 1 file(s)
+Called from: production: core/api.ts (postStaged ×1); core/ops.ts (acceptProposal ×1, clockOff ×1, clockOn ×1, closeBooks ×1, dispatchStock ×1, instantiateProposal ×1, and 12 more) · tests: 13 call(s) in 1 file(s)
 
 **`Instance.entry`** *(exported)*
 
@@ -3008,7 +3137,7 @@ Called from: production: core/ops.ts (acceptProposal ×1, clockOff ×1, clockOn 
 Instance.entry(reference: string): Node | undefined
 ```
 
-Called from: production: core/core.ts (Instance.freeReference ×1); core/ops.ts (acceptProposal ×1, delivery ×1, recipeOwner ×1, reverseEntry ×1); core/screens.ts (CORE_VERIFY_REGISTRY.purchase_order_posted ×1)
+Called from: production: core/api.ts (run ×1); core/core.ts (Instance.freeReference ×1); core/ops.ts (acceptProposal ×1, delivery ×1, recipeOwner ×1, reverseEntry ×1)
 
 **`Instance.freeReference`** *(exported)*
 
@@ -3016,7 +3145,7 @@ Called from: production: core/core.ts (Instance.freeReference ×1); core/ops.ts 
 Instance.freeReference(reference: string): string
 ```
 
-Called from: production: core/ops.ts (closeBooks ×1, transferStock ×1); core/screens.ts (CORE_API_REGISTRY.receiveStockWithCombination ×1)
+Called from: production: core/api.ts (run ×1); core/ops.ts (closeBooks ×1, transferStock ×1)
 
 **`Instance.branch`** *(exported)*
 
@@ -3024,7 +3153,7 @@ Called from: production: core/ops.ts (closeBooks ×1, transferStock ×1); core/s
 Instance.branch(name: string): Node
 ```
 
-Called from: production: core/core.ts (Instance.localise ×1, Instance.thingIn ×1); core/ops.ts (createLedger ×1, deleteDepartment ×1, projects ×1, usersFolder ×1); core/screens.ts (CORE_API_REGISTRY.createEntitySimple ×1)
+Called from: production: core/api.ts (run ×1); core/core.ts (Instance.localise ×1, Instance.thingIn ×1); core/ops.ts (createLedger ×1, deleteDepartment ×1, projects ×1, usersFolder ×1)
 
 **`Instance.existingBranch`** *(exported)*
 
@@ -3048,7 +3177,7 @@ Called from: production: core/core.ts (Instance.lookup ×1)
 Instance.lookup(branch: string, name: string): { node: Node; local: boolean; } | undefined
 ```
 
-Called from: production: core/core.ts (Instance.label ×1, Instance.localise ×1); core/screens.ts (CORE_VERIFY_REGISTRY.entity_named_exists ×1, CORE_VERIFY_REGISTRY.translation_matches ×1) · tests: 2 call(s) in 1 file(s)
+Called from: production: core/api.ts (exists ×2, run ×1); core/core.ts (Instance.label ×1, Instance.localise ×1) · tests: 2 call(s) in 1 file(s)
 
 **`Instance.localise`** *(exported)*
 
@@ -3056,7 +3185,7 @@ Called from: production: core/core.ts (Instance.label ×1, Instance.localise ×1
 Instance.localise(branch: string, name: string, kind: string): Node
 ```
 
-Called from: production: core/ops.ts (createContact ×1, createLocation ×1, setUserRoles ×1); core/screens.ts (CORE_API_REGISTRY.setTranslationSimple ×1) · tests: 1 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1); core/ops.ts (createContact ×1, createLocation ×1, setUserRoles ×1) · tests: 1 call(s) in 1 file(s)
 
 **`Instance.label`** *(exported)*
 
@@ -3080,7 +3209,7 @@ Called from: production: core/core.ts (Instance.grouping ×1); core/ops.ts (acce
 Instance.existing(branch: string, name: string): Node | undefined
 ```
 
-Called from: production: core/core.ts (Instance.accountNamed ×2, Instance.anything ×1, Instance.require ×1); core/ops.ts (acceptProposal ×1, createPlant ×1, deleteDepartment ×1, recipeOwner ×3, serviceItem ×1, setEmployeeDepartment ×1)
+Called from: production: core/api.ts (exists ×1); core/core.ts (Instance.accountNamed ×2, Instance.anything ×1, Instance.require ×1); core/ops.ts (acceptProposal ×1, createPlant ×1, deleteDepartment ×1, recipeOwner ×3, serviceItem ×1, setEmployeeDepartment ×1)
 
 **`Instance.require`** *(exported)*
 
@@ -3088,7 +3217,7 @@ Called from: production: core/core.ts (Instance.accountNamed ×2, Instance.anyth
 Instance.require(branch: string, name: string, what: string): Node
 ```
 
-Called from: production: core/core.ts (Instance.contact ×1, Instance.item ×1, Instance.location ×1); core/ops.ts (buildBankCurrencyStructure ×1, instantiateProposal ×1, plantClock ×1, projectMargin ×1, scheduleRisk ×1, setUserRoles ×1, and 2 more); core/screens.ts (CORE_API_REGISTRY.addPrototypeLineSimple ×1, CORE_API_REGISTRY.updatePrototypeLineSimple ×1, CORE_VERIFY_REGISTRY.prototype_line_updated ×1)
+Called from: production: core/api.ts (run ×2); core/core.ts (Instance.contact ×1, Instance.item ×1, Instance.location ×1); core/ops.ts (buildBankCurrencyStructure ×1, instantiateProposal ×1, plantClock ×1, projectMargin ×1, scheduleRisk ×1, setUserRoles ×1, and 2 more)
 
 **`Instance.item`** *(exported)*
 
@@ -3096,7 +3225,7 @@ Called from: production: core/core.ts (Instance.contact ×1, Instance.item ×1, 
 Instance.item(name: string): Node
 ```
 
-Called from: production: core/ops.ts (instantiateProposal ×1, itemSource ×1, onOrder ×1, openContainer ×1, placePurchaseOrder ×1, product ×1, and 2 more); core/screens.ts (CORE_API_REGISTRY.ensureItemInventoryAccountSimple ×1, CORE_API_REGISTRY.setBomComponentSimple ×2) · tests: 2 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×3); core/ops.ts (instantiateProposal ×1, itemSource ×1, onOrder ×1, openContainer ×1, placePurchaseOrder ×1, product ×1, and 2 more) · tests: 2 call(s) in 1 file(s)
 
 **`Instance.location`** *(exported)*
 
@@ -3104,7 +3233,7 @@ Called from: production: core/ops.ts (instantiateProposal ×1, itemSource ×1, o
 Instance.location(name: string): Node
 ```
 
-Called from: production: core/ops.ts (createEmployee ×1, openContainer ×1, product ×1, transferStock ×2); core/screens.ts (CORE_VERIFY_REGISTRY.location_exists ×1)
+Called from: production: core/ops.ts (createEmployee ×1, openContainer ×1, product ×1, transferStock ×2)
 
 **`Instance.contact`** *(exported)*
 
@@ -3112,7 +3241,7 @@ Called from: production: core/ops.ts (createEmployee ×1, openContainer ×1, pro
 Instance.contact(name: string): Node
 ```
 
-Called from: production: core/ops.ts (employeeClock ×1, instantiateProposal ×1, payment ×1, payWages ×1, placePurchaseOrder ×1, purchase ×1, and 5 more); core/screens.ts (CORE_API_REGISTRY.setEmployeeWageSimple ×1) · tests: 4 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1); core/ops.ts (employeeClock ×1, instantiateProposal ×1, payment ×1, payWages ×1, placePurchaseOrder ×1, purchase ×1, and 5 more) · tests: 4 call(s) in 1 file(s)
 
 **`Instance.anything`** *(exported)*
 
@@ -3120,7 +3249,7 @@ Called from: production: core/ops.ts (employeeClock ×1, instantiateProposal ×1
 Instance.anything(name: string): Node | undefined
 ```
 
-Called from: production: core/ops.ts (groupOf ×1, setGroup ×1); core/screens.ts (CORE_VERIFY_REGISTRY.entity_named_exists ×1)
+Called from: production: core/api.ts (exists ×1); core/ops.ts (groupOf ×1, setGroup ×1)
 
 **`Instance.grouping`** *(exported)*
 
@@ -3128,7 +3257,7 @@ Called from: production: core/ops.ts (groupOf ×1, setGroup ×1); core/screens.t
 Instance.grouping(name: string): Node
 ```
 
-Called from: production: core/core.ts (Instance.groupValue ×1); core/screens.ts (CORE_API_REGISTRY.createHierarchyGroupingSimple ×1)
+Called from: production: core/api.ts (run ×1); core/core.ts (Instance.groupValue ×1)
 
 **`Instance.groupValue`** *(exported)*
 
@@ -3136,7 +3265,7 @@ Called from: production: core/core.ts (Instance.groupValue ×1); core/screens.ts
 Instance.groupValue(grouping: string, value: string): Node
 ```
 
-Called from: production: core/ops.ts (acceptProposal ×1, capacityAccount ×1, createDepartment ×1, setGroup ×1); core/screens.ts (CORE_API_REGISTRY.openContainer ×2, CORE_API_REGISTRY.receiveStockWithCombination ×1, ensureCategory ×1)
+Called from: production: core/api.ts (ensureValue ×1, run ×3); core/ops.ts (acceptProposal ×1, capacityAccount ×1, createDepartment ×1, setGroup ×1)
 
 **`Instance.accountsRoot`** *(exported)*
 
@@ -3144,7 +3273,7 @@ Called from: production: core/ops.ts (acceptProposal ×1, capacityAccount ×1, c
 Instance.accountsRoot(): Node
 ```
 
-Called from: production: core/core.ts (Instance.accountNamed ×1, Instance.chartAccount ×1, Instance.existingProductAccount ×1, Instance.existingQuantityAccount ×1, Instance.folder ×1, Instance.instantiate ×1, and 2 more); core/ops.ts (mirror ×2, renameByName ×1, rollover ×1); core/reports.ts (inventoryListing ×1); core/screens.ts (CORE_VERIFY_REGISTRY.cash_at_bank_exists ×1) · tests: 6 call(s) in 1 file(s)
+Called from: production: core/api.ts (exists ×1); core/core.ts (Instance.accountNamed ×1, Instance.chartAccount ×1, Instance.existingProductAccount ×1, Instance.existingQuantityAccount ×1, Instance.folder ×1, Instance.instantiate ×1, and 2 more); core/ops.ts (mirror ×2, renameByName ×1, rollover ×1); core/reports.ts (inventoryListing ×1) · tests: 6 call(s) in 1 file(s)
 
 **`Instance.chartRoot`** *(exported)*
 
@@ -3232,7 +3361,7 @@ Called from: production: core/core.ts (Instance.accountNamed ×2, Instance.memoA
 Instance.productAccount(header: Header, product?: Product): Node
 ```
 
-Called from: production: core/core.ts (Instance.accountNamed ×1); core/ops.ts (acceptProposal ×1, purchase ×2, sell ×3, stockTake ×2, transferStock ×2, writeOff ×2); core/screens.ts (CORE_API_REGISTRY.ensureItemInventoryAccountSimple ×1)
+Called from: production: core/api.ts (run ×1); core/core.ts (Instance.accountNamed ×1); core/ops.ts (acceptProposal ×1, purchase ×2, sell ×3, stockTake ×2, transferStock ×2, writeOff ×2)
 
 **`Instance.existingProductAccount`** *(exported)*
 
@@ -3304,7 +3433,7 @@ Called from: production: core/ops.ts (closeBooks ×1, rollover ×1); core/report
 Instance.accountNamed(name: string): Node
 ```
 
-Called from: production: core/ops.ts (clockOn ×1, closeBooks ×1, payee ×1, payment ×1, payWages ×5, purchase ×2, and 2 more); core/screens.ts (postStaged ×1, stageLine ×1) · tests: 26 call(s) in 1 file(s)
+Called from: production: core/api.ts (postStaged ×1, stageLine ×1); core/ops.ts (clockOn ×1, closeBooks ×1, payee ×1, payment ×1, payWages ×5, purchase ×2, and 2 more) · tests: 26 call(s) in 1 file(s)
 
 **`Instance.balance`** *(exported)*
 
@@ -3354,7 +3483,7 @@ Called from: production: core/ops.ts (acceptProposal ×2, createBusiness ×1, cr
 createBusiness(inst: Instance, input: NewBusiness): Node
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.createBusiness ×1) · tests: 3 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1) · tests: 3 call(s) in 1 file(s)
 
 **`usersFolder`**
 
@@ -3370,7 +3499,7 @@ Called from: production: core/ops.ts (createUser ×2)
 createUser(inst: Instance, username: string, password: string, roles: string[]): Node
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.createUserSimple ×1) · tests: 1 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1) · tests: 1 call(s) in 1 file(s)
 
 **`userRoles`** *(exported)*
 
@@ -3378,7 +3507,7 @@ Called from: production: core/screens.ts (CORE_API_REGISTRY.createUserSimple ×1
 userRoles(inst: Instance, username: string): string[]
 ```
 
-Called from: production: core/ops.ts (setUserRoles ×1); core/screens.ts (CORE_VERIFY_REGISTRY.user_has_exact_roles ×1) · tests: 4 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1); core/ops.ts (setUserRoles ×1) · tests: 4 call(s) in 1 file(s)
 
 **`setUserRoles`** *(exported)*
 
@@ -3386,7 +3515,7 @@ Called from: production: core/ops.ts (setUserRoles ×1); core/screens.ts (CORE_V
 setUserRoles(inst: Instance, username: string, roles: string[]): void
 ```
 
-Called from: production: core/ops.ts (createBusiness ×1, createUser ×1); core/screens.ts (CORE_API_REGISTRY.setUserRolesSimple ×1) · tests: 3 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1); core/ops.ts (createBusiness ×1, createUser ×1) · tests: 3 call(s) in 1 file(s)
 
 **`nominateBankAccount`** *(exported)*
 
@@ -3394,7 +3523,7 @@ Called from: production: core/ops.ts (createBusiness ×1, createUser ×1); core/
 nominateBankAccount(inst: Instance, name: string, routingDetail: string, accountNumber: string): Node
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.nominateBankAccountSimple ×1)
+Called from: production: core/api.ts (run ×1)
 
 **`buildBankCurrencyStructure`** *(exported)*
 
@@ -3402,7 +3531,7 @@ Called from: production: core/screens.ts (CORE_API_REGISTRY.nominateBankAccountS
 buildBankCurrencyStructure(inst: Instance, bankAccountName: string, currency: string): Node
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.buildBankCurrencyStructureSimple ×1)
+Called from: production: core/api.ts (run ×1)
 
 **`createLocation`** *(exported)*
 
@@ -3410,7 +3539,7 @@ Called from: production: core/screens.ts (CORE_API_REGISTRY.buildBankCurrencyStr
 createLocation(inst: Instance, input: NewLocation): Node
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.createAndConfigureLocation ×1) · tests: 2 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1) · tests: 2 call(s) in 1 file(s)
 
 **`createItem`** *(exported)*
 
@@ -3418,7 +3547,7 @@ Called from: production: core/screens.ts (CORE_API_REGISTRY.createAndConfigureLo
 createItem(inst: Instance, name: string, storable?: boolean): Node
 ```
 
-Called from: production: core/ops.ts (serviceItem ×1); core/screens.ts (CORE_API_REGISTRY.createItemAndCategory ×1, CORE_API_REGISTRY.createItemUnderCategory ×1, CORE_API_REGISTRY.createUncategorizedItem ×1) · tests: 10 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×2); core/ops.ts (serviceItem ×1) · tests: 10 call(s) in 1 file(s)
 
 **`isStorable`** *(exported)*
 
@@ -3442,7 +3571,7 @@ Called from: production: core/ops.ts (clockOn ×1)
 createContact(inst: Instance, name: string, type: string): Node
 ```
 
-Called from: production: core/ops.ts (createEmployee ×1, createPlant ×1); core/screens.ts (CORE_API_REGISTRY.createCustomerSimple ×1, CORE_API_REGISTRY.createProviderSimple ×1) · tests: 4 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×2); core/ops.ts (createEmployee ×1, createPlant ×1) · tests: 4 call(s) in 1 file(s)
 
 **`createEmployee`** *(exported)*
 
@@ -3450,7 +3579,7 @@ Called from: production: core/ops.ts (createEmployee ×1, createPlant ×1); core
 createEmployee(inst: Instance, name: string, locationName?: string): Node
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.createEmployeeAt ×1) · tests: 1 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1) · tests: 1 call(s) in 1 file(s)
 
 **`setEmployeeManager`** *(exported)*
 
@@ -3458,7 +3587,7 @@ Called from: production: core/screens.ts (CORE_API_REGISTRY.createEmployeeAt ×1
 setEmployeeManager(inst: Instance, employeeName: string, managerName: string): void
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.setEmployeeManagerViaStructurePopup ×1)
+Called from: production: core/api.ts (run ×1)
 
 **`createPlant`** *(exported)*
 
@@ -3466,7 +3595,7 @@ Called from: production: core/screens.ts (CORE_API_REGISTRY.setEmployeeManagerVi
 createPlant(inst: Instance, name: string, hourlyRateMinor: number, ownedOrHired: string, hireVendor?: string): Node
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.createPlantItemSimple ×1)
+Called from: production: core/api.ts (run ×1)
 
 **`ensureSkill`** *(exported)*
 
@@ -3474,7 +3603,7 @@ Called from: production: core/screens.ts (CORE_API_REGISTRY.createPlantItemSimpl
 ensureSkill(inst: Instance, name: string): Node
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.ensureSkillSimple ×1)
+Called from: production: core/api.ts (run ×1)
 
 **`tagSkill`** *(exported)*
 
@@ -3482,7 +3611,7 @@ Called from: production: core/screens.ts (CORE_API_REGISTRY.ensureSkillSimple ×
 tagSkill(inst: Instance, contactName: string, skillName: string, rateMinorPerHour: number): void
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.tagSkillSimple ×1)
+Called from: production: core/api.ts (run ×1)
 
 **`setItemSource`** *(exported)*
 
@@ -3490,7 +3619,7 @@ Called from: production: core/screens.ts (CORE_API_REGISTRY.tagSkillSimple ×1)
 setItemSource(inst: Instance, itemName: string, providerName: string, priceMinor: number, packageQuantity: number): void
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.setItemCostAndPackSize ×1)
+Called from: production: core/api.ts (run ×1)
 
 **`itemSource`** *(exported)*
 
@@ -3498,7 +3627,7 @@ Called from: production: core/screens.ts (CORE_API_REGISTRY.setItemCostAndPackSi
 itemSource(inst: Instance, itemName: string, providerName: string): { priceMinor: number; packageQuantity: number; } | undefined
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.createPurchaseOrderInCartons ×1, CORE_VERIFY_REGISTRY.item_source_registered ×1)
+Called from: production: core/api.ts (run ×2)
 
 **`setGroup`** *(exported)*
 
@@ -3506,7 +3635,7 @@ Called from: production: core/screens.ts (CORE_API_REGISTRY.createPurchaseOrderI
 setGroup(inst: Instance, thingName: string, grouping: string, value: string): void
 ```
 
-Called from: production: core/ops.ts (createLocation ×1); core/screens.ts (CORE_API_REGISTRY.createItemAndCategory ×1, CORE_API_REGISTRY.createItemUnderCategory ×1, CORE_API_REGISTRY.setHierarchyTagSimple ×1, CORE_API_REGISTRY.tagItemHierarchy ×1)
+Called from: production: core/api.ts (run ×3); core/ops.ts (createLocation ×1)
 
 **`groupOf`** *(exported)*
 
@@ -3514,7 +3643,7 @@ Called from: production: core/ops.ts (createLocation ×1); core/screens.ts (CORE
 groupOf(inst: Instance, thingName: string, grouping: string): string | undefined
 ```
 
-Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.location_in_hierarchy_group ×1)
+Called from: production: core/api.ts (run ×1)
 
 **`departmentFolder`**
 
@@ -3530,7 +3659,7 @@ Called from: production: core/ops.ts (createDepartment ×1, deleteDepartment ×1
 createDepartment(inst: Instance, name: string): Node
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.addDepartmentViaStructurePopup ×1)
+Called from: production: core/api.ts (run ×1)
 
 **`deleteDepartment`** *(exported)*
 
@@ -3538,7 +3667,7 @@ Called from: production: core/screens.ts (CORE_API_REGISTRY.addDepartmentViaStru
 deleteDepartment(inst: Instance, name: string): void
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.deleteDepartmentViaStructurePopup ×1)
+Called from: production: core/api.ts (run ×1)
 
 **`setEmployeeDepartment`** *(exported)*
 
@@ -3546,7 +3675,7 @@ Called from: production: core/screens.ts (CORE_API_REGISTRY.deleteDepartmentViaS
 setEmployeeDepartment(inst: Instance, employeeName: string, departmentName: string): void
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.assignEmployeeDepartmentViaStructurePopup ×1)
+Called from: production: core/api.ts (run ×1)
 
 **`renameByName`** *(exported)*
 
@@ -3554,7 +3683,7 @@ Called from: production: core/screens.ts (CORE_API_REGISTRY.assignEmployeeDepart
 renameByName(inst: Instance, oldName: string, newName: string, parentName?: string): void
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.renameEntitySimple ×1) · tests: 1 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1) · tests: 1 call(s) in 1 file(s)
 
 **`setLine`** *(exported)*
 
@@ -3562,7 +3691,7 @@ Called from: production: core/screens.ts (CORE_API_REGISTRY.renameEntitySimple �
 setLine(inst: Instance, owner: Node, line: Partial<RecipeLine> & { component: string; }): void
 ```
 
-Called from: production: core/ops.ts (acceptProposal ×1); core/screens.ts (CORE_API_REGISTRY.addPrototypeLineSimple ×1, CORE_API_REGISTRY.setBomComponentSimple ×1, CORE_API_REGISTRY.updatePrototypeLineSimple ×1) · tests: 2 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×3); core/ops.ts (acceptProposal ×1) · tests: 2 call(s) in 1 file(s)
 
 **`getLines`** *(exported)*
 
@@ -3570,7 +3699,7 @@ Called from: production: core/ops.ts (acceptProposal ×1); core/screens.ts (CORE
 getLines(inst: Instance, owner: Node): RecipeLine[]
 ```
 
-Called from: production: core/ops.ts (acceptProposal ×2, instantiateProposal ×1, nextWindow ×1, projectMargin ×1); core/screens.ts (CORE_API_REGISTRY.updatePrototypeLineSimple ×1, CORE_VERIFY_REGISTRY.bom_components_recorded ×1, CORE_VERIFY_REGISTRY.prototype_line_updated ×1) · tests: 3 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×2); core/ops.ts (acceptProposal ×2, instantiateProposal ×1, nextWindow ×1, projectMargin ×1) · tests: 3 call(s) in 1 file(s)
 
 **`recipeOwner`** *(exported)*
 
@@ -3578,7 +3707,7 @@ Called from: production: core/ops.ts (acceptProposal ×2, instantiateProposal ×
 recipeOwner(inst: Instance, name: string): Node | undefined
 ```
 
-Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.bom_components_recorded ×1)
+Called from: production: core/api.ts (run ×1)
 
 **`createPrototype`** *(exported)*
 
@@ -3586,7 +3715,7 @@ Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.bom_components_re
 createPrototype(inst: Instance, name: string): Node
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.createPrototypeSimple ×1) · tests: 1 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1) · tests: 1 call(s) in 1 file(s)
 
 **`recipeTotal`**
 
@@ -3618,7 +3747,7 @@ Called from: production: core/ops.ts (acceptProposal ×1, clockOff ×1, delivery
 instantiateProposal(inst: Instance, prototypeName: string, reference: string, clientName: string, headerItemName: string, date: string, targetCompletionDate?: string): Node
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.instantiateProjectProposalSimple ×1)
+Called from: production: core/api.ts (run ×1)
 
 **`addDays`**
 
@@ -3650,7 +3779,7 @@ Called from: production: core/ops.ts (acceptProposal ×1)
 acceptProposal(inst: Instance, reference: string, projectName?: string, targetCompletionDate?: string): void
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.acceptProjectProposalSimple ×1)
+Called from: production: core/api.ts (run ×1)
 
 **`scheduleRisk`** *(exported)*
 
@@ -3658,7 +3787,7 @@ Called from: production: core/screens.ts (CORE_API_REGISTRY.acceptProjectProposa
 scheduleRisk(inst: Instance, projectName: string): string | undefined
 ```
 
-Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.schedule_risk_absent ×1, CORE_VERIFY_REGISTRY.schedule_risk_flagged ×1)
+Called from: production: core/api.ts (run ×1)
 
 **`projectMargin`** *(exported)*
 
@@ -3666,7 +3795,7 @@ Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.schedule_risk_abs
 projectMargin(inst: Instance, projectName: string): { quotedTotalMinor: number; actualCostMinor: number; marginMinor: number; }
 ```
 
-Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.project_margin_sign ×1)
+Called from: production: core/api.ts (run ×1)
 
 **`employeeClock`**
 
@@ -3706,7 +3835,7 @@ Called from: production: core/ops.ts (clockOutOfProject ×1, clockPlantOut ×1)
 clockInToProject(inst: Instance, employee: string, account: string): Node
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.clockInToProjectSimple ×1)
+Called from: production: core/api.ts (run ×1)
 
 **`clockOutOfProject`** *(exported)*
 
@@ -3714,7 +3843,7 @@ Called from: production: core/screens.ts (CORE_API_REGISTRY.clockInToProjectSimp
 clockOutOfProject(inst: Instance, employee: string): void
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.clockOutOfProjectSimple ×1)
+Called from: production: core/api.ts (run ×1)
 
 **`clockPlantIn`** *(exported)*
 
@@ -3722,7 +3851,7 @@ Called from: production: core/screens.ts (CORE_API_REGISTRY.clockOutOfProjectSim
 clockPlantIn(inst: Instance, plant: string, account: string): Node
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.clockPlantInSimple ×1)
+Called from: production: core/api.ts (run ×1)
 
 **`clockPlantOut`** *(exported)*
 
@@ -3730,7 +3859,7 @@ Called from: production: core/screens.ts (CORE_API_REGISTRY.clockPlantInSimple �
 clockPlantOut(inst: Instance, plant: string): void
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.clockPlantOutSimple ×1)
+Called from: production: core/api.ts (run ×1)
 
 **`product`**
 
@@ -3802,7 +3931,7 @@ Called from: production: core/ops.ts (dispatchStock ×1, purchase ×1, receiveSt
 receiveStock(inst: Instance, reference: string, itemName: string, locationName: string | undefined, quantity: number, date?: string, extra?: Record<string, Node>): Node
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.receiveStockQuantitySimple ×1, CORE_API_REGISTRY.receiveStockWithCombination ×1) · tests: 1 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×2) · tests: 1 call(s) in 1 file(s)
 
 **`dispatchStock`** *(exported)*
 
@@ -3810,7 +3939,7 @@ Called from: production: core/screens.ts (CORE_API_REGISTRY.receiveStockQuantity
 dispatchStock(inst: Instance, reference: string, itemName: string, locationName: string | undefined, quantity: number, date?: string): Node
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.dispatchStockQuantitySimple ×1)
+Called from: production: core/api.ts (run ×1)
 
 **`costOf`**
 
@@ -3826,7 +3955,7 @@ Called from: production: core/ops.ts (sell ×1, transferStock ×1, writeOff ×1)
 transferStock(inst: Instance, reference: string, itemName: string, fromName: string, toName: string, quantity: number): Node
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.transferItemsSimple ×1) · tests: 1 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1) · tests: 1 call(s) in 1 file(s)
 
 **`delivery`**
 
@@ -3842,7 +3971,7 @@ Called from: production: core/ops.ts (purchase ×1, sell ×1)
 purchase(inst: Instance, trade: Trade): Node
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.cashPurchaseSimple ×1) · tests: 7 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1) · tests: 7 call(s) in 1 file(s)
 
 **`sell`** *(exported)*
 
@@ -3850,7 +3979,7 @@ Called from: production: core/screens.ts (CORE_API_REGISTRY.cashPurchaseSimple �
 sell(inst: Instance, trade: Trade): Node
 ```
 
-Called from: production: core/screens.ts (sale ×1) · tests: 8 call(s) in 1 file(s)
+Called from: production: core/api.ts (sale ×1) · tests: 8 call(s) in 1 file(s)
 
 **`payment`** *(exported)*
 
@@ -3866,7 +3995,7 @@ Called from: tests: 2 call(s) in 1 file(s)
 placePurchaseOrder(inst: Instance, reference: string, providerName: string, itemName: string, quantity: number, valueMinor: number): Node
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.createPurchaseOrderInCartons ×1, CORE_API_REGISTRY.postPurchaseOrderSimple ×1) · tests: 1 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1) · tests: 1 call(s) in 1 file(s)
 
 **`onOrder`** *(exported)*
 
@@ -3898,7 +4027,7 @@ Called from: tests: 3 call(s) in 1 file(s)
 openContainer(inst: Instance, locationName: string, itemName: string, containersOpened: number, unitsProduced: number): Node
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.openContainer ×1)
+Called from: production: core/api.ts (run ×1)
 
 **`payWages`** *(exported)*
 
@@ -3930,7 +4059,7 @@ Called from: tests: 2 call(s) in 1 file(s)
 closeBooks(inst: Instance, asOfDate: string, retainedEarningsAccount: string): Node
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.closeBooksSimple ×1) · tests: 1 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1) · tests: 1 call(s) in 1 file(s)
 
 **`createLedger`** *(exported)*
 
@@ -3938,7 +4067,7 @@ Called from: production: core/screens.ts (CORE_API_REGISTRY.closeBooksSimple ×1
 createLedger(inst: Instance, name: string): Node
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.createLedgerSimple ×1) · tests: 1 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1) · tests: 1 call(s) in 1 file(s)
 
 **`mirror`**
 
@@ -3954,7 +4083,7 @@ Called from: production: core/ops.ts (rollover ×1)
 rollover(inst: Instance, newLedgerName: string, asOfDate: string): Node
 ```
 
-Called from: production: core/screens.ts (CORE_API_REGISTRY.rolloverToNewPeriodSimple ×1) · tests: 1 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1) · tests: 1 call(s) in 1 file(s)
 
 ### `backend/src/core/reports.ts`
 
@@ -3972,7 +4101,7 @@ Called from: production: core/reports.ts (balanceSheet ×1, profitAndLoss ×1, p
 trialBalance(inst: Instance, asOf?: string): TrialBalance
 ```
 
-Called from: production: core/screens.ts (tb ×1) · tests: 5 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1) · tests: 5 call(s) in 1 file(s)
 
 **`summarise`**
 
@@ -3988,7 +4117,7 @@ Called from: production: core/reports.ts (profitAndLoss ×1, profitAndLossByAxis
 profitAndLoss(inst: Instance, from?: string, to?: string): ProfitAndLoss
 ```
 
-Called from: production: core/screens.ts (pl ×1) · tests: 11 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1) · tests: 11 call(s) in 1 file(s)
 
 **`balanceSheet`** *(exported)*
 
@@ -3996,7 +4125,7 @@ Called from: production: core/screens.ts (pl ×1) · tests: 11 call(s) in 1 file
 balanceSheet(inst: Instance, asOf?: string): BalanceSheet
 ```
 
-Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.balance_sheet_balanced ×1) · tests: 5 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1) · tests: 5 call(s) in 1 file(s)
 
 **`axisValue`**
 
@@ -4012,7 +4141,7 @@ Called from: production: core/reports.ts (group ×1)
 profitAndLossByAxis(inst: Instance, from: string | undefined, to: string | undefined, outer: string, inner: string): AxisNode[]
 ```
 
-Called from: production: core/screens.ts (axis ×1) · tests: 1 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1) · tests: 1 call(s) in 1 file(s)
 
 **`inventoryListing`** *(exported)*
 
@@ -4020,809 +4149,7 @@ Called from: production: core/screens.ts (axis ×1) · tests: 1 call(s) in 1 fil
 inventoryListing(inst: Instance): InventoryGroup[]
 ```
 
-Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.stock_on_hand_nonnegative ×1, CORE_VERIFY_REGISTRY.transfer_landed ×1) · tests: 2 call(s) in 1 file(s)
-
-### `backend/src/core/screens.ts`
-
-**`openCore`** *(exported)*
-
-```
-openCore(path?: string): Core
-```
-
-Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.business_exists ×1, coreSessionStep ×2, instance ×1)
-
-**`resetCore`** *(exported)*
-
-```
-resetCore(remove?: boolean, path?: string): void
-```
-
-Called from: tooling: 1 call(s) in 1 file(s)
-
-**`businessName`**
-
-```
-businessName(name: string): string
-```
-
-Called from: production: core/screens.ts (CORE_API_REGISTRY.createLedgerSimple ×1, CORE_API_REGISTRY.rolloverToNewPeriodSimple ×1, coreSessionStep ×1, inst ×1)
-
-**`instance`**
-
-```
-instance(business: string, ledger: string): Instance
-```
-
-Called from: production: core/screens.ts (CORE_API_REGISTRY.createLedgerSimple ×1, CORE_API_REGISTRY.rolloverToNewPeriodSimple ×1, coreSessionStep ×1, global ×1, inst ×1)
-
-**`inst`**
-
-```
-inst(a: Args): Instance
-```
-
-Called from: production: core/screens.ts (axis ×1, CORE_API_REGISTRY.acceptProjectProposalSimple ×1, CORE_API_REGISTRY.addDepartmentViaStructurePopup ×1, CORE_API_REGISTRY.addDivisionViaStructurePopup ×1, CORE_API_REGISTRY.addPrototypeLineSimple ×1, CORE_API_REGISTRY.addTopLevelCategoryViaStructurePopup ×1, and 66 more)
-
-**`global`**
-
-```
-global(): Instance
-```
-
-Called from: production: core/screens.ts (CORE_API_REGISTRY.createBusiness ×1)
-
-**`coreSessionStep`** *(exported)*
-
-```
-coreSessionStep(screenName: string, a: Args): void
-```
-
-Called from: tooling: 1 call(s) in 1 file(s)
-
-**`stageKey`**
-
-```
-stageKey(i: Instance, reference: string): string
-```
-
-Called from: production: core/screens.ts (postStaged ×1, stageLine ×1)
-
-**`stageLine`**
-
-```
-stageLine(a: Args): void
-```
-
-Called from: production: core/screens.ts ((module level) (as a value))
-
-**`postStaged`**
-
-```
-postStaged(a: Args): void
-```
-
-Called from: production: core/screens.ts ((module level) (as a value))
-
-**`list`**
-
-```
-list(text: string | undefined): string[]
-```
-
-Called from: production: core/screens.ts (CORE_API_REGISTRY.createUserSimple ×1, CORE_API_REGISTRY.setUserRolesSimple ×1, CORE_VERIFY_REGISTRY.user_has_exact_roles ×1)
-
-**`ensureCategory`**
-
-```
-ensureCategory(i: Instance, grouping: string, value: string): void
-```
-
-Called from: production: core/screens.ts (CORE_API_REGISTRY.addDivisionViaStructurePopup ×1, CORE_API_REGISTRY.addTopLevelCategoryViaStructurePopup ×1, CORE_API_REGISTRY.createCategorySimple ×1, CORE_API_REGISTRY.createHierarchyValueSimple ×1)
-
-**`sale`**
-
-```
-sale(a: Args): void
-```
-
-Called from: production: core/screens.ts ((module level) (as a value))
-
-**`CORE_API_REGISTRY.createBusiness`** *(exported)*
-
-```
-CORE_API_REGISTRY.createBusiness(a: Args): Node
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.nominateBankAccountSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.nominateBankAccountSimple(a: Args): Node
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.buildBankCurrencyStructureSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.buildBankCurrencyStructureSimple(a: Args): Node
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.createAndConfigureLocation`** *(exported)*
-
-```
-CORE_API_REGISTRY.createAndConfigureLocation(a: Args): Node
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.createEmployeeAt`** *(exported)*
-
-```
-CORE_API_REGISTRY.createEmployeeAt(a: Args): Node
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.createProviderSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.createProviderSimple(a: Args): Node
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.createCustomerSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.createCustomerSimple(a: Args): Node
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.setEmployeeWageSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.setEmployeeWageSimple(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.createPlantItemSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.createPlantItemSimple(a: Args): Node
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.ensureSkillSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.ensureSkillSimple(a: Args): Node
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.tagSkillSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.tagSkillSimple(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.createUncategorizedItem`** *(exported)*
-
-```
-CORE_API_REGISTRY.createUncategorizedItem(a: Args): Node
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.createItemUnderCategory`** *(exported)*
-
-```
-CORE_API_REGISTRY.createItemUnderCategory(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.createItemAndCategory`** *(exported)*
-
-```
-CORE_API_REGISTRY.createItemAndCategory(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.createCategorySimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.createCategorySimple(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.addTopLevelCategoryViaStructurePopup`** *(exported)*
-
-```
-CORE_API_REGISTRY.addTopLevelCategoryViaStructurePopup(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.addDivisionViaStructurePopup`** *(exported)*
-
-```
-CORE_API_REGISTRY.addDivisionViaStructurePopup(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.createHierarchyGroupingSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.createHierarchyGroupingSimple(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.createHierarchyValueSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.createHierarchyValueSimple(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.tagItemHierarchy`** *(exported)*
-
-```
-CORE_API_REGISTRY.tagItemHierarchy(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.setHierarchyTagSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.setHierarchyTagSimple(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.addDepartmentViaStructurePopup`** *(exported)*
-
-```
-CORE_API_REGISTRY.addDepartmentViaStructurePopup(a: Args): Node
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.deleteDepartmentViaStructurePopup`** *(exported)*
-
-```
-CORE_API_REGISTRY.deleteDepartmentViaStructurePopup(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.assignEmployeeDepartmentViaStructurePopup`** *(exported)*
-
-```
-CORE_API_REGISTRY.assignEmployeeDepartmentViaStructurePopup(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.setEmployeeManagerViaStructurePopup`** *(exported)*
-
-```
-CORE_API_REGISTRY.setEmployeeManagerViaStructurePopup(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.renameEntitySimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.renameEntitySimple(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.createEntitySimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.createEntitySimple(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.setTranslationSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.setTranslationSimple(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.ensureItemInventoryAccountSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.ensureItemInventoryAccountSimple(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.setItemCostAndPackSize`** *(exported)*
-
-```
-CORE_API_REGISTRY.setItemCostAndPackSize(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.createPurchaseOrderInCartons`** *(exported)*
-
-```
-CORE_API_REGISTRY.createPurchaseOrderInCartons(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.stagePurchaseOrderSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.stagePurchaseOrderSimple(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.postPurchaseOrderSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.postPurchaseOrderSimple(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.cashPurchaseSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.cashPurchaseSimple(a: Args): Node
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.transferItemsSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.transferItemsSimple(a: Args): Node
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.receiveStockQuantitySimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.receiveStockQuantitySimple(a: Args): Node
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.dispatchStockQuantitySimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.dispatchStockQuantitySimple(a: Args): Node
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.receiveStockWithCombination`** *(exported)*
-
-```
-CORE_API_REGISTRY.receiveStockWithCombination(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.openContainer`** *(exported)*
-
-```
-CORE_API_REGISTRY.openContainer(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.setBomComponentSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.setBomComponentSimple(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.createPrototypeSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.createPrototypeSimple(a: Args): Node
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.addPrototypeLineSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.addPrototypeLineSimple(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.updatePrototypeLineSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.updatePrototypeLineSimple(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.instantiateProjectProposalSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.instantiateProjectProposalSimple(a: Args): Node
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.acceptProjectProposalSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.acceptProjectProposalSimple(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.clockInToProjectSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.clockInToProjectSimple(a: Args): Node
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.clockOutOfProjectSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.clockOutOfProjectSimple(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.clockPlantInSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.clockPlantInSimple(a: Args): Node
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.clockPlantOutSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.clockPlantOutSimple(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.closeBooksSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.closeBooksSimple(a: Args): Node
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.createLedgerSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.createLedgerSimple(a: Args): Node
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.rolloverToNewPeriodSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.rolloverToNewPeriodSimple(a: Args): Node
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.createUserSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.createUserSimple(a: Args): Node
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_API_REGISTRY.setUserRolesSimple`** *(exported)*
-
-```
-CORE_API_REGISTRY.setUserRolesSimple(a: Args): void
-```
-
-Called from: nowhere the compiler could find.
-
-**`tbKey`**
-
-```
-tbKey(a: Args): string
-```
-
-Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.record_trial_balance_total ×1, CORE_VERIFY_REGISTRY.trial_balance_total_matches_recorded ×1)
-
-**`plKey`**
-
-```
-plKey(a: Args): string
-```
-
-Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.profit_and_loss_net_income_matches_recorded ×1, CORE_VERIFY_REGISTRY.record_profit_and_loss_net_income ×1)
-
-**`pl`**
-
-```
-pl(a: Args): reports.ProfitAndLoss
-```
-
-Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.profit_and_loss_by_division_consolidated ×1, CORE_VERIFY_REGISTRY.profit_and_loss_by_item_single_row ×1, CORE_VERIFY_REGISTRY.profit_and_loss_net_income_matches_recorded ×1, CORE_VERIFY_REGISTRY.profit_and_loss_positive ×1, CORE_VERIFY_REGISTRY.profit_and_loss_zero ×2, CORE_VERIFY_REGISTRY.record_profit_and_loss_net_income ×1)
-
-**`tb`**
-
-```
-tb(a: Args): reports.TrialBalance
-```
-
-Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.record_trial_balance_total ×1, CORE_VERIFY_REGISTRY.trial_balance_balanced ×1, CORE_VERIFY_REGISTRY.trial_balance_total_matches_recorded ×1)
-
-**`axis`**
-
-```
-axis(a: Args, outer: string, inner: string): reports.AxisNode[]
-```
-
-Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.profit_and_loss_by_category_detailed ×1, CORE_VERIFY_REGISTRY.profit_and_loss_by_division_consolidated ×1, CORE_VERIFY_REGISTRY.profit_and_loss_by_item_single_row ×1)
-
-**`exists`**
-
-```
-exists(read: () => unknown): boolean
-```
-
-Called from: production: core/screens.ts (CORE_VERIFY_REGISTRY.business_exists ×1, CORE_VERIFY_REGISTRY.location_exists ×1)
-
-**`CORE_VERIFY_REGISTRY.business_exists`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.business_exists(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.location_exists`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.location_exists(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.cash_at_bank_exists`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.cash_at_bank_exists(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.transfer_landed`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.transfer_landed(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.purchase_order_posted`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.purchase_order_posted(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.item_source_registered`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.item_source_registered(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.bom_components_recorded`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.bom_components_recorded(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.stock_on_hand_nonnegative`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.stock_on_hand_nonnegative(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.schedule_risk_absent`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.schedule_risk_absent(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.schedule_risk_flagged`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.schedule_risk_flagged(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.project_margin_sign`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.project_margin_sign(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.prototype_line_updated`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.prototype_line_updated(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.trial_balance_balanced`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.trial_balance_balanced(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.balance_sheet_balanced`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.balance_sheet_balanced(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.record_trial_balance_total`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.record_trial_balance_total(a: Args): true
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.trial_balance_total_matches_recorded`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.trial_balance_total_matches_recorded(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.profit_and_loss_positive`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.profit_and_loss_positive(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.profit_and_loss_zero`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.profit_and_loss_zero(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.record_profit_and_loss_net_income`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.record_profit_and_loss_net_income(a: Args): true
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.profit_and_loss_net_income_matches_recorded`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.profit_and_loss_net_income_matches_recorded(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.profit_and_loss_by_item_single_row`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.profit_and_loss_by_item_single_row(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.profit_and_loss_by_category_detailed`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.profit_and_loss_by_category_detailed(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.profit_and_loss_by_division_consolidated`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.profit_and_loss_by_division_consolidated(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.user_has_exact_roles`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.user_has_exact_roles(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.translation_matches`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.translation_matches(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.entity_named_exists`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.entity_named_exists(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
-
-**`CORE_VERIFY_REGISTRY.location_in_hierarchy_group`** *(exported)*
-
-```
-CORE_VERIFY_REGISTRY.location_in_hierarchy_group(a: Args): boolean
-```
-
-Called from: nowhere the compiler could find.
+Called from: production: core/api.ts (run ×1) · tests: 2 call(s) in 1 file(s)
 
 ### `backend/src/core/store.ts`
 
@@ -4856,7 +4183,7 @@ Called from: production: core/store.ts (Store.create ×1, Store.load ×1)
 Store.tx<T>(fn: () => T): T
 ```
 
-Called from: production: core/core.ts (Core.install ×1, Instance.copy ×1, Instance.create ×1, Instance.post ×1, Instance.relate ×1); core/ops.ts (acceptProposal ×1, buildBankCurrencyStructure ×1, clockOff ×1, clockOn ×1, closeBooks ×1, createBusiness ×1, and 34 more); core/screens.ts (CORE_API_REGISTRY.createEntitySimple ×1, CORE_API_REGISTRY.createHierarchyGroupingSimple ×1, CORE_API_REGISTRY.createItemAndCategory ×1, CORE_API_REGISTRY.createItemUnderCategory ×1, CORE_API_REGISTRY.ensureItemInventoryAccountSimple ×1, CORE_API_REGISTRY.openContainer ×1, and 4 more) · tests: 9 call(s) in 1 file(s)
+Called from: production: core/api.ts (ensureValue ×1, postStaged ×1, run ×7, stageLine ×1); core/core.ts (Core.install ×1, Instance.copy ×1, Instance.create ×1, Instance.post ×1, Instance.relate ×1); core/ops.ts (acceptProposal ×1, buildBankCurrencyStructure ×1, clockOff ×1, clockOn ×1, closeBooks ×1, createBusiness ×1, and 34 more) · tests: 9 call(s) in 1 file(s)
 
 **`Store.get`** *(exported)*
 
@@ -4936,7 +4263,7 @@ Called from: production: core/core.ts (Instance.post ×1)
 Store.entryDate(entry: number): string | undefined
 ```
 
-Called from: production: core/ops.ts (acceptProposal ×1)
+Called from: production: core/api.ts (run ×1); core/ops.ts (acceptProposal ×1)
 
 **`Store.entryLines`** *(exported)*
 
@@ -9788,7 +9115,7 @@ Called from: production: auth.ts (changePassword ×1, createUser ×1); core/core
 verifyPassword(password: string, stored: string): boolean
 ```
 
-Called from: production: auth.ts (changeOwnPassword ×1, login ×1); core/screens.ts (coreSessionStep ×1); db.ts (authenticateCustomer ×1) · tests: 4 call(s) in 1 file(s)
+Called from: production: auth.ts (changeOwnPassword ×1, login ×1); core/api.ts (run ×1); db.ts (authenticateCustomer ×1) · tests: 4 call(s) in 1 file(s)
 
 ### `backend/src/primitives.ts`
 

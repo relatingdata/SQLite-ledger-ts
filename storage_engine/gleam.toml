@@ -1,0 +1,16 @@
+name = "storage_engine"
+version = "0.1.0"
+
+# repo.hex.pm is not reachable from this sandbox, so every dependency
+# below is a local path to a pinned `git clone` of the real upstream
+# (fetched into deps/ by fetch_deps.sh, which `make` runs first)
+# source (no vendoring of a NIF/C build — sqlight/esqlite needed one,
+# which is why they're not here; see storage.gleam's own header
+# comment for what replaces them).
+[dependencies]
+gleam_stdlib = { path = "deps/gleam-lang/stdlib" }
+gleam_otp = { path = "deps/gleam-lang/otp" }
+gleam_erlang = { path = "deps/gleam-lang/erlang" }
+
+[dev-dependencies]
+gleeunit = { path = "deps/lpil/gleeunit" }

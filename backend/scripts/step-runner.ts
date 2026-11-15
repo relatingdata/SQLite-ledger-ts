@@ -13,12 +13,16 @@ import { getProfitAndLossByAxis } from '../src/db-matrix-reports.js';
 import * as auth from '../src/auth.js';
 import { unescapeAscii } from '../../shared-fixtures/csv.js';
 import { press, typeAndEnter, findItemByText, navigateMenuGenerically } from './text-driver-helpers.js';
-import { CORE_API_REGISTRY, CORE_VERIFY_REGISTRY, coreSessionStep, resetCore } from '../src/core/screens.js';
+import { CoreApiClient, runStepViaFrontendApi } from './core-api-client.js';
+import { resetCore } from '../src/core/api.js';
 
-// Which middleware serves the API path: the simplified core (two stores,
-// four calls - backend/src/core/, docs/pm-core-middleware.md) or the
-// original db.ts functions. The fixtures and screens.csv are the same for
-// both. `MIDDLEWARE=core` selects the core; anything else, the original.
+// Which middleware serves the API path. With `MIDDLEWARE=core` every step
+// goes through the core middleware's frontend API (src/core/api.ts,
+// docs/pm-core-middleware.md): one request of its plain-text protocol per
+// step, as a frontend would send it, and each check made from what the
+// API returns. Otherwise the original db.ts functions are called directly
+// through the registries below. The fixtures and screens.csv are the same
+// for both.
 export const USE_CORE = process.env.MIDDLEWARE === 'core';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -900,18 +904,13 @@ export function runStepViaApi(step: Step, screens: Map<string, Screen>): { ok: b
   try {
     const screen = screens.get(step.screen_name);
     const args = buildArgs(step, screen);
-    const apiRegistry = USE_CORE ? CORE_API_REGISTRY : API_REGISTRY;
-    const verifyRegistry = USE_CORE ? CORE_VERIFY_REGISTRY : VERIFY_REGISTRY;
-    // The core has no ambient session: signing in and choosing a business
-    // and ledger select the instance every later step is served by.
-    if (USE_CORE && screen?.screen_kind === 'session') coreSessionStep(step.screen_name, args);
     if (screen?.api_function) {
-      const fn = apiRegistry[screen.api_function];
+      const fn = API_REGISTRY[screen.api_function];
       if (!fn) return { ok: false, error: `No real API registry entry for "${screen.api_function}".` };
       fn(args);
     }
     if (step.verify) {
-      const verifyFn = verifyRegistry[step.verify];
+      const verifyFn = VERIFY_REGISTRY[step.verify];
       if (!verifyFn) return { ok: false, error: `No real verify registry entry for "${step.verify}".` };
       if (!verifyFn(args)) return { ok: false, error: `Verify "${step.verify}" returned false.` };
     }
@@ -1212,9 +1211,15 @@ async function main() {
     return;
   }
 
-  // A fixture always builds its own business from scratch, so the core
-  // starts each whole run from a fresh installation.
-  if (USE_CORE && path === 'api' && skipN === 0 && !onlyN) resetCore(true);
+  // A fixture always builds its own business from scratch, so an
+  // in-process run starts from a fresh installation. Over HTTP the server
+  // owns the database: start it on a fresh one (make reset-db).
+  const coreApi = new CoreApiClient();
+  if (USE_CORE && path === 'api') {
+    if (!process.env.STEP_RUNNER_API_URL && skipN === 0 && !onlyN) resetCore(true);
+    console.log(`Frontend API: ${coreApi.transport}`);
+  }
+  const runApiStep = async (step: Step) => (USE_CORE ? runStepViaFrontendApi(step, screens, coreApi) : runStepViaApi(step, screens));
 
   if (args.includes('--pretty')) {
     console.log(prettyPrintSteps(args.includes('--steps') && !onlyN ? allSteps.slice(0, stepsArg) : allSteps, screens));
@@ -1290,7 +1295,7 @@ async function main() {
         ? await runStepViaUi(await ensureUiPage(), step, screens, screenshotDir)
         : stepPath === 'text'
           ? await runStepViaText(await ensureTextTerminal(), step, screens)
-          : runStepViaApi(step, screens);
+          : await runApiStep(step);
       const stepMs = Date.now() - stepStart;
       recordTiming(step.index, step.screen_name, stepPath, stepMs, result.ok, result.ok ? undefined : result.error);
       const uiSucceededDirectly = stepPath === 'ui' && result.ok;
@@ -1314,7 +1319,7 @@ async function main() {
       }
       if (!result.ok && stepPath === 'ui' && fallbackToApi) {
         const fallbackStart = Date.now();
-        const apiResult = runStepViaApi(step, screens);
+        const apiResult = await runApiStep(step);
         const fallbackMs = Date.now() - fallbackStart;
         recordTiming(step.index, step.screen_name, 'api-fallback', fallbackMs, apiResult.ok, apiResult.ok ? undefined : apiResult.error);
         console.log(apiResult.ok

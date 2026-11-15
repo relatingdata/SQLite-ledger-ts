@@ -75,7 +75,9 @@ a statement. `ACCOUNT_TYPES` names the five statement types.
 | `core.ts` | `Core` (installation, entity helpers, `open`), `Instance` (the globals, the four calls, lookups, accounts), `Refused`, `NotFound`, `Target`, `Product`, `PostOptions`, `today`. |
 | `ops.ts` | What the business does, written only in terms of the four calls. |
 | `reports.ts` | `trialBalance`, `profitAndLoss`, `balanceSheet`, `profitAndLossByAxis`, `inventoryListing` and their result types `TrialBalance`, `ProfitAndLoss`, `BalanceSheet`, `AxisNode`, `InventoryGroup`. |
-| `screens.ts` | `CORE_API_REGISTRY` and `CORE_VERIFY_REGISTRY`: the screens of `shared-fixtures/screens.csv` served by the core; `openCore`, `resetCore`, `coreSessionStep`, `CORE_DB_PATH`. |
+| `api.ts` | The frontend API: `CORE_CALLS` (every function a form or report calls, with its positional `params`), `callCore` (one request of the protocol in, a `CoreReply` out), token sessions, `openCore`, `resetCore`, `CORE_DB_PATH`. |
+
+Outside `core/`: `backend/src/routes/core-call.ts` (`coreCallRouter`) serves `callCore` over HTTP, and `backend/scripts/core-api-client.ts` (`CoreApiClient`, `ApiReply`, `CORE_API_VERIFY`, `runStepViaFrontendApi`) is the step runner's client of it.
 
 ## Operations (`ops.ts`)
 
@@ -117,24 +119,80 @@ and every quantity unit each adding up to zero on their own.
 The legacy helper `ensureServiceItem` in `db.ts` has the same purpose as the
 core's own lazily created `Labour` and `Plant Hire` service items.
 
+## The frontend API
+
+The core is reached through one endpoint and the same plain-text protocol
+the frontends already speak to `/api/call`:
+
+```
+request   functionName,value1,value2,...     one CSV line, positional
+reply     ok,value1,value2,...               a single result
+          ok\n<CSV table with header row>    a list
+          error,message                      400 refused, 401 not signed in,
+                                             404 not found, 500 anything else
+```
+
+`login,username,password` replies `ok,<token>`; every other call sends
+`Authorization: Bearer <token>`. The token's session holds the user, the
+business and the ledger: the three globals of the instance that serves each
+call, so an operation never receives them. `selectBusiness` and
+`switchSession` change them; `whoAmI` reports them; `logout` ends the
+session. A form that still carries a business or ledger field uses it only
+to choose which of the user's instances serves that one call; left empty,
+the session's are used.
+
+Each entry of `CORE_CALLS` lists its `params` in the order of its screen's
+fields in `shared-fixtures/screens.csv` (checked by a unit test). Reads
+(`exists`, `getTrialBalance`, `getProfitAndLoss`, `getBalanceSheet`,
+`getProfitAndLossByAxis`, `getInventoryListing`, `getUserRoles`,
+`getRecipeLines`, `getProject`, `getEntry`, `getItemSource`, `getGroup`,
+`getTranslation`) are calls like any other.
+
+The server always mounts it at `/api/core/call`; started with
+`MIDDLEWARE=core` it also serves `/api/call`, otherwise `/api/call` stays
+on the original middleware. `PORT` sets the server's port (default 3001).
+
 ## Running it
 
-`make test-e2e-tutorials` runs the Retail, Manufacturing and Project Builder
-fixtures through the API path on the core, which is the default for
-`test-e2e-tutorial`, `test-e2e-manufacturing-tutorial` and
-`test-e2e-project-builder-tutorial`. `MIDDLEWARE=legacy` runs the same
-fixtures on the original middleware, which also needs the storage engine
-server started by `ensure-storage-engine`. The core keeps its own database,
-`backend/data/core.sqlite`, removed by `make reset-db`. A run with any
-failed step now exits non-zero.
+The step runner drives every core step through the frontend API, exactly
+as a frontend would: session screens become `login`, `selectBusiness` and
+`switchSession`; data screens call their `api_function` with the step's
+values; every verify (`CORE_API_VERIFY`) is answered by API reads. By
+default the calls go to `callCore` in-process; with `STEP_RUNNER_API_URL`
+set they go over HTTP to a running server.
+
+- `make test-e2e-tutorials` runs the Retail, Manufacturing and Project
+  Builder fixtures on the core through the in-process API. This is the
+  default for `test-e2e-tutorial`, `test-e2e-manufacturing-tutorial` and
+  `test-e2e-project-builder-tutorial`.
+- `make test-e2e-tutorials-http` starts the backend with `MIDDLEWARE=core`
+  on `CORE_HTTP_PORT` (default 3101), runs the same fixtures over HTTP, and
+  stops the server.
+- `MIDDLEWARE=legacy` runs the fixtures on the original middleware, which
+  also needs the storage engine server started by `ensure-storage-engine`.
+- `make test-storage-engine` runs the Gleam storage engine's own tests.
+
+The core keeps its own database, `backend/data/core.sqlite`, removed by
+`make reset-db`. A run with any failed step exits non-zero.
+
+## The storage engine
+
+The Gleam storage engine lives in the repository at `storage_engine/`
+(build output, its databases and `deps/` are ignored by git). Its Gleam
+dependencies are cloned at pinned commits into `storage_engine/deps/` by
+`storage_engine/fetch_deps.sh`, which `make storage-engine-deps` runs before
+`test-storage-engine` and `ensure-storage-engine`. It holds the same
+two-store schema and the four calls (`storage_engine/src/core_schema.gleam`,
+`storage_engine/src/core.gleam`), and serves the original middleware's
+entity driver.
 
 ## What is not yet served by the core
 
-- The running backend server, `/api/call`, and the web and text frontends.
-  The browser-path tutorial targets therefore still run on the original.
-- The Gleam storage engine holds the same two-store schema and the four
-  calls in `storage_engine/src/core.gleam`, but the core here runs on an
-  in-process SQLite store, not through that engine.
+- The web and text frontends still call `/api/call` on the original
+  middleware unless the server is started with `MIDDLEWARE=core`; the
+  browser-path tutorial targets therefore still run on the original.
+- The core runs on an in-process SQLite store, not through the Gleam
+  storage engine.
 - Menu access by role, recurring entries, and translations beyond a single
   relation per language.
 
@@ -159,3 +217,9 @@ failed step now exits non-zero.
 - "closing the books, then a new ledger with its own accounts"
 - "copy makes an independent instance of a prototype"
 - "reopening the store rebuilds the same state from the two tables"
+
+## Unit tests (`backend/test/core-api.test.ts`)
+
+- "the frontend API refuses a call without a session, an unknown function, and a wrong password"
+- "the session holds the user, the business and the ledger; a form never has to send them"
+- "every function's values are in the order of its screen's fields in screens.csv"

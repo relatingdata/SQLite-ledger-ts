@@ -5,6 +5,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { db } from './db.js';
 import { callRouter } from './routes/call.js';
+import { coreCallRouter } from './routes/core-call.js';
 import { recordingRouter } from './routes/recording.js';
 import { recordingMiddleware } from './recording.js';
 import { attachUser, requireAuth } from './auth-middleware.js';
@@ -48,9 +49,13 @@ app.use('/api/recording', requireAuth, recordingRouter);
 // calls requireAuth/requireRole/requireGlobalRole itself
 // (call-dispatch.ts), the same checks the old per-path middleware made,
 // just explicit per call instead of implicit per mount.
-app.use('/api/call', express.text({ type: () => true }), callRouter);
+// The core middleware's frontend API (core/api.ts) is always served at
+// /api/core/call. Started with MIDDLEWARE=core, the server also serves it
+// at /api/call in place of the original dispatcher.
+app.use('/api/core/call', express.text({ type: () => true }), coreCallRouter);
+app.use('/api/call', express.text({ type: () => true }), process.env.MIDDLEWARE === 'core' ? coreCallRouter : callRouter);
 
-const PORT = 3001;
+const PORT = Number(process.env.PORT ?? 3001);
 const server = app.listen(PORT, () => {
   console.log(`Entities backend listening on http://localhost:${PORT}`);
 });

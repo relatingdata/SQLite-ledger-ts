@@ -1,5 +1,5 @@
 // gleam-entity-driver.ts — EntityDriver backed by storage_engine (the
-// Gleam/BEAM storage engine at /home/claude/storage_engine), reached
+// Gleam/BEAM storage engine in this repository's storage_engine/), reached
 // synchronously via a worker thread + Atomics.wait bridge over real HTTP
 // calls (see gleam-worker.ts's header for the transport, and
 // entity-driver.ts's header for why this needed to be synchronous at
