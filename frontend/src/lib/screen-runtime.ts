@@ -34,6 +34,8 @@ import {
   postOrderReceipt,
   getOrderStatus,
   getTrialBalance,
+  getBelowReorderStock,
+  getStorageSpaceReport,
   getBalanceSheet,
   type CategoryTreeNode,
   postSalesOrder,
@@ -442,6 +444,9 @@ export interface ReportRow {
   cells: Record<string, string>;
   /** Columns whose amount is contra (shown in red). */
   contra?: string[];
+  /** A class for the whole line, and classes for single cells. */
+  mark?: string;
+  marks?: Record<string, string>;
   /** A small tag after the first cell, with its explanation. */
   badge?: string;
   badgeTitle?: string;
@@ -489,7 +494,37 @@ function totalCells(amountMinor: number, normal: 'debit' | 'credit'): { cells: R
   return { cells: { [side]: shown }, contra: isNormal ? [] : [side] };
 }
 
+const line = (key: string, cells: Record<string, string>, more: Partial<ReportRow> = {}): ReportRow => ({ key, depth: 0, ancestors: [], parent: false, cells, ...more });
+/** A count in the user's number format (no decimals). */
+const units = (n: number) => n.toLocaleString(auth.current?.user.number_format?.includes(',') ? 'de-DE' : 'en-US');
+const count = (n: number | null | undefined) => (n == null ? '' : String(n));
+
 export const reports: Record<string, (c: Context, v: Values) => Promise<Report>> = {
+  /** Every item at every location at or below its reorder level; critical
+   * when at or below its minimum. */
+  belowReorder: async () => {
+    const rows = await getBelowReorderStock();
+    return { columns: [{
+      groups: rows.length === 0 ? [] : [{
+        title: '',
+        rows: rows.map((r, i) => line(String(i),
+          { item: r.item, location: r.location, onHand: count(r.quantity_on_hand), reorder: count(r.reorder_level), min: count(r.min_level), max: count(r.max_level) },
+          { mark: r.min_level != null && r.quantity_on_hand <= r.min_level ? 'critical' : undefined })),
+      }],
+    }] };
+  },
+  /** Each location's storage space per storage unit. */
+  storageSpace: async () => ({
+    columns: [{
+      groups: (await getStorageSpaceReport()).map((g) => ({
+        title: g.location,
+        rows: g.currencies.map((c) => line(`${g.location}/${c.currency}`,
+          { unit: c.currency.replace(/^SPACE-/, ''), installed: units(Math.abs(c.installed_minor)), occupied: units(c.occupied_minor), remaining: units(c.remaining_minor),
+            balanced: c.balanced ? t('Yes') : t('No \u2014 real mismatch') },
+          { marks: { balanced: c.balanced ? 'ok' : 'warn' } })),
+      })),
+    }],
+  }),
   /** Every account with a balance, by currency, in its debit or credit column. */
   trialBalance: async (c, v) => {
     const tb = await getTrialBalance(asBusinessName(c.business), asLedgerName(c.ledger), v.asOfDate || undefined);

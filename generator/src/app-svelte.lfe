@@ -444,17 +444,18 @@
       #"  </div>\n\n"
       #"  {#if loading && !report}\n    <p class='center-text'>Loading&hellip;</p>\n"
       #"  {:else if error}\n    <p class='error'>{error}</p>\n"
+      #"  {:else if report && report.columns.every((c) => c.groups.length === 0)}\n    <p class='dim'>" (t (val s id #"Empty Text" #"None")) #"</p>\n"
       #"  {:else if report}\n"
       #"    <div class='report-columns' style='--columns: {report.columns.length}'>\n"
       #"      {#each report.columns as column}\n        <div class='report-column'>\n"
       #"          {#each column.groups as group}\n"
       #"            <fieldset class='report-group'>\n"
-      #"              <legend>{group.title}{#if group.warn} <span class='warn'>&#x26A0; {group.warn}</span>{/if}</legend>\n"
+      #"              {#if group.title}<legend>{group.title}{#if group.warn} <span class='warn'>&#x26A0; {group.warn}</span>{/if}</legend>{/if}\n"
       #"              <table class='report-table'>\n"
       #"                <thead><tr>" (lists:map (lambda (e) (list #"<th" (report-align s e) #">" (t (val s e #"Label" #"")) #"</th>")) entries) #"</tr></thead>\n"
       #"                <tbody>\n"
       #"                  {#each group.rows.filter((r) => r.ancestors.every((a) => open.has(a))) as row (row.key)}\n"
-      #"                    <tr class:clickable={row.parent} onclick={() => row.parent && toggle(row.key)}>\n"
+      #"                    <tr class={row.mark ?? ''} class:clickable={row.parent} onclick={() => row.parent && toggle(row.key)}>\n"
       (lists:map (lambda (e) (list #"                      " (report-cell s e) #"\n")) entries)
       #"                    </tr>\n"
       #"                  {:else}\n                    <tr><td colspan='" (integer_to_binary (length entries)) #"' class='dim'>" (t (val s id #"Empty Text" #"None")) #"</td></tr>\n"
@@ -483,10 +484,12 @@
   (case (val s e #"Control") ((binary "amount") #" class='num'") (_ #"")))
 
 (defun report-class (s e n contra)
-  (case (val s e #"Control")
-    (#"amount" (list #" class='num mono' class:contra={" contra #"?.includes('" n #"')}"))
-    (#"mono" #" class='mono'")
-    (_ #"")))
+  (let* ((mark (list #"{row.marks?.['" n #"'] ?? ''}"))
+         (marks (if (== contra #"row.contra") (list #" " mark) #"")))
+    (case (val s e #"Control")
+      (#"amount" (list #" class='num mono" marks #"' class:contra={" contra #"?.includes('" n #"')}"))
+      (#"mono" (list #" class='mono" marks #"'"))
+      (_ (if (== marks #"") #"" (list #" class='" mark #"'"))))))
 
 (defun report-cell (s e)
   (let ((n (val s e #"Name")))

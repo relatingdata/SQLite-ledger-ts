@@ -1809,14 +1809,13 @@ Root
     - :Entry Control=tree Label="" Name=name
     - :Entry Control=amount Label=Debit Name=debit
     - :Entry Control=amount Label=Credit Name=credit
-   "/reports/below-reorder" :Screen "Calls getBelowReorderStock">/Root/Application/Calls/getBelowReorderStock Source="frontend/src/routes/reports/below-reorder/+page.svelte" Title="Below Reorder"
-    - :Heading Text="Below Reorder"
-    - :Column Label=Item
-    - :Column Label=Locations
-    - :Column Label="On hand"
-    - :Column Label="Reorder Level"
-    - :Column Label=Min
-    - :Column Label=Max
+   "/reports/below-reorder" :Screen "Empty Text"="Nothing needs reordering right now." Intro="Every item at every location currently at or below its own reorder level \u2014 the real trigger for \"time to order,\" distinct from the floor min level, which only says something has already gone wrong." Report=belowReorder Template=report Title="Below Reorder"
+    - :Entry Label=Item Name=item
+    - :Entry Label=Locations Name=location
+    - :Entry Control=amount Label="On hand" Name=onHand
+    - :Entry Control=amount Label="Reorder Level" Name=reorder
+    - :Entry Control=amount Label=Min Name=min
+    - :Entry Control=amount Label=Max Name=max
    "/reports/business-configuration" :Screen "Calls getBusinessConfigurationReport">/Root/Application/Calls/getBusinessConfigurationReport Source="frontend/src/routes/reports/business-configuration/+page.svelte" Title="Business Configuration Report"
     - :Heading Text="Business Configuration Report"
     - :Heading Text="Business Name"
@@ -2001,13 +2000,12 @@ Root
     - :Column Label="Daily use"
     - :Column Label="Days left"
     - :Column Label="Lead time (days)"
-   "/reports/storage-space" :Screen "Calls getStorageSpaceReport">/Root/Application/Calls/getStorageSpaceReport Source="frontend/src/routes/reports/storage-space/+page.svelte" Title="Inventory and Storage"
-    - :Heading Text="Inventory and Storage"
-    - :Column Label="Storage Unit"
-    - :Column Label=Installed
-    - :Column Label=Occupied
-    - :Column Label=Remaining
-    - :Column Label="Balanced?"
+   "/reports/storage-space" :Screen "Empty Text"="No real storage-space activity yet." Intro="Each real location's own, real, physical storage space \u2014 Installed, Occupied, and Remaining, per real storage unit (cartons, bottles, or whatever a business defines). These accounts live outside the Chart of Accounts, so they never appear on the Trial Balance." Report=storageSpace Template=report Title="Inventory and Storage"
+    - :Entry Label="Storage Unit" Name=unit
+    - :Entry Control=amount Label=Installed Name=installed
+    - :Entry Control=amount Label=Occupied Name=occupied
+    - :Entry Control=amount Label=Remaining Name=remaining
+    - :Entry Label="Balanced?" Name=balanced
    "/reports/trial-balance" :Screen "Clear Label"="Clear (show all time)" Intro="Every account with a posted balance, split into its debit or credit column. Any ledger in {NAME} should balance \u2014 Actual, or any proposed budget." "Intro Name"=business Report=trialBalance Template=report Title="Trial Balance"
     - :Field Control=ledger Label=Ledger Name=ledger
     - :Field Control=date Default=today Label="As of date" Name=asOfDate
@@ -2457,6 +2455,8 @@ Root
    - :Rule Selector=.report-summary display=flex font-size="var(--font-size-medium)" justify-content=space-between margin=0 padding="0 1.2rem"
    - :Rule Selector=.report-status color="var(--debit)" font-weight=600 margin-top=1rem text-align=center
    - :Rule Selector=.report-status.balanced color="var(--credit)"
+   - :Rule Selector=".critical td" color="var(--debit)" font-weight=600
+   - :Rule Selector=.ok color="var(--credit)"
    - :Rule Selector=.record-list border-collapse=collapse margin-top=1.2rem width="100%"
    - :Rule Selector=".record-list th, .record-list td" border-bottom="1px solid var(--rule)" padding="0.4rem 0.6rem" text-align=start
    - :Rule Selector=.record-actions white-space=nowrap
