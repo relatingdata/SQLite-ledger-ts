@@ -44,6 +44,7 @@ build output, ignored by git, written by `make generate`.
   OTP 25 installed here), into `generator/deps/`.
 - `app-entities` reads the ASCII form into a store and answers: a node at a
   path, its things in order, its kind, a relation's value or target.
+- `app-view` resolves variants (below); `app-lisp` prints configuration as Lisp.
 - `app-svelte` holds the templates. Each is an ordinary function run while
   generating: it takes a screen's configuration and returns its page. They
   share smaller functions (a field, a column's header and cell, a money
@@ -77,6 +78,26 @@ option, `Default=first`, a `Filter`, `Show All Label`) or `one-of`
 successful submit; `Reacts` names a reaction run whenever it changes. A
 `Column` is `text`, `number`, `money` or `storage-badge`.
 
+### Variants
+
+A screen that differs from another only in a few places says so:
+`Variant Of` → the other screen, then only what differs. Its own values
+override the base screen's (an empty value removes one); its things are
+merged with the base's by `Name`: the same `Name` overrides that thing's
+values, `Remove=yes` removes it, and a new `Name` is added at the end, or
+straight after the thing named by its `After`. `app-view` resolves this,
+and the templates see only the resolved screen. Cash Purchase and Cash
+Sale are variants of AP Purchase and AR Sale: `Party=Cash`, the line tax
+column, the payment method, and no reference, party or tax rate fields.
+
+### Reading the configuration as Lisp
+
+`make print-screen SCREENS="/arap/cash-purchase /arap/ap-purchase"` prints
+each screen's configuration (as stored, variants unresolved) as Lisp:
+`(screen /arap/cash-purchase (title "Cash Purchase") ... (field location
+(label "Receive at location") ...))`. The printing is for reading only;
+the entities stay the source.
+
 ### Behaviour by name (`frontend/src/lib/screen-runtime.ts`)
 
 What a screen does is named in its configuration and written once, by
@@ -89,8 +110,9 @@ hand, in the runtime module:
   narrowed choices and an information line (`onHand`,
   `fromLocationChanged`, `itemSources`, `providerPrice`);
 - `totals`: `lineTax`, `taxRate`, `quantityTimesPrice`;
-- `actions`: the backend calls a submit makes (`cashPurchase`, `cashSale`,
-  `apPurchase`, `arSale`, `transfer`, `purchaseOrder`). A validation
+- `actions`: the backend calls a submit makes (`purchase` and `sale`, on
+  account or, when the party is `Cash`, paid at once; `transfer`,
+  `purchaseOrder`). A validation
   failure throws `Invalid`, whose message is shown.
 
 ### Styling

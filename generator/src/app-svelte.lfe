@@ -11,9 +11,9 @@
 (defmodule app-svelte
   (export (screen 2)))
 
-(defun val (s id rel) (app-entities:value s id rel))
-(defun val (s id rel default) (app-entities:value s id rel default))
-(defun kind (s id) (app-entities:kind s id))
+(defun val (s id rel) (app-view:val s id rel))
+(defun val (s id rel default) (app-view:val s id rel default))
+(defun kind (s id) (app-view:kind s id))
 
 ;; The page for a screen, by its Template.
 (defun screen (s id)
@@ -62,23 +62,23 @@
         (lists:map (lambda (tile)
                      (list #"    <a class='card tile' href=" (js (val s tile #"Href")) #">"
                            #"<h3>" (t (val s tile #"Title")) #"</h3><p>" (t (val s tile #"Description" #"")) #"</p></a>\n"))
-                   (lists:filter (lambda (p) (== (kind s p) #"Tile")) (app-entities:things s id)))
+                   (lists:filter (lambda (p) (== (kind s p) #"Tile")) (app-view:things s id)))
         #"  </div>\n</fieldset>\n"))
 
 ;; A screen that is one or more existing components, each with fixed props.
 (defun compose (s id)
-  (let ((uses (lists:filter (lambda (p) (== (kind s p) #"Use")) (app-entities:things s id))))
+  (let ((uses (lists:filter (lambda (p) (== (kind s p) #"Use")) (app-view:things s id))))
     (list #"<script lang='ts'>\n" (header s id)
           (lists:map (lambda (c) (list #"  import " c #" from '$lib/components/" c #".svelte';\n"))
-                     (lists:usort (lists:map (lambda (u) (app-entities:name s (app-entities:target s u #"Component"))) uses)))
+                     (lists:usort (lists:map (lambda (u) (app-entities:name s (app-view:target s u #"Component"))) uses)))
           #"</script>\n\n"
           (lists:map (lambda (u)
-                       (list #"<" (app-entities:name s (app-entities:target s u #"Component"))
+                       (list #"<" (app-entities:name s (app-view:target s u #"Component"))
                              (lists:filtermap (lambda (r)
                                                 (case r
                                                   ((tuple (binary "Prop " (prop binary)) v) (tuple 'true (list #" " prop #"={" (js v) #"}")))
                                                   (_ 'false)))
-                                              (app-entities:relations s u))
+                                              (app-view:relations s u))
                              #" />\n"))
                      uses))))
 
@@ -89,7 +89,7 @@
 ;; fields after the grid, and one button that runs the screen's Action.
 
 (defun transaction (s id)
-  (let* ((parts (app-entities:things s id))
+  (let* ((parts (app-view:things s id))
          (fields (lists:filter (lambda (p) (== (kind s p) #"Field")) parts))
          (columns (lists:filter (lambda (p) (== (kind s p) #"Column")) parts))
          (inputs (lists:filter (lambda (c) (=/= (val s c #"Control") #"storage-badge")) columns))

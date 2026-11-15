@@ -1351,13 +1351,13 @@ Root
     - :Tile Description="Pay a provider \u2014 debits their AP balance, credits Cash." Href="/arap/ap-payment" Title="AP Payment"
    "/arap/ap-payment" :Screen Template=compose
     - :Use Component>/Root/Application/Components/PaymentReceipt "Prop direction"=payment
-   "/arap/ap-purchase" :Screen Action=apPurchase "Fail Text"="Could not record this purchase." Intro="A purchase from a provider on credit \u2014 debits an expense or asset account, credits their Accounts Payable balance." "Submit Label"=Save Template=transaction Title="AP Purchase" "Total Label"="Total owed" Totals=taxRate
+   "/arap/ap-purchase" :Screen Action=purchase "Fail Text"="Could not record this purchase." Intro="A purchase from a provider on credit \u2014 debits an expense or asset account, credits their Accounts Payable balance." "Submit Label"=Save Template=transaction Title="AP Purchase" "Total Label"="Total owed" Totals=taxRate
     - :Field Control=date Label=Date Name=transdate
     - :Field Control=text Label=Reference Name=reference Placeholder="e.g. PO-1001" Reset=yes
     - :Field Choices=providers Control=choose Empty="Select provider\u2026" Grow=yes Label=Provider Name=provider
     - :Field Choices=postableAccounts Control=choose Empty="Select account\u2026" Grow=yes Label="Account (what this purchase was for)" Name=expenseAccount
     - :Field Control=percent Label="Tax %" Name=taxRate Reset=yes
-    - :Field Choices=locations Control=choose Empty="Not yet known" Grow=yes Label=Location Name=purchaseLocation
+    - :Field Choices=locations Control=choose Empty="Not yet known" Grow=yes Label=Location Name=location
     - :Field Control=text Grow=yes Label=Description Name=description Placeholder=optional Reset=yes
     - :Column Control=text Label=Item Name=itemName Placeholder="e.g. Golden Lager 330ml"
     - :Column Control=number Default=1 Label=Quantity Min=1 Name=quantity
@@ -1365,34 +1365,33 @@ Root
     - :Column Control=storage-badge Label=Storage Name=storage
    "/arap/ar-receipt" :Screen Template=compose
     - :Use Component>/Root/Application/Components/PaymentReceipt "Prop direction"=receipt
-   "/arap/ar-sale" :Screen Action=arSale "Fail Text"="Could not record this sale." Intro="A sale to a customer on credit \u2014 debits their Accounts Receivable balance, credits Sales Revenue." "Submit Label"=Save Template=transaction Title="AR Sale" "Total Label"="Total owed" Totals=taxRate
+   "/arap/ar-sale" :Screen Action=sale "Fail Text"="Could not record this sale." Intro="A sale to a customer on credit \u2014 debits their Accounts Receivable balance, credits Sales Revenue." "Submit Label"=Save Template=transaction Title="AR Sale" "Total Label"="Total owed" Totals=taxRate
     - :Field Control=date Label=Date Name=transdate
     - :Field Control=text Label=Reference Name=reference Placeholder="e.g. INV-1001" Reset=yes
     - :Field Choices=customers Control=choose Empty="Select customer\u2026" Grow=yes Label=Customer Name=customer
     - :Field Control=percent Label="Tax %" Name=taxRate Reset=yes
-    - :Field Choices=locations Control=choose Empty="Not yet known" Grow=yes Label=Location Name=saleLocation
+    - :Field Choices=locations Control=choose Empty="Not yet known" Grow=yes Label=Location Name=location
     - :Field Control=text Grow=yes Label=Description Name=description Placeholder=optional Reset=yes
     - :Column Control=text Label=Item Name=itemName Placeholder="e.g. Golden Lager 330ml"
     - :Column Control=number Default=1 Label=Quantity Min=1 Name=quantity
     - :Column Control=money Label="Unit price" Name=unitPriceMinor
     - :Column Control=storage-badge Label=Storage Name=storage
-   "/arap/cash-purchase" :Screen Action=cashPurchase "Fail Text"="Could not complete this purchase." Intro="A purchase from the 'Cash' provider \u2014 posted exactly like any on-account purchase, then paid off in full the same instant, so the balance is real even if only for a moment. Choose any real location to receive stock at, including a warehouse \u2014 possibly the start of a real wholesale channel." Party=Cash "Party Label"=Provider "Submit Label"="Complete purchase" Template=transaction Title="Cash Purchase" "Total Label"="Total to pay" Totals=lineTax
-    - :Field Control=date Label=Date Name=transdate
-    - :Field Choices=locations Control=choose Default=first Label="Receive at location" Name=locationName
-    - :Column Control=text Label=Item Name=itemName Placeholder="e.g. Golden Lager 330ml"
-    - :Column Control=number Default=1 Label=Quantity Min=1 Name=quantity
-    - :Column Control=money Label="Unit price" Name=unitPriceMinor
-    - :Column Control=money Label=Tax Name=taxMinor
-    - :Column Control=storage-badge Label=Storage Name=storage
+   "/arap/cash-purchase" :Screen "Fail Text"="Could not complete this purchase." Intro="A purchase from the 'Cash' provider \u2014 posted exactly like any on-account purchase, then paid off in full the same instant, so the balance is real even if only for a moment. Choose any real location to receive stock at, including a warehouse \u2014 possibly the start of a real wholesale channel." Party=Cash "Party Label"=Provider "Submit Label"="Complete purchase" Title="Cash Purchase" "Total Label"="Total to pay" Totals=lineTax "Variant Of">/Root/Application/Screens/"/arap/ap-purchase"
+    - :Field Name=reference Remove=yes
+    - :Field Name=provider Remove=yes
+    - :Field Name=expenseAccount Remove=yes
+    - :Field Name=taxRate Remove=yes
+    - :Field Name=description Remove=yes
+    - :Field Default=first Empty="" Grow="" Label="Receive at location" Name=location
+    - :Column After=unitPriceMinor Control=money Label=Tax Name=taxMinor
     - :Field Control=one-of Default=cash Label="Payment method" Name=paymentMethod Options="cash=Cash eft=EFT"
-   "/arap/cash-sale" :Screen Action=cashSale "Fail Text"="Could not complete this sale." Intro="A sale to the 'Cash' customer \u2014 posted exactly like any on-account sale, then paid off in full the same instant, so the balance is real even if only for a moment. Choose any real location to dispatch from, including a warehouse \u2014 possibly the start of a real wholesale channel. The everyday retail register is the real POS Terminal; this is the same real mechanism for a larger, non-register sale." Party=Cash "Party Label"=Customer "Submit Label"="Complete sale" Template=transaction Title="Cash Sale" "Total Label"="Total owed" Totals=lineTax
-    - :Field Control=date Label=Date Name=transdate
-    - :Field Choices=locations Control=choose Default=first Label="Dispatch from location" Name=locationName
-    - :Column Control=text Label=Item Name=itemName Placeholder="e.g. Golden Lager 330ml"
-    - :Column Control=number Default=1 Label=Quantity Min=1 Name=quantity
-    - :Column Control=money Label="Unit price" Name=unitPriceMinor
-    - :Column Control=money Label=Tax Name=taxMinor
-    - :Column Control=storage-badge Label=Storage Name=storage
+   "/arap/cash-sale" :Screen "Fail Text"="Could not complete this sale." Intro="A sale to the 'Cash' customer \u2014 posted exactly like any on-account sale, then paid off in full the same instant, so the balance is real even if only for a moment. Choose any real location to dispatch from, including a warehouse \u2014 possibly the start of a real wholesale channel. The everyday retail register is the real POS Terminal; this is the same real mechanism for a larger, non-register sale." Party=Cash "Party Label"=Customer "Submit Label"="Complete sale" Title="Cash Sale" "Total Label"="Total owed" Totals=lineTax "Variant Of">/Root/Application/Screens/"/arap/ar-sale"
+    - :Field Name=reference Remove=yes
+    - :Field Name=customer Remove=yes
+    - :Field Name=taxRate Remove=yes
+    - :Field Name=description Remove=yes
+    - :Field Default=first Empty="" Grow="" Label="Dispatch from location" Name=location
+    - :Column After=unitPriceMinor Control=money Label=Tax Name=taxMinor
     - :Field Control=one-of Default=cash Label="Payment method" Name=paymentMethod Options="cash=Cash eft=EFT"
    "/arap/quotations" :Screen "Calls acceptQuotation">/Root/Application/Calls/acceptQuotation "Calls createQuotation">/Root/Application/Calls/createQuotation "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls listLocations">/Root/Application/Calls/listLocations "Calls listQuotations">/Root/Application/Calls/listQuotations "Calls markQuotationSent">/Root/Application/Calls/markQuotationSent "Calls rejectQuotation">/Root/Application/Calls/rejectQuotation Source="frontend/src/routes/arap/quotations/+page.svelte" Title=Quotations
     - :Heading Text=Quotations

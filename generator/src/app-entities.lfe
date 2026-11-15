@@ -9,7 +9,7 @@
 
 (defmodule app-entities
   (export (read 1) (parse 1) (path 2) (name 2) (kind 2) (things 2)
-          (value 3) (value 4) (target 3) (child 3) (relations 2)))
+          (value 3) (value 4) (target 3) (child 3) (relations 2) (references 2)))
 
 (defun read (file)
   (let (((tuple 'ok text) (file:read_file file))) (parse text)))
@@ -49,6 +49,18 @@
         (v (if (andalso (== (raw-children s c) (list v)) (== (child s c #"Kind") 'undefined))
              (tuple 'true (tuple (name s c) (name s v)))
              'false))))
+    (lists:sort (lambda (a b) (=< (name s a) (name s b))) (raw-children s id))))
+
+;; The entity's references to other entities, as #(Relation Target) in
+;; name order (not its Kind).
+(defun references (s id)
+  (lists:filtermap
+    (lambda (c)
+      (case (element 2 (node s c))
+        ('null 'false)
+        (v (if (orelse (== (name s c) #"Kind") (== (raw-children s c) (list v)) (=/= (child s c #"Kind") 'undefined))
+             'false
+             (tuple 'true (tuple (name s c) v))))))
     (lists:sort (lambda (a b) (=< (name s a) (name s b))) (raw-children s id))))
 
 ;; Things (children with a Kind) in name order; ordered children's names

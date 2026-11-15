@@ -229,12 +229,45 @@ async function onAccount(kind: 'AP' | 'AR', c: Context, v: Values, lines: Line[]
 const itemLines = (lines: Line[]) => lines.map((l) => ({ ...l, itemName: asItemName(l.itemName), taxMinor: l.taxMinor ?? 0 }));
 
 export const actions: Record<string, (c: Context, v: Values, lines: Line[]) => Promise<string>> = {
-  apPurchase: async (c, v, lines) => {
-    await onAccount('AP', c, v, lines, v.provider, v.purchaseLocation, v.expenseAccount, 'Purchases Tax Claimed');
+  /** A purchase: from the Cash provider it is paid off at once (the
+   * backend's one atomic cash purchase); otherwise it is posted on account
+   * to the chosen provider. */
+  purchase: async (c, v, lines) => {
+    if (c.party === 'Cash') {
+      if (!v.location) throw new Invalid('Select a location.');
+      const res = await completeCashPurchase({
+        business: asBusinessName(c.business),
+        ledger: asLedgerName(c.ledger),
+        locationName: asLocationName(v.location),
+        vendorName: asProviderName(c.party),
+        lines: itemLines(lines),
+        taxAccount: 'Sales Tax Payable',
+        paymentMethod: v.paymentMethod,
+        transdate: v.transdate,
+      });
+      return `${t('Purchase completed')}: ${res.reference}`;
+    }
+    await onAccount('AP', c, v, lines, v.provider, v.location, v.expenseAccount, 'Purchases Tax Claimed');
     return `Purchase ${v.reference} from ${v.provider} recorded.`;
   },
-  arSale: async (c, v, lines) => {
-    await onAccount('AR', c, v, lines, v.customer, v.saleLocation, 'Sales Revenue', 'Sales Tax Payable');
+  /** A sale: to the Cash customer it is paid off at once; otherwise it is
+   * posted on account to the chosen customer. */
+  sale: async (c, v, lines) => {
+    if (c.party === 'Cash') {
+      if (!v.location) throw new Invalid('Select a location.');
+      const res = await completePosSale({
+        business: asBusinessName(c.business),
+        ledger: asLedgerName(c.ledger),
+        locationName: asLocationName(v.location),
+        customerName: asCustomerName(c.party),
+        lines: itemLines(lines),
+        taxAccount: 'Sales Tax Payable',
+        paymentMethod: v.paymentMethod,
+        transdate: v.transdate,
+      });
+      return `${t('Sale completed')}: ${res.reference}`;
+    }
+    await onAccount('AR', c, v, lines, v.customer, v.location, 'Sales Revenue', 'Sales Tax Payable');
     return `Sale ${v.reference} to ${v.customer} recorded.`;
   },
   transfer: async (c, v) => {
@@ -276,33 +309,5 @@ export const actions: Record<string, (c: Context, v: Values, lines: Line[]) => P
     });
     await postPurchaseOrder(v.reference, business, ledger);
     return `Purchase Order ${v.reference} placed with ${v.provider}.`;
-  },
-  cashPurchase: async (c, v, lines) => {
-    if (!v.locationName) throw new Invalid('Select a location.');
-    const res = await completeCashPurchase({
-      business: asBusinessName(c.business),
-      ledger: asLedgerName(c.ledger),
-      locationName: asLocationName(v.locationName),
-      vendorName: asProviderName(c.party),
-      lines: itemLines(lines),
-      taxAccount: 'Sales Tax Payable',
-      paymentMethod: v.paymentMethod,
-      transdate: v.transdate,
-    });
-    return `${t('Purchase completed')}: ${res.reference}`;
-  },
-  cashSale: async (c, v, lines) => {
-    if (!v.locationName) throw new Invalid('Select a location.');
-    const res = await completePosSale({
-      business: asBusinessName(c.business),
-      ledger: asLedgerName(c.ledger),
-      locationName: asLocationName(v.locationName),
-      customerName: asCustomerName(c.party),
-      lines: itemLines(lines),
-      taxAccount: 'Sales Tax Payable',
-      paymentMethod: v.paymentMethod,
-      transdate: v.transdate,
-    });
-    return `${t('Sale completed')}: ${res.reference}`;
   },
 };
