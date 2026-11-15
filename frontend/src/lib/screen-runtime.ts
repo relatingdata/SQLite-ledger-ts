@@ -38,6 +38,8 @@ import {
   getAgedInvoices,
   getAgedSummary,
   getReminderCandidates,
+  getCustomerStatement,
+  getSalesReport,
   sendReminder,
   resetReminder,
   getStorageSpaceReport,
@@ -468,6 +470,8 @@ export interface ReportGroup {
   title: string;
   /** Which of the screen's tables shows it (its entries' Table); none: the default. */
   table?: string;
+  /** Lines shown above the table (who and when, on a statement). */
+  meta?: { label: string; value: string }[];
   /** Column headings that differ from the configured labels, by entry name. */
   labels?: Record<string, string>;
   warn?: string;
@@ -538,6 +542,36 @@ export const reports: Record<string, (c: Context, v: Values) => Promise<Report>>
       intro: t(`What's outstanding, bucketed against each ${side === 'AR' ? 'customer' : 'provider'}'s own payment terms \u2014 not a fixed 30/60/90 for everyone, since account management practice genuinely varies per account.`),
       columns: [{ groups: [{ title: '', table: v.view === 'detail' ? 'detail' : '', labels, rows }] }],
     };
+  },
+  /** Every posted sale in a period, by category or line by line (view). */
+  sales: async (c, v) => {
+    const r = await getSalesReport(asBusinessName(c.business), asLedgerName(c.ledger), v.fromDate || undefined, v.toDate || undefined);
+    const rows: ReportRow[] = v.view === 'detailed'
+      ? r.detailed.map((l, i) => line(String(i), {
+          date: l.invoice_date, reference: l.reference, item: l.item_name ?? l.description, quantity: count(l.quantity),
+          unitPrice: l.unit_price_minor != null ? money(l.unit_price_minor) : '', amount: money(l.amount_minor),
+        }))
+      : r.category_summary.map((cs) => line(cs.category, {
+          category: cs.category, quantity: String(cs.quantity), amount: money(cs.amount_minor),
+          share: `${r.total_amount_minor > 0 ? ((cs.amount_minor / r.total_amount_minor) * 100).toFixed(1) : '0.0'}%`,
+        }));
+    return { columns: [{
+      groups: [{ title: '', table: v.view === 'detailed' ? 'detailed' : '', rows }],
+      summary: { label: t('Total'), value: `${r.total_quantity} ${t('units')}, ${money(r.total_amount_minor)}` },
+    }] };
+  },
+  /** Every posted invoice of one customer as of a date, paid or not. */
+  statement: async (c, v) => {
+    if (!v.customer) return { columns: [{ groups: [] }] };
+    const st = await getCustomerStatement(asBusinessName(c.business), asLedgerName(c.ledger), v.customer, v.asOfDate || undefined);
+    return { columns: [{ groups: [{
+      title: t('Statement of Account'),
+      meta: [{ label: t('Business'), value: c.business }, { label: t('Customer'), value: st.customer }, { label: t('As of'), value: st.as_of_date }],
+      rows: st.lines.map((l) => line(String(l.invoice_id), {
+        reference: l.reference, date: l.invoice_date, due: l.due_date ?? '', total: money(l.total_minor), paid: money(l.paid_minor), outstanding: money(l.outstanding_minor), status: t(l.status),
+      })),
+      footer: { reference: t('Total outstanding'), outstanding: money(st.total_outstanding_minor) },
+    }] }] };
   },
   /** Customers overdue now, with the reminder level each has reached. */
   reminders: async (c, v) => ({

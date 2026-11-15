@@ -335,7 +335,7 @@
        (list #"      <div class='toggle-group'>"
              (lists:map (lambda (o)
                           (let (((list v l) (binary:split o #"=")))
-                            (list #"<button type='button' class='btn secondary' class:active={" n #" === " (js v) #"} onclick={() => (" n #" = " (js v) #")}>" (t l) #"</button>")))
+                            (list #"<button type='button' class='btn secondary' class:active={" n #" === " (js v) #"} onclick={() => (" n #" = " (js v) #")}>" (t (spaced l)) #"</button>")))
                         (binary:split (val s f #"Options" #"") #" " '(global trim_all)))
              #"</div>\n"))
       (#"one-of"
@@ -343,7 +343,7 @@
              ;; Options are "value=Label value=Label".
              (lists:map (lambda (o)
                           (let (((list v l) (binary:split o #"=")))
-                            (list #"        <label><input type='radio' bind:group={" n #"} value=" (js v) #" /> " (t l) #"</label>\n")))
+                            (list #"        <label><input type='radio' bind:group={" n #"} value=" (js v) #" /> " (t (spaced l)) #"</label>\n")))
                         (binary:split (val s f #"Options" #"") #" " '(global trim_all)))
              #"      </fieldset>\n"))
       (_ (list open #"<input type='text' bind:value={" n #"}"
@@ -397,7 +397,8 @@
          (dates (lists:filter (lambda (f) (== (val s f #"Control") #"date")) params))
          (entries (lists:filter (lambda (p) (== (kind s p) #"Entry")) parts))
          (commands (lists:filter (lambda (p) (== (kind s p) #"Command")) parts))
-         (queries (lists:filter (lambda (f) (=/= (val s f #"Query") 'undefined)) params)))
+         (queries (lists:filter (lambda (f) (=/= (val s f #"Query") 'undefined)) params))
+         (chooses (lists:filter (lambda (f) (== (val s f #"Control") #"choose")) params)))
     (list
       #"<script lang='ts'>\n" (header s id)
       #"  import { onMount } from 'svelte';\n"
@@ -405,7 +406,10 @@
       #"  import { session, translations } from '$lib/state.svelte';\n"
       #"  import { getLedgers, asBusinessName, ApiError } from '$lib/api';\n"
       #"  import { todayIsoDate } from '$lib/format';\n"
-      #"  import { reports, " (if (== commands '()) #"" #"commands, ") #"type Report } from '$lib/screen-runtime';\n\n"
+      #"  import { reports, " (if (== commands '()) #"" #"commands, ") (if (== chooses '()) #"" #"sources, filters, type Choice, ")
+      #"type Report } from '$lib/screen-runtime';\n\n"
+      (if (== chooses '()) #""
+        #"  let choices: Record<string, Choice[]> = $state({});\n  let narrowed: Record<string, Choice[] | undefined> = $state({});\n  let showAll: Record<string, boolean> = $state({});\n")
       #"  const t = (word: string) => translations.current[word] ?? word;\n"
       #"  let business = $state('');\n  let ledger = $state('');\n  let ledgers: { name: string }[] = $state([]);\n"
       #"  let ready = $state(false);\n  let loading = $state(true);\n  let error = $state('');\n  let message = $state('');\n"
@@ -414,6 +418,7 @@
       (lists:join #", " (lists:map (lambda (f) (list (val s f #"Name") #": "
                                                      (case (tuple (val s f #"Control") (val s f #"Default"))
                                                        ((tuple #"date" #"today") #"todayIsoDate()")
+                                                       ((tuple #"choose" #"first") #"''")
                                                        ((tuple _ 'undefined) #"''")
                                                        ((tuple _ d) (js d)))))
                                    params))
@@ -435,6 +440,9 @@
       #"  onMount(async () => {\n    if (!session.current) return;\n"
       #"    business = session.current.businessName;\n    ledger = session.current.ledgerName;\n"
       (if ledger? #"    try {\n      ledgers = await getLedgers(asBusinessName(business));\n    } catch {\n      /* the session's ledger still works */\n    }\n" #"")
+      (if (== chooses '()) #""
+        (list #"    try {\n" (lists:map (lambda (f) (list #"  " (load-choices s f))) chooses)
+              #"    } catch (e) {\n      error = e instanceof ApiError ? e.message : 'Failed to load.';\n    }\n"))
       (lists:map (lambda (f) (list #"    const " (val s f #"Name") #"Query = new URL(window.location.href).searchParams.get(" (js (val s f #"Query")) #");\n"
                                    #"    if (" (val s f #"Name") #"Query) values." (val s f #"Name") #" = " (val s f #"Name") #"Query;\n"))
                  queries)
@@ -451,6 +459,9 @@
                            #"      <select bind:value={ledger}>{#each ledgers as l}<option value={l.name}>{t(l.name)}</option>{/each}</select>\n    </fieldset>\n")
                      (field s f)))
                  fields)
+      (case (val s id #"Print Label")
+        ('undefined #"")
+        (label (list #"    <button type='button' class='btn' onclick={() => window.print()} disabled={!report}>" (t label) #"</button>\n")))
       (case (val s id #"Clear Label")
         ('undefined #"")
         (label (list #"    {#if " (lists:join #" || " (lists:map (lambda (d) (list #"values." (val s d #"Name"))) dates)) #"}"
@@ -468,6 +479,7 @@
       #"          {#each column.groups as group}\n"
       #"            <fieldset class='report-group'>\n"
       #"              {#if group.title}<legend>{group.title}{#if group.warn} <span class='warn'>&#x26A0; {group.warn}</span>{/if}</legend>{/if}\n"
+      #"              {#if group.meta}<div class='report-meta'>{#each group.meta as m}<p><strong>{m.label}:</strong> {m.value}</p>{/each}</div>{/if}\n"
       (report-tables s id entries commands)
       #"            </fieldset>\n          {/each}\n"
       #"          {#if column.summary}<p class='report-summary'><strong>{column.summary.label}</strong> <span class='num mono'>{column.summary.value}</span></p>{/if}\n"
@@ -476,6 +488,9 @@
       #"    {#if report.note}<p class='dim'>{report.note}</p>{/if}\n"
       #"  {/if}\n"
       #"</fieldset>\n")))
+
+;; An option's label: in Options, an underscore stands for a space.
+(defun spaced (l) (binary:replace l #"_" #" " '(global)))
 
 ;; A word as a JS expression: its translation.
 (defun js-t (word) (list #"t(" (js word) #")"))

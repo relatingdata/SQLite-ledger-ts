@@ -1934,42 +1934,30 @@ Root
     - :Entry Label=Next Name=next
     - :Command Command=sendReminder Label="Send reminder" Name=send
     - :Command Command=resetReminder Label=Reset Name=reset Style=link-button When=sent
-   "/reports/sales" :Screen "Calls getSalesReport">/Root/Application/Calls/getSalesReport Source="frontend/src/routes/reports/sales/+page.svelte" Title="Sales Report"
-    - :Heading Text=Sales
-    - :Heading Text=From
-    - :Field Bind=fromDate Control=input Label=From Type=date
-    - :Heading Text=To
-    - :Field Bind=toDate Control=input Label=To Type=date
-    - :Heading Text=View
-    - :Action Handler="() => (view = 'summary')" Label="Category Summary"
-    - :Action Handler="() => (view = 'detailed')" Label=Detailed
-    - :Column Label=Category
-    - :Column Label=Quantity
-    - :Column Label=Amount
-    - :Column Label="% of Total"
-    - :Column Label=Date
-    - :Column Label=Reference
-    - :Column Label=Item
-    - :Column Label=Qty
-    - :Column Label="Unit price"
-    - :Column Label=Amount
-    - :Action Handler="() => page--" Label="\u2190 Newer"
-    - :Action Handler="() => page++" Label="Older \u2192"
-   "/reports/statement" :Screen "Calls getCustomerStatement">/Root/Application/Calls/getCustomerStatement "Calls getEntityTree">/Root/Application/Calls/getEntityTree Source="frontend/src/routes/reports/statement/+page.svelte" Title="Customer Statement"
-    - :Heading Text="Customer Statement"
-    - :Heading Text=Customer
-    - :Field Bind=selectedCustomer Control=select Label=Customer
-    - :Heading Text="As of date"
-    - :Field Bind=asOfDate Control=input Label="As of date" Type=date
-    - :Action Handler=printStatement Label=Print
-    - :Heading Text="Statement of Account"
-    - :Column Label=Reference
-    - :Column Label="Invoice Date"
-    - :Column Label="Due date"
-    - :Column Label=Total
-    - :Column Label=Paid
-    - :Column Label=Outstanding
-    - :Column Label=Status
+   "/reports/sales" :Screen "Empty Text"="No sales in this period." Intro="Every real posted sale for {NAME} in the selected period \u2014 a category summary rolled up from each product's own real place in the catalog, and the full line-by-line detail underneath it." "Intro Name"=business Report=sales Template=report Title="Sales Report"
+    - :Field Control=date Default=today Label=From Name=fromDate
+    - :Field Control=date Default=today Label=To Name=toDate
+    - :Field Control=toggle Default=summary Label=View Name=view Options="summary=Category_Summary detailed=Detailed"
+    - :Entry Label=Category Name=category
+    - :Entry Control=amount Label=Quantity Name=quantity
+    - :Entry Control=amount Label=Amount Name=amount
+    - :Entry Control=amount Label="% of Total" Name=share
+    - :Entry Control=mono Label=Date Name=date Table=detailed
+    - :Entry Control=mono Label=Reference Name=reference Table=detailed
+    - :Entry Label=Item Name=item Table=detailed
+    - :Entry Control=amount Label=Qty Name=quantity Table=detailed
+    - :Entry Control=amount Label="Unit price" Name=unitPrice Table=detailed
+    - :Entry Control=amount Label=Amount Name=amount Table=detailed
+   "/reports/statement" :Screen "Empty Text"="No invoices for this customer as of this date." Intro="Every real, posted invoice for one customer as of a date \u2014 paid, partially paid, and still outstanding \u2014 not just the unpaid subset the Aged Receivables report shows. A real, printable document a customer could actually be handed or sent." "Print Label"=Print Report=statement Template=report Title="Customer Statement"
+    - :Field Choices=customers Control=choose Default=first Label=Customer Name=customer
+    - :Field Control=date Default=today Label="As of date" Name=asOfDate
+    - :Entry Label=Reference Name=reference
+    - :Entry Label="Invoice Date" Name=date
+    - :Entry Label="Due date" Name=due
+    - :Entry Control=amount Label=Total Name=total
+    - :Entry Control=amount Label=Paid Name=paid
+    - :Entry Control=amount Label=Outstanding Name=outstanding
+    - :Entry Label=Status Name=status
    "/reports/stock-movement" :Screen "Calls getHierarchy">/Root/Application/Calls/getHierarchy "Calls getStockMovementReport">/Root/Application/Calls/getStockMovementReport Source="frontend/src/routes/reports/stock-movement/+page.svelte" Title="Stock Movement Report"
     - :Heading Text="Stock Movement Report"
     - :Action Handler="() => (tab = 'receipts')" Label=Purchases
@@ -2453,6 +2441,8 @@ Root
    - :Rule Selector=.report-status.balanced color="var(--credit)"
    - :Rule Selector=".critical td" color="var(--debit)" font-weight=600
    - :Rule Selector=.ok color="var(--credit)"
+   - :Rule Selector=.report-meta display=flex flex-wrap=wrap gap="0 1.5rem" margin-bottom=0.6rem
+   - :Rule Selector=".report-meta p" margin=0
    - :Rule Selector=.toggle-group display=flex gap=0.3rem
    - :Rule Selector=".toggle-group .active" background="var(--brass)" color=white
    - :Rule Selector=.record-list border-collapse=collapse margin-top=1.2rem width="100%"
