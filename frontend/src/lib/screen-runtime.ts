@@ -64,6 +64,7 @@ import {
   type EntityNode,
 } from '$lib/api';
 import { transferLines } from '$lib/canned-journal';
+import { getSalesCogsMatrix, getStockOnHandMatrix, getAxisValues } from '$lib/matrix-api';
 import { parseMinorUnits, parseQuantity } from '$lib/money';
 
 export interface Context {
@@ -705,3 +706,77 @@ export const reports: Record<string, (c: Context, v: Values) => Promise<Report>>
     };
   },
 };
+
+// --- pivots --------------------------------------------------------------------
+
+/** One cell of a pivot: its row and column values, and the additive
+ * figures behind it (totals are sums of these). */
+export interface PivotCell {
+  row: string;
+  col: string;
+  base: Record<string, number>;
+}
+
+/** A measure a pivot shows in each cell (from its PivotSpec's measures). */
+export interface Measure {
+  name: string;
+  label: string;
+  format: 'amount' | 'quantity' | 'percent';
+  /** Shown in the grand total line above the grid. */
+  summary?: boolean;
+}
+
+/** A pivot: how its cells load for a pair of axes, and the measures shown,
+ * worked out from (summed) figures, so ratios stay right in totals. */
+export interface PivotSpec {
+  load: (c: Context, v: Values, rowAxis: string, colAxis: string) => Promise<PivotCell[]>;
+  measures: (base: Record<string, number>) => Record<string, number | null>;
+}
+
+export const pivots: Record<string, PivotSpec> = {
+  /** Posted sales against their cost of goods sold. */
+  salesCogs: {
+    load: async (c, v, rowAxis, colAxis) =>
+      (await getSalesCogsMatrix(c.business, c.ledger, rowAxis, colAxis, v.fromDate || undefined, v.toDate || undefined)).cells.map((x) => ({
+        row: x.rowKey, col: x.colKey, base: { sales: x.salesMinor, cogs: x.cogsMinor },
+      })),
+    measures: (b) => ({
+      sales: b.sales ?? 0,
+      cogs: b.cogs ?? 0,
+      margin: (b.sales ?? 0) - (b.cogs ?? 0),
+      marginPercent: b.sales ? (((b.sales ?? 0) - (b.cogs ?? 0)) / b.sales) * 100 : null,
+    }),
+  },
+  /** Stock on hand now: quantity, value at cost, and value at current retail. */
+  stockOnHand: {
+    load: async (_c, _v, rowAxis, colAxis) =>
+      (await getStockOnHandMatrix(rowAxis, colAxis)).cells.map((x) => ({
+        row: x.rowKey, col: x.colKey, base: { quantity: x.quantityBottles, cost: x.valueAtCostMinor, realizable: x.realizableValueMinor },
+      })),
+    measures: (b) => ({
+      quantity: b.quantity ?? 0,
+      unitCost: b.quantity ? Math.round((b.cost ?? 0) / b.quantity) : null,
+      cost: b.cost ?? 0,
+      realizable: b.realizable ?? 0,
+      uplift: b.cost ? (((b.realizable ?? 0) - b.cost) / b.cost) * 100 : null,
+    }),
+  },
+};
+
+/** The axes a pivot can break down by, in groups: two axes of the same
+ * group (Category with Item, or Location with a hierarchy over locations,
+ * such as Division) would only repeat each other, so they never cross.
+ * Values per axis, for narrowing to one. */
+export interface Axes {
+  groups: string[][];
+  values: Record<string, string[]>;
+}
+
+export async function loadAxes(c: Context): Promise<Axes> {
+  const values: Record<string, string[]> = await getAxisValues(c.business, c.ledger).catch(() => ({ Item: [], Category: [], Location: [] }));
+  const further = Object.keys(values).filter((k) => !['Item', 'Category', 'Location'].includes(k));
+  return { groups: [['Category', 'Item'], ['Location', ...further]], values };
+}
+
+export const sameGroup = (axes: Axes, a: string, b: string): boolean =>
+  a !== 'Consolidated' && b !== 'Consolidated' && axes.groups.some((g) => g.includes(a) && g.includes(b));
