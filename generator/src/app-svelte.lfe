@@ -23,6 +23,7 @@
     (#"tiles" (tiles s id))
     (#"compose" (compose s id))
     (#"report" (report s id))
+    (#"pivot" (pivot s id))
     (other (error (tuple 'no-template other (app-entities:name s id))))))
 
 ;; --- text helpers ------------------------------------------------------------
@@ -591,3 +592,100 @@
       (#"tree" (list #"<td style='padding-inline-start: {row.depth * 1.2}rem'>{#if row.parent}<span class='disclosure'>{open.has(row.key) ? '\\u25BE' : '\\u25B8'}</span>{/if}{row.cells['" n #"'] ?? ''}"
                      #"{#if row.badge} <span class='badge' title={row.badgeTitle}>{row.badge}</span>{/if}</td>"))
       (_ (list #"<td" (report-class s e n #"row.contra") #">{row.cells['" n #"'] ?? ''}</td>")))))
+;; --- the pivot template ------------------------------------------------------
+;;
+;; A two-axis report on the general cube. Each Entry is a measure: a Source
+;; the cube totals (postings:-Sales Revenue, onHand, onHandAt:cost ...) or a
+;; Formula over the other measures (sales - cogs); Control amount, quantity
+;; or percent; Summary=yes puts its grand total above the grid. The Axes
+;; trait chooses the rows and columns (Axis Chooser drag or select, from
+;; Row Axis and Column Axis); the Pivot trait draws the grid, shaded by the
+;; Highlight measure across each row (Highlight Across=column for columns).
+;; Date fields fromDate and toDate set the period of postings.
+
+(defun pivot (s id)
+  (let* ((parts (app-view:things s id))
+         (fields (lists:filter (lambda (p) (== (kind s p) #"Field")) parts))
+         (dates (lists:filter (lambda (f) (== (val s f #"Control") #"date")) fields))
+         (entries (lists:filter (lambda (p) (== (kind s p) #"Entry")) parts)))
+    (list
+      #"<script lang='ts'>\n" (header s id)
+      #"  import { onMount } from 'svelte';\n"
+      #"  import '$lib/generated.css';\n"
+      #"  import { session, translations } from '$lib/state.svelte';\n"
+      #"  import { ApiError } from '$lib/api';\n"
+      #"  import { MatrixApiError } from '$lib/matrix-api';\n"
+      #"  import { todayIsoDate } from '$lib/format';\n"
+      #"  import AxisChooser from '$lib/components/AxisChooser.svelte';\n"
+      #"  import PivotGrid from '$lib/components/PivotGrid.svelte';\n"
+      #"  import { cube, loadAxes, measureValues, type Axes, type MeasureDef, type Measure, type PivotCell } from '$lib/screen-runtime';\n\n"
+      #"  const t = (word: string) => translations.current[word] ?? word;\n"
+      #"  const defs: MeasureDef[] = [\n"
+      (lists:map (lambda (e)
+                   (list #"    { name: " (js (val s e #"Name"))
+                         (case (val s e #"Source") ('undefined #"") (src (list #", source: " (js src))))
+                         (case (val s e #"Formula") ('undefined #"") (f (list #", formula: " (js f))))
+                         #" },\n"))
+                 entries)
+      #"  ];\n"
+      #"  const measures: Measure[] = [\n"
+      (lists:map (lambda (e)
+                   (list #"    { name: " (js (val s e #"Name")) #", label: " (js (val s e #"Label" #""))
+                         #", format: " (js (val s e #"Control" #"amount"))
+                         (if (== (val s e #"Summary") #"yes") #", summary: true" #"") #" },\n"))
+                 entries)
+      #"  ];\n"
+      #"  let business = '';\n  let ledger = '';\n"
+      #"  let axes: Axes | null = $state(null);\n"
+      #"  let rowAxis = $state(" (js (val s id #"Row Axis" #"Item")) #");\n"
+      #"  let colAxis = $state(" (js (val s id #"Column Axis" #"Consolidated")) #");\n"
+      #"  let rowFilter = $state('');\n  let colFilter = $state('');\n"
+      #"  let values: Record<string, string> = $state({ "
+      (lists:join #", " (lists:map (lambda (f) (list (val s f #"Name") #": "
+                                                     (case (val s f #"Default")
+                                                       (#"today" #"todayIsoDate()")
+                                                       ('undefined #"''")
+                                                       (d (js d)))))
+                                   fields))
+      #" });\n"
+      #"  let cells: PivotCell[] = $state([]);\n"
+      #"  let ready = $state(false);\n  let loading = $state(true);\n  let error = $state('');\n"
+      #"  let latest = 0;\n"
+      #"  async function load() {\n"
+      #"    const request = ++latest;\n    loading = true;\n    error = '';\n"
+      #"    try {\n"
+      #"      const result = await cube({ business, ledger, party: '' }, $state.snapshot(values), rowAxis, colAxis, defs);\n"
+      #"      if (request === latest) cells = result;\n"
+      #"    } catch (e) {\n      if (request === latest) error = e instanceof ApiError || e instanceof MatrixApiError ? e.message : 'Failed to load.';\n"
+      #"    } finally {\n      if (request === latest) loading = false;\n    }\n  }\n"
+      #"  $effect(() => {\n    JSON.stringify(values);\n    void rowAxis;\n    void colAxis;\n    if (ready) load();\n  });\n"
+      #"  onMount(async () => {\n    if (!session.current) return;\n"
+      #"    business = session.current.businessName;\n    ledger = session.current.ledgerName;\n"
+      #"    axes = await loadAxes({ business, ledger, party: '' });\n"
+      #"    ready = true;\n  });\n"
+      #"</script>\n\n"
+      #"<svelte:head><title>" (t (val s id #"Title")) #"</title></svelte:head>\n\n"
+      #"<fieldset class='page-title generated'>\n"
+      #"  <legend>" (t (val s id #"Title")) #"</legend>\n"
+      (intro-line s id)
+      (if (== fields '()) #""
+        (list #"  <div class='row report-controls'>\n"
+              (lists:map (lambda (f) (field s f)) fields)
+              (case (val s id #"Clear Label")
+                ('undefined #"")
+                (label (list #"    {#if " (lists:join #" || " (lists:map (lambda (d) (list #"values." (val s d #"Name"))) dates)) #"}"
+                             #"<button type='button' class='link-button' onclick={() => { "
+                             (lists:map (lambda (d) (list #"values." (val s d #"Name") #" = ''; ")) dates)
+                             #"}}>" (t label) #"</button>{/if}\n")))
+              #"  </div>\n"))
+      #"  {#if axes}<AxisChooser {axes} mode={" (js (val s id #"Axis Chooser" #"drag")) #"}"
+      #" bind:rowAxis bind:colAxis bind:rowFilter bind:colFilter />{/if}\n"
+      #"  {#if error}\n    <p class='error'>{error}</p>\n"
+      #"  {:else if loading && cells.length === 0}\n    <p class='center-text'>Loading&hellip;</p>\n"
+      #"  {:else}\n"
+      #"    <PivotGrid {cells} {measures} derive={(b) => measureValues(defs, b)} {rowAxis} {colAxis} {rowFilter} {colFilter}"
+      (case (val s id #"Highlight") ('undefined #"") (h (list #" highlight={" (js h) #"}")))
+      (case (val s id #"Highlight Across") ('undefined #"") (a (list #" across={" (js a) #"}")))
+      #" emptyText={" (js (val s id #"Empty Text" #"No activity for this combination.")) #"} />\n"
+      #"  {/if}\n"
+      #"</fieldset>\n")))

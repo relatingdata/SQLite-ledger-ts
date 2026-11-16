@@ -17,7 +17,7 @@
     colAxis,
     rowFilter = '',
     colFilter = '',
-    highlight,
+    highlight: initialHighlight,
     across = 'row',
     emptyText = 'No activity for this combination.',
   }: {
@@ -34,6 +34,10 @@
   } = $props();
 
   const t = (word: string) => translations.current[word] ?? word;
+  // Clicking a measure's heading shades by it instead (again: by none).
+  let chosen: string | null | undefined = $state(undefined);
+  const highlight = $derived(chosen === undefined ? initialHighlight : (chosen ?? undefined));
+  const choose = (name: string) => (chosen = highlight === name ? null : name);
   const shown = $derived(cells.filter((c) => (!rowFilter || c.row === rowFilter) && (!colFilter || c.col === colFilter)));
   const rowKeys = $derived([...new Set(shown.map((c) => c.row))].sort());
   const colKeys = $derived([...new Set(shown.map((c) => c.col))].sort());
@@ -55,8 +59,8 @@
   function show(value: number | null | undefined, format: Measure['format']): string {
     if (value == null) return '—';
     if (format === 'percent') return `${value.toFixed(1)}%`;
-    if (format === 'quantity') return value.toLocaleString();
-    return formatAmount(value, auth.current?.user.number_format ?? '1 000.00');
+    if (format === 'quantity') return (Math.round(value * 100) / 100).toLocaleString();
+    return formatAmount(Math.round(value), auth.current?.user.number_format ?? '1 000.00');
   }
 
   // Each row's (or column's) best and worst for the highlight measure.
@@ -101,7 +105,7 @@
         <tr class="measures">
           <th></th>
           {#each [...colKeys, ''] as col}
-            {#each measures as m}<th class="num" class:total={col === ''} class:hl={m.name === highlight}>{t(m.label)}</th>{/each}
+            {#each measures as m}<th class="num pick" class:total={col === ''} class:hl={m.name === highlight} onclick={() => choose(m.name)} title={t('Shade by this')}>{t(m.label)}</th>{/each}
           {/each}
         </tr>
       </thead>
@@ -193,6 +197,9 @@
   .measures th {
     font-weight: 500;
     color: var(--ink-soft);
+  }
+  .measures th.pick {
+    cursor: pointer;
   }
   .measures th.hl {
     color: var(--ink);

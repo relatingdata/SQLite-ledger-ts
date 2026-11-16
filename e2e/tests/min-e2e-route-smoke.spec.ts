@@ -18,7 +18,7 @@ const ROUTES = [
   '/reports/below-reorder', '/reports/cash-flow-forecast', '/reports/compare',
   '/reports/new-stock-on-hand',
   '/reports/profit-and-loss', '/reports/reminders',
-  '/reports/sales', '/reports/statement', '/reports/stock-movement',
+  '/reports/sales', '/reports/sales-margin', '/reports/statement', '/reports/stock-movement',
   '/reports/stock-out-risk', '/reports/trial-balance', '/session', '/setup',
   '/setup/bank-accounts', '/setup/business-setup', '/setup/chart-of-accounts',
   '/setup/currencies', '/setup/new-business', '/setup/periods', '/setup/taxes',

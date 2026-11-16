@@ -60,7 +60,7 @@ build output, ignored by git, written by `make generate`.
 
 ### Templates
 
-41 of the 80 routes are generated (the superseded P&L variants Old P&L,
+43 of the 81 routes are generated (the superseded P&L variants Old P&L,
 New P&L, New New P&L and the drag-and-drop P&L Pivot were retired; the
 tutorials' P&L checks now run on Profit and Loss). Each screen names its template:
 
@@ -68,6 +68,7 @@ tutorials' P&L checks now run on Profit and Loss). Each screen names its templat
 |---|---|---|
 | `transaction` | Cash Purchase, Cash Sale, AP Purchase, AR Sale, Purchase Order, Sales Order, Stock Receipt, Stock Transfer, Quotations, RFQ | `Title`, `Intro`, `Action`, `Totals`, `Total Label`, `Party` / `Party Label`, `Submit Label`, `Fail Text`; its `Field` and `Column` things |
 | `report` | Trial Balance, Balance Sheet, Below Reorder, Inventory and Storage, Aged Receivables/Payables, Reminders, Customer Statement, Sales Report, Cash Flow Forecast, Business Configuration Report | `Title`, `Intro` (`{NAME}` in it is the business or ledger, by `Intro Name`), `Report`, `Clear Label`; parameter `Field`s (`Control=ledger` chooses the ledger); one `Entry` per column |
+| `pivot` | Stock on Hand, Sales and Margin | `Title`, `Intro`, `Row Axis`, `Column Axis`, `Axis Chooser` (`drag` or `select`), `Highlight`, `Highlight Across`, `Empty Text`, `Clear Label`; date `Field`s `fromDate`/`toDate`; one `Entry` per measure |
 | `tiles` | AR / AP, Stock, Reports (section index pages) | `Title`, `Intro`; one `Tile` (`Href`, `Title`, `Description`) per link |
 | `compose` | AP Payment, AR Receipt | One `Use` per component, its props as `Prop <name>` |
 | `not-implemented` | 16 screens not built yet | `Title`, `Description` |
@@ -105,6 +106,53 @@ address (`/reports/aged?type=AP`). A `Print Label` adds a print button; a group'
 `meta` lines show above its table (who and when, on a statement). A table whose entries all have an empty
 `Label` has no heading row. In
 `Options`, an underscore in a label stands for a space.
+
+### The general report cube, and the `pivot` template
+
+Every financial event is a journal posting to an account, and every
+account resolves to an Item, a Location, a Category and the business's own
+hierarchies. So a report on sales, cost of goods sold or stock is a set of
+measures broken down by two axes, and the backend answers all of them with
+one call, `getCube` (`backend/src/db-matrix-reports.ts`; tests in
+`backend/test/cube.test.ts`). A measure is configuration:
+
+| Source | Totals |
+|---|---|
+| `postings:-Sales Revenue` | journal postings to every account under the named roots, sign flipped (`+` keeps it); several roots with `\|`; `#TAG` for accounts tagged TAG (`#COGS`, each item's own cost of goods sold account) |
+| `onHand` | stock on hand now, per item and location |
+| `onHandAt:cost`, `onHandAt:retail` | on-hand quantity at the preferred source's unit cost, or the retail price |
+
+Postings fall in the period `fromDate`..`toDate` (with only `toDate`, a
+balance as at that date); stock is as it is now. A measure with a
+`Formula` instead is arithmetic on the others (`sales - cogs`,
+`margin / sales * 100`), worked out from summed totals, so a percentage is
+right in a total too; dividing by nothing shows a dash.
+
+The `pivot` template puts this on screen through two traits, written once
+as components:
+
+- **Axes** (`AxisChooser.svelte`): drag fields from the tray into Rows and
+  Columns (or click them; `Axis Chooser=select` gives two lists instead);
+  an empty zone is Consolidated; &#x21C4; swaps rows and columns; either axis
+  narrows to one value. Fields of the same side never cross (Item with
+  Category or an item hierarchy such as Size; Location with a location
+  hierarchy such as Division): the one dropped bounces back. Which side a
+  hierarchy is on comes from `getAxisValues`'s `group` column; a hierarchy
+  with no values in the ledger is not offered.
+- **Pivot** (`PivotGrid.svelte`): each cell shows the measures, with row,
+  column and grand totals and the `Summary=yes` measures' totals above.
+  The `Highlight` measure shades each row (or column) from its worst, red,
+  to its best, green: an item's under-performing and excellent locations,
+  or the reverse after a swap. Clicking a measure's heading shades by it.
+
+Known limits: stock measures are not yet scoped to the business (as the
+earlier Stock on Hand report); and a POS sale on the default middleware
+posts no cost of goods sold, while an item's own COGS account carries no
+location, so cost of goods sold appears under "(No location)" rather than
+per location. The retired Sales vs COGS screen's call, `getSalesCogsMatrix`,
+told sales from cost of goods sold by a "Sales - " name prefix that per-item
+sales accounts no longer carry, and so showed every sale as negative cost
+of goods sold; `getCube` tells them apart by where the account sits.
 
 ### The Paged trait
 

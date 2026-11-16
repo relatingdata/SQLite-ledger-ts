@@ -255,6 +255,35 @@ export const getProfitAndLossByAxis = async (
   return decodeProfitAndLossByAxis(fields[0]);
 };
 
+/** The general report cube: for each row value x column value, a total per
+ * measure. Measures are configuration: `postings:-Sales Revenue`,
+ * `postings:+Cost of Goods Sold|#COGS`, `onHand`, `onHandAt:cost`,
+ * `onHandAt:retail` (see db-matrix-reports.ts, getCube). */
+export interface CubeCell {
+  rowKey: string;
+  colKey: string;
+  values: Record<string, number>;
+}
+
+export const getCube = async (
+  business: string,
+  ledger: string,
+  rowAxis: MatrixAxis,
+  colAxis: MatrixAxis,
+  measures: { name: string; source: string }[],
+  fromDate?: string,
+  toDate?: string
+): Promise<CubeCell[]> => {
+  const rows = await matrixCallTable('getCube', [business, ledger, rowAxis, colAxis, fromDate, toDate, ...measures.map((m) => `${m.name}=${m.source}`)], (f) => f);
+  const cells = new Map<string, CubeCell>();
+  for (const r of rows) {
+    const key = `${r.rowKey}\u0000${r.colKey}`;
+    if (!cells.has(key)) cells.set(key, { rowKey: r.rowKey, colKey: r.colKey, values: {} });
+    cells.get(key)!.values[r.measure] = Number(r.value);
+  }
+  return [...cells.values()];
+};
+
 export interface AxisValues {
   Item: string[];
   Category: string[];
@@ -270,4 +299,19 @@ export const getAxisValues = async (business: string, ledger: string): Promise<A
     if (value !== '') result[axis].push(value);
   }
   return result;
+};
+
+/** The axes a business can break reports down by: each axis's values here,
+ * and which side it groups (item or location; '' for a hierarchy with no
+ * values in this ledger). */
+export const getAxes = async (business: string, ledger: string): Promise<{ values: AxisValues; groups: Record<string, string> }> => {
+  const rawRows = await matrixCallTable('getAxisValues', [business, ledger], (f) => f);
+  const values: AxisValues = { Item: [], Category: [], Location: [] };
+  const groups: Record<string, string> = {};
+  for (const { axis, value, group } of rawRows) {
+    if (!(axis in values)) values[axis] = [];
+    if (value !== '') values[axis].push(value);
+    groups[axis] = group ?? '';
+  }
+  return { values, groups };
 };

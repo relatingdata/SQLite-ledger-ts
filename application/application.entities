@@ -1845,20 +1845,11 @@ Root
     - :Column Label=Credit
     - :Column Label=Debit
     - :Column Label=Credit
-   "/reports/new-stock-on-hand" :Screen "Calls getHierarchy">/Root/Application/Calls/getHierarchy Source="frontend/src/routes/reports/new-stock-on-hand/+page.svelte" Title="New Stock on Hand (Matrix)"
-    - :Heading Text="New Stock on Hand (Matrix)"
-    - :Heading Text=Rows
-    - :Field Bind=rowAxis Control=select Label=Rows
-    - :Heading Text=Columns
-    - :Field Bind=colAxis Control=select Label=Columns
-    - :Column Label=Total
-    - :Column Label=Qty
-    - :Column Label="Cost/unit"
-    - :Column Label=Value
-    - :Column Label=Realizable
-    - :Column Label=Qty
-    - :Column Label=Value
-    - :Column Label=Realizable
+   "/reports/new-stock-on-hand" :Screen "Axis Chooser"=drag "Column Axis"=Location "Empty Text"="No stock on hand for this combination." Highlight=quantity Intro="Current stock on hand, broken down by any two of Item, Category, Location and the business's own hierarchies \u2014 quantity, value at cost, and realizable value at current retail price. Drag a field into Rows or Columns; the shading shows, in each row, where stock is lowest (red) and highest (green)." "Row Axis"=Item Template=pivot Title="Stock on Hand"
+    - :Entry Control=quantity Label=Qty Name=quantity Source=onHand
+    - :Entry Control=amount Formula="cost / quantity" Label=Cost Name=unitCost
+    - :Entry Control=amount Label=Value Name=cost Source="onHandAt:cost" Summary=yes
+    - :Entry Control=amount Label=Realizable Name=realizable Source="onHandAt:retail" Summary=yes
    "/reports/profit-and-loss" :Screen Source="frontend/src/routes/reports/profit-and-loss/+page.svelte" Title="Profit and Loss"
     - :Heading Text="Profit and Loss"
     - :Heading Text="Outer grouping"
@@ -1892,6 +1883,13 @@ Root
     - :Entry Control=amount Label=Qty Name=quantity Table=detailed
     - :Entry Control=amount Label="Unit price" Name=unitPrice Table=detailed
     - :Entry Control=amount Label=Amount Name=amount Table=detailed
+   "/reports/sales-margin" :Screen "Axis Chooser"=drag "Clear Label"="Clear (show all time)" "Column Axis"=Location "Empty Text"="No sales in this period for this combination." Highlight=sales Intro="Sales against their cost of goods sold, broken down by any two of Item, Category, Location and the business's own hierarchies. Drag a field into Rows or Columns (\u21c4 swaps them); in each row the sales are shaded from the weakest (red) to the strongest (green) \u2014 click a heading, such as Margin %, to shade by it instead \u2014 an item's under-performing and excellent locations, or a location's best and worst items." "Row Axis"=Item Template=pivot Title="Sales and Margin"
+    - :Field Control=date Label=From Name=fromDate
+    - :Field Control=date Label=To Name=toDate
+    - :Entry Control=amount Label=Sales Name=sales Source="postings:-Sales Revenue" Summary=yes
+    - :Entry Control=amount Label=COGS Name=cogs Source="postings:+Cost of Goods Sold|#COGS" Summary=yes
+    - :Entry Control=amount Formula="sales - cogs" Label=Margin Name=margin Summary=yes
+    - :Entry Control=percent Formula="margin / sales * 100" Label="Margin %" Name=marginPercent
    "/reports/statement" :Screen "Empty Text"="No invoices for this customer as of this date." Intro="Every real, posted invoice for one customer as of a date \u2014 paid, partially paid, and still outstanding \u2014 not just the unpaid subset the Aged Receivables report shows. A real, printable document a customer could actually be handed or sent." "Print Label"=Print Report=statement Template=report Title="Customer Statement"
     - :Field Choices=customers Control=choose Default=first Label=Customer Name=customer
     - :Field Control=date Default=today Label="As of date" Name=asOfDate

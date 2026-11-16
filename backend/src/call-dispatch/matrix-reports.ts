@@ -16,7 +16,7 @@
 // children array), but the encoder below is written genuinely recursively
 // anyway, matching the real, declared ProfitAndLossByAxisNode type rather
 // than assuming today's one-level-deep behavior.
-import { getSalesCogsMatrix, getStockOnHandMatrix, getAxisValues, getProfitAndLossByAxis, type MatrixAxis, type ProfitAndLossByAxisNode } from '../db-matrix-reports.js';
+import { getSalesCogsMatrix, getStockOnHandMatrix, getAxisValues, getProfitAndLossByAxis, getCube, parseCubeMeasure, type MatrixAxis, type ProfitAndLossByAxisNode } from '../db-matrix-reports.js';
 import { asBusinessName, asLedgerName } from '../db.js';
 import { CallError, encodeStringList, requireAuth, row, table, type BackendCall } from '../call-dispatch.js';
 import { encodeProfitAndLoss } from './reports.js';
@@ -26,6 +26,28 @@ function encodeProfitAndLossByAxis(nodes: ProfitAndLossByAxisNode[]): string {
 }
 
 export const matrixReportsFunctions: Record<string, BackendCall> = {
+  // The general report cube. Positional args: [0] business, [1] ledger,
+  // [2] rowAxis, [3] colAxis, [4] fromDate, [5] toDate, then one measure per
+  // further argument (name=postings:-Root|Root, name=onHand,
+  // name=onHandAt:cost|retail). Table columns: rowKey,colKey,measure,value,
+  // one row per cell per measure.
+  getCube: (v, user) => {
+    requireAuth(user);
+    const [business, ledger, rowAxis, colAxis, fromDate, toDate, ...measureTexts] = v;
+    if (!business || !ledger || !rowAxis || !colAxis) throw new CallError(400, 'business, ledger, rowAxis and colAxis are all required.');
+    let measures;
+    try {
+      measures = measureTexts.filter((m) => m).map(parseCubeMeasure);
+    } catch (e) {
+      throw new CallError(400, (e as Error).message);
+    }
+    if (measures.length === 0) throw new CallError(400, 'At least one measure is required.');
+    const cells = getCube(asBusinessName(business), asLedgerName(ledger), rowAxis as MatrixAxis, colAxis as MatrixAxis, measures, fromDate || undefined, toDate || undefined);
+    return table(
+      ['rowKey', 'colKey', 'measure', 'value'],
+      cells.flatMap((c) => Object.entries(c.values).map(([measure, value]) => ({ rowKey: c.rowKey, colKey: c.colKey, measure, value })))
+    );
+  },
   // Positional args: [0] business, [1] ledger, [2] rowAxis, [3] colAxis, [4] fromDate, [5] toDate.
   // Table columns: rowKey,colKey,salesMinor,cogsMinor,totalSalesMinor,totalCogsMinor
   // (totals denormalized onto every row — read from any row). Zero cells ->
@@ -83,13 +105,18 @@ export const matrixReportsFunctions: Record<string, BackendCall> = {
     requireAuth(user);
     const [business, ledger] = v;
     if (!business || !ledger) throw new CallError(400, 'business and ledger are both required.');
-    const axisValues = getAxisValues(asBusinessName(business), asLedgerName(ledger));
-    const rows: { axis: string; value: string }[] = [];
+    // A third column, group, says which side a further hierarchy groups
+    // (item or location; empty for Item, Category, Location themselves and
+    // for a hierarchy with no values here).
+    const groups: Record<string, string> = { Item: 'item', Category: 'item', Location: 'location' };
+    const axisValues = getAxisValues(asBusinessName(business), asLedgerName(ledger), groups as never);
+    const rows: { axis: string; value: string; group: string }[] = [];
     for (const [axis, values] of Object.entries(axisValues)) {
-      if (values.length === 0) rows.push({ axis, value: '' });
-      else for (const value of values) rows.push({ axis, value });
+      const group = groups[axis] ?? '';
+      if (values.length === 0) rows.push({ axis, value: '', group });
+      else for (const value of values) rows.push({ axis, value, group });
     }
-    return table(['axis', 'value'], rows);
+    return table(['axis', 'value', 'group'], rows);
   },
 
   // Positional args: [0] business, [1] ledger, [2] outerAxis, [3] innerAxis,

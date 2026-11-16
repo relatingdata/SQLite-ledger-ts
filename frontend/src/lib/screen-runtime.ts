@@ -64,7 +64,7 @@ import {
   type EntityNode,
 } from '$lib/api';
 import { transferLines } from '$lib/canned-journal';
-import { getSalesCogsMatrix, getStockOnHandMatrix, getAxisValues } from '$lib/matrix-api';
+import { getCube, getAxes } from '$lib/matrix-api';
 import { parseMinorUnits, parseQuantity } from '$lib/money';
 
 export interface Context {
@@ -717,7 +717,7 @@ export interface PivotCell {
   base: Record<string, number>;
 }
 
-/** A measure a pivot shows in each cell (from its PivotSpec's measures). */
+/** A measure a pivot shows in each cell, and how it is formatted. */
 export interface Measure {
   name: string;
   label: string;
@@ -726,42 +726,76 @@ export interface Measure {
   summary?: boolean;
 }
 
-/** A pivot: how its cells load for a pair of axes, and the measures shown,
- * worked out from (summed) figures, so ratios stay right in totals. */
-export interface PivotSpec {
-  load: (c: Context, v: Values, rowAxis: string, colAxis: string) => Promise<PivotCell[]>;
-  measures: (base: Record<string, number>) => Record<string, number | null>;
+/** A measure as configured: totalled by the cube from its Source, or
+ * worked out by its Formula from the other measures' (summed) totals. */
+export interface MeasureDef {
+  name: string;
+  source?: string;
+  formula?: string;
 }
 
-export const pivots: Record<string, PivotSpec> = {
-  /** Posted sales against their cost of goods sold. */
-  salesCogs: {
-    load: async (c, v, rowAxis, colAxis) =>
-      (await getSalesCogsMatrix(c.business, c.ledger, rowAxis, colAxis, v.fromDate || undefined, v.toDate || undefined)).cells.map((x) => ({
-        row: x.rowKey, col: x.colKey, base: { sales: x.salesMinor, cogs: x.cogsMinor },
-      })),
-    measures: (b) => ({
-      sales: b.sales ?? 0,
-      cogs: b.cogs ?? 0,
-      margin: (b.sales ?? 0) - (b.cogs ?? 0),
-      marginPercent: b.sales ? (((b.sales ?? 0) - (b.cogs ?? 0)) / b.sales) * 100 : null,
-    }),
-  },
-  /** Stock on hand now: quantity, value at cost, and value at current retail. */
-  stockOnHand: {
-    load: async (_c, _v, rowAxis, colAxis) =>
-      (await getStockOnHandMatrix(rowAxis, colAxis)).cells.map((x) => ({
-        row: x.rowKey, col: x.colKey, base: { quantity: x.quantityBottles, cost: x.valueAtCostMinor, realizable: x.realizableValueMinor },
-      })),
-    measures: (b) => ({
-      quantity: b.quantity ?? 0,
-      unitCost: b.quantity ? Math.round((b.cost ?? 0) / b.quantity) : null,
-      cost: b.cost ?? 0,
-      realizable: b.realizable ?? 0,
-      uplift: b.cost ? (((b.realizable ?? 0) - b.cost) / b.cost) * 100 : null,
-    }),
-  },
-};
+/** The cells of a pivot: the cube, for the measures that have a Source.
+ * A period (fromDate to toDate) applies to postings; stock is as it is now. */
+export async function cube(c: Context, v: Values, rowAxis: string, colAxis: string, defs: MeasureDef[]): Promise<PivotCell[]> {
+  const sources = defs.filter((d): d is MeasureDef & { source: string } => !!d.source).map((d) => ({ name: d.name, source: d.source }));
+  return (await getCube(c.business, c.ledger, rowAxis, colAxis, sources, v.fromDate || undefined, v.toDate || undefined)).map((x) => ({
+    row: x.rowKey,
+    col: x.colKey,
+    base: x.values,
+  }));
+}
+
+/** Every measure's value from summed totals: a sourced measure is its
+ * total, a formula is worked out from those (no value where it divides by
+ * nothing). */
+export function measureValues(defs: MeasureDef[], base: Record<string, number>): Record<string, number | null> {
+  const out: Record<string, number | null> = {};
+  for (const d of defs) out[d.name] = d.formula ? evaluate(d.formula, { ...base, ...out }) : (base[d.name] ?? 0);
+  return out;
+}
+
+/** Arithmetic on measure names: numbers, names, + - * / and brackets. */
+export function evaluate(formula: string, names: Record<string, number | null>): number | null {
+  const tokens = formula.match(/\d+(\.\d+)?|[A-Za-z_][A-Za-z0-9_]*|[-+*/()]/g) ?? [];
+  let at = 0;
+  const peek = () => tokens[at];
+  const next = () => tokens[at++];
+  function primary(): number | null {
+    const tok = next();
+    if (tok === '(') {
+      const v = sum();
+      next();
+      return v;
+    }
+    if (tok === '-') {
+      const v = primary();
+      return v == null ? null : -v;
+    }
+    if (tok !== undefined && /^\d/.test(tok)) return Number(tok);
+    return tok !== undefined ? (names[tok] ?? 0) : null;
+  }
+  function product(): number | null {
+    let v = primary();
+    while (peek() === '*' || peek() === '/') {
+      const op = next();
+      const r = primary();
+      if (v == null || r == null) v = null;
+      else if (op === '*') v = v * r;
+      else v = r === 0 ? null : v / r;
+    }
+    return v;
+  }
+  function sum(): number | null {
+    let v = product();
+    while (peek() === '+' || peek() === '-') {
+      const op = next();
+      const r = product();
+      v = v == null || r == null ? null : op === '+' ? v + r : v - r;
+    }
+    return v;
+  }
+  return sum();
+}
 
 /** The axes a pivot can break down by, in groups: two axes of the same
  * group (Category with Item, or Location with a hierarchy over locations,
@@ -773,9 +807,10 @@ export interface Axes {
 }
 
 export async function loadAxes(c: Context): Promise<Axes> {
-  const values: Record<string, string[]> = await getAxisValues(c.business, c.ledger).catch(() => ({ Item: [], Category: [], Location: [] }));
-  const further = Object.keys(values).filter((k) => !['Item', 'Category', 'Location'].includes(k));
-  return { groups: [['Category', 'Item'], ['Location', ...further]], values };
+  const { values, groups }: { values: Record<string, string[]>; groups: Record<string, string> } = await getAxes(c.business, c.ledger).catch(() => ({ values: { Item: [], Category: [], Location: [] }, groups: {} }));
+  // A further hierarchy with no values here would only say "No ..." everywhere.
+  const further = (side: string) => Object.keys(values).filter((k) => !['Item', 'Category', 'Location'].includes(k) && groups[k] === side && values[k].length > 0);
+  return { groups: [['Category', 'Item', ...further('item')], ['Location', ...further('location')]], values };
 }
 
 export const sameGroup = (axes: Axes, a: string, b: string): boolean =>

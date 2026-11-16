@@ -336,7 +336,12 @@ export interface AxisValues {
   [hierarchyName: string]: string[];
 }
 
-export function getAxisValues(businessName: BusinessName, ledgerName: LedgerName): AxisValues {
+/** Which side each further hierarchy groups: items (Size, Packaging) or
+ * locations (Division) — two axes of the same side never cross. Filled in
+ * by getAxisValues, from how each hierarchy's values were reached. */
+export type AxisGroups = Record<string, 'item' | 'location'>;
+
+export function getAxisValues(businessName: BusinessName, ledgerName: LedgerName, groups: AxisGroups = {}): AxisValues {
   const entityIndex = loadEntityIndex();
   const validIds = plAccountIds(entityIndex);
   const balances = getLedgerBalances(businessName, ledgerName, undefined, undefined, true);
@@ -357,7 +362,9 @@ export function getAxisValues(businessName: BusinessName, ledgerName: LedgerName
     if (location !== NO_LOCATION_KEY) locations.add(location);
     for (const name of hierarchyNames) {
       const value = resolveKey(name, id, entityIndex);
-      if (!value.startsWith('No ')) hierarchyValues.get(name)!.add(value);
+      if (value.startsWith('No ')) continue;
+      hierarchyValues.get(name)!.add(value);
+      groups[name] ??= getHierarchyParent(item, name) ? 'item' : 'location';
     }
   }
 
@@ -368,4 +375,151 @@ export function getAxisValues(businessName: BusinessName, ledgerName: LedgerName
   };
   for (const [name, values] of hierarchyValues) result[name] = [...values].sort();
   return result;
+}
+
+// --- the general report cube -----------------------------------------------------
+//
+// Every financial event is a journal posting to an account, and an
+// account resolves to an Item, a Location, a Category and any further
+// hierarchy (resolveKey above). So any report on sales, cost of goods sold
+// or stock is: some measures, each a total over a set of accounts (or the
+// on-hand quantity of stock, possibly valued at a price), broken down by a
+// row axis and a column axis. getSalesCogsMatrix and getStockOnHandMatrix
+// are two fixed instances; getCube takes the measures as configuration.
+
+/** A measure: what each cell totals.
+ * - postings: the journal postings (in the period; or, with no fromDate, up
+ *   to toDate) to every account under one of `under`, times `sign`; an
+ *   entry `#TAG` instead means every account tagged TAG (as each item's
+ *   cost of goods sold account is tagged COGS);
+ * - onHand: the quantity of stock on hand now;
+ * - onHandAt: on-hand quantity valued at each item's preferred source cost
+ *   per unit ('cost') or its retail price ('retail'). */
+export type CubeMeasure =
+  | { name: string; kind: 'postings'; under: string[]; sign: 1 | -1 }
+  | { name: string; kind: 'onHand' }
+  | { name: string; kind: 'onHandAt'; price: 'cost' | 'retail' };
+
+export interface CubeCell {
+  rowKey: string;
+  colKey: string;
+  values: Record<string, number>;
+}
+
+/** A measure written as text, as calls carry it: `name=postings:-Root|Root`,
+ * `name=onHand`, `name=onHandAt:cost` or `name=onHandAt:retail`. */
+export function parseCubeMeasure(text: string): CubeMeasure {
+  const eq = text.indexOf('=');
+  if (eq <= 0) throw new Error(`A measure is name=kind: ${text}`);
+  const name = text.slice(0, eq);
+  const [kind, ...rest] = text.slice(eq + 1).split(':');
+  const arg = rest.join(':');
+  if (kind === 'postings') {
+    const sign = arg.startsWith('-') ? -1 : 1;
+    const under = arg.replace(/^[+-]/, '').split('|').filter((s) => s !== '');
+    if (under.length === 0) throw new Error(`postings needs the accounts it totals: ${text}`);
+    return { name, kind, under, sign };
+  }
+  if (kind === 'onHand') return { name, kind };
+  if (kind === 'onHandAt' && (arg === 'cost' || arg === 'retail')) return { name, kind, price: arg };
+  throw new Error(`Unknown measure: ${text}`);
+}
+
+export function getCube(
+  businessName: BusinessName,
+  ledgerName: LedgerName,
+  rowAxis: MatrixAxis,
+  colAxis: MatrixAxis,
+  measures: CubeMeasure[],
+  fromDate?: string,
+  toDate?: string
+): CubeCell[] {
+  const cells = new Map<string, CubeCell>();
+  const add = (rowKey: string, colKey: string, name: string, amount: number) => {
+    const key = `${rowKey}\u0000${colKey}`;
+    let cell = cells.get(key);
+    if (!cell) {
+      cell = { rowKey, colKey, values: Object.fromEntries(measures.map((m) => [m.name, 0])) };
+      cells.set(key, cell);
+    }
+    cell.values[name] += amount;
+  };
+
+  const postings = measures.filter((m): m is Extract<CubeMeasure, { kind: 'postings' }> => m.kind === 'postings');
+  if (postings.length > 0) {
+    const entityIndex = loadEntityIndex();
+    const ledgerId = resolveLedgerEntityId(businessName, ledgerName) ?? -1;
+    const totals = db
+      .prepare(
+        `SELECT jo.account_id AS id, SUM(jo.amount_minor) AS balance_minor
+         FROM journal_occurrences jo
+         JOIN journal j ON j.id = jo.journal_id
+         WHERE jo.ledger_id = ?
+           AND (? IS NULL OR jo.transdate >= ?)
+           AND (? IS NULL OR jo.transdate <= ?)
+           AND j.reference NOT LIKE 'CLOSE-%'
+         GROUP BY jo.account_id`
+      )
+      .all(ledgerId, fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null) as { id: number; balance_minor: number }[];
+    const accountsOf = new Map(
+      postings.map((m) => {
+        const roots = m.under.filter((u) => !u.startsWith('#'));
+        const ids = roots.length > 0 ? accountIdsUnderNamed(entityIndex, roots) : new Set<number>();
+        for (const tag of m.under.filter((u) => u.startsWith('#'))) {
+          const tagId = Entity.get(tag.slice(1))?.id;
+          if (tagId !== undefined) for (const e of Entity.findAll({ relationId: tagId })) ids.add(e.id);
+        }
+        return [m.name, ids];
+      })
+    );
+    for (const r of totals) {
+      if (r.balance_minor === 0) continue;
+      let keys: [string, string] | undefined;
+      for (const m of postings) {
+        if (!accountsOf.get(m.name)!.has(r.id)) continue;
+        keys ??= [resolveKey(rowAxis, r.id, entityIndex), resolveKey(colAxis, r.id, entityIndex)];
+        add(keys[0], keys[1], m.name, m.sign * r.balance_minor);
+      }
+    }
+  }
+
+  const stock = measures.filter((m) => m.kind === 'onHand' || m.kind === 'onHandAt');
+  if (stock.length > 0) {
+    for (const s of stockOnHandRows()) {
+      const rowKey = resolveItemKey(rowAxis, s.item, s.location);
+      const colKey = resolveItemKey(colAxis, s.item, s.location);
+      for (const m of stock) {
+        const amount = m.kind === 'onHand' ? s.quantity : s.quantity * (m.price === 'cost' ? s.unitCostMinor : s.retailPriceMinor);
+        add(rowKey, colKey, m.name, amount);
+      }
+    }
+  }
+
+  return [...cells.values()].filter((c) => Object.values(c.values).some((v) => v !== 0));
+}
+
+/** Each item at each location with stock on hand: its quantity, its
+ * preferred source's cost per unit, and its retail price (the same reading
+ * as getStockOnHandMatrix: only items with a contact record). */
+function stockOnHandRows(): { item: string; location: string; quantity: number; unitCostMinor: number; retailPriceMinor: number }[] {
+  const qtyRows = allQtyLocationAccounts().filter((r) => r.balance_minor !== 0);
+  const itemIds = [...new Set(qtyRows.map((r) => r.itemId))];
+  if (itemIds.length === 0) return [];
+  const marks = itemIds.map(() => '?').join(',');
+  const contacts = db.prepare(`SELECT entity_id, item_retail_price_minor FROM contact WHERE entity_id IN (${marks})`).all(...itemIds) as {
+    entity_id: number;
+    item_retail_price_minor: number | null;
+  }[];
+  const retail = new Map(contacts.map((c) => [c.entity_id, c.item_retail_price_minor ?? 0]));
+  const sources = db
+    .prepare(`SELECT item_id, price_minor, package_quantity FROM item_source WHERE item_id IN (${marks}) ORDER BY item_id, is_preferred DESC, id ASC`)
+    .all(...itemIds) as { item_id: number; price_minor: number | null; package_quantity: number | null }[];
+  const unitCost = new Map<number, number>();
+  for (const s of sources) {
+    if (unitCost.has(s.item_id)) continue;
+    unitCost.set(s.item_id, s.price_minor && s.package_quantity ? Math.round(s.price_minor / s.package_quantity) : 0);
+  }
+  return qtyRows
+    .filter((r) => retail.has(r.itemId))
+    .map((r) => ({ item: r.item, location: r.location, quantity: r.balance_minor, unitCostMinor: unitCost.get(r.itemId) ?? 0, retailPriceMinor: retail.get(r.itemId) ?? 0 }));
 }

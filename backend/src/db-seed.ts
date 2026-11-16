@@ -1054,6 +1054,7 @@ function migrateForMenuEntities() {
         { label: 'Reminders', href: '/reports/reminders' },
         { label: 'Customers', href: '/contacts?focus=customers' },
         { label: 'Sales Report', href: '/reports/sales' },
+        { label: 'Sales and Margin', href: '/reports/sales-margin' },
         { label: 'Aged Receivables', href: '/reports/aged?type=AR' },
         { label: 'Customer Statement', href: '/reports/statement' },
       ],

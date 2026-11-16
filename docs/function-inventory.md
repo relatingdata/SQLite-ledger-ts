@@ -20,8 +20,8 @@ It uses the TypeScript compiler, not a text search. A prototype is printed by th
 
 ## Summary
 
-- **Backend:** 1187 functions (1016 exported); 813 are called from production code; 52 only from tests or tooling; 322 from nowhere the compiler could find.
-- **Frontend library:** 356 functions (287 exported); 313 are called from production code; 2 only from tests or tooling; 41 from nowhere the compiler could find.
+- **Backend:** 1191 functions (1019 exported); 816 are called from production code; 52 only from tests or tooling; 323 from nowhere the compiler could find.
+- **Frontend library:** 393 functions (317 exported); 301 are called from production code; 2 only from tests or tooling; 90 from nowhere the compiler could find.
 
 ### Backend: functions with no callers found
 
@@ -41,7 +41,7 @@ Candidates to review, not proof of dead code: a function may be reached in a way
 - `backend/src/call-dispatch/items.ts`: `itemsFunctions.listItems`, `itemsFunctions.getItem`, `itemsFunctions.setItem`, `itemsFunctions.listItemSources`, `itemsFunctions.addOrUpdateItemSource`, `itemsFunctions.deleteItemSource`, `itemsFunctions.getBomComponents`, `itemsFunctions.setBomComponent`, `itemsFunctions.deleteBomComponent`, `itemsFunctions.getItemStorageOrigin`, `itemsFunctions.setItemStorageOrigin`
 - `backend/src/call-dispatch/journal.ts`: `journalFunctions.listJournalEntries`, `journalFunctions.getJournalEntry`, `journalFunctions.stageLine`, `journalFunctions.getStagedLines`, `journalFunctions.removeStagedLine`, `journalFunctions.postJournalEntry`, `journalFunctions.createRecurringJournal`, `journalFunctions.reverseJournalEntry`, `journalFunctions.previewCloseBooks`, `journalFunctions.closeBooks`, `journalFunctions.createLedger`, `journalFunctions.rolloverToNewPeriod`, `journalFunctions.resolveRolloverLines`
 - `backend/src/call-dispatch/locations.ts`: `locationsFunctions.listLocations`, `locationsFunctions.getLocationTypes`, `locationsFunctions.createLocationType`, `locationsFunctions.convertStorageSpace`, `locationsFunctions.openStorageContainer`, `locationsFunctions.resolveOpenContainerAccounts`, `locationsFunctions.resolveReceiveAccounts`, `locationsFunctions.transferItems`, `locationsFunctions.transferStock`, `locationsFunctions.resolveTransferAccounts`, `locationsFunctions.getLocationByName`, `locationsFunctions.createLocation`, `locationsFunctions.saveLocation`, `locationsFunctions.deleteLocation`, `locationsFunctions.getLocationCurrencies`, `locationsFunctions.nominateLocationCurrency`, `locationsFunctions.getItemLocation`, `locationsFunctions.setItemLocationLevels`, `locationsFunctions.receiveItems`, `locationsFunctions.receiveIntoStorageStock`, `locationsFunctions.dispatchItems`, `locationsFunctions.getRestockPickingList`, `locationsFunctions.confirmRestockPickedLine`, `locationsFunctions.dispatchRestockRun`, `locationsFunctions.setLocationOpenHours`, `locationsFunctions.getLocationOpenHours`, `locationsFunctions.getScheduleAtLocation`, `locationsFunctions.setEmployeeSchedule`, `locationsFunctions.getEmployeeSchedule`, `locationsFunctions.getBelowReorderStock`, `locationsFunctions.getStockOutRiskReport`, `locationsFunctions.setItemSourceLeadTime`, `locationsFunctions.getInventoryListing`, `locationsFunctions.getInventoryListingByLocation`, `locationsFunctions.getStorageSpaceReport`, `locationsFunctions.getStockMovementReport`, `locationsFunctions.createStockTake`, `locationsFunctions.getStockTake`, `locationsFunctions.recordStockTakeCount`, `locationsFunctions.completeStockTake`
-- `backend/src/call-dispatch/matrix-reports.ts`: `matrixReportsFunctions.getSalesCogsMatrix`, `matrixReportsFunctions.getStockOnHandMatrix`, `matrixReportsFunctions.getAxisValues`, `matrixReportsFunctions.getProfitAndLossByAxis`
+- `backend/src/call-dispatch/matrix-reports.ts`: `matrixReportsFunctions.getCube`, `matrixReportsFunctions.getSalesCogsMatrix`, `matrixReportsFunctions.getStockOnHandMatrix`, `matrixReportsFunctions.getAxisValues`, `matrixReportsFunctions.getProfitAndLossByAxis`
 - `backend/src/call-dispatch/menu.ts`: `menuFunctions.getMenuTree`, `menuFunctions.setMenuOverride`, `menuFunctions.deleteMenuOverride`
 - `backend/src/call-dispatch/period.ts`: `periodFunctions.getPeriodStatus`, `periodFunctions.closePeriod`, `periodFunctions.reopenPeriod`
 - `backend/src/call-dispatch/plant.ts`: `plantFunctions.createPlantItem`, `plantFunctions.listPlant`, `plantFunctions.getPlantItem`, `plantFunctions.clockPlantIn`, `plantFunctions.clockPlantOut`, `plantFunctions.getOpenPlantClock`, `plantFunctions.ensureSkill`, `plantFunctions.listSkills`, `plantFunctions.tagSkill`, `plantFunctions.untagSkill`, `plantFunctions.getSkills`
@@ -66,10 +66,11 @@ Candidates to review, not proof of dead code: a function may be reached in a way
 
 Candidates to review, not proof of dead code: a function may be reached in a way the limits above cannot see.
 
-- `frontend/src/lib/api.ts`: `getProfitAndLossByHierarchy`, `createProfitCenter`, `setSessionProfitCenter`, `stagePurchaseOrder`, `postPurchaseOrder`, `getQuotation`, `openStorageContainer`, `getItemLocation`, `receiveItems`, `transferItems`, `transferStock`, `resolveTransferAccounts`, `receiveStock`, `dispatchStock`, `closeBooks`
+- `frontend/src/lib/api.ts`: `getCashFlowForecast`, `getTrialBalance`, `getSalesReport`, `getBalanceSheet`, `getProfitAndLoss`, `getProfitAndLossByHierarchy`, `getProfitAndLossByHierarchyTree`, `getLedgerDateRange`, `createProfitCenter`, `setSessionProfitCenter`, `getBusinessConfigurationReport`, `stagePurchaseOrder`, `postPurchaseOrder`, `stageOrderReceipt`, `postOrderReceipt`, `stageSalesOrder`, `postSalesOrder`, `listQuotations`, `getQuotation`, `createQuotation`, `createRfq`, `markQuotationSent`, `acceptQuotation`, `rejectQuotation`, `getAgedInvoices`, `getAgedSummary`, `getCustomerStatement`, `getReminderCandidates`, `sendReminder`, `resetReminder`, `openStorageContainer`, `getItemLocation`, `receiveItems`, `transferItems`, `transferStock`, `resolveTransferAccounts`, `receiveStock`, `dispatchStock`, `closeBooks`, `getStorageSpaceReport`
 - `frontend/src/lib/canned-journal.ts`: `transferLines`
-- `frontend/src/lib/screen-runtime.ts`: `sources.locations`, `sources.items`, `sources.providers`, `sources.customers`, `sources.postableAccounts`, `filters.sameCityAsFrom`, `reactions.onHand`, `reactions.fromLocationChanged`, `reactions.itemSources`, `reactions.providerPrice`, `totals.lineTax`, `totals.quantityTimesPrice`, `totals.taxRate`, `actions.apPurchase`, `actions.arSale`, `actions.transfer`, `actions.purchaseOrder`, `actions.cashPurchase`, `actions.cashSale`
-- `frontend/src/lib/state.svelte.ts`: `auth.set`, `hasUnsavedEdit.set`, `menuTree.set`, `session.set`, `session.clear`, `translations.set`
+- `frontend/src/lib/matrix-api.ts`: `getSalesCogsMatrix`, `getStockOnHandMatrix`, `getCube`, `getAxes`
+- `frontend/src/lib/screen-runtime.ts`: `sources.locations`, `sources.items`, `sources.providers`, `sources.customers`, `sources.postableAccounts`, `filters.sameCityAsFrom`, `reactions.orderStatus`, `reactions.onHand`, `reactions.fromLocationChanged`, `reactions.itemSources`, `reactions.providerPrice`, `totals.lineTax`, `totals.quantityTimesPrice`, `totals.valueTaxRate`, `totals.taxRate`, `actions.purchase`, `actions.sale`, `actions.transfer`, `actions.orderReceipt`, `actions.salesOrder`, `actions.quotation`, `actions.purchaseOrder`, `records.quotations`, `commands.sendReminder`, `commands.resetReminder`, `commands.markSent`, `commands.accept`, `commands.reject`, `reports.aged`, `reports.businessConfiguration`, `reports.cashFlow`, `reports.sales`, `reports.statement`, `reports.reminders`, `reports.belowReorder`, `reports.storageSpace`, `reports.trialBalance`, `reports.balanceSheet`
+- `frontend/src/lib/state.svelte.ts`: `auth.set`, `hasUnsavedEdit.set`, `menuTree.set`, `screenTitle`, `session.set`, `session.clear`, `translations.set`
 
 ## Backend
 
@@ -2026,6 +2027,14 @@ encodeProfitAndLossByAxis(nodes: ProfitAndLossByAxisNode[]): string
 ```
 
 Called from: production: call-dispatch/matrix-reports.ts (matrixReportsFunctions.getProfitAndLossByAxis ×1)
+
+**`matrixReportsFunctions.getCube`** *(exported)*
+
+```
+matrixReportsFunctions.getCube(v: string[], user: AuthenticatedUser): CallResult
+```
+
+Called from: nowhere the compiler could find.
 
 **`matrixReportsFunctions.getSalesCogsMatrix`** *(exported)*
 
@@ -4443,7 +4452,7 @@ Called from: production: db-journal.ts (countJournalEntries ×1, createRecurring
 stageLine(line: StagedLine): void
 ```
 
-Called from: production: call-dispatch/journal.ts (journalFunctions.stageLine ×1); db-journal.ts (postOrderDispatch ×5, postOrderReceipt ×3, reverseJournalEntry ×1); db-reports.ts (closeBooks ×1, rolloverToNewPeriod ×1); db-stock.ts (adjustLocationCapacity ×2, completeStockTake ×2, dispatchItems ×4, ensureLocationCapacityAccount ×2, receiveItems ×4, receiveStockPhysical ×2, and 2 more); db.ts (allocatePayment ×2, completePosSale ×2, convertStorageSpace ×4, openStorageContainer ×6, payEmployeeWages ×4, postInvoice ×4); primitives.ts (Balance.post ×1) · tests: 162 call(s) in 1 file(s) · tooling: 40 call(s) in 10 file(s)
+Called from: production: call-dispatch/journal.ts (journalFunctions.stageLine ×1); db-journal.ts (postOrderDispatch ×5, postOrderReceipt ×3, reverseJournalEntry ×1); db-reports.ts (closeBooks ×1, rolloverToNewPeriod ×1); db-stock.ts (adjustLocationCapacity ×2, completeStockTake ×2, dispatchItems ×4, ensureLocationCapacityAccount ×2, receiveItems ×4, receiveStockPhysical ×2, and 2 more); db.ts (allocatePayment ×2, completePosSale ×2, convertStorageSpace ×4, openStorageContainer ×6, payEmployeeWages ×4, postInvoice ×4); primitives.ts (Balance.post ×1) · tests: 163 call(s) in 2 file(s) · tooling: 40 call(s) in 10 file(s)
 
 **`getStagedLines`** *(exported)*
 
@@ -4683,7 +4692,7 @@ Called from: production: db-journal.ts (commitStagedQuantityMovement ×1, postJo
 postJournalEntry(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void
 ```
 
-Called from: production: call-dispatch/journal.ts (journalFunctions.postJournalEntry ×1); db-journal.ts (postAPPayment ×1, postARReceipt ×1, postOrderDispatch ×2, postOrderReceipt ×1, reverseJournalEntry ×1); db-reports.ts (closeBooks ×1, rolloverToNewPeriod ×1); db-stock.ts (adjustLocationCapacity ×1, completeStockTake ×1, dispatchItems ×2, ensureLocationCapacityAccount ×1, receiveItems ×2, receiveStockPhysical ×1, and 2 more); db.ts (allocatePayment ×1, completePosSale ×1, convertStorageSpace ×1, openStorageContainer ×2, payEmployeeWages ×2, postInvoice ×1) · tests: 79 call(s) in 1 file(s) · tooling: 17 call(s) in 10 file(s)
+Called from: production: call-dispatch/journal.ts (journalFunctions.postJournalEntry ×1); db-journal.ts (postAPPayment ×1, postARReceipt ×1, postOrderDispatch ×2, postOrderReceipt ×1, reverseJournalEntry ×1); db-reports.ts (closeBooks ×1, rolloverToNewPeriod ×1); db-stock.ts (adjustLocationCapacity ×1, completeStockTake ×1, dispatchItems ×2, ensureLocationCapacityAccount ×1, receiveItems ×2, receiveStockPhysical ×1, and 2 more); db.ts (allocatePayment ×1, completePosSale ×1, convertStorageSpace ×1, openStorageContainer ×2, payEmployeeWages ×2, postInvoice ×1) · tests: 80 call(s) in 2 file(s) · tooling: 17 call(s) in 10 file(s)
 
 **`commitStagedQuantityMovement`** *(exported)*
 
@@ -4789,7 +4798,7 @@ Called from: production: call-dispatch/journal.ts (journalFunctions.reverseJourn
 resolveLedgerEntityId(business: string, ledger: string): number | undefined
 ```
 
-Called from: production: db-matrix-reports.ts (getSalesCogsMatrix ×1)
+Called from: production: db-matrix-reports.ts (getCube ×1, getSalesCogsMatrix ×1)
 
 **`loadEntityIndex`**
 
@@ -4797,7 +4806,7 @@ Called from: production: db-matrix-reports.ts (getSalesCogsMatrix ×1)
 loadEntityIndex(): Map<number, { name: string; parent_id: number | null; }>
 ```
 
-Called from: production: db-matrix-reports.ts (getAxisValues ×1, getProfitAndLossByAxis ×1, getSalesCogsMatrix ×1)
+Called from: production: db-matrix-reports.ts (getAxisValues ×1, getCube ×1, getProfitAndLossByAxis ×1, getSalesCogsMatrix ×1)
 
 **`stripLocationSuffix`**
 
@@ -4821,7 +4830,7 @@ Called from: production: db-matrix-reports.ts (resolveKey ×1)
 resolveKey(axis: MatrixAxis, accountId: number, entityIndex: Map<number, { name: string; parent_id: number | null; }>): string
 ```
 
-Called from: production: db-matrix-reports.ts (getAxisValues ×4, getProfitAndLossByAxis ×2, getSalesCogsMatrix ×2)
+Called from: production: db-matrix-reports.ts (getAxisValues ×4, getCube ×2, getProfitAndLossByAxis ×2, getSalesCogsMatrix ×2)
 
 **`resolveItemKey`**
 
@@ -4829,7 +4838,7 @@ Called from: production: db-matrix-reports.ts (getAxisValues ×4, getProfitAndLo
 resolveItemKey(axis: MatrixAxis, itemName: string, locationName: string): string
 ```
 
-Called from: production: db-matrix-reports.ts (getStockOnHandMatrix ×2)
+Called from: production: db-matrix-reports.ts (getCube ×2, getStockOnHandMatrix ×2)
 
 **`getSalesCogsMatrix`** *(exported)*
 
@@ -4837,7 +4846,7 @@ Called from: production: db-matrix-reports.ts (getStockOnHandMatrix ×2)
 getSalesCogsMatrix(businessName: BusinessName, ledgerName: LedgerName, fromDate: string | undefined, toDate: string | undefined, rowAxis: MatrixAxis, colAxis: MatrixAxis): SalesCogsMatrix
 ```
 
-Called from: production: call-dispatch/matrix-reports.ts (matrixReportsFunctions.getSalesCogsMatrix ×1)
+Called from: production: call-dispatch/matrix-reports.ts (matrixReportsFunctions.getSalesCogsMatrix ×1) · tests: 1 call(s) in 1 file(s)
 
 **`getStockOnHandMatrix`** *(exported)*
 
@@ -4845,7 +4854,7 @@ Called from: production: call-dispatch/matrix-reports.ts (matrixReportsFunctions
 getStockOnHandMatrix(rowAxis: MatrixAxis, colAxis: MatrixAxis): StockOnHandMatrix
 ```
 
-Called from: production: call-dispatch/matrix-reports.ts (matrixReportsFunctions.getStockOnHandMatrix ×1)
+Called from: production: call-dispatch/matrix-reports.ts (matrixReportsFunctions.getStockOnHandMatrix ×1) · tests: 1 call(s) in 1 file(s)
 
 **`accountIdsUnderNamed`**
 
@@ -4853,7 +4862,7 @@ Called from: production: call-dispatch/matrix-reports.ts (matrixReportsFunctions
 accountIdsUnderNamed(entityIndex: Map<number, { name: string; parent_id: number | null; }>, rootNames: string[]): Set<number>
 ```
 
-Called from: production: db-matrix-reports.ts (getSalesCogsMatrix ×1, plAccountIds ×1)
+Called from: production: db-matrix-reports.ts (getCube ×1, getSalesCogsMatrix ×1, plAccountIds ×1)
 
 **`plAccountIds`**
 
@@ -4874,10 +4883,34 @@ Called from: production: call-dispatch/matrix-reports.ts (matrixReportsFunctions
 **`getAxisValues`** *(exported)*
 
 ```
-getAxisValues(businessName: BusinessName, ledgerName: LedgerName): AxisValues
+getAxisValues(businessName: BusinessName, ledgerName: LedgerName, groups?: AxisGroups): AxisValues
 ```
 
 Called from: production: call-dispatch/matrix-reports.ts (matrixReportsFunctions.getAxisValues ×1)
+
+**`parseCubeMeasure`** *(exported)*
+
+```
+parseCubeMeasure(text: string): CubeMeasure
+```
+
+Called from: production: call-dispatch/matrix-reports.ts (matrixReportsFunctions.getCube (as a value)) · tests: 4 call(s) and 1 reference(s) in 1 file(s)
+
+**`getCube`** *(exported)*
+
+```
+getCube(businessName: BusinessName, ledgerName: LedgerName, rowAxis: MatrixAxis, colAxis: MatrixAxis, measures: CubeMeasure[], fromDate?: string, toDate?: string): CubeCell[]
+```
+
+Called from: production: call-dispatch/matrix-reports.ts (matrixReportsFunctions.getCube ×1) · tests: 1 call(s) in 1 file(s)
+
+**`stockOnHandRows`**
+
+```
+stockOnHandRows(): { item: string; location: string; quantity: number; unitCostMinor: number; retailPriceMinor: number; }[]
+```
+
+Called from: production: db-matrix-reports.ts (getCube ×1)
 
 ### `backend/src/db-projects.ts`
 
@@ -5577,7 +5610,7 @@ Called from: production: db-stock.ts (getStockMovementReport ×1)
 allQtyLocationAccounts(): QtyLocationAccountRow[]
 ```
 
-Called from: production: db-matrix-reports.ts (getStockOnHandMatrix ×1); db-stock.ts (countInventoryListing ×1, getInventoryListingByLocation ×1, getLocationCapacityStatus ×1, getStockMovementReport ×1)
+Called from: production: db-matrix-reports.ts (getStockOnHandMatrix ×1, stockOnHandRows ×1); db-stock.ts (countInventoryListing ×1, getInventoryListingByLocation ×1, getLocationCapacityStatus ×1, getStockMovementReport ×1)
 
 **`getLocationCapacityStatus`** *(exported)*
 
@@ -5987,7 +6020,7 @@ Called from: production: auth-middleware.ts (requireRole ×1); call-dispatch.ts 
 asLedgerName(name: string): LedgerName
 ```
 
-Called from: production: call-dispatch/arap.ts (arapFunctions.postAPPayment ×1, arapFunctions.postARReceipt ×1, arapFunctions.stageAPPayment ×1, arapFunctions.stageARReceipt ×1); call-dispatch/invoices.ts (invoicesFunctions.confirmPickedLine ×1, invoicesFunctions.getAgedInvoices ×1, invoicesFunctions.getAgedSummary ×1, invoicesFunctions.getCounterpartyHistory ×1, invoicesFunctions.getCustomerStatement ×1, invoicesFunctions.getReminderCandidates ×1, and 2 more); call-dispatch/journal.ts (journalFunctions.closeBooks ×1, journalFunctions.createLedger ×1, journalFunctions.createRecurringJournal ×1, journalFunctions.getJournalEntry ×1, journalFunctions.getStagedLines ×1, journalFunctions.listJournalEntries ×2, and 8 more); call-dispatch/locations.ts (locationsFunctions.completeStockTake ×1, locationsFunctions.confirmRestockPickedLine ×1, locationsFunctions.convertStorageSpace ×1, locationsFunctions.dispatchItems ×1, locationsFunctions.dispatchRestockRun ×1, locationsFunctions.openStorageContainer ×1, and 5 more); call-dispatch/matrix-reports.ts (matrixReportsFunctions.getAxisValues ×1, matrixReportsFunctions.getProfitAndLossByAxis ×1, matrixReportsFunctions.getSalesCogsMatrix ×1); call-dispatch/period.ts (periodFunctions.closePeriod ×1, periodFunctions.getPeriodStatus ×1, periodFunctions.reopenPeriod ×1); call-dispatch/plant.ts (plantFunctions.clockPlantIn ×1, plantFunctions.clockPlantOut ×1); call-dispatch/pos.ts (posFunctions.completeCashPurchase ×1, posFunctions.completePosSale ×1, posFunctions.dispatchStock ×1, posFunctions.receiveStock ×1); and 12 more file(s) · tests: 20 call(s) in 1 file(s) · tooling: 31 call(s) in 5 file(s)
+Called from: production: call-dispatch/arap.ts (arapFunctions.postAPPayment ×1, arapFunctions.postARReceipt ×1, arapFunctions.stageAPPayment ×1, arapFunctions.stageARReceipt ×1); call-dispatch/invoices.ts (invoicesFunctions.confirmPickedLine ×1, invoicesFunctions.getAgedInvoices ×1, invoicesFunctions.getAgedSummary ×1, invoicesFunctions.getCounterpartyHistory ×1, invoicesFunctions.getCustomerStatement ×1, invoicesFunctions.getReminderCandidates ×1, and 2 more); call-dispatch/journal.ts (journalFunctions.closeBooks ×1, journalFunctions.createLedger ×1, journalFunctions.createRecurringJournal ×1, journalFunctions.getJournalEntry ×1, journalFunctions.getStagedLines ×1, journalFunctions.listJournalEntries ×2, and 8 more); call-dispatch/locations.ts (locationsFunctions.completeStockTake ×1, locationsFunctions.confirmRestockPickedLine ×1, locationsFunctions.convertStorageSpace ×1, locationsFunctions.dispatchItems ×1, locationsFunctions.dispatchRestockRun ×1, locationsFunctions.openStorageContainer ×1, and 5 more); call-dispatch/matrix-reports.ts (matrixReportsFunctions.getAxisValues ×1, matrixReportsFunctions.getCube ×1, matrixReportsFunctions.getProfitAndLossByAxis ×1, matrixReportsFunctions.getSalesCogsMatrix ×1); call-dispatch/period.ts (periodFunctions.closePeriod ×1, periodFunctions.getPeriodStatus ×1, periodFunctions.reopenPeriod ×1); call-dispatch/plant.ts (plantFunctions.clockPlantIn ×1, plantFunctions.clockPlantOut ×1); call-dispatch/pos.ts (posFunctions.completeCashPurchase ×1, posFunctions.completePosSale ×1, posFunctions.dispatchStock ×1, posFunctions.receiveStock ×1); and 12 more file(s) · tests: 20 call(s) in 1 file(s) · tooling: 31 call(s) in 5 file(s)
 
 **`asAccountName`** *(exported)*
 
@@ -5995,7 +6028,7 @@ Called from: production: call-dispatch/arap.ts (arapFunctions.postAPPayment ×1,
 asAccountName(name: string): AccountName
 ```
 
-Called from: production: call-dispatch/journal.ts (journalFunctions.removeStagedLine ×1, journalFunctions.stageLine ×1); call-dispatch/locations.ts (locationsFunctions.completeStockTake ×1); call-dispatch/plant.ts (plantFunctions.clockPlantIn ×1); call-dispatch/pos.ts (posFunctions.completeCashPurchase ×1, posFunctions.completePosSale ×2); call-dispatch/projects.ts (projectsFunctions.clockInToProject ×1); call-dispatch/stock-lots.ts (stockLotsFunctions.writeOffItems ×1); db-journal.ts (postOrderDispatch ×6, postOrderReceipt ×4, reverseJournalEntry ×1); db-quotations.ts (draftQuotation ×1, rejectQuotation ×1); and 4 more file(s) · tests: 236 call(s) in 1 file(s) · tooling: 5 call(s) in 2 file(s)
+Called from: production: call-dispatch/journal.ts (journalFunctions.removeStagedLine ×1, journalFunctions.stageLine ×1); call-dispatch/locations.ts (locationsFunctions.completeStockTake ×1); call-dispatch/plant.ts (plantFunctions.clockPlantIn ×1); call-dispatch/pos.ts (posFunctions.completeCashPurchase ×1, posFunctions.completePosSale ×2); call-dispatch/projects.ts (projectsFunctions.clockInToProject ×1); call-dispatch/stock-lots.ts (stockLotsFunctions.writeOffItems ×1); db-journal.ts (postOrderDispatch ×6, postOrderReceipt ×4, reverseJournalEntry ×1); db-quotations.ts (draftQuotation ×1, rejectQuotation ×1); and 4 more file(s) · tests: 239 call(s) in 2 file(s) · tooling: 5 call(s) in 2 file(s)
 
 **`asLocationName`** *(exported)*
 
@@ -6019,7 +6052,7 @@ Called from: production: call-dispatch/projects.ts (projectsFunctions.clockInToP
 asCustomerName(name: string): CustomerName
 ```
 
-Called from: production: call-dispatch/arap.ts (arapFunctions.stageARReceipt ×1); call-dispatch/invoices.ts (invoicesFunctions.getCustomerStatement ×1); call-dispatch/pos.ts (posFunctions.completePosSale ×1) · tests: 33 call(s) in 1 file(s)
+Called from: production: call-dispatch/arap.ts (arapFunctions.stageARReceipt ×1); call-dispatch/invoices.ts (invoicesFunctions.getCustomerStatement ×1); call-dispatch/pos.ts (posFunctions.completePosSale ×1) · tests: 34 call(s) in 2 file(s)
 
 **`asProviderName`** *(exported)*
 
@@ -6027,7 +6060,7 @@ Called from: production: call-dispatch/arap.ts (arapFunctions.stageARReceipt ×1
 asProviderName(name: string): ProviderName
 ```
 
-Called from: production: call-dispatch/arap.ts (arapFunctions.stageAPPayment ×1); call-dispatch/invoices.ts (invoicesFunctions.importEInvoice ×1); call-dispatch/locations.ts (locationsFunctions.setItemSourceLeadTime ×1); call-dispatch/pos.ts (posFunctions.completeCashPurchase ×1); db-journal.ts (postPurchaseOrder ×1) · tests: 4 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: call-dispatch/arap.ts (arapFunctions.stageAPPayment ×1); call-dispatch/invoices.ts (invoicesFunctions.importEInvoice ×1); call-dispatch/locations.ts (locationsFunctions.setItemSourceLeadTime ×1); call-dispatch/pos.ts (posFunctions.completeCashPurchase ×1); db-journal.ts (postPurchaseOrder ×1) · tests: 5 call(s) in 2 file(s) · tooling: 1 call(s) in 1 file(s)
 
 **`asItemName`** *(exported)*
 
@@ -6035,7 +6068,7 @@ Called from: production: call-dispatch/arap.ts (arapFunctions.stageAPPayment ×1
 asItemName(name: string): ItemName
 ```
 
-Called from: production: call-dispatch/items.ts (itemsFunctions.getItemStorageOrigin ×1, itemsFunctions.setItemStorageOrigin ×1); call-dispatch/locations.ts (locationsFunctions.convertStorageSpace ×1, locationsFunctions.dispatchItems ×1, locationsFunctions.getItemLocation ×1, locationsFunctions.openStorageContainer ×1, locationsFunctions.receiveIntoStorageStock ×1, locationsFunctions.receiveItems ×1, and 8 more); call-dispatch/pos.ts (posFunctions.dispatchStock ×1, posFunctions.receiveStock ×1); call-dispatch/stock-lots.ts (stockLotsFunctions.consumeFromLots ×1, stockLotsFunctions.receiveLot ×1, stockLotsFunctions.writeOffItems ×1); db-journal.ts (postPurchaseOrder ×1, postSalesOrder ×1); db-quotations.ts (draftQuotation ×1, rejectQuotation ×1); db-stock.ts (completeStockTake ×5, createStockTake ×2, getInventoryListingByLocation ×1, getLocationCapacityStatus ×1, getStockOutRiskReport ×2); db.ts (completeCashPurchase ×2, completePosSale ×15, createInvoice ×1, dispatchOrderFromPickingList ×1, dispatchRestockFromPickingList ×1, ensureServiceItem ×1, and 3 more) · tests: 156 call(s) in 2 file(s) · tooling: 18 call(s) in 3 file(s)
+Called from: production: call-dispatch/items.ts (itemsFunctions.getItemStorageOrigin ×1, itemsFunctions.setItemStorageOrigin ×1); call-dispatch/locations.ts (locationsFunctions.convertStorageSpace ×1, locationsFunctions.dispatchItems ×1, locationsFunctions.getItemLocation ×1, locationsFunctions.openStorageContainer ×1, locationsFunctions.receiveIntoStorageStock ×1, locationsFunctions.receiveItems ×1, and 8 more); call-dispatch/pos.ts (posFunctions.dispatchStock ×1, posFunctions.receiveStock ×1); call-dispatch/stock-lots.ts (stockLotsFunctions.consumeFromLots ×1, stockLotsFunctions.receiveLot ×1, stockLotsFunctions.writeOffItems ×1); db-journal.ts (postPurchaseOrder ×1, postSalesOrder ×1); db-quotations.ts (draftQuotation ×1, rejectQuotation ×1); db-stock.ts (completeStockTake ×5, createStockTake ×2, getInventoryListingByLocation ×1, getLocationCapacityStatus ×1, getStockOutRiskReport ×2); db.ts (completeCashPurchase ×2, completePosSale ×15, createInvoice ×1, dispatchOrderFromPickingList ×1, dispatchRestockFromPickingList ×1, ensureServiceItem ×1, and 3 more) · tests: 157 call(s) in 3 file(s) · tooling: 18 call(s) in 3 file(s)
 
 **`getEntityTree`** *(exported)*
 
@@ -6539,7 +6572,7 @@ Called from: production: db-projects.ts (provisionProjectProfitCenter ×1); db.t
 ensureItemSalesCogsAccounts(itemName: ItemName, userId: UserId, tier?: string, business?: BusinessName, profitCenter?: string): { salesAccount: string; salesAccountId: number; cogsAccount: string; cogsAccountId: number; }
 ```
 
-Called from: production: db.ts (completePosSale ×2, ensureItemLocationLeaf ×1, ensureItemTier ×1) · tests: 11 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: db.ts (completePosSale ×2, ensureItemLocationLeaf ×1, ensureItemTier ×1) · tests: 12 call(s) in 2 file(s) · tooling: 1 call(s) in 1 file(s)
 
 **`ensureItemInventoryAccount`** *(exported)*
 
@@ -6843,7 +6876,7 @@ Called from: production: call-dispatch/pos.ts (posFunctions.dispatchStock ×1); 
 completePosSale(input: PosSaleInput, userId: UserId): PosSaleResult
 ```
 
-Called from: production: call-dispatch/pos.ts (posFunctions.completePosSale ×1) · tests: 32 call(s) in 1 file(s) · tooling: 8 call(s) in 3 file(s)
+Called from: production: call-dispatch/pos.ts (posFunctions.completePosSale ×1) · tests: 33 call(s) in 2 file(s) · tooling: 8 call(s) in 3 file(s)
 
 **`resolveTransferAccounts`** *(exported)*
 
@@ -6859,7 +6892,7 @@ Called from: production: call-dispatch/locations.ts (locationsFunctions.resolveT
 completeCashPurchase(input: CashPurchaseInput, userId: UserId): CashPurchaseResult
 ```
 
-Called from: production: call-dispatch/pos.ts (posFunctions.completeCashPurchase ×1) · tests: 1 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: call-dispatch/pos.ts (posFunctions.completeCashPurchase ×1) · tests: 2 call(s) in 2 file(s) · tooling: 1 call(s) in 1 file(s)
 
 **`payEmployeeWages`** *(exported)*
 
@@ -7307,7 +7340,7 @@ Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.createHi
 getHierarchyParent(entityName: string, hierarchyName: string): string | undefined
 ```
 
-Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.getHierarchyTag ×1); db-matrix-reports.ts (resolveItemKey ×2, resolveKey ×2); db-reports.ts (categoryOf ×1, resolveAccountHierarchyGroup ×1); db.ts (ensureContactTypeHeaderAccounts ×1, ensureItemTierLocationLeaf ×1, getContactBaseAccounts ×1, getHierarchyAncestorChain ×1, getHierarchyGroupForLocation ×1, getHierarchyGroups ×1, and 2 more) · tests: 15 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.getHierarchyTag ×1); db-matrix-reports.ts (getAxisValues ×1, resolveItemKey ×2, resolveKey ×2); db-reports.ts (categoryOf ×1, resolveAccountHierarchyGroup ×1); db.ts (ensureContactTypeHeaderAccounts ×1, ensureItemTierLocationLeaf ×1, getContactBaseAccounts ×1, getHierarchyAncestorChain ×1, getHierarchyGroupForLocation ×1, getHierarchyGroups ×1, and 2 more) · tests: 15 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
 **`deleteHierarchyParent`** *(exported)*
 
@@ -7651,7 +7684,7 @@ Called from: production: call-dispatch/items.ts (itemsFunctions.listItems ×1)
 createItem(name: string, parentCategoryOrItemsRoot: string, userId: UserId, businessName?: BusinessName, isStorable?: boolean): void
 ```
 
-Called from: production: db.ts (ensureCurrencyExchangeItem ×1, ensureServiceItem ×1) · tests: 83 call(s) in 2 file(s) · tooling: 11 call(s) in 4 file(s)
+Called from: production: db.ts (ensureCurrencyExchangeItem ×1, ensureServiceItem ×1) · tests: 84 call(s) in 3 file(s) · tooling: 11 call(s) in 4 file(s)
 
 **`ensureServiceItem`** *(exported)*
 
@@ -9289,7 +9322,7 @@ Called from: production: auth.ts (createUser ×1, login ×1, setUserRoles ×1); 
 Entity.get(idOrName: number | string, parent?: string): EntityNode | undefined
 ```
 
-Called from: production: auth.ts (createUser ×1, findSessionByToken ×1, getSessionUser ×1, getUserDetail ×2, getUserRoleMatrix ×1, getUserRoleNames ×1, and 6 more); call-dispatch/i18n.ts (i18nFunctions.setVocabularyPreference ×2); db-journal.ts (clockInToProject ×1, clockPlantIn ×1, ensureLocationScopedAccount ×2, findLedgerScopedAccount ×1, getJournalEntry ×1, getOpenProjectClockEntity ×1, and 5 more); db-matrix-reports.ts (locationForAccount ×2, resolveLedgerEntityId ×1); db-projects.ts (checkMilestoneAchievability ×2, getLiveProject ×1, getMilestones ×1); db-quotations.ts (ensureQuotationsRoot ×1, findJournal ×2, getQuotationEntityId ×1, listQuotations ×1); db-reports.ts (buildProfitAndLossFromBalances ×1, computeCloseLines ×1, ensureCurrencyAccount ×1, ensureProfitCenterRetainedEarningsAccount ×1, getBusinessReports ×3, getChartOfAccounts ×1, and 5 more); db-seed.ts (ensureSection ×1, hasEntity ×3, migrateForBusinessTypes ×4, migrateForCashCustomerAndProvider ×2, migrateForCoaTranslations ×1, migrateForCogsTag ×2, and 9 more); and 3 more file(s)
+Called from: production: auth.ts (createUser ×1, findSessionByToken ×1, getSessionUser ×1, getUserDetail ×2, getUserRoleMatrix ×1, getUserRoleNames ×1, and 6 more); call-dispatch/i18n.ts (i18nFunctions.setVocabularyPreference ×2); db-journal.ts (clockInToProject ×1, clockPlantIn ×1, ensureLocationScopedAccount ×2, findLedgerScopedAccount ×1, getJournalEntry ×1, getOpenProjectClockEntity ×1, and 5 more); db-matrix-reports.ts (getCube ×1, locationForAccount ×2, resolveLedgerEntityId ×1); db-projects.ts (checkMilestoneAchievability ×2, getLiveProject ×1, getMilestones ×1); db-quotations.ts (ensureQuotationsRoot ×1, findJournal ×2, getQuotationEntityId ×1, listQuotations ×1); db-reports.ts (buildProfitAndLossFromBalances ×1, computeCloseLines ×1, ensureCurrencyAccount ×1, ensureProfitCenterRetainedEarningsAccount ×1, getBusinessReports ×3, getChartOfAccounts ×1, and 5 more); db-seed.ts (ensureSection ×1, hasEntity ×3, migrateForBusinessTypes ×4, migrateForCashCustomerAndProvider ×2, migrateForCoaTranslations ×1, migrateForCogsTag ×2, and 11 more); and 3 more file(s)
 
 **`Entity.getUnder`** *(exported)*
 
@@ -9337,7 +9370,7 @@ Called from: production: auth.ts (getSessionUser ×1, login ×1, logout ×1, set
 Entity.revoke(id: number, userId: UserId): void
 ```
 
-Called from: production: auth.ts (setUserRoles ×2); db.ts (deleteDepartment ×3, deleteHierarchyGrouping ×1, deleteHierarchyValue ×1, deleteLocation ×1, deleteTranslationConcept ×1); primitives.ts (Entity.clearAttr ×1)
+Called from: production: auth.ts (setUserRoles ×2); db-seed.ts (retire ×1); db.ts (deleteDepartment ×3, deleteHierarchyGrouping ×1, deleteHierarchyValue ×1, deleteLocation ×1, deleteTranslationConcept ×1); primitives.ts (Entity.clearAttr ×1)
 
 **`Entity.children`** *(exported)*
 
@@ -9345,7 +9378,7 @@ Called from: production: auth.ts (setUserRoles ×2); db.ts (deleteDepartment ×3
 Entity.children(parentId: number): EntityNode[]
 ```
 
-Called from: production: auth.ts (getUserRoleNames ×1, listRoles ×1, listUsers ×1, setUserActive ×1, setUserRoles ×1); db-journal.ts (ensurePeriodLockEntity ×1, getPeriodLockStatus ×1); db-projects.ts (getMilestones ×1, listLiveProjects ×1); db-prototypes.ts (listPrototypes ×1); db-quotations.ts (listQuotations ×1); db-reports.ts (getBusinessReports ×1, recurse ×1, resolveBusinessReportsCoaRootId ×1, resolveCashAtBankAccount ×1, walk ×1); db-seed.ts (migrateForContactTypesAndPerBusinessContacts ×4, migrateForPerBusinessChartOfAccounts ×1); db-stock.ts (getItemLeadTimes ×1, getLocationTypes ×1, getStockTake ×1, getStorageSpaceReport ×2, setLocation ×1); and 2 more file(s)
+Called from: production: auth.ts (getUserRoleNames ×1, listRoles ×1, listUsers ×1, setUserActive ×1, setUserRoles ×1); db-journal.ts (ensurePeriodLockEntity ×1, getPeriodLockStatus ×1); db-projects.ts (getMilestones ×1, listLiveProjects ×1); db-prototypes.ts (listPrototypes ×1); db-quotations.ts (listQuotations ×1); db-reports.ts (getBusinessReports ×1, recurse ×1, resolveBusinessReportsCoaRootId ×1, resolveCashAtBankAccount ×1, walk ×1); db-seed.ts (migrateForContactTypesAndPerBusinessContacts ×4, migrateForPerBusinessChartOfAccounts ×1, retire ×1, retireSupersededMenuLinks ×1); db-stock.ts (getItemLeadTimes ×1, getLocationTypes ×1, getStockTake ×1, getStorageSpaceReport ×2, setLocation ×1); and 2 more file(s)
 
 **`Entity.tag`** *(exported)*
 
@@ -9433,7 +9466,7 @@ Called from: production: db.ts (ensureCombinationAccountLeaf ×1, ensureProductI
 Entity.findAll(filter: { relationId?: number | null; nameSuffix?: string; underTagNamed?: string; }): EntityNode[]
 ```
 
-Called from: production: auth.ts (getUserRoleMatrix ×1); db-matrix-reports.ts (loadEntityIndex ×1); db-reports.ts (buildProfitAndLossFromBalances ×1, realAccountIds ×1, sumHierarchyDescendants ×1); db-stock.ts (allQtyLocationAccounts ×1, getStorageSpaceReport ×1, salesRevenueAccountIds ×1); db.ts (resolveDispatchLocation ×1)
+Called from: production: auth.ts (getUserRoleMatrix ×1); db-matrix-reports.ts (getCube ×1, loadEntityIndex ×1); db-reports.ts (buildProfitAndLossFromBalances ×1, realAccountIds ×1, sumHierarchyDescendants ×1); db-stock.ts (allQtyLocationAccounts ×1, getStorageSpaceReport ×1, salesRevenueAccountIds ×1); db.ts (resolveDispatchLocation ×1)
 
 **`Entity.findByNameContaining`** *(exported)*
 
@@ -9691,7 +9724,7 @@ Called from: production: auth-middleware.ts (attachUser ×1) · tests: 1 call(s)
 asBusinessName(name: string): BusinessName
 ```
 
-Called from: production: session.ts (loadStored ×1); state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, CashTransaction.svelte ×4, PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/arap/quotations ×3, and 16 more
+Called from: production: session.ts (loadStored ×1); state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, CashTransaction.svelte ×4, PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/arap/quotations ×1, and 26 more
 
 **`asLedgerName`** *(exported)*
 
@@ -9699,7 +9732,7 @@ Called from: production: session.ts (loadStored ×1); state.svelte.ts (loadStore
 asLedgerName(name: string): LedgerName
 ```
 
-Called from: production: session.ts (loadStored ×1); state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): CashTransaction.svelte ×2, PaymentReceipt.svelte ×5, routes/arap/quotations ×2, routes/arap/rfq ×2, routes/items ×1, routes/locations ×1, routes/post ×4, routes/projects ×2, and 8 more
+Called from: production: session.ts (loadStored ×1); state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): CashTransaction.svelte ×2, PaymentReceipt.svelte ×5, routes/items ×1, routes/locations ×1, routes/post ×4, routes/projects ×2, routes/session ×1, routes/setup/periods ×3, and 3 more
 
 **`asAccountName`** *(exported)*
 
@@ -9867,7 +9900,7 @@ Called from: production: api.ts (getEntityTree (as a value))
 getEntityTree(business?: string): Promise<EntityNode[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, routes/contacts ×1, routes/editor ×1, routes/hr ×1, routes/invoices ×1, routes/items ×3, and 14 more
+Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×1, routes/contacts ×1, routes/editor ×1, routes/hr ×1, routes/invoices ×1, routes/items ×3, routes/locations ×1, routes/post ×1, and 9 more
 
 **`parseHierarchyLinkPointingAt`**
 
@@ -9971,7 +10004,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/bank-acc
 getCashFlowForecast(business: BusinessName, ledger: LedgerName, asOfDate?: string, horizonDays?: number): Promise<CashFlowForecast>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/cash-flow-forecast ×1
+Called from: nowhere the compiler could find.
 
 **`registerBankAccount`** *(exported)*
 
@@ -9995,7 +10028,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/bank-acc
 getTrialBalance(business: BusinessName, ledger: LedgerName, asOfDate?: string): Promise<TrialBalance>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/trial-balance ×1
+Called from: nowhere the compiler could find.
 
 **`getSalesReport`** *(exported)*
 
@@ -10003,7 +10036,7 @@ Called from: Svelte pages (by name in the file's imports): routes/reports/trial-
 getSalesReport(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string): Promise<SalesReport>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/sales ×1
+Called from: nowhere the compiler could find.
 
 **`getMenuTree`** *(exported)*
 
@@ -10027,7 +10060,7 @@ Called from: production: api.ts (decodeProfitAndLoss ×4, getBalanceSheet ×3)
 getBalanceSheet(business: BusinessName, ledger: LedgerName, asOfDate?: string): Promise<BalanceSheet>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/balance-sheet ×1
+Called from: nowhere the compiler could find.
 
 **`decodeProfitAndLoss`**
 
@@ -10043,7 +10076,7 @@ Called from: production: api.ts (decodeProfitAndLossByGroupTree ×1, getProfitAn
 getProfitAndLoss(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string, group?: string, hierarchyPath?: string[], hierarchyName?: string): Promise<ProfitAndLoss>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/old-pl ×1
+Called from: nowhere the compiler could find.
 
 **`getProfitAndLossByHierarchy`** *(exported)*
 
@@ -10067,7 +10100,7 @@ Called from: production: api.ts (getProfitAndLossByHierarchyTree ×1)
 getProfitAndLossByHierarchyTree(business: BusinessName, ledger: LedgerName, hierarchyPath: string[], hierarchyName?: string, fromDate?: string, toDate?: string): Promise<ProfitAndLossByGroupNode[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/old-pl ×1
+Called from: nowhere the compiler could find.
 
 **`getLedgerDateRange`** *(exported)*
 
@@ -10075,7 +10108,7 @@ Called from: Svelte pages (by name in the file's imports): routes/reports/old-pl
 getLedgerDateRange(business: BusinessName, ledger: LedgerName): Promise<LedgerDateRange>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/old-pl ×1
+Called from: nowhere the compiler could find.
 
 **`getLanguages`** *(exported)*
 
@@ -10179,7 +10212,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/translat
 getHierarchyGroups(hierarchyName: string): Promise<HierarchyGroupRecord[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/old-pl ×1, routes/setup/bank-accounts ×1
+Called from: Svelte pages (by name in the file's imports): routes/setup/bank-accounts ×1
 
 **`getHierarchy`** *(exported)*
 
@@ -10187,7 +10220,7 @@ Called from: Svelte pages (by name in the file's imports): routes/reports/old-pl
 getHierarchy(business: string): Promise<HierarchyGroupingWithValues[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×3, routes/items ×1, routes/locations ×1, routes/reports/new-pl ×1, routes/reports/new-stock-on-hand ×1, routes/reports/stock-movement ×1, routes/setup/bank-accounts ×1, routes/setup/business-setup ×1, and 3 more
+Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×3, routes/items ×1, routes/locations ×1, routes/reports/stock-movement ×1, routes/setup/bank-accounts ×1, routes/setup/business-setup ×1, routes/setup/hierarchy ×1, routes/setup/yearend ×1, and 1 more
 
 **`getProductShapes`** *(exported)*
 
@@ -10275,7 +10308,7 @@ Called from: Svelte pages (by name in the file's imports): BusinessStructurePopu
 getBusinesses(): Promise<{ id: number; name: string; }[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, routes/post ×1, routes/projects ×1, routes/session ×1, routes/setup/periods ×1, and 4 more
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/post ×1, routes/projects ×1, routes/session ×1, routes/setup/periods ×1, routes/setup/users ×1, routes/stock/stock-dispatch ×1
 
 **`getBusinessTypes`** *(exported)*
 
@@ -10299,7 +10332,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/new-busi
 getLedgers(businessName: string): Promise<{ id: number; name: string; }[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, and 12 more
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, and 21 more
 
 **`getActiveLedger`** *(exported)*
 
@@ -10371,7 +10404,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/new-busi
 getBusinessConfigurationReport(businessName: string): Promise<BusinessConfigurationReport>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/business-configuration ×1
+Called from: nowhere the compiler could find.
 
 **`buildBankCurrencyStructure`** *(exported)*
 
@@ -10731,7 +10764,7 @@ Called from: nowhere the compiler could find.
 stageOrderReceipt(input: OrderReceiptInput): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/stock/stock-receipt ×1
+Called from: nowhere the compiler could find.
 
 **`postOrderReceipt`** *(exported)*
 
@@ -10739,7 +10772,7 @@ Called from: Svelte pages (by name in the file's imports): routes/stock/stock-re
 postOrderReceipt(reference: string, business: BusinessName, ledger: LedgerName): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/stock/stock-receipt ×1
+Called from: nowhere the compiler could find.
 
 **`stageSalesOrder`** *(exported)*
 
@@ -10747,7 +10780,7 @@ Called from: Svelte pages (by name in the file's imports): routes/stock/stock-re
 stageSalesOrder(input: SalesOrderInput): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/stock/so ×1
+Called from: nowhere the compiler could find.
 
 **`postSalesOrder`** *(exported)*
 
@@ -10755,7 +10788,7 @@ Called from: Svelte pages (by name in the file's imports): routes/stock/so ×1
 postSalesOrder(reference: string, business: BusinessName, ledger: LedgerName): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/stock/so ×1
+Called from: nowhere the compiler could find.
 
 **`parseQuotationRecord`**
 
@@ -10771,7 +10804,7 @@ Called from: production: api.ts (getQuotation (as a value), listQuotations (as a
 listQuotations(business: BusinessName, ledger: LedgerName, direction?: QuotationDirection): Promise<QuotationRecord[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/arap/quotations ×1, routes/arap/rfq ×1
+Called from: nowhere the compiler could find.
 
 **`getQuotation`** *(exported)*
 
@@ -10787,7 +10820,7 @@ Called from: nowhere the compiler could find.
 createQuotation(input: SalesOrderInput & { expiryDate?: string; }): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/arap/quotations ×1
+Called from: nowhere the compiler could find.
 
 **`createRfq`** *(exported)*
 
@@ -10795,7 +10828,7 @@ Called from: Svelte pages (by name in the file's imports): routes/arap/quotation
 createRfq(input: PurchaseOrderInput & { expiryDate?: string; }): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/arap/rfq ×1
+Called from: nowhere the compiler could find.
 
 **`markQuotationSent`** *(exported)*
 
@@ -10803,7 +10836,7 @@ Called from: Svelte pages (by name in the file's imports): routes/arap/rfq ×1
 markQuotationSent(reference: string): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/arap/quotations ×1, routes/arap/rfq ×1
+Called from: nowhere the compiler could find.
 
 **`acceptQuotation`** *(exported)*
 
@@ -10811,7 +10844,7 @@ Called from: Svelte pages (by name in the file's imports): routes/arap/quotation
 acceptQuotation(reference: string): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/arap/quotations ×1, routes/arap/rfq ×1
+Called from: nowhere the compiler could find.
 
 **`rejectQuotation`** *(exported)*
 
@@ -10819,7 +10852,7 @@ Called from: Svelte pages (by name in the file's imports): routes/arap/quotation
 rejectQuotation(reference: string): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/arap/quotations ×1, routes/arap/rfq ×1
+Called from: nowhere the compiler could find.
 
 **`stageOrderDispatch`** *(exported)*
 
@@ -10843,7 +10876,7 @@ Called from: Svelte pages (by name in the file's imports): routes/stock/stock-di
 getOrderStatus(reference: string): Promise<{ quantity: number; value_minor: number; }>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/stock/stock-dispatch ×1, routes/stock/stock-receipt ×1
+Called from: Svelte pages (by name in the file's imports): routes/stock/stock-dispatch ×1
 
 **`getPeriodStatus`** *(exported)*
 
@@ -11107,7 +11140,7 @@ Called from: Svelte pages (by name in the file's imports): routes/invoices ×1
 getAgedInvoices(business: BusinessName, ledger: LedgerName, invoiceType: "AR" | "AP", asOfDate?: string): Promise<AgedRow[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/aged ×1
+Called from: nowhere the compiler could find.
 
 **`getAgedSummary`** *(exported)*
 
@@ -11115,7 +11148,7 @@ Called from: Svelte pages (by name in the file's imports): routes/reports/aged �
 getAgedSummary(business: BusinessName, ledger: LedgerName, invoiceType: "AR" | "AP", asOfDate?: string): Promise<AgedSummaryRow[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/aged ×1
+Called from: nowhere the compiler could find.
 
 **`getCustomerStatement`** *(exported)*
 
@@ -11123,7 +11156,7 @@ Called from: Svelte pages (by name in the file's imports): routes/reports/aged �
 getCustomerStatement(business: BusinessName, ledger: LedgerName, customer: string, asOfDate?: string): Promise<CustomerStatement>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/statement ×1
+Called from: nowhere the compiler could find.
 
 **`getCounterpartyHistory`** *(exported)*
 
@@ -11139,7 +11172,7 @@ Called from: Svelte pages (by name in the file's imports): routes/contacts ×1
 getReminderCandidates(business: BusinessName, ledger: LedgerName, asOfDate?: string): Promise<ReminderCandidate[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/reminders ×1
+Called from: nowhere the compiler could find.
 
 **`sendReminder`** *(exported)*
 
@@ -11147,7 +11180,7 @@ Called from: Svelte pages (by name in the file's imports): routes/reports/remind
 sendReminder(counterparty: string): Promise<{ new_level: number; }>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/reminders ×1
+Called from: nowhere the compiler could find.
 
 **`resetReminder`** *(exported)*
 
@@ -11155,7 +11188,7 @@ Called from: Svelte pages (by name in the file's imports): routes/reports/remind
 resetReminder(counterparty: string): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/reminders ×1
+Called from: nowhere the compiler could find.
 
 **`writeOffItems`** *(exported)*
 
@@ -11187,7 +11220,7 @@ Called from: Svelte pages (by name in the file's imports): routes/stock/write-of
 listLocations(business: BusinessName): Promise<LocationRecord[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, CashTransaction.svelte ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, routes/items ×1, routes/locations ×1, routes/pos ×1, routes/stock/restock ×1, and 2 more
+Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, CashTransaction.svelte ×1, routes/items ×1, routes/locations ×1, routes/pos ×1, routes/stock/restock ×1, routes/stock/stock-take ×1
 
 **`parseEmployeeClock`**
 
@@ -11475,7 +11508,7 @@ Called from: nowhere the compiler could find.
 getBelowReorderStock(): Promise<BelowReorderRow[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/below-reorder ×1, routes/stock/restock ×2
+Called from: Svelte pages (by name in the file's imports): routes/stock/restock ×2
 
 **`getStockOutRiskReport`** *(exported)*
 
@@ -11739,7 +11772,7 @@ Called from: Svelte pages (by name in the file's imports): routes/stock/listing 
 getStorageSpaceReport(): Promise<StorageSpaceLocationGroup[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/storage-space ×1
+Called from: nowhere the compiler could find.
 
 **`getStockMovementReport`** *(exported)*
 
@@ -11841,7 +11874,7 @@ Called from: production: entityTree.ts (filterToItems ×2)
 filterToItems(entities: EntityNode[]): EntityNode[]
 ```
 
-Called from: tests: 2 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): routes/arap/quotations ×1, routes/arap/rfq ×1, routes/stock/so ×1, routes/stock/stock-dispatch ×1, routes/stock/stock-receipt ×1
+Called from: tests: 2 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): routes/stock/stock-dispatch ×1
 
 ### `frontend/src/lib/format.ts`
 
@@ -11851,7 +11884,7 @@ Called from: tests: 2 call(s) in 1 file(s) · Svelte pages (by name in the file'
 todayIsoDate(): string
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/aged ×1, routes/reports/balance-sheet ×1, routes/reports/cash-flow-forecast ×1, routes/reports/reminders ×1, routes/reports/sales ×2, routes/reports/statement ×1, routes/reports/trial-balance ×1
+Called from: Svelte pages (by name in the file's imports): routes/reports/aged ×1, routes/reports/balance-sheet ×1, routes/reports/below-reorder ×0, routes/reports/business-configuration ×0, routes/reports/cash-flow-forecast ×1, routes/reports/new-stock-on-hand ×0, routes/reports/reminders ×1, routes/reports/sales ×2, and 4 more
 
 **`scaleFor`**
 
@@ -11875,7 +11908,7 @@ Called from: production: format.ts (formatAmount ×1)
 formatAmount(smallestUnits: number, numberFormat: string, unitCode?: string): string
 ```
 
-Called from: tests: 16 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): AxisPLNode.svelte ×1, CashTransaction.svelte ×1, HierarchyGroupPLNode.svelte ×1, ProfitAndLossTable.svelte ×1, routes/account/password ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, and 36 more
+Called from: tests: 16 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): AxisPLNode.svelte ×1, CashTransaction.svelte ×1, HierarchyGroupPLNode.svelte ×1, PivotGrid.svelte ×1, ProfitAndLossTable.svelte ×1, routes/account/password ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, and 24 more
 
 **`formatDate`** *(exported)*
 
@@ -12079,7 +12112,7 @@ Called from: production: matrix-api.ts (matrixCallRow ×1, matrixCallTable ×1)
 matrixCallTable<T>(name: string, values: (string | undefined)[], parseRow: (fields: Record<string, string>) => T): Promise<T[]>
 ```
 
-Called from: production: matrix-api.ts (getAxisValues ×1, getSalesCogsMatrix ×1, getStockOnHandMatrix ×1)
+Called from: production: matrix-api.ts (getAxes ×1, getAxisValues ×1, getCube ×1, getSalesCogsMatrix ×1, getStockOnHandMatrix ×1)
 
 **`matrixCallRow`**
 
@@ -12135,7 +12168,7 @@ Called from: production: matrix-api.ts (decodeProfitAndLossByAxis ×1)
 getSalesCogsMatrix(business: string, ledger: string, rowAxis: MatrixAxis, colAxis: MatrixAxis, fromDate?: string, toDate?: string): Promise<SalesCogsMatrix>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/new-pl ×1
+Called from: nowhere the compiler could find.
 
 **`getStockOnHandMatrix`** *(exported)*
 
@@ -12143,7 +12176,7 @@ Called from: Svelte pages (by name in the file's imports): routes/reports/new-pl
 getStockOnHandMatrix(rowAxis: MatrixAxis, colAxis: MatrixAxis): Promise<StockOnHandMatrix>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/new-stock-on-hand ×1
+Called from: nowhere the compiler could find.
 
 **`decodeProfitAndLossByAxis`**
 
@@ -12159,7 +12192,15 @@ Called from: production: matrix-api.ts (getProfitAndLossByAxis ×1)
 getProfitAndLossByAxis(business: string, ledger: string, outerAxis: MatrixAxis, innerAxis: MatrixAxis, fromDate?: string, toDate?: string, outerFilter?: string, innerFilter?: string): Promise<ProfitAndLossByAxisNode[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/new-new-pl ×1, routes/reports/pl-pivot ×1, routes/reports/profit-and-loss ×1
+Called from: Svelte pages (by name in the file's imports): routes/reports/profit-and-loss ×1
+
+**`getCube`** *(exported)*
+
+```
+getCube(business: string, ledger: string, rowAxis: MatrixAxis, colAxis: MatrixAxis, measures: { name: string; source: string; }[], fromDate?: string, toDate?: string): Promise<CubeCell[]>
+```
+
+Called from: nowhere the compiler could find.
 
 **`getAxisValues`** *(exported)*
 
@@ -12167,7 +12208,15 @@ Called from: Svelte pages (by name in the file's imports): routes/reports/new-ne
 getAxisValues(business: string, ledger: string): Promise<AxisValues>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/new-new-pl ×1, routes/reports/pl-pivot ×1, routes/reports/profit-and-loss ×1
+Called from: Svelte pages (by name in the file's imports): routes/reports/profit-and-loss ×1
+
+**`getAxes`** *(exported)*
+
+```
+getAxes(business: string, ledger: string): Promise<{ values: AxisValues; groups: Record<string, string>; }>
+```
+
+Called from: nowhere the compiler could find.
 
 ### `frontend/src/lib/money.ts`
 
@@ -12177,7 +12226,7 @@ Called from: Svelte pages (by name in the file's imports): routes/reports/new-ne
 parseMinorUnits(text: string): number
 ```
 
-Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×5, routes/arap/quotations ×2, routes/arap/rfq ×2, routes/post ×2, routes/stock/so ×2, routes/stock/stock-dispatch ×3, routes/stock/stock-receipt ×3
+Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×5, routes/post ×2, routes/stock/stock-dispatch ×3
 
 **`parseQuantity`** *(exported)*
 
@@ -12185,7 +12234,7 @@ Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte
 parseQuantity(text: string): number
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/arap/quotations ×2, routes/arap/rfq ×2, routes/stock/so ×2, routes/stock/stock-dispatch ×2, routes/stock/stock-receipt ×1
+Called from: Svelte pages (by name in the file's imports): routes/stock/stock-dispatch ×2
 
 ### `frontend/src/lib/org-chart-layout.ts`
 
@@ -12215,6 +12264,38 @@ createPaginator<T>(fetchPage: (limit: number, offset: number) => Promise<FetchPa
 
 Called from: Svelte pages (by name in the file's imports): routes/journal ×0
 
+**`pageSize`** *(exported)*
+
+```
+pageSize(): number
+```
+
+Called from: production: pagination.ts (movePage ×1, pageCount ×1, pageRows ×1) · Svelte pages (by name in the file's imports): routes/arap/quotations ×1, routes/arap/rfq ×1, routes/reports/aged ×2, routes/reports/below-reorder ×1, routes/reports/business-configuration ×3, routes/reports/cash-flow-forecast ×1, routes/reports/reminders ×1, routes/reports/sales ×2, and 2 more
+
+**`pageCount`** *(exported)*
+
+```
+pageCount(rows: number, size?: number): number
+```
+
+Called from: production: pagination.ts (movePage ×1, pageRows ×1) · Svelte pages (by name in the file's imports): routes/arap/quotations ×2, routes/arap/rfq ×2, routes/reports/aged ×4, routes/reports/below-reorder ×2, routes/reports/business-configuration ×6, routes/reports/cash-flow-forecast ×2, routes/reports/reminders ×2, routes/reports/sales ×4, and 2 more
+
+**`pageRows`** *(exported)*
+
+```
+pageRows<T>(rows: T[], page: number, size?: number): T[]
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/arap/quotations ×1, routes/arap/rfq ×1, routes/reports/aged ×2, routes/reports/below-reorder ×1, routes/reports/business-configuration ×3, routes/reports/cash-flow-forecast ×1, routes/reports/reminders ×1, routes/reports/sales ×2, and 2 more
+
+**`movePage`** *(exported)*
+
+```
+movePage(page: number, rows: number, to: "first" | "previous" | "next" | "last", size?: number): number
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/arap/quotations ×1, routes/arap/rfq ×1, routes/reports/aged ×2, routes/reports/below-reorder ×1, routes/reports/business-configuration ×3, routes/reports/cash-flow-forecast ×1, routes/reports/reminders ×1, routes/reports/sales ×2, and 2 more
+
 ### `frontend/src/lib/screen-runtime.ts`
 
 **`t`**
@@ -12223,7 +12304,7 @@ Called from: Svelte pages (by name in the file's imports): routes/journal ×0
 t(word: string): any
 ```
 
-Called from: production: screen-runtime.ts (actions.cashPurchase ×1, actions.cashSale ×1, actions.transfer ×1, onHandAtFrom ×1)
+Called from: production: screen-runtime.ts (actions.purchase ×1, actions.sale ×1, actions.transfer ×1, lines ×1, onHandAtFrom ×1, reactions.orderStatus ×2, and 11 more)
 
 **`named`**
 
@@ -12297,6 +12378,14 @@ onHandAtFrom(v: Values): Promise<string>
 
 Called from: production: screen-runtime.ts (reactions.fromLocationChanged ×1, reactions.onHand ×1)
 
+**`reactions.orderStatus`** *(exported)*
+
+```
+reactions.orderStatus(_c: Context, v: Values): Promise<{ info: string; }>
+```
+
+Called from: nowhere the compiler could find.
+
 **`reactions.onHand`** *(exported)*
 
 ```
@@ -12353,6 +12442,14 @@ totals.quantityTimesPrice(_lines: Line[], values: Values): { subtotalMinor: numb
 
 Called from: nowhere the compiler could find.
 
+**`totals.valueTaxRate`** *(exported)*
+
+```
+totals.valueTaxRate(_lines: Line[], values: Values): { subtotalMinor: any; taxMinor: number; totalMinor: any; }
+```
+
+Called from: nowhere the compiler could find.
+
 **`totals.taxRate`** *(exported)*
 
 ```
@@ -12383,7 +12480,7 @@ Called from: production: screen-runtime.ts (onAccount ×1)
 onAccount(kind: "AP" | "AR", c: Context, v: Values, lines: Line[], counterparty: string, location: string, account: string, taxAccount: string): Promise<void>
 ```
 
-Called from: production: screen-runtime.ts (actions.apPurchase ×1, actions.arSale ×1)
+Called from: production: screen-runtime.ts (actions.purchase ×1, actions.sale ×1)
 
 **`itemLines`**
 
@@ -12391,20 +12488,20 @@ Called from: production: screen-runtime.ts (actions.apPurchase ×1, actions.arSa
 itemLines(lines: Line[]): { itemName: any; taxMinor: number; quantity: number; unitPriceMinor: number; }[]
 ```
 
-Called from: production: screen-runtime.ts (actions.cashPurchase ×1, actions.cashSale ×1)
+Called from: production: screen-runtime.ts (actions.purchase ×1, actions.sale ×1)
 
-**`actions.apPurchase`** *(exported)*
+**`actions.purchase`** *(exported)*
 
 ```
-actions.apPurchase(c: Context, v: Values, lines: Line[]): Promise<string>
+actions.purchase(c: Context, v: Values, lines: Line[]): Promise<string>
 ```
 
 Called from: nowhere the compiler could find.
 
-**`actions.arSale`** *(exported)*
+**`actions.sale`** *(exported)*
 
 ```
-actions.arSale(c: Context, v: Values, lines: Line[]): Promise<string>
+actions.sale(c: Context, v: Values, lines: Line[]): Promise<string>
 ```
 
 Called from: nowhere the compiler could find.
@@ -12417,6 +12514,30 @@ actions.transfer(c: Context, v: Values): Promise<string>
 
 Called from: nowhere the compiler could find.
 
+**`actions.orderReceipt`** *(exported)*
+
+```
+actions.orderReceipt(c: Context, v: Values): Promise<string>
+```
+
+Called from: nowhere the compiler could find.
+
+**`actions.salesOrder`** *(exported)*
+
+```
+actions.salesOrder(c: Context, v: Values): Promise<string>
+```
+
+Called from: nowhere the compiler could find.
+
+**`actions.quotation`** *(exported)*
+
+```
+actions.quotation(c: Context, v: Values): Promise<string>
+```
+
+Called from: nowhere the compiler could find.
+
 **`actions.purchaseOrder`** *(exported)*
 
 ```
@@ -12425,21 +12546,229 @@ actions.purchaseOrder(c: Context, v: Values): Promise<string>
 
 Called from: nowhere the compiler could find.
 
-**`actions.cashPurchase`** *(exported)*
+**`records.quotations`** *(exported)*
 
 ```
-actions.cashPurchase(c: Context, v: Values, lines: Line[]): Promise<string>
+records.quotations(c: Context): Promise<any>
+```
+
+Called from: nowhere the compiler could find.
+
+**`commands.sendReminder`** *(exported)*
+
+```
+commands.sendReminder(_c: Context, row: Row): Promise<string>
 ```
 
 Called from: nowhere the compiler could find.
 
-**`actions.cashSale`** *(exported)*
+**`commands.resetReminder`** *(exported)*
 
 ```
-actions.cashSale(c: Context, v: Values, lines: Line[]): Promise<string>
+commands.resetReminder(_c: Context, row: Row): Promise<string>
 ```
 
 Called from: nowhere the compiler could find.
+
+**`commands.markSent`** *(exported)*
+
+```
+commands.markSent(_c: Context, row: Row): Promise<string>
+```
+
+Called from: nowhere the compiler could find.
+
+**`commands.accept`** *(exported)*
+
+```
+commands.accept(c: Context, row: Row): Promise<string>
+```
+
+Called from: nowhere the compiler could find.
+
+**`commands.reject`** *(exported)*
+
+```
+commands.reject(_c: Context, row: Row): Promise<string>
+```
+
+Called from: nowhere the compiler could find.
+
+**`money`**
+
+```
+money(minor: number): any
+```
+
+Called from: production: screen-runtime.ts (amount ×2, reports.aged ×2, reports.balanceSheet ×1, reports.cashFlow ×7, reports.reminders ×1, reports.sales ×4, and 3 more)
+
+**`treeRows`**
+
+```
+treeRows(section: string, nodes: CategoryTreeNode[], cellOf: (n: CategoryTreeNode) => Record<string, string>, ancestors?: string[]): ReportRow[]
+```
+
+Called from: production: screen-runtime.ts (section ×1)
+
+**`totalCells`**
+
+```
+totalCells(amountMinor: number, normal: "debit" | "credit"): { cells: Record<string, string>; contra: string[]; }
+```
+
+Called from: production: screen-runtime.ts (section ×1)
+
+**`line`**
+
+```
+line(key: string, cells: Record<string, string>, more?: Partial<ReportRow>): ReportRow
+```
+
+Called from: production: screen-runtime.ts (lines ×1, reports.aged ×2, reports.belowReorder ×1, reports.businessConfiguration ×2, reports.cashFlow ×1, reports.reminders ×1, and 3 more)
+
+**`units`**
+
+```
+units(n: number): string
+```
+
+Called from: production: screen-runtime.ts (reports.storageSpace ×3)
+
+**`count`**
+
+```
+count(n: number | null | undefined): string
+```
+
+Called from: production: screen-runtime.ts (reports.belowReorder ×4, reports.sales ×1)
+
+**`reminderLevel`**
+
+```
+reminderLevel(l: number): any
+```
+
+Called from: production: screen-runtime.ts (reports.reminders ×2)
+
+**`reports.aged`** *(exported)*
+
+```
+reports.aged(c: Context, v: Values): Promise<{ title: any; intro: any; columns: { groups: { title: string; table: string; labels: { party: any; }; rows: ReportRow[]; }[]; }[]; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`reports.businessConfiguration`** *(exported)*
+
+```
+reports.businessConfiguration(c: Context): Promise<{ columns: { groups: (ReportGroup | { title: any; table: string; rows: any; })[]; }[]; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`reports.cashFlow`** *(exported)*
+
+```
+reports.cashFlow(c: Context, v: Values): Promise<{ columns: { groups: { title: any; meta: { label: any; value: any; }[]; rows: any; }[]; }[]; status: { ok: false; text: string; } | { ok: true; text: any; }; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`reports.sales`** *(exported)*
+
+```
+reports.sales(c: Context, v: Values): Promise<{ columns: { groups: { title: string; table: string; rows: ReportRow[]; }[]; summary: { label: any; value: string; }; }[]; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`reports.statement`** *(exported)*
+
+```
+reports.statement(c: Context, v: Values): Promise<{ columns: { groups: { title: any; meta: { label: any; value: any; }[]; rows: any; footer: { reference: any; outstanding: any; }; }[]; }[]; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`reports.reminders`** *(exported)*
+
+```
+reports.reminders(c: Context, v: Values): Promise<{ columns: { groups: { title: string; rows: any; }[]; }[]; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`reports.belowReorder`** *(exported)*
+
+```
+reports.belowReorder(): Promise<{ columns: { groups: { title: string; rows: any; }[]; }[]; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`reports.storageSpace`** *(exported)*
+
+```
+reports.storageSpace(): Promise<{ columns: { groups: any; }[]; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`reports.trialBalance`** *(exported)*
+
+```
+reports.trialBalance(c: Context, v: Values): Promise<{ columns: { groups: ReportGroup[]; }[]; status: { ok: boolean; text: any; }; note: any; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`reports.balanceSheet`** *(exported)*
+
+```
+reports.balanceSheet(c: Context, v: Values): Promise<{ columns: ({ groups: ReportGroup[]; summary?: undefined; } | { groups: ReportGroup[]; summary: { label: any; value: any; }; })[]; status: { ok: any; text: string; }; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`cube`** *(exported)*
+
+```
+cube(c: Context, v: Values, rowAxis: string, colAxis: string, defs: MeasureDef[]): Promise<PivotCell[]>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/new-stock-on-hand ×1, routes/reports/sales-margin ×1
+
+**`measureValues`** *(exported)*
+
+```
+measureValues(defs: MeasureDef[], base: Record<string, number>): Record<string, number | null>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/new-stock-on-hand ×1, routes/reports/sales-margin ×1
+
+**`evaluate`** *(exported)*
+
+```
+evaluate(formula: string, names: Record<string, number | null>): number | null
+```
+
+Called from: production: screen-runtime.ts (measureValues ×1)
+
+**`loadAxes`** *(exported)*
+
+```
+loadAxes(c: Context): Promise<Axes>
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/new-stock-on-hand ×1, routes/reports/sales-margin ×1
+
+**`sameGroup`** *(exported)*
+
+```
+sameGroup(axes: Axes, a: string, b: string): boolean
+```
+
+Called from: Svelte pages (by name in the file's imports): AxisChooser.svelte ×4
 
 ### `frontend/src/lib/session.ts`
 
@@ -12515,7 +12844,7 @@ Called from: nowhere the compiler could find.
 screenTitle(href: string): string | undefined
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/old-pl ×1
+Called from: nowhere the compiler could find.
 
 **`loadStoredSession`**
 
