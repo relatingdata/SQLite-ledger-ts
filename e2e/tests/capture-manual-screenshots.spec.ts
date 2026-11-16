@@ -317,33 +317,12 @@ const SCREENS: Record<string, (page: any) => Promise<void>> = {
     await page.waitForTimeout(4000);
     await page.screenshot({ path: path.join(OUT_DIR, 'reports_compare.png'), fullPage: true });
   },
-  reports_new_new_pl: async (page) => {
-    await loginAndChooseBusiness(page);
-    await continueToApp(page);
-    await page.goto('/reports/new-new-pl');
-    await page.waitForTimeout(4000);
-    await page.screenshot({ path: path.join(OUT_DIR, 'reports_new_new_pl.png'), fullPage: true });
-  },
-  reports_new_pl: async (page) => {
-    await loginAndChooseBusiness(page);
-    await continueToApp(page);
-    await page.goto('/reports/new-pl');
-    await page.waitForTimeout(4000);
-    await page.screenshot({ path: path.join(OUT_DIR, 'reports_new_pl.png'), fullPage: true });
-  },
   reports_new_stock_on_hand: async (page) => {
     await loginAndChooseBusiness(page);
     await continueToApp(page);
     await page.goto('/reports/new-stock-on-hand');
     await page.waitForTimeout(4000);
     await page.screenshot({ path: path.join(OUT_DIR, 'reports_new_stock_on_hand.png'), fullPage: true });
-  },
-  reports_old_pl: async (page) => {
-    await loginAndChooseBusiness(page);
-    await continueToApp(page);
-    await page.goto('/reports/old-pl');
-    await page.waitForTimeout(4000);
-    await page.screenshot({ path: path.join(OUT_DIR, 'reports_old_pl.png'), fullPage: true });
   },
   reports_profit_and_loss: async (page) => {
     await loginAndChooseBusiness(page);

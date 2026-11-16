@@ -491,7 +491,7 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.waitForTimeout(1200);
   await shot('pos_usd_sale_done');
 
-  // === Review Trial Balance, Balance Sheet, P&L, and the DND P&L pivot builder ===
+  // === Review Trial Balance, Balance Sheet, and P&L ===
   await page.goto('/reports/trial-balance');
   await page.waitForTimeout(1000);
   await shot('trial_balance_final');
@@ -507,9 +507,6 @@ test('Tutorial: build a real wine retail business from scratch through the UI', 
   await page.goto('/reports/profit-and-loss');
   await page.waitForTimeout(1000);
   await shot('profit_and_loss_final');
-  await page.goto('/reports/pl-pivot');
-  await page.waitForTimeout(1000);
-  await shot('dnd_pl_final');
 
   // === Stock take #3: Glenelg Beachside Store, never stocked — expect an empty sheet ===
   await page.goto('/stock/stock-take');

@@ -329,6 +329,7 @@
                           href={link.href}
                           class:active={$page.url.pathname + $page.url.search === link.href}
                           class:not-implemented={link.notImplemented}
+                          title={link.notImplemented ? (translations.current['Not implemented (yet)'] ?? 'Not implemented (yet)') : undefined}
                           onclick={(e) => {
                             // Re-focus after navigation — see docs/pm-frontend-reference.md.
                             const el = e.currentTarget as HTMLElement;
@@ -336,7 +337,7 @@
                             e.preventDefault();
                           }}
                         >
-                          {link.label}
+                          {#if link.notImplemented}<span class="caution" aria-hidden="true">⚠️</span>{/if}{link.label}
                         </a>
                       {/if}
                     {/each}
@@ -590,9 +591,16 @@
     font-weight: 600;
   }
 
+  /* Not implemented (yet): the caution sign's yellow. */
   .section-links a.not-implemented {
     font-style: italic;
-    opacity: 0.7;
+    color: #7a5c00;
+    background: #fff4c2;
+  }
+
+  .section-links a.not-implemented .caution {
+    margin-inline-end: 0.35em;
+    font-style: normal;
   }
 
   .subheading {

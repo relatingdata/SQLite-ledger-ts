@@ -102,3 +102,18 @@ export function createPaginator<T>(fetchPage: (limit: number, offset: number) =>
 
   return { subscribe: state.subscribe, load, next, previous, first, last };
 }
+
+/** Paging over rows already loaded: which rows a page shows, how many pages
+ * there are, and where a move from a page lands. Generated screens page
+ * their lists with this (the Paged trait). */
+export const pageSize = (): number => auth.current?.user.page_size ?? 20;
+export const pageCount = (rows: number, size = pageSize()): number => Math.max(1, Math.ceil(rows / size));
+export function pageRows<T>(rows: T[], page: number, size = pageSize()): T[] {
+  const last = pageCount(rows.length, size) - 1;
+  const at = Math.min(Math.max(page, 0), last);
+  return rows.slice(at * size, (at + 1) * size);
+}
+export function movePage(page: number, rows: number, to: 'first' | 'previous' | 'next' | 'last', size = pageSize()): number {
+  const last = pageCount(rows, size) - 1;
+  return to === 'first' ? 0 : to === 'last' ? last : to === 'next' ? Math.min(page + 1, last) : Math.max(page - 1, 0);
+}

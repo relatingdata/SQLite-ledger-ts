@@ -1034,24 +1034,10 @@ function migrateForMenuEntities() {
         { label: 'Trial Balance', href: '/reports/trial-balance' },
         { label: 'Balance Sheet', href: '/reports/balance-sheet' },
         { label: 'Profit and Loss', href: '/reports/profit-and-loss' },
-        { label: 'DND P&L', href: '/reports/pl-pivot' },
         { label: 'New Stock on Hand', href: '/reports/new-stock-on-hand' },
         { label: 'Compare Ledgers', href: '/reports/compare' },
         { label: 'Accounting Periods', href: '/setup/periods', requiredRoles: 'Administrator' },
         { label: 'Year End Close', href: '/setup/yearend', requiredRoles: 'Administrator' },
-      ],
-    },
-    {
-      // Per direct instruction: these are superseded/experimental P&L
-      // variants, not real, separate reports — out of General Ledger
-      // and into their own clearly-labelled holding section rather
-      // than deleted outright, since they may still be useful as a
-      // reference while New P&L settles.
-      label: 'test',
-      links: [
-        { label: 'Old P&L', href: '/reports/old-pl' },
-        { label: 'New P&L', href: '/reports/new-pl' },
-        { label: 'New New P&L', href: '/reports/new-new-pl' },
       ],
     },
     {
@@ -1243,8 +1229,31 @@ function migrateForMenuEntities() {
     }
   }
 }
-/** One-off reorg, per direct instruction: moves Old P&L/New P&L/New
- * New P&L into a new "test" section, splits the inventory-management
+/** Retired, per direct instruction: the superseded P&L variants (Old P&L,
+ * New P&L, New New P&L, in the "test" section, and DND P&L) — Profit and
+ * Loss replaces them all. A fresh database never has them; on an existing
+ * one, each link (and then the emptied "test" section) is revoked,
+ * children first. Idempotent: a link already gone is skipped.
+ */
+function retireSupersededMenuLinks(): void {
+  function retire(name: string): void {
+    const row = Entity.get(name);
+    if (!row) return;
+    for (const child of Entity.children(row.id)) retire(child.name);
+    Entity.revoke(row.id, SEED_USER_ID);
+  }
+  for (const label of ['Old P&L', 'New P&L', 'New New P&L']) {
+    retire(`Menu Link: test — ${label}`);
+    retire(`Menu Link: General Ledger — ${label}`);
+  }
+  retire('Menu Link: General Ledger — DND P&L');
+  const section = Entity.get('Menu Section: test');
+  if (section && Entity.children(section.id).length === 0) retire('Menu Section: test');
+}
+
+/** One-off reorg, per direct instruction: (it once also moved Old P&L/New
+ * P&L/New New P&L into a "test" section; those are now retired, above)
+ * splits the inventory-management
  * links (renamed Vendors -> Providers, Manufacturers, Inventory
  * Catalog, Inventory Listing, Stock Take, Write-offs & Expiration) out
  * of Accounts Payable into a new "Inventory" section, and moves Cash
@@ -1297,12 +1306,8 @@ function migrateForMenuReorg(): void {
     if (newRelation !== undefined && newRelation !== null) Entity.relate(row.id, newRelation, SEED_USER_ID);
   }
 
-  ensureSection('test');
   ensureSection('Inventory');
 
-  moveLink('General Ledger', 'Old P&L', 'test');
-  moveLink('General Ledger', 'New P&L', 'test');
-  moveLink('General Ledger', 'New New P&L', 'test');
 
   moveLink('Accounts Payable (Creditors / Purchasing)', 'Vendors', 'Inventory', 'Providers', 'Providers');
   // The href itself changed too (?focus=vendors -> ?focus=providers, matching
@@ -1323,6 +1328,7 @@ function migrateForMenuReorg(): void {
   moveLink('Cash', 'Cash Purchase', 'Accounts Payable (Creditors / Purchasing)');
 }
 migrateForMenuReorg();
+retireSupersededMenuLinks();
 migrateForMenuEntities();
 
 /** Step 3 of docs/translator-form-and-guard-rails-plan.md — the real,

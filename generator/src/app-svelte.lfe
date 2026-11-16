@@ -138,7 +138,9 @@
       #"  import { getLedgers, asBusinessName, ApiError" (if badge? #", listItems, type ItemSummary" #"") #" } from '$lib/api';\n"
       #"  import { sources, totals, actions, filters, reactions, "
       (if (records? s id) #"records, commands, type Row, " #"")
-      #"Invalid, type Choice, type Patch } from '$lib/screen-runtime';\n\n"
+      #"Invalid, type Choice, type Patch } from '$lib/screen-runtime';\n"
+      (if (andalso (records? s id) (paged? s id)) #"  import PageButtons from '$lib/PageButtons.svelte';\n  import { pageRows, pageCount, movePage, pageSize } from '$lib/pagination';\n" #"")
+      #"\n"
       #"  const t = (word: string) => translations.current[word] ?? word;\n"
       #"  const fmt = (minor: number) => formatAmount(minor, auth.current?.user.number_format ?? '1 000.00');\n\n"
       #"  let business = $state('');\n  let ledger = $state('');\n"
@@ -202,9 +204,14 @@
 
 (defun records? (s id) (=/= (val s id #"Records") 'undefined))
 
+;; The Paged trait: a list longer than the user's page size shows a page at
+;; a time, with the shared page buttons. On unless the screen says Paged=no.
+(defun paged? (s id) (=/= (val s id #"Paged" #"yes") #"no"))
+
 (defun records-script (s id)
   (list
     #"\n  let rows: Row[] = $state([]);\n"
+    (if (paged? s id) #"  let page = $state(0);\n" #"")
     #"  const refresh = async () => {\n    rows = await records." (val s id #"Records") #"(context());\n  };\n"
     #"  async function run(command: string, row: Row) {\n"
     #"    error = '';\n    message = '';\n"
@@ -219,7 +226,7 @@
       #"    <table class='record-list'>\n      <thead><tr>"
       (lists:map (lambda (e) (list #"<th>" (t (val s e #"Label")) #"</th>")) entries)
       (if (== commands '()) #"" #"<th></th>")
-      #"</tr></thead>\n      <tbody>\n        {#each rows as row}\n          <tr>\n"
+      #"</tr></thead>\n      <tbody>\n        {#each " (if (paged? s id) #"pageRows(rows, page)" #"rows") #" as row}\n          <tr>\n"
       (lists:map (lambda (e) (list #"            <td>" (entry s e) #"</td>\n")) entries)
       (if (== commands '()) #""
         (list #"            <td class='record-actions'>\n"
@@ -227,12 +234,15 @@
               #"            </td>\n"))
       #"          </tr>\n        {:else}\n          <tr><td colspan='"
       (integer_to_binary (+ (length entries) (if (== commands '()) 0 1)))
-      #"'>" (t (val s id #"Empty Text" #"Nothing yet.")) #"</td></tr>\n        {/each}\n      </tbody>\n    </table>\n")))
+      #"'>" (t (val s id #"Empty Text" #"Nothing yet.")) #"</td></tr>\n        {/each}\n      </tbody>\n    </table>\n"
+      (if (paged? s id)
+        #"    {#if rows.length > pageSize()}<PageButtons page={Math.min(page, pageCount(rows.length) - 1)} totalPages={pageCount(rows.length)} go={(to) => (page = movePage(page, rows.length, to))} />{/if}\n"
+        #""))))
 
 (defun entry (s e)
   (let ((n (val s e #"Name")))
     (case (val s e #"Control")
-      (#"status" (list #"<span class='status status-{row." n #"}'>{t(row." n #")}</span>"))
+      (#"status" (list #"<span class='chip chip-{row." n #"}'>{t(row." n #")}</span>"))
       (_ (list #"{row." n #"}")))))
 
 (defun command (s c)
@@ -413,6 +423,7 @@
       #"  import { session, translations } from '$lib/state.svelte';\n"
       #"  import { getLedgers, asBusinessName, ApiError } from '$lib/api';\n"
       #"  import { todayIsoDate } from '$lib/format';\n"
+      (if (paged? s id) #"  import PageButtons from '$lib/PageButtons.svelte';\n  import { pageRows, pageCount, movePage, pageSize } from '$lib/pagination';\n" #"")
       #"  import { reports, " (if (== commands '()) #"" #"commands, ") (if (== chooses '()) #"" #"sources, filters, type Choice, ")
       #"type Report } from '$lib/screen-runtime';\n\n"
       (if (== chooses '()) #""
@@ -431,12 +442,14 @@
                                    params))
       #" });\n"
       #"  let open = $state(new Set<string>());\n"
+      #"  const shown = (group: Report['columns'][number]['groups'][number]) => group.rows.filter((r) => r.ancestors.every((a) => open.has(a)));\n"
+      (if (paged? s id) #"  let pages: Record<string, number> = $state({});\n" #"")
       #"  const toggle = (key: string) => {\n    const next = new Set(open);\n    if (next.has(key)) next.delete(key);\n    else next.add(key);\n    open = next;\n  };\n"
       #"  let latest = 0;\n"
       #"  async function load() {\n"
       #"    const request = ++latest;\n    loading = true;\n    error = '';\n"
       #"    try {\n      const result = await reports." (val s id #"Report") #"({ business, ledger, party: '' }, $state.snapshot(values));\n"
-      #"      if (request === latest) report = result;\n"
+      #"      if (request === latest) {\n        report = result;\n" (if (paged? s id) #"        pages = {};\n" #"") #"      }\n"
       #"    } catch (e) {\n      if (request === latest) error = e instanceof ApiError ? e.message : 'Failed to load.';\n"
       #"    } finally {\n      if (request === latest) loading = false;\n    }\n  }\n"
       #"  $effect(() => {\n    JSON.stringify(values);\n    void ledger;\n    if (ready) load();\n  });\n"
@@ -482,8 +495,8 @@
       #"  {:else if report && report.columns.every((c) => c.groups.length === 0)}\n    <p class='dim'>" (t (val s id #"Empty Text" #"None")) #"</p>\n"
       #"  {:else if report}\n"
       #"    <div class='report-columns' style='--columns: {report.columns.length}'>\n"
-      #"      {#each report.columns as column}\n        <div class='report-column'>\n"
-      #"          {#each column.groups as group}\n"
+      #"      {#each report.columns as column, ci}\n        <div class='report-column'>\n"
+      #"          {#each column.groups as group, gi}\n"
       #"            <fieldset class='report-group'>\n"
       #"              {#if group.title}<legend>{group.title}{#if group.warn} <span class='warn'>&#x26A0; {group.warn}</span>{/if}</legend>{/if}\n"
       #"              {#if group.meta}<div class='report-meta'>{#each group.meta as m}<p><strong>{m.label}:</strong> {m.value}</p>{/each}</div>{/if}\n"
@@ -491,7 +504,7 @@
       #"            </fieldset>\n          {/each}\n"
       #"          {#if column.summary}<p class='report-summary'><strong>{column.summary.label}</strong> <span class='num mono'>{column.summary.value}</span></p>{/if}\n"
       #"        </div>\n      {/each}\n    </div>\n"
-      #"    {#if report.status}<p class='report-status' class:balanced={report.status.ok}>{report.status.text}</p>{/if}\n"
+      #"    {#if report.status}<p class='status report-status' class:balanced={report.status.ok}>{report.status.text}</p>{/if}\n"
       #"    {#if report.note}<p class='dim'>{report.note}</p>{/if}\n"
       #"  {/if}\n"
       #"</fieldset>\n")))
@@ -525,7 +538,7 @@
       (if (== commands '()) #"" #"<th></th>")
       #"</tr></thead>\n"))
       #"                <tbody>\n"
-      #"                  {#each group.rows.filter((r) => r.ancestors.every((a) => open.has(a))) as row (row.key)}\n"
+      #"                  {#each " (if (paged? s id) #"pageRows(shown(group), pages[`${ci}/${gi}`] ?? 0)" #"shown(group)") #" as row (row.key)}\n"
       #"                    <tr class={row.mark ?? ''} class:clickable={row.parent} onclick={() => row.parent && toggle(row.key)}>\n"
       (lists:map (lambda (e) (list #"                      " (report-cell s e) #"\n")) entries)
       (if (== commands '()) #""
@@ -535,13 +548,17 @@
       #"                    </tr>\n"
       #"                  {:else}\n                    <tr><td colspan='" (integer_to_binary width) #"' class='dim'>" (t (val s id #"Empty Text" #"None")) #"</td></tr>\n"
       #"                  {/each}\n                </tbody>\n"
-      #"                {#if group.footer}<tfoot><tr>"
+      #"                {#if group.footer}<tfoot><tr class='totals-row'>"
       (lists:map (lambda (e) (let ((n (val s e #"Name")))
                                (list #"<td" (report-class s e n #"group.footerContra") #"><strong>{group.footer['" n #"'] ?? ''}</strong></td>")))
                  entries)
       (if (== commands '()) #"" #"<td></td>")
       #"</tr></tfoot>{/if}\n"
-      #"              </table>\n")))
+      #"              </table>\n"
+      (if (paged? s id)
+        (list #"              {#if shown(group).length > pageSize()}{@const at = `${ci}/${gi}`}{@const count = shown(group).length}"
+              #"<PageButtons page={Math.min(pages[at] ?? 0, pageCount(count) - 1)} totalPages={pageCount(count)} go={(to) => (pages[at] = movePage(pages[at] ?? 0, count, to))} />{/if}\n")
+        #""))))
 
 (defun report-command (s c)
   (let ((statuses (binary:split (val s c #"When" #"") #" " '(global trim_all))))
@@ -561,12 +578,12 @@
   (case (val s e #"Control") ((binary "amount") #" class='num'") (_ #"")))
 
 (defun report-class (s e n contra)
-  (let* ((mark (list #"{row.marks?.['" n #"'] ?? ''}"))
-         (marks (if (== contra #"row.contra") (list #" " mark) #"")))
+  (let* ((mark (if (== contra #"row.contra") (list #"{row.marks?.['" n #"'] ?? ''}") (list #"amount-" n)))
+         (marks (list #" " mark)))
     (case (val s e #"Control")
       (#"amount" (list #" class='num mono" marks #"' class:contra={" contra #"?.includes('" n #"')}"))
       (#"mono" (list #" class='mono" marks #"'"))
-      (_ (if (== marks #"") #"" (list #" class='" mark #"'"))))))
+      (_ (list #" class='" mark #"'")))))
 
 (defun report-cell (s e)
   (let ((n (val s e #"Name")))

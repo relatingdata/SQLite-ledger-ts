@@ -60,7 +60,9 @@ build output, ignored by git, written by `make generate`.
 
 ### Templates
 
-41 of the 84 routes are generated. Each screen names its template:
+41 of the 80 routes are generated (the superseded P&L variants Old P&L,
+New P&L, New New P&L and the drag-and-drop P&L Pivot were retired; the
+tutorials' P&L checks now run on Profit and Loss). Each screen names its template:
 
 | Template | Screens | Reads |
 |---|---|---|
@@ -92,7 +94,8 @@ a footer, and the report a status line and a note. Rows can form a tree:
 a parent row opens and closes the rows under it. An `Entry`'s `Control` is
 `tree` (indented, with the open/close mark and any badge), `text`, `mono`
 or `amount` (right aligned, red when contra). The report reloads whenever
-a parameter changes. Entries with a `Table` form another table, shown for
+a parameter changes. A footer row has the class `totals-row`, and its cells `amount-<entry>`;
+the status line has the class `status`. Entries with a `Table` form another table, shown for
 groups whose `table` names it (Aged: summary or detail). A group can
 relabel headings (`labels`), and the report can give a title and intro of
 its own for its parameters (Aged Payables). `Command` things are buttons
@@ -102,6 +105,18 @@ address (`/reports/aged?type=AP`). A `Print Label` adds a print button; a group'
 `meta` lines show above its table (who and when, on a statement). A table whose entries all have an empty
 `Label` has no heading row. In
 `Options`, an underscore in a label stands for a space.
+
+### The Paged trait
+
+A list longer than the user's page size (their `Page Size`, 20 by
+default) shows one page at a time with the page buttons every paged list
+shares (`frontend/src/lib/PageButtons.svelte`: first, previous, "Page n of
+m", next, last). It applies to every report group and every listed-records
+table; a screen that should show everything at once says `Paged=no`
+(Trial Balance, Balance Sheet). Generated screens page rows they have
+already loaded (`pageRows`, `pageCount` and `movePage` in
+`frontend/src/lib/pagination.ts`); the journal's server-side `Pager`
+draws the same buttons.
 
 ### Variants
 

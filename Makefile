@@ -1086,14 +1086,10 @@ docs/manual-images/stock_listing.png: e2e/tests/capture-manual-screenshots.spec.
 docs/manual-images/stock_restock.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/stock/restock/+page.svelte $(SEED_DATA_FILES) | ensure-servers
 	cd e2e && MANUAL_SCREEN=stock_restock $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
-docs/manual-images/reports_new_pl.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/new-pl/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=reports_new_pl $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_new_stock_on_hand.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/new-stock-on-hand/+page.svelte $(SEED_DATA_FILES) | ensure-servers
 	cd e2e && MANUAL_SCREEN=reports_new_stock_on_hand $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
-docs/manual-images/reports_old_pl.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/old-pl/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=reports_old_pl $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/reports_profit_and_loss.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/profit-and-loss/+page.svelte $(SEED_DATA_FILES) | ensure-servers
 	cd e2e && MANUAL_SCREEN=reports_profit_and_loss $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
@@ -1143,8 +1139,6 @@ docs/manual-images/reports_cash_flow_forecast.png: e2e/tests/capture-manual-scre
 docs/manual-images/reports_compare.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/compare/+page.svelte $(SEED_DATA_FILES) | ensure-servers
 	cd e2e && MANUAL_SCREEN=reports_compare $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
-docs/manual-images/reports_new_new_pl.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/reports/new-new-pl/+page.svelte $(SEED_DATA_FILES) | ensure-servers
-	cd e2e && MANUAL_SCREEN=reports_new_new_pl $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list
 
 docs/manual-images/ar_sale.png: e2e/tests/capture-manual-screenshots.spec.ts frontend/src/routes/arap/ar-sale/+page.svelte $(SEED_DATA_FILES) | ensure-servers
 	cd e2e && MANUAL_SCREEN=ar_sale $(RUN_NPM_SCRIPT) browser-run -- test capture-manual-screenshots --reporter=list

@@ -1802,7 +1802,7 @@ Root
     - :Entry Control=amount Label=Outstanding Name=outstanding Table=detail
     - :Entry Control=amount Label="Days overdue" Name=days Table=detail
     - :Entry Label=Bucket Name=bucket Table=detail
-   "/reports/balance-sheet" :Screen "Clear Label"="Clear (show all time)" Intro="For {NAME} only." "Intro Name"=ledger Report=balanceSheet Template=report Title="Balance Sheet"
+   "/reports/balance-sheet" :Screen "Clear Label"="Clear (show all time)" Intro="For {NAME} only." "Intro Name"=ledger Paged=no Report=balanceSheet Template=report Title="Balance Sheet"
     - :Field Control=date Default=today Label="As of date" Name=asOfDate
     - :Entry Control=tree Label="" Name=name
     - :Entry Control=amount Label=Debit Name=debit
@@ -1845,29 +1845,6 @@ Root
     - :Column Label=Credit
     - :Column Label=Debit
     - :Column Label=Credit
-   "/reports/new-new-pl" :Screen Source="frontend/src/routes/reports/new-new-pl/+page.svelte" Title="New New P&L"
-    - :Heading Text="New New P&L"
-    - :Heading Text="Outer grouping"
-    - :Field Bind=outerSelection Control=select Label="Outer grouping"
-    - :Heading Text="Inner grouping"
-    - :Field Bind=innerSelection Control=select Label="Inner grouping"
-    - :Use Component>/Root/Application/Components/FromToDateFields "Prop onchange"="{load}"
-    - :Action Handler="() => { fromDate = ''; toDate = ''; load(); }" Label="Clear (show all time)"
-    - :Use Component>/Root/Application/Components/AxisPLNode "Prop node"="{node}" "Prop openByDefault"="{true}"
-    - :Use Component>/Root/Application/Components/AxisPLNode "Prop node"="{node}"
-   "/reports/new-pl" :Screen "Calls getHierarchy">/Root/Application/Calls/getHierarchy Source="frontend/src/routes/reports/new-pl/+page.svelte" Title="New P&L (Matrix)"
-    - :Heading Text="New P&L (Matrix)"
-    - :Heading Text=Rows
-    - :Field Bind=rowAxis Control=select Label=Rows
-    - :Heading Text=Columns
-    - :Field Bind=colAxis Control=select Label=Columns
-    - :Use Component>/Root/Application/Components/FromToDateFields "Prop onchange"="{load}"
-    - :Action Handler="() => { fromDate = ''; toDate = ''; load(); }" Label="Clear (show all time)"
-    - :Column Label=Total
-    - :Column Label=Sales
-    - :Column Label=COGS
-    - :Column Label=Sales
-    - :Column Label=COGS
    "/reports/new-stock-on-hand" :Screen "Calls getHierarchy">/Root/Application/Calls/getHierarchy Source="frontend/src/routes/reports/new-stock-on-hand/+page.svelte" Title="New Stock on Hand (Matrix)"
     - :Heading Text="New Stock on Hand (Matrix)"
     - :Heading Text=Rows
@@ -1882,25 +1859,6 @@ Root
     - :Column Label=Qty
     - :Column Label=Value
     - :Column Label=Realizable
-   "/reports/old-pl" :Screen "Calls getHierarchyGroups">/Root/Application/Calls/getHierarchyGroups "Calls getLedgerDateRange">/Root/Application/Calls/getLedgerDateRange "Calls getProfitAndLoss">/Root/Application/Calls/getProfitAndLoss "Calls getProfitAndLossByHierarchyTree">/Root/Application/Calls/getProfitAndLossByHierarchyTree Source="frontend/src/routes/reports/old-pl/+page.svelte" Title="Profit and Loss"
-    - :Heading Text="Profit and Loss"
-    - :Heading Text=View
-    - :Action Handler="() => setViewMode('consolidated')" Label=Consolidated
-    - :Action Handler="() => setViewMode('per-group')" Label="Per Division"
-    - :Heading Text=Division
-    - :Use Component>/Root/Application/Components/HierarchyGroupTreePicker "Prop groups"="{groups}" "Prop hierarchyName"="{hierarchyName}" "Prop onSelect"="{(name) => { selectedGroup = name; load(); }}" "Prop selected"="{selectedGroup}"
-    - :Use Component>/Root/Application/Components/FromToDateFields "Prop onchange"="{load}"
-    - :Action Handler="() => { fromDate = ''; toDate = ''; load(); }" Label="Clear (show all time)"
-    - :Use Component>/Root/Application/Components/ProfitAndLossTable "Prop pl"="{pl}"
-    - :Use Component>/Root/Application/Components/HierarchyGroupPLNode "Prop hierarchyName"="{hierarchyName}" "Prop node"="{node}"
-   "/reports/pl-pivot" :Screen Source="frontend/src/routes/reports/pl-pivot/+page.svelte" Title="P&L Pivot Builder"
-    - :Heading Text="P&L Pivot Builder"
-    - :Field Bind=rowFilter Control=select Label="P&L Pivot Builder"
-    - :Field Bind=colFilter Control=select Label="P&L Pivot Builder"
-    - :Use Component>/Root/Application/Components/FromToDateFields "Prop onchange"="{load}"
-    - :Action Handler="() => { fromDate = ''; toDate = ''; load(); }" Label="Clear (show all time)"
-    - :Use Component>/Root/Application/Components/AxisPLNode "Prop node"="{node}" "Prop openByDefault"="{true}"
-    - :Use Component>/Root/Application/Components/AxisPLNode "Prop node"="{node}"
    "/reports/profit-and-loss" :Screen Source="frontend/src/routes/reports/profit-and-loss/+page.svelte" Title="Profit and Loss"
     - :Heading Text="Profit and Loss"
     - :Heading Text="Outer grouping"
@@ -1976,7 +1934,7 @@ Root
     - :Entry Control=amount Label=Occupied Name=occupied
     - :Entry Control=amount Label=Remaining Name=remaining
     - :Entry Label="Balanced?" Name=balanced
-   "/reports/trial-balance" :Screen "Clear Label"="Clear (show all time)" Intro="Every account with a posted balance, split into its debit or credit column. Any ledger in {NAME} should balance \u2014 Actual, or any proposed budget." "Intro Name"=business Report=trialBalance Template=report Title="Trial Balance"
+   "/reports/trial-balance" :Screen "Clear Label"="Clear (show all time)" Intro="Every account with a posted balance, split into its debit or credit column. Any ledger in {NAME} should balance \u2014 Actual, or any proposed budget." "Intro Name"=business Paged=no Report=trialBalance Template=report Title="Trial Balance"
     - :Field Control=ledger Label=Ledger Name=ledger
     - :Field Control=date Default=today Label="As of date" Name=asOfDate
     - :Entry Control=mono Label="Account Number" Name=number
@@ -2435,7 +2393,7 @@ Root
    - :Rule Selector=".record-list th, .record-list td" border-bottom="1px solid var(--rule)" padding="0.4rem 0.6rem" text-align=start
    - :Rule Selector=.record-actions white-space=nowrap
    - :Rule Selector=".record-actions button" margin-inline-end=0.4rem
-   - :Rule Selector=.status background="var(--rule)" border-radius=999px font-size="var(--font-size-small)" padding="0.1rem 0.5rem" text-transform=capitalize
-   - :Rule Selector=.status-accepted background="var(--credit)" color=white
-   - :Rule Selector=".status-rejected, .status-expired" background="var(--debit)" color=white
+   - :Rule Selector=.chip background="var(--rule)" border-radius=999px font-size="var(--font-size-small)" padding="0.1rem 0.5rem" text-transform=capitalize
+   - :Rule Selector=.chip-accepted background="var(--credit)" color=white
+   - :Rule Selector=".chip-rejected, .chip-expired" background="var(--debit)" color=white
    - :Rule Selector=.reject color="var(--debit)"

@@ -32,7 +32,7 @@ Once a business, ledger, and language are chosen, you land on the main screen. T
 
 The top-level sections are organized around real, everyday workflows rather than abstract categories: **Accounts Receivable (Debtors / Sales)** holds everything related to selling and being paid; **Accounts Payable (Creditors / Purchasing)** holds everything related to buying and paying; **Cash** holds the immediate-payment Cash Purchase/Cash Sale screens and the POS register; **General Ledger** holds the core accounting reports and the year-end close; and **Configuration** --- covered in full in Chapter 2 --- holds everything an administrator uses to set the business up in the first place.
 
-A screen shown in italics in the sidebar (such as Reconciliation or FX Adjustment) is a real, acknowledged gap --- a planned screen that doesn't exist yet --- shown honestly rather than hidden, so it's clear what's genuinely available today versus what's still ahead.
+A screen marked with a caution sign (⚠️) and shown in italics on a yellow background in the sidebar (such as Reconciliation or FX Adjustment) is not implemented (yet): a real, acknowledged gap --- a planned screen that doesn't exist yet --- shown honestly rather than hidden, so it's clear what's genuinely available today versus what's still ahead.
 
 ## How a purchase or sale moves stock and money together
 
