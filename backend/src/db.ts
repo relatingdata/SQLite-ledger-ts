@@ -2681,6 +2681,28 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
       effectiveCurrency ? (tagCurrency(input.customerName) as { name: string }).name : undefined
     );
 
+    // Each line's cost of goods sold, first in, first out at the location it
+    // leaves, worked out before any of it is dispatched (several lines of
+    // one item take successive layers).
+    const lineCostMinor = new Map<(typeof input.lines)[number], number | null>();
+    {
+      const taken = new Map<string, number>();
+      for (const line of input.lines) {
+        if (line.combinationValues && line.combinationShape) {
+          const unit = getItemUnitCostMinor(asItemName(line.itemName));
+          lineCostMinor.set(line, unit == null ? null : line.quantity * unit);
+          continue;
+        }
+        const location = asLocationName(resolveDispatchLocation(asItemName(line.itemName), input.locationName));
+        const key = `${line.itemName}\u0000${location}`;
+        const before = taken.get(key) ?? 0;
+        const upTo = fifoCostMinor(input.business, input.ledger, asItemName(line.itemName), location, before + line.quantity);
+        const previous = before > 0 ? fifoCostMinor(input.business, input.ledger, asItemName(line.itemName), location, before) : 0;
+        lineCostMinor.set(line, upTo == null ? null : upTo - (previous ?? 0));
+        taken.set(key, before + line.quantity);
+      }
+    }
+
     for (const line of input.lines) {
       dispatchItems(input.business, input.ledger, `${reference}-DISPATCH-${line.itemName}`, asItemName(line.itemName), asLocationName(resolveDispatchLocation(asItemName(line.itemName), input.locationName)), line.quantity, userId, today);
     }
@@ -2688,10 +2710,8 @@ export function completePosSale(input: PosSaleInput, userId: UserId): PosSaleRes
     const cogsRef = `${reference}-COGS`;
     let cogsTotal = 0;
     for (const line of input.lines) {
-      const unitCostMinor = getItemUnitCostMinor(asItemName(line.itemName));
-      if (unitCostMinor == null) continue;
-      const lineCogsMinor = line.quantity * unitCostMinor;
-      if (lineCogsMinor <= 0) continue;
+      const lineCogsMinor = lineCostMinor.get(line);
+      if (lineCogsMinor == null || lineCogsMinor <= 0) continue;
       let cogsAccount: string;
       let cogsAccountId: number;
       let inv: { inventoryAccount: string; inventoryAccountId: number } | undefined;
@@ -6009,7 +6029,7 @@ export function getChartOfAccountsPrototype(language: string): string[] {
 export * from './db-journal.js';
 import { stageLine, postJournalEntry } from './db-journal.js';
 export * from './db-stock.js';
-import { getLocation, setLocation, getItemLocation, dispatchItems, receiveItems, transferItems, postQuantityMovement, getOrderStatus, todayAtLocation, getEffectiveSaleCurrency, ensureLocationCapacityAccount, createSystemEntity, type Location as StockLocation } from './db-stock.js';
+import { getLocation, setLocation, fifoCostMinor, getItemLocation, dispatchItems, receiveItems, transferItems, postQuantityMovement, getOrderStatus, todayAtLocation, getEffectiveSaleCurrency, ensureLocationCapacityAccount, createSystemEntity, type Location as StockLocation } from './db-stock.js';
 export * from './db-quotations.js';
 export * from './db-projects.js';
 export * from './db-prototypes.js';

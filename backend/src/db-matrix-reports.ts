@@ -4,7 +4,8 @@
 import { db } from './db.js';
 import { getHierarchyParent, getBusinessHierarchy } from './db.js';
 import { buildProfitAndLossFromBalances, getLedgerBalances, type ProfitAndLoss } from './db-reports.js';
-import { allQtyLocationAccounts } from './db-stock.js';
+import { allQtyLocationAccounts, stockCostLayers } from './db-stock.js';
+import { resolveBusinessLocationsRootId, asItemName, asLocationName } from './db.js';
 import type { BusinessName, LedgerName } from './db.js';
 import { Entity } from './primitives.js';
 
@@ -393,11 +394,14 @@ export function getAxisValues(businessName: BusinessName, ledgerName: LedgerName
  *   entry `#TAG` instead means every account tagged TAG (as each item's
  *   cost of goods sold account is tagged COGS);
  * - onHand: the quantity of stock on hand now;
+ * - stockValue: what the stock on hand cost, as the Inventory value the
+ *   books hold for it (its first-in, first-out cost layers);
  * - onHandAt: on-hand quantity valued at each item's preferred source cost
  *   per unit ('cost') or its retail price ('retail'). */
 export type CubeMeasure =
   | { name: string; kind: 'postings'; under: string[]; sign: 1 | -1 }
   | { name: string; kind: 'onHand' }
+  | { name: string; kind: 'stockValue' }
   | { name: string; kind: 'onHandAt'; price: 'cost' | 'retail' };
 
 export interface CubeCell {
@@ -407,7 +411,8 @@ export interface CubeCell {
 }
 
 /** A measure written as text, as calls carry it: `name=postings:-Root|Root`,
- * `name=onHand`, `name=onHandAt:cost` or `name=onHandAt:retail`. */
+ * `name=onHand`, `name=stockValue`, `name=onHandAt:cost` or
+ * `name=onHandAt:retail`. */
 export function parseCubeMeasure(text: string): CubeMeasure {
   const eq = text.indexOf('=');
   if (eq <= 0) throw new Error(`A measure is name=kind: ${text}`);
@@ -420,7 +425,7 @@ export function parseCubeMeasure(text: string): CubeMeasure {
     if (under.length === 0) throw new Error(`postings needs the accounts it totals: ${text}`);
     return { name, kind, under, sign };
   }
-  if (kind === 'onHand') return { name, kind };
+  if (kind === 'onHand' || kind === 'stockValue') return { name, kind };
   if (kind === 'onHandAt' && (arg === 'cost' || arg === 'retail')) return { name, kind, price: arg };
   throw new Error(`Unknown measure: ${text}`);
 }
@@ -483,13 +488,21 @@ export function getCube(
     }
   }
 
-  const stock = measures.filter((m) => m.kind === 'onHand' || m.kind === 'onHandAt');
+  const stock = measures.filter((m) => m.kind === 'onHand' || m.kind === 'onHandAt' || m.kind === 'stockValue');
   if (stock.length > 0) {
-    for (const s of stockOnHandRows()) {
+    // Only this business's own locations.
+    const locationsRootId = resolveBusinessLocationsRootId(businessName);
+    const ours = (location: string) => locationsRootId !== undefined && Entity.getUnder(location, locationsRootId) !== undefined;
+    for (const s of stockOnHandRows().filter((r) => ours(r.location))) {
       const rowKey = resolveItemKey(rowAxis, s.item, s.location);
       const colKey = resolveItemKey(colAxis, s.item, s.location);
       for (const m of stock) {
-        const amount = m.kind === 'onHand' ? s.quantity : s.quantity * (m.price === 'cost' ? s.unitCostMinor : s.retailPriceMinor);
+        const amount =
+          m.kind === 'onHand'
+            ? s.quantity
+            : m.kind === 'stockValue'
+              ? stockCostLayers(businessName, ledgerName, asItemName(s.item), asLocationName(s.location)).reduce((t, l) => t + l.value, 0)
+              : s.quantity * (m.price === 'cost' ? s.unitCostMinor : s.retailPriceMinor);
         add(rowKey, colKey, m.name, amount);
       }
     }

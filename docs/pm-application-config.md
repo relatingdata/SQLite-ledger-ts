@@ -120,6 +120,7 @@ one call, `getCube` (`backend/src/db-matrix-reports.ts`; tests in
 |---|---|
 | `postings:-Sales Revenue` | journal postings to every account under the named roots, sign flipped (`+` keeps it); several roots with `\|`; `#TAG` for accounts tagged TAG (`#COGS`, each item's own cost of goods sold account) |
 | `onHand` | stock on hand now, per item and location |
+| `stockValue` | what that stock cost, as the books hold it (its first-in, first-out layers) |
 | `onHandAt:cost`, `onHandAt:retail` | on-hand quantity at the preferred source's unit cost, or the retail price |
 
 Postings fall in the period `fromDate`..`toDate` (with only `toDate`, a
@@ -145,14 +146,29 @@ as components:
   to its best, green: an item's under-performing and excellent locations,
   or the reverse after a swap. Clicking a measure's heading shades by it.
 
-Known limits: stock measures are not yet scoped to the business (as the
-earlier Stock on Hand report); and a POS sale on the default middleware
-posts no cost of goods sold, while an item's own COGS account carries no
-location, so cost of goods sold appears under "(No location)" rather than
-per location. The retired Sales vs COGS screen's call, `getSalesCogsMatrix`,
+Stock measures count only the business's own locations. Cost of goods
+sold is posted per item and location when a POS sale is made, at what the
+units cost first in, first out (below), so margin shows per location.
+
+The retired Sales vs COGS screen's call, `getSalesCogsMatrix`,
 told sales from cost of goods sold by a "Sales - " name prefix that per-item
 sales accounts no longer carry, and so showed every sale as negative cost
 of goods sold; `getCube` tells them apart by where the account sits.
+
+### First in, first out (default middleware)
+
+`stockCostLayers` and `fifoCostMinor` (`backend/src/db-stock.ts`) read an
+item's stock at a location back from the journal as the layers it arrived
+in, oldest first, each at its cost, the same way the core middleware does
+(`core/ops.ts`). The journals of one event share a reference stem (a
+purchase's invoice and `-RECV-<item>`, a sale's `-DISPATCH-<item>` and
+`-COGS`, a transfer and its `-VALUE`), so they count as one movement. A POS
+sale costs its lines from these layers before dispatching them, and a
+transfer carries the cost of the units it moves to the other location.
+Where the layers hold no value (stock received with no cost posted), the
+preferred item source's unit cost is used, as before.
+`make seed-pivot-demo` adds a demo business, Pivot Demo Wines, with three
+wines bought at two prices and sold unevenly at three shops.
 
 ### The Paged trait
 

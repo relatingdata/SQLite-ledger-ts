@@ -1133,6 +1133,8 @@ export function transferItems(
     throw new ValidationError(`Only ${current.quantity_on_hand} of "${itemName}" on hand at "${fromLocationName}" — cannot transfer ${quantity}.`);
   }
   resolveItemId(itemName); // validates the real item exists; throws otherwise
+  // Its cost, first in, first out, as the stock stood before it moved.
+  const transferValueMinor = combinationShape && combinationValuesAfterLocation ? null : fifoCostMinor(business, ledger, itemName, fromLocationName, quantity);
   assertItemIsStorable(itemName, 'transferred');
   for (const loc of [fromLocationName, toLocationName]) {
     if (!Entity.get(loc)) throw new ValidationError(`No location named "${loc}".`);
@@ -1151,9 +1153,8 @@ export function transferItems(
 
   // Non-combination path also moves the plain per-location Inventory value — see docs/pm-stock-api.md § "Receive/transfer: physical-only variants..."
   if (!(combinationShape && combinationValuesAfterLocation)) {
-    const unitCostMinor = getItemUnitCostMinor(itemName);
-    if (unitCostMinor != null) {
-      const valueMinor = quantity * unitCostMinor;
+    if (transferValueMinor != null && transferValueMinor > 0) {
+      const valueMinor = transferValueMinor;
       const fromAccount = ensureItemLocationInventoryAccount(itemName, fromLocationName, asUserId(userId), undefined, business);
       const toAccount = ensureItemLocationInventoryAccount(itemName, toLocationName, asUserId(userId), undefined, business);
       const valueRef = `${reference}-VALUE`;
@@ -1850,3 +1851,106 @@ export function getOrderStatus(orderReference: string): { quantity: number; valu
   return { quantity: sumFor(qtyAccountId), value_minor: sumFor(valueAccountId) };
 }
 
+
+// --- first in, first out cost --------------------------------------------------
+//
+// The same reading as the core middleware's stockLayers (core/ops.ts): an
+// item's stock at a location is the layers it arrived in, oldest first,
+// each at what it cost, read back from the journal. Each business event
+// that moves the item's quantity there is a movement (its journals share a
+// reference: a purchase posts its value and receives its quantity in two,
+// a transfer moves its quantity, then its value): a quantity in starts a
+// new layer at the value posted with it; a quantity out takes the oldest
+// layers first. Value posted with no quantity goes to the newest layer, or,
+// before any, waits for the next one in; so the layers always add up to the
+// location's Inventory balance.
+
+interface CostLayer {
+  quantity: number;
+  value: number;
+}
+
+function takeLayers(layers: CostLayer[], quantity: number): CostLayer[] {
+  const taken: CostLayer[] = [];
+  let wanted = quantity;
+  while (wanted > 0 && layers.length > 0) {
+    const layer = layers[0];
+    const units = Math.min(wanted, layer.quantity);
+    const value = units === layer.quantity ? layer.value : Math.round((layer.value * units) / layer.quantity);
+    taken.push({ quantity: units, value });
+    layer.quantity -= units;
+    layer.value -= value;
+    wanted -= units;
+    if (layer.quantity === 0) layers.shift();
+  }
+  return taken;
+}
+
+const valueOfLayers = (layers: CostLayer[]) => layers.reduce((total, l) => total + l.value, 0);
+
+function ledgerEntityId(business: string, ledger: string): number | undefined {
+  const businessId = Entity.get(business, 'Businesses')?.id;
+  if (businessId === undefined) return undefined;
+  const ledgersRoot = Entity.getUnder('Ledgers', businessId);
+  return ledgersRoot ? Entity.getUnder(ledger, ledgersRoot.id)?.id : undefined;
+}
+
+/** The stock of an item at a location as cost layers, oldest first. */
+export function stockCostLayers(business: BusinessName, ledger: LedgerName, itemName: ItemName, locationName: LocationName): CostLayer[] {
+  const quantityAccountId = resolveItemLocationQuantityAccountId(itemName, locationName);
+  if (quantityAccountId === undefined) return [];
+  const itemInventory = Entity.getUnder(itemName, resolveBusinessCoaAccountId(business, 'Inventory'));
+  const valueAccountId = itemInventory ? Entity.getUnder(`${itemName} — ${locationName}`, itemInventory.id)?.id : undefined;
+  const ledgerId = ledgerEntityId(business, ledger) ?? -1;
+  const lines = db
+    .prepare(
+      `SELECT j.reference AS reference, jo.account_id AS account, jo.amount_minor AS amount
+       FROM journal_occurrences jo
+       JOIN journal j ON j.id = jo.journal_id
+       WHERE jo.ledger_id = ? AND jo.account_id IN (?, ?)
+       ORDER BY jo.transdate, jo.journal_id`
+    )
+    .all(ledgerId, quantityAccountId, valueAccountId ?? -1) as { reference: string; account: number; amount: number }[];
+  // One movement per business event: a purchase's value (its invoice) and
+  // its quantity (REF-RECV-<item>), a sale's quantity (REF-DISPATCH-<item>)
+  // and its cost (REF-COGS), a transfer's quantity (REF) and value
+  // (REF-VALUE) are posted as separate journals of one reference.
+  const stem = (reference: string) => reference.replace(/-(VALUE|COGS|RECV-.*|DISPATCH-.*)$/, '');
+  const byEvent = new Map<string, { quantity: number; value: number }>();
+  for (const line of lines) {
+    const key = stem(line.reference);
+    let m = byEvent.get(key);
+    if (!m) byEvent.set(key, (m = { quantity: 0, value: 0 }));
+    if (line.account === quantityAccountId) m.quantity += line.amount;
+    else m.value += line.amount;
+  }
+  const movements = [...byEvent.values()];
+  const layers: CostLayer[] = [];
+  let unplaced = 0;
+  const place = (value: number) => {
+    if (layers.length > 0) layers[layers.length - 1].value += value;
+    else unplaced += value;
+  };
+  for (const { quantity, value } of movements) {
+    if (quantity > 0) {
+      layers.push({ quantity, value: unplaced + value });
+      unplaced = 0;
+    } else if (quantity < 0) {
+      place(valueOfLayers(takeLayers(layers, -quantity)) + value);
+    } else {
+      place(value);
+    }
+  }
+  return layers;
+}
+
+/** What `quantity` of an item leaving a location costs, first in, first
+ * out; or, when the location's layers hold no value (stock received with
+ * no cost posted), the preferred item source's unit cost; or null when
+ * neither is known. */
+export function fifoCostMinor(business: BusinessName, ledger: LedgerName, itemName: ItemName, locationName: LocationName, quantity: number): number | null {
+  const layers = stockCostLayers(business, ledger, itemName, locationName);
+  if (valueOfLayers(layers) > 0) return valueOfLayers(takeLayers(layers, quantity));
+  const unit = getItemUnitCostMinor(itemName);
+  return unit == null ? null : quantity * unit;
+}

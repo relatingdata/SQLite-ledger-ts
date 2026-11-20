@@ -58,18 +58,7 @@ function sell(loc: string, lines: [string, number, number][], date: string) {
 }
 sell(north.name, [[red, 2, 1500], [white, 3, 2000]], '2027-01-02');
 sell(south.name, [[red, 1, 1500]], '2027-02-02');
-// The cost of what was sold, to each item's own cost of goods sold account
-// (a POS sale here posts the sale only).
-for (const [item, cost] of [[red, 2400], [white, 2400]] as [string, number][]) {
-  const { cogsAccount, cogsAccountId } = db.ensureItemSalesCogsAccounts(db.asItemName(item), fx.userId, undefined, biz.business);
-  const reference = `CUBE-COGS-${item}`;
-  for (const [account, accountId, amount] of [[cogsAccount, cogsAccountId, cost], ['Inventory', undefined, -cost]] as [string, number | undefined, number][]) {
-    db.stageLine({ reference, business: biz.business, ledger: biz.actualLedger, description: 'Cost of goods sold', transdate: '2027-02-03', account: db.asAccountName(account), accountId, amount_minor: amount } as any);
-  }
-  db.postJournalEntry(reference, biz.business, biz.actualLedger, fx.userId);
-}
-
-const measures = ['sales=postings:-Sales Revenue', 'cogs=postings:+Cost of Goods Sold|#COGS', 'quantity=onHand'].map(matrix.parseCubeMeasure);
+const measures = ['sales=postings:-Sales Revenue', 'cogs=postings:+Cost of Goods Sold|#COGS', 'quantity=onHand', 'value=stockValue'].map(matrix.parseCubeMeasure);
 const cube = (row: string, col: string, from?: string, to?: string) =>
   new Map(matrix.getCube(biz.business, biz.actualLedger, row, col, measures, from, to).map((c) => [`${c.rowKey}|${c.colKey}`, c.values]));
 
@@ -89,6 +78,12 @@ test('getCube: on-hand quantity is what was received less what was sold, per ite
   assert.equal(c.get(`${white}|${south.name}`)?.quantity, 10);
 });
 
+test('getCube: stock on hand at what it cost, as the books hold it', () => {
+  const c = cube('Item', 'Location');
+  assert.equal(c.get(`${red}|${north.name}`)?.value, 8 * 800);
+  assert.equal(c.get(`${white}|${south.name}`)?.value, 10 * 800);
+});
+
 test('getCube: swapping the axes transposes the cells, and Consolidated totals them', () => {
   const byItem = cube('Item', 'Location');
   const byLocation = cube('Location', 'Item');
@@ -100,7 +95,7 @@ test('getCube: swapping the axes transposes the cells, and Consolidated totals t
   assert.equal(all.size, 1);
   const total = [...all.values()][0];
   assert.equal(total.sales, 10500);
-  assert.equal(total.quantity >= 34, true, 'every item on hand, this business and any other');
+  assert.equal(total.quantity, 34, "this business's stock only");
 });
 
 test('getCube: a period counts only the postings in it', () => {
@@ -109,11 +104,12 @@ test('getCube: a period counts only the postings in it', () => {
   assert.equal(january.get(`${white}|Consolidated`)?.sales, 6000);
 });
 
-test('getCube: cost of goods sold by item, and gross margin follows from the two', () => {
-  const c = cube('Item', 'Consolidated');
-  assert.equal(c.get(`${red}|Consolidated`)?.cogs, 2400);
-  assert.equal(c.get(`${white}|Consolidated`)?.cogs, 2400);
-  assert.equal(c.get(`${red}|Consolidated`)!.sales - c.get(`${red}|Consolidated`)!.cogs, 2100);
+test('getCube: cost of goods sold per item and location, at what the units sold cost', () => {
+  const c = cube('Item', 'Location');
+  assert.equal(c.get(`${red}|${north.name}`)?.cogs, 1600);
+  assert.equal(c.get(`${red}|${south.name}`)?.cogs, 800);
+  assert.equal(c.get(`${white}|${north.name}`)?.cogs, 2400);
+  assert.equal(c.get(`${red}|${north.name}`)!.sales - c.get(`${red}|${north.name}`)!.cogs, 1400);
 });
 
 // getSalesCogsMatrix (behind the retired Sales vs COGS screen) told sales
@@ -138,4 +134,30 @@ test('parseCubeMeasure: rejects what it cannot read', () => {
   assert.throws(() => matrix.parseCubeMeasure('x=postings:'));
   assert.throws(() => matrix.parseCubeMeasure('x=onHandAt:wholesale'));
   assert.deepEqual(matrix.parseCubeMeasure('m=postings:-A|B'), { name: 'm', kind: 'postings', under: ['A', 'B'], sign: -1 });
+});
+
+// First in, first out: what a sale costs is what its units were bought at,
+// oldest first, at the location they leave; a transfer carries that cost.
+test('a POS sale costs its units first in, first out, and a transfer carries their cost', () => {
+  const fifo = fx.freshBusiness('FIFO Co');
+  const shop = fx.freshLocation(fifo.business, 'FIFO Shop', { bottle_capacity: 100, carton_capacity: 20 });
+  const store = fx.freshLocation(fifo.business, 'FIFO Store', { bottle_capacity: 100, carton_capacity: 20 });
+  const gin = fx.uniqueName('FIFO Gin');
+  db.createItem(gin, 'Items', fx.userId, fifo.business);
+  const buy = (quantity: number, unitPriceMinor: number, date: string) =>
+    db.completeCashPurchase({ business: fifo.business, ledger: fifo.actualLedger, locationName: shop.name, vendorName: db.asProviderName('Cash'), lines: [{ itemName: gin, quantity, unitPriceMinor, taxMinor: 0 }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', transdate: date } as any, fx.userId);
+  buy(4, 1000, '2027-03-01');
+  buy(6, 1300, '2027-03-02');
+  const layers = () => db.stockCostLayers(fifo.business, fifo.actualLedger, db.asItemName(gin), db.asLocationName(shop.name));
+  assert.deepEqual(layers(), [{ quantity: 4, value: 4000 }, { quantity: 6, value: 7800 }]);
+  // 5 units: the 4 at $10, then 1 at $13.
+  db.completePosSale({ business: fifo.business, ledger: fifo.actualLedger, locationName: shop.name, customerName: db.asCustomerName('Cash'), lines: [{ itemName: gin, quantity: 5, unitPriceMinor: 2000, taxMinor: 0 }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', transdate: '2027-03-03' } as any, fx.userId);
+  assert.deepEqual(layers(), [{ quantity: 5, value: 6500 }]);
+  const sold = (from: string, to: string) =>
+    new Map(matrix.getCube(fifo.business, fifo.actualLedger, 'Location', 'Consolidated', measures, from, to).map((c) => [c.rowKey, c.values]));
+  assert.equal(sold('2027-03-03', '2027-03-03').get(shop.name)?.cogs, 5300);
+  // 2 to the store carry $26.00 with them; the shop keeps 3 at $13.
+  db.transferItems(fifo.business, fifo.actualLedger, db.asItemName(gin), db.asLocationName(shop.name), db.asLocationName(store.name), 2, 'FIFO-XFER', fx.userId, '2027-03-04');
+  assert.deepEqual(layers(), [{ quantity: 3, value: 3900 }]);
+  assert.deepEqual(db.stockCostLayers(fifo.business, fifo.actualLedger, db.asItemName(gin), db.asLocationName(store.name)), [{ quantity: 2, value: 2600 }]);
 });
