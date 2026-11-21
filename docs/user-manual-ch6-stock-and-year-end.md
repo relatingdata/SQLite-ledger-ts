@@ -2,8 +2,9 @@
 
 This chapter describes how the application works out what your stock cost
 you, and how the stock take at the end of the financial year corrects the
-books. It applies to the new middleware (see "Which middleware runs" at the
-end of this chapter); the tutorials in Chapters 3 to 5 run on both.
+books, how the room your stock takes up is kept, and where to see all of
+it. "Which middleware runs", at the end, says which rules apply where; the
+tutorials in Chapters 3 to 5 run on both.
 
 ## Start small: one item, one place
 
@@ -43,6 +44,55 @@ bought at. This is called *first in, first out* (FIFO).
   most recent delivery.
 - Nothing extra is stored for any of this. The layers are read back from
   the journal itself, so they always agree with the Inventory account.
+
+## Storage space: how much room is left
+
+Each location's physical storage space is kept too, as a count of its own,
+never as money: it never appears on the Trial Balance or any financial
+report.
+
+- A location is measured in **bottles** when its *bottle capacity* is set
+  (a shop), and otherwise in **cartons** from its *carton capacity* (a
+  warehouse). Each location has one unit, set by which capacity you gave it.
+- When the location is first used, its capacity is **Installed** and all
+  of it is **Remaining**.
+- Every unit received there moves space from Remaining to **Occupied**,
+  and every unit sold, transferred out or written off moves it back. In a
+  carton location, bottles are converted with the item's own carton size
+  (its preferred provider's package quantity: 12 for wine, 24 for beer).
+- Installed always equals Occupied plus Remaining; the report's
+  *Balanced?* column checks it.
+- Nothing stops a delivery that would overfill a location: Remaining then
+  goes below zero, which is how you see it.
+
+> **Example.** Riverside is set up with a bottle capacity of 1,000. After
+> receiving 360 bottles and selling 115, it shows Installed 1,000,
+> Occupied 245, Remaining 755.
+
+**Where to see it:** *Inventory → Inventory and Storage* (also a tile on
+the Reports page) shows each location's Installed, Occupied and Remaining
+space. *General Ledger → New Stock on Hand* shows the stock itself:
+quantity, what it cost, and its value at retail.
+
+## Seeing stock and margins by item and location
+
+*New Stock on Hand* (General Ledger menu) and *Sales and Margin*
+(Accounts Receivable menu) break
+their figures down by any two of Item, Category, Location and your own
+hierarchies (such as Division). Drag a field into **Rows** or **Columns**,
+or click it; drag it back, or click it, to remove it. An empty zone means
+"all together". The ⇄ button swaps rows and columns, and the list under
+each zone narrows it to one value.
+
+Each row is shaded from red (its weakest cell) to green (its strongest),
+so an item's under-performing and excellent locations stand out; swap the
+axes to see each location's best and worst items. Click a column heading
+(Sales, Margin %, Qty, ...) to shade by that figure instead. Two fields of
+the same kind, such as Item and Category, cannot be crossed: the one you
+drop bounces back.
+
+Cost of goods sold in *Sales and Margin* is the first-in, first-out cost
+of the units sold at that location, so margin is shown per location.
 
 ## The year-end stock take
 
@@ -114,11 +164,17 @@ allow for what was sold or received in between before confirming it.
 
 ## Which middleware runs
 
-The rules above belong to the new middleware: the business rules that turn
-what you enter on a form into journal entries and records. Today the step
-runner, and the backend started with `MIDDLEWARE=core`, use it; the web
-and terminal screens otherwise still use the original middleware, whose
-cost rules differ (it costs a sale at the item's registered unit cost).
+The middleware is the set of business rules that turns what you enter on
+a form into journal entries and records. There are two. The new one is
+used by the step runner and by a backend started with `MIDDLEWARE=core`;
+the web and terminal screens otherwise still use the original one.
+
+Both cost stock first in, first out. In the original middleware this
+covers point-of-sale sales (cash sales included) and transfers between
+locations. Write-offs, deliveries against sales orders, and sales of items
+set up in sizes or other variants still use the item's registered unit
+cost (its preferred provider's price), and so does any stock that arrived
+with no cost recorded.
 The year-end count is available through the new middleware's calls —
 `getStockTakeSheet`, `confirmStockCount` and `completeYearEndStockTake` —
 ready for a terminal or phone screen; those screens are still to be built.

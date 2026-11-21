@@ -1088,6 +1088,7 @@ function migrateForMenuEntities() {
         { label: 'Manufacturers', href: '/contacts' },
         { label: 'Inventory Catalog', href: '/items' },
         { label: 'Inventory Listing', href: '/stock/listing' },
+        { label: 'Inventory and Storage', href: '/reports/storage-space' },
         { label: 'Stock Take', href: '/stock/stock-take' },
         { label: 'Write-offs & Expiration', href: '/stock/write-offs' },
       ],

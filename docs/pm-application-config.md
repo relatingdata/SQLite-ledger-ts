@@ -68,7 +68,7 @@ tutorials' P&L checks now run on Profit and Loss). Each screen names its templat
 |---|---|---|
 | `transaction` | Cash Purchase, Cash Sale, AP Purchase, AR Sale, Purchase Order, Sales Order, Stock Receipt, Stock Transfer, Quotations, RFQ | `Title`, `Intro`, `Action`, `Totals`, `Total Label`, `Party` / `Party Label`, `Submit Label`, `Fail Text`; its `Field` and `Column` things |
 | `report` | Trial Balance, Balance Sheet, Below Reorder, Inventory and Storage, Aged Receivables/Payables, Reminders, Customer Statement, Sales Report, Cash Flow Forecast, Business Configuration Report | `Title`, `Intro` (`{NAME}` in it is the business or ledger, by `Intro Name`), `Report`, `Clear Label`; parameter `Field`s (`Control=ledger` chooses the ledger); one `Entry` per column |
-| `pivot` | Stock on Hand, Sales and Margin | `Title`, `Intro`, `Row Axis`, `Column Axis`, `Axis Chooser` (`drag` or `select`), `Highlight`, `Highlight Across`, `Empty Text`, `Clear Label`; date `Field`s `fromDate`/`toDate`; one `Entry` per measure |
+| `pivot` | Stock on Hand (`/reports/new-stock-on-hand`), Sales and Margin (`/reports/sales-margin`) | `Title`, `Intro`, `Row Axis`, `Column Axis`, `Axis Chooser` (`drag` or `select`), `Highlight`, `Highlight Across`, `Empty Text`, `Clear Label`; date `Field`s `fromDate`/`toDate`; one `Entry` per measure |
 | `tiles` | AR / AP, Stock, Reports (section index pages) | `Title`, `Intro`; one `Tile` (`Href`, `Title`, `Description`) per link |
 | `compose` | AP Payment, AR Receipt | One `Use` per component, its props as `Prop <name>` |
 | `not-implemented` | 16 screens not built yet | `Title`, `Description` |
@@ -114,7 +114,8 @@ account resolves to an Item, a Location, a Category and the business's own
 hierarchies. So a report on sales, cost of goods sold or stock is a set of
 measures broken down by two axes, and the backend answers all of them with
 one call, `getCube` (`backend/src/db-matrix-reports.ts`; tests in
-`backend/test/cube.test.ts`). A measure is configuration:
+`backend/test/cube.test.ts`). A measure is configuration, sent as text
+(`name=source`) and read by `parseCubeMeasure`:
 
 | Source | Totals |
 |---|---|

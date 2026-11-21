@@ -117,9 +117,15 @@ carton-equivalents using the item's own factor.
 
 **`setItemLocationLevelDetails`** (min/max/reorder/shelf-side/rack/
 shelf-level) takes `business`/`ledger`/`userId` as optional, explicit
-parameters — set them when calling from an HTTP route, since nothing
-in this application's own request handling establishes the ambient
-session context `Session.*` these fall back to when omitted.
+parameters. When they are omitted they fall back to the ambient session
+context, `Session.*` (`backend/src/session-context.ts`). That context
+exists only for a request whose login has a business recorded:
+`auth-middleware.ts` enters it from `getSessionBusiness(token)`, and the
+frontend records the business with the `setSessionBusiness` call when one
+is chosen on `/session`, and again on every load (`+layout.svelte`).
+Without it, `Session.Business` throws and the call fails with a 500 — the
+step runner's API path, and any caller that does not log in through the
+frontend, must pass the business explicitly.
 `setItemLocationLevels` is the narrower, UI-facing wrapper that accepts
 the same levels by their camelCase field names.
 
@@ -220,7 +226,22 @@ structurally excludes them; this is the one place to see them.
 Installed balances against Remaining at opening (Occupied starts at
 zero); a currency's own `balanced` flag checks that however much space
 is occupied or remaining still sums to exactly the installed total.
-Scoped to the current session's own business.
+Scoped to the current session's own business (`Session.Business`: see
+"Item-location levels and capacity status" for how the frontend sets it).
+
+- **One unit per location.** `ensureLocationCapacityAccount` picks
+  `SPACE-BOTTLE` when the location has a `bottle_capacity`, else
+  `SPACE-CARTON` from `carton_capacity`, and posts the opening capacity
+  (Remaining against Installed) the first time it is called.
+- **Every quantity movement moves space.** `adjustLocationCapacity` is
+  called by receipts, dispatches, transfers and write-offs with the
+  quantity moved; for a carton location it divides by the item's
+  `preferredProviderPackageQuantity` (12 when none is set).
+- **Never enforced.** Over-filling a location is not refused; Remaining
+  goes negative.
+- **Shown by** the generated *Inventory and Storage* screen
+  (`/reports/storage-space`, report `storageSpace` in
+  `frontend/src/lib/screen-runtime.ts`).
 
 ## Receive/transfer: physical-only variants that post value from the frontend
 
@@ -250,6 +271,43 @@ also move the plain per-location Inventory dollar value with the
 stock (via `ensureItemLocationInventoryAccount`), mirroring what its
 combination-tagged path already did — a transfer genuinely moves value
 with the stock, not just its count and its space, on either path.
+
+## First-in, first-out cost (original middleware)
+
+**`stockCostLayers(business, ledger, item, location)`** reads an item's
+stock at a location back from the journal as cost layers, oldest first,
+the same way the core middleware's `stockLayers` does (`core/ops.ts`).
+Nothing extra is stored. The lines read are those on the item-location
+quantity account (`<item> — <location> — Qty`) and its Inventory value
+account (`<item> — <location>` under the item's own Inventory account), in
+the ledger.
+
+- **One movement per event.** An event's journals share a reference stem:
+  a purchase's invoice `REF` and its receipt `REF-RECV-<item>`; a sale's
+  `REF-DISPATCH-<item>` and `REF-COGS`; a transfer's `REF` and
+  `REF-VALUE`. So these count as one movement, as in the core.
+- **Building the layers.** A quantity in starts a layer at the value
+  posted with it, and a quantity out takes the oldest layers first. Value
+  with no quantity goes to the newest layer, or waits for the next one in.
+- **Always in step with the books.** The layers always add up to the
+  location's Inventory balance.
+
+**`fifoCostMinor(business, ledger, item, location, quantity)`** is what
+that quantity leaving costs. When the layers hold no value (stock received
+with no cost posted), it uses `getItemUnitCostMinor` (the preferred
+source's unit cost), or returns null when neither is known.
+
+**Used by:**
+- `completePosSale` works out every line's cost before dispatching any of
+  them, and several lines of one item take successive layers.
+- `transferItems` works out the cost before moving the quantity, then
+  posts that value out of one location and into the other.
+
+Write-offs, stock dispatch against sales orders, and combination lines
+still use `getItemUnitCostMinor`.
+
+**Tests:** `backend/test/cube.test.ts`, "a POS sale costs its units first
+in, first out, and a transfer carries their cost".
 
 ## Reorder, lead times, and stock-out risk
 
