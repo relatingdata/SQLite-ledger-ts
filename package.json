@@ -5,7 +5,6 @@
   "workspaces": [
     "backend",
     "frontend",
-    "e2e",
     "tui"
   ],
   "trustedDependencies": [

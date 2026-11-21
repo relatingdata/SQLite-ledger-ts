@@ -1,0 +1,5 @@
+# Switches the session's display language to ${language} on the session
+# screen, keeping the business and ledger.
+"Open Page","/session"
+"Select Option","select >> nth=2","${language}"
+"Click","button:has-text('Continue'), button:has-text('Weiter'), button:has-text('Continuer'), button:has-text('Fortsæt'), button:has-text('Continua')"

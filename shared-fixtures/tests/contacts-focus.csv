@@ -1,0 +1,14 @@
+# The Contacts screen shows the category of the menu link it was opened
+# from (Customers, or Providers), and "Show everything" shows all four.
+"Include","../common/business.csv"
+"Click","button:has-text('Accounts Receivable (Debtors / Sales)')"
+"Click","a:text-is('Customers')"
+"Page Shows",".page-title legend","Customers"
+"Page Count","a.active:has-text('Customers')","1"
+"Page Count",".list-card","1"
+"Click","button:text-is('Inventory')"
+"Click","a:text-is('Providers')"
+"Page Shows",".page-title legend","Providers"
+"Page Count",".list-card","1"
+"Click","button:has-text('Show everything')"
+"Page Count",".list-card","4"

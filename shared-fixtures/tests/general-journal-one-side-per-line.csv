@@ -1,0 +1,9 @@
+# A General Journal line holds a debit or a credit, never both: typing a
+# credit on a line that has a debit clears the debit.
+"Include","../common/business.csv"
+"Open Page","/post"
+"Fill","tbody tr >> nth=0 >> input.num >> nth=0","100.00"
+"Page Value","tbody tr >> nth=0 >> input.num >> nth=0","100.00"
+"Fill","tbody tr >> nth=0 >> input.num >> nth=1","50.00"
+"Page Value","tbody tr >> nth=0 >> input.num >> nth=1","50.00"
+"Page Value","tbody tr >> nth=0 >> input.num >> nth=0",""

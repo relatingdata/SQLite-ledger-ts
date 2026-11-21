@@ -1,0 +1,5 @@
+# Types ${name} into the Items page's open inline add field, the one
+# whose placeholder is ${placeholder}, and adds it with Enter.
+"Fill","input[placeholder='${placeholder}']","${name}"
+"Press Key","Enter"
+"Page Shows","button:has-text('${name}')","${name}"

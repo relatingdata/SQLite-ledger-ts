@@ -1,6 +1,5 @@
 path,verify,screenshot,skip
 ,,,false
-,,,false
 ,entity_named_exists,,false
 ,entity_named_exists,,false
 ,entity_named_exists,,false

@@ -3,7 +3,8 @@
 
 import { readFileSync, mkdirSync, existsSync, writeFileSync, appendFileSync } from 'fs';
 import { createInterface } from 'readline';
-import { join, dirname } from 'path';
+import { join, dirname, relative, resolve } from 'path';
+import { tmpdir } from 'os';
 import { fileURLToPath } from 'url';
 import { chromium, type Browser, type Page } from 'playwright';
 import { TuiTest } from '@microsoft/tui-test';
@@ -36,7 +37,7 @@ export interface ScreenField {
 
 export interface Screen {
   screen_name: string;
-  screen_kind: string; // 'session' | 'data' (default 'data')
+  screen_kind: string; // 'session' | 'data' (default) | 'api' (no browser form: runs through the API on every path) | 'ui' (a browser gesture or check)
   ui_path: string;
   open_selector: string;
   api_function: string;
@@ -46,7 +47,8 @@ export interface Screen {
 
 export interface Step {
   index: number; // 1-indexed, real step number (excluding blank lines)
-  file_line: number; // the real, original, raw line number in the data file itself
+  file_line: number; // the line number in the data file the step came from
+  file?: string; // the data file the step came from (an included file, or the test itself)
   screen_name: string;
   values: string[]; // positional, values[0] is position 1
   path: string; // 'api' | 'ui' | '' (falls back to the CLI's own --path)
@@ -203,6 +205,39 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
   // step already set) and only changes wage_minor_per_hour. Required
   // before clockInToProject, which refuses an employee with no real,
   // configured wage rate.
+  setEmployeeSalarySimple: (a) => {
+    const existing = db.getContact(a.employeeName) ?? {};
+    db.setContact(a.employeeName, { ...existing, salary_minor_per_year: Number(a.salaryMinorPerYear) });
+  },
+  // A draft sales invoice of one line, dated today, in the Actual ledger;
+  // source 'pos' stands for one a POS sale made, so a test needs no stock.
+  createSalesInvoiceSimple: (a) => db.createInvoice({
+    invoiceType: 'AR',
+    business: a.businessName,
+    ledger: 'Actual',
+    reference: a.reference,
+    counterpartyName: a.customerName,
+    invoiceDate: new Date().toISOString().slice(0, 10),
+    lines: [{ description: a.reference, amountMinor: Number(a.amountMinor) }],
+    source: (a.source || 'manual') as 'manual' | 'pos',
+  }, db.asUserId(1)),
+  // Posts the draft sales invoice with that reference: revenue to Sales
+  // Revenue, tax to Sales Tax Payable.
+  postSalesInvoiceSimple: (a) => {
+    const invoice = db.listInvoices(db.asBusinessName(a.businessName), db.asLedgerName('Actual'), { invoiceType: 'AR', source: 'all' }).find((i) => i.reference === a.reference);
+    if (!invoice) throw new Error(`No sales invoice "${a.reference}" in ${a.businessName}.`);
+    db.postInvoice(invoice.id, 'Sales Revenue', 'Sales Tax Payable', db.asUserId(1));
+  },
+  // The stock levels the stock listing's inputs keep for an item at a
+  // location; an empty value leaves that level unset.
+  setItemLocationLevelsSimple: (a) => {
+    const level = (v: string) => (v === '' || v === undefined ? null : Number(v));
+    db.setItemLocationLevels(db.asItemName(a.itemName), db.asLocationName(a.locationName), { minLevel: level(a.minLevel), maxLevel: level(a.maxLevel), reorderLevel: level(a.reorderLevel) }, db.asBusinessName(a.businessName), db.asLedgerName('Actual'), db.asUserId(1));
+  },
+  // A known supplier of an item, at a price, preferred or not (the Items
+  // page's sources panel).
+  addItemSourceSimple: (a) => db.addOrUpdateItemSource({ itemName: a.itemName, vendorName: a.providerName, priceMinor: Number(a.priceMinor), isPreferred: a.preferred === 'true' }),
+  setItemStorageOriginSimple: (a) => db.setItemStorageOrigin(db.asItemName(a.itemName), (a.origin || null) as 'Hot' | 'Cold' | null, db.asUserId(1)),
   setEmployeeWageSimple: (a) => {
     const existing = db.getContact(a.employeeName) ?? {};
     db.setContact(a.employeeName, { ...existing, wage_minor_per_hour: Number(a.wageMinorPerHour) });
@@ -832,19 +867,47 @@ export function loadScreens(path: string): Map<string, Screen> {
 }
 
 /** Loads a positional data file (docs/pm-testing-e2e.md) plus its
- * optional sibling .control.csv (verify/screenshot/skip). */
-export function loadSteps(dataPath: string): Step[] {
+ * optional sibling .control.csv (path/verify/screenshot/skip), row for
+ * row, and expands its directives:
+ *
+ * - `"Include","common/x.csv"` inserts every step of that file (and its
+ *   own control file), resolved relative to the including file. A file
+ *   cannot include itself, directly or through another.
+ * - `"Set","name","value"` sets a variable for the rows after it,
+ *   included files too; `"Default","name","value"` sets it only when it
+ *   is not set yet, so a common file can name its own default.
+ * - `${name}` in any value, and in a control row, is replaced by the
+ *   variable; an unset variable is an error.
+ *
+ * A directive's own control row is ignored. Steps are numbered 1..n in
+ * the order they run. Shared steps live in shared-fixtures/common/. */
+export function loadSteps(dataPath: string, vars: Record<string, string> = {}, including: string[] = []): Step[] {
+  if (including.includes(dataPath)) throw new Error(`${dataPath} includes itself (through ${including.join(' -> ')}).`);
   const lines = splitDataAndComments(readCsvLines(dataPath));
   const controlPath = dataPath.replace(/\.csv$/, '.control.csv');
   const controlLines = existsSync(controlPath) ? readCsvLines(controlPath).map((l) => l.line) : [];
   const controlRows = controlLines.length > 0 ? controlLines.slice(1).map(parseCsvLine) : [];
+  const substitute = (value: string, fileLine: number) =>
+    value.replace(/\$\{(\w+)\}/g, (_m, name: string) => {
+      if (!(name in vars)) throw new Error(`${dataPath}:${fileLine}: \${${name}} is not set.`);
+      return vars[name];
+    });
 
-  return lines.map((entry, i) => {
-    const fields = parseCsvLine(entry.line);
-    const [screen_name, ...values] = fields;
-    const control = controlRows[i] ?? [];
-    return { index: i + 1, file_line: entry.fileLine, screen_name, values, path: control[0] ?? '', verify: control[1] ?? '', screenshot: control[2] ?? '', skip: (control[3] ?? '').toLowerCase() === 'true', comment: entry.comment };
+  const out: Step[] = [];
+  lines.forEach((entry, i) => {
+    const [screen_name, ...rawValues] = parseCsvLine(entry.line);
+    const values = rawValues.map((v) => substitute(v, entry.fileLine));
+    if (screen_name === 'Include') {
+      out.push(...loadSteps(join(dirname(dataPath), values[0]), vars, [...including, dataPath]));
+      return;
+    }
+    if (screen_name === 'Set') { vars[values[0]] = values[1] ?? ''; return; }
+    if (screen_name === 'Default') { if (!(values[0] in vars)) vars[values[0]] = values[1] ?? ''; return; }
+    const control = (controlRows[i] ?? []).map((v) => substitute(v, entry.fileLine));
+    out.push({ index: 0, file_line: entry.fileLine, file: dataPath, screen_name, values, path: control[0] ?? '', verify: control[1] ?? '', screenshot: control[2] ?? '', skip: (control[3] ?? '').toLowerCase() === 'true', comment: entry.comment });
   });
+  if (including.length === 0) out.forEach((step, i) => { step.index = i + 1; });
+  return out;
 }
 
 // {{fieldName}} templating — see docs/pm-testing-e2e.md "Field types and action sequences".
@@ -877,6 +940,7 @@ export function lintSteps(steps: Step[], screens: Map<string, Screen>): string[]
     if (screen.submit_selector && !screen.api_function && screen.screen_kind === 'data') {
       problems.push(`Row ${s.index}: screen "${s.screen_name}" has a real submit_selector but no real api_function - running this step via --path api would silently do nothing at all.`);
     }
+    if (screen.screen_kind === 'ui' && !UI_ACTIONS[s.screen_name]) problems.push(`Row ${s.index}: browser-only screen "${s.screen_name}" has no UI_ACTIONS entry.`);
     if (s.verify && !VERIFY_REGISTRY[s.verify]) problems.push(`Row ${s.index}: verify "${s.verify}" has no real VERIFY_REGISTRY entry.`);
   }
   return problems;
@@ -962,10 +1026,116 @@ async function runActionSequence(page: Page, actionsRaw: string): Promise<void> 
   }
 }
 
+/** Waits up to `ms` for `check` to hold, polling; the last failure's
+ * message, if any, explains why it never did. */
+async function waitUntil(check: () => Promise<boolean>, what: string, ms = 10_000): Promise<void> {
+  const until = Date.now() + ms;
+  for (;;) {
+    if (await check().catch(() => false)) return;
+    if (Date.now() > until) throw new Error(`timed out after ${ms}ms waiting until ${what}`);
+    await new Promise((r) => setTimeout(r, 200));
+  }
+}
+
+/** The browser-only screens (screen_kind `ui` in screens.csv): a gesture
+ * or a check of what the page shows, with no backend call of its own.
+ * Each takes the step's named fields. On the api and text paths they are
+ * skipped, since there is no page; the data a test builds is checked on
+ * every path by its verify column. Documented in docs/pm-testing-e2e.md,
+ * "Browser-only steps". */
+export const UI_ACTIONS: Record<string, (page: Page, a: Record<string, string>) => Promise<void>> = {
+  'Open Page': async (page, a) => {
+    await page.goto(a.route);
+    await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+  },
+  Click: async (page, a) => { await page.locator(a.selector).first().click(); await page.waitForTimeout(300); },
+  Focus: async (page, a) => { await page.locator(a.selector).first().focus(); },
+  Fill: async (page, a) => { await page.locator(a.selector).first().fill(a.value); await page.waitForTimeout(200); },
+  'Select Option': async (page, a) => { await page.locator(a.selector).first().selectOption({ label: a.label }); await page.waitForTimeout(300); },
+  'Press Key': async (page, a) => { await page.keyboard.press(a.key); await page.waitForTimeout(200); },
+  'Page Shows': async (page, a) =>
+    waitUntil(async () => ((await page.locator(a.selector).allTextContents()).join('\n')).includes(a.text), `${a.selector} shows "${a.text}"`),
+  'Page Lacks': async (page, a) =>
+    waitUntil(
+      async () => (a.text === '' ? (await page.locator(a.selector).count()) === 0 : !((await page.locator(a.selector).allTextContents()).join('\n')).includes(a.text)),
+      a.text === '' ? `there is no ${a.selector}` : `${a.selector} no longer shows "${a.text}"`
+    ),
+  'Page Count': async (page, a) =>
+    waitUntil(async () => (await page.locator(a.selector).count()) === Number(a.count), `there are ${a.count} of ${a.selector}`),
+  'Page Value': async (page, a) =>
+    waitUntil(async () => (await page.locator(a.selector).first().inputValue()) === a.value, `${a.selector} holds "${a.value}"`),
+  'Page Enabled': async (page, a) =>
+    waitUntil(async () => (await page.locator(a.selector).first().isEnabled()) === (a.enabled === 'true'), `${a.selector} is ${a.enabled === 'true' ? 'enabled' : 'disabled'}`),
+  'Page Has Option': async (page, a) =>
+    waitUntil(
+      async () => (await page.locator(a.selector).first().locator('option').allInnerTexts()).some((t) => t.trim() === a.label) === (a.present !== 'false'),
+      `${a.selector} ${a.present === 'false' ? 'has no' : 'has an'} option "${a.label}"`
+    ),
+  'Page Focused': async (page, a) =>
+    waitUntil(async () => page.locator(a.selector).first().evaluate((el) => el === document.activeElement), `${a.selector} has the keyboard focus`),
+  // Opens the route and fails on a server error (HTTP 500 or more) or on
+  // a script error the page throws while it loads. A minute to load, as
+  // the dev server builds a page on its first visit.
+  'Page Opens Cleanly': async (page, a) => {
+    const errors: string[] = [];
+    const onError = (e: Error) => errors.push(e.message);
+    page.on('pageerror', onError);
+    try {
+      const response = await page.goto(a.route, { timeout: 60000 });
+      await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+      const status = response?.status() ?? 0;
+      if (status >= 500) throw new Error(`${a.route} answered HTTP ${status}.`);
+      if (errors.length > 0) throw new Error(`${a.route} threw: ${errors.join('; ')}`);
+    } finally {
+      page.off('pageerror', onError);
+    }
+  },
+  // Files a page hands over or takes in, kept by name in stepFile().
+  Download: async (page, a) => {
+    const [download] = await Promise.all([page.waitForEvent('download'), page.locator(a.selector).first().click()]);
+    await download.saveAs(stepFile(a.file));
+  },
+  Upload: async (page, a) => { await page.locator(a.selector).first().setInputFiles(stepFile(a.file)); await page.waitForTimeout(300); },
+  'File Contains': async (_page, a) => {
+    if (!readFileSync(stepFile(a.file), 'utf-8').includes(a.text)) throw new Error(`${a.file} does not contain "${a.text}".`);
+  },
+};
+
+/** Where Download saves a file and Upload finds it, by name: the
+ * STEP_RUNNER_FILES_DIR environment variable, or step-runner-files in
+ * the system's temporary directory. */
+function stepFile(name: string): string {
+  const dir = process.env.STEP_RUNNER_FILES_DIR ?? join(tmpdir(), 'step-runner-files');
+  mkdirSync(dir, { recursive: true });
+  return join(dir, name);
+}
+
+/** Where a screenshot goes: a name with a directory (`manual-images/x`)
+ * is relative to docs/, a bare name goes to --screenshot-dir. */
+function screenshotPath(name: string, screenshotDir: string): string {
+  const file = screenshotFile(name, screenshotDir);
+  mkdirSync(dirname(file), { recursive: true });
+  return file;
+}
+function screenshotFile(name: string, screenshotDir: string): string {
+  return `${name.includes('/') ? join(__dirname, '../../docs', name) : resolve(screenshotDir, name)}.png`;
+}
+
 export async function runStepViaUi(page: Page, step: Step, screens: Map<string, Screen>, screenshotDir: string): Promise<{ ok: boolean; error?: string }> {
   try {
     const screen = screens.get(step.screen_name);
     const args = buildArgs(step, screen);
+    // A screen with no browser wiring at all (screen_kind `api`: setup the
+    // UI has no form for, or a check of the stored data) runs through the
+    // API on every path, by design rather than as a fallback.
+    if (screen?.screen_kind === 'api') return runStepViaApi(step, screens);
+    if (screen?.screen_kind === 'ui') {
+      const action = UI_ACTIONS[step.screen_name];
+      if (!action) return { ok: false, error: `No browser action named "${step.screen_name}".` };
+      await action(page, args);
+      if (step.screenshot) await page.screenshot({ path: screenshotPath(step.screenshot, screenshotDir), fullPage: true });
+      return { ok: true };
+    }
     // See docs/pm-testing-e2e.md — "runStepViaUi fails loudly when a screen has no UI wiring"
     const hasAnyRealUiWiring = !!(
       screen &&
@@ -999,7 +1169,7 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
     }
     if (screen?.open_selector) {
       const openStart = Date.now();
-      await runActionSequence(page, screen.open_selector);
+      await runActionSequence(page, resolveSelectorTemplate(screen.open_selector, args));
       console.log(`  [load] open_selector ${screen.open_selector}: ${Date.now() - openStart}ms`);
     }
     if (screen) {
@@ -1065,8 +1235,7 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
       if (!screen?.submit_selector) {
         await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
       }
-      mkdirSync(screenshotDir, { recursive: true });
-      await page.screenshot({ path: `${screenshotDir}/${step.screenshot}.png`, fullPage: true });
+      await page.screenshot({ path: screenshotPath(step.screenshot, screenshotDir), fullPage: true });
     }
     if (step.verify) {
       const verifyFn = VERIFY_REGISTRY[step.verify];
@@ -1123,6 +1292,7 @@ export async function runStepViaText(terminal: TuiTest, step: Step, screens: Map
     const screen = screens.get(step.screen_name);
     const args = buildArgs(step, screen);
     if (!screen) return { ok: false, error: `No real screen registry entry for "${step.screen_name}".` };
+    if (screen.screen_kind === 'api') return runStepViaApi(step, screens);
     if (screen.screen_kind !== 'session') {
       await navigateMenuGenerically(terminal, step.screen_name);
     }
@@ -1169,10 +1339,12 @@ async function main() {
   const args = process.argv.slice(2);
   const dataPath = args[0];
   if (!dataPath) {
-    console.error('Usage: step-runner <data.csv> [--screens screens.csv] [--lint] [--pretty] [--path api|ui|text] [--steps N] [--only N] [--skip N] [--non-interactive] [--delay MS] [--ui] [--screenshot-dir DIR] [--verify NAME] [--screenshot NAME] [--fallback-to-api] [--verify-via-recording] [--timing-file FILE]');
+    console.error('Usage: step-runner <data.csv> [--screens screens.csv] [--lint] [--pretty] [--path api|ui|text] [--steps N] [--only N] [--skip N] [--non-interactive] [--delay MS] [--ui] [--screenshot-dir DIR] [--verify NAME] [--screenshot NAME] [--fallback-to-api] [--verify-via-recording] [--timing-file FILE] [--list-screenshots]');
     process.exit(1);
   }
-  const screensPath = args.includes('--screens') ? args[args.indexOf('--screens') + 1] : dataPath.replace(/[^/]+$/, 'screens.csv');
+  // The one screen registry: beside the data file, else shared-fixtures/screens.csv.
+  const besideData = dataPath.replace(/[^/]+$/, 'screens.csv');
+  const screensPath = args.includes('--screens') ? args[args.indexOf('--screens') + 1] : existsSync(besideData) ? besideData : join(__dirname, '../../shared-fixtures/screens.csv');
   const path = args.includes('--path') ? args[args.indexOf('--path') + 1] : 'api';
   const stepsArg = args.includes('--steps') ? Number(args[args.indexOf('--steps') + 1]) : 1;
   const nonInteractive = args.includes('--non-interactive');
@@ -1200,6 +1372,19 @@ async function main() {
   if (onlyN) allSteps = allSteps.filter((s) => s.index === onlyN);
   if (onlyN && (inlineVerify || inlineScreenshot)) {
     allSteps = allSteps.map((s) => ({ ...s, verify: inlineVerify ?? s.verify, screenshot: inlineScreenshot ?? s.screenshot }));
+  }
+
+  // Every picture the data files' screenshot columns take (every .csv
+  // argument is one), as "data file<TAB>picture" lines, both relative to
+  // the repository (scripts/manual-pictures.ts reads these).
+  if (args.includes('--list-screenshots')) {
+    const repo = join(__dirname, '../..');
+    for (const file of args.filter((a, i) => a.endsWith('.csv') && args[i - 1] !== '--screens')) {
+      for (const step of loadSteps(file)) {
+        if (step.screenshot && !step.skip) console.log(`${relative(repo, resolve(file))}\t${relative(repo, screenshotFile(step.screenshot, screenshotDir))}`);
+      }
+    }
+    return;
   }
 
   if (args.includes('--lint')) {
@@ -1231,8 +1416,11 @@ async function main() {
   async function ensureUiPage(): Promise<Page> {
     if (!page) {
       browser = await chromium.launch({ headless: !openInspector });
-      const context = await browser.newContext({ baseURL: 'http://localhost:5173' });
+      const context = await browser.newContext({ baseURL: 'http://localhost:5173', acceptDownloads: true });
       page = await context.newPage();
+      // A confirmation dialog (Delete a division: "Are you sure?") is
+      // accepted, as the person following the test would.
+      page.on('dialog', (dialog) => { dialog.accept().catch(() => {}); });
       // Logs measured backend wait time (responseEnd - requestStart) per network call.
       page.on('requestfinished', async (req) => {
         if (!req.url().includes(':3001')) return;
@@ -1288,8 +1476,15 @@ async function main() {
       if (answer.trim().toLowerCase() === 'n') { console.log('Stopped.'); if (browser) await browser.close(); return; }
     }
     for (const step of batch) {
-      const stepPath = step.path || path;
+      // A control row's path `ui-only` runs the step only in the browser:
+      // a check of data that only the browser's gestures created.
+      const uiOnly = step.path === 'ui-only';
+      const stepPath = uiOnly ? path : step.path || path;
       if (step.comment) console.log(`\n# ${step.comment}`);
+      if ((uiOnly || screens.get(step.screen_name)?.screen_kind === 'ui') && stepPath !== 'ui') {
+        console.log(`⏭  ${step.index}: ${step.screen_name} (browser only, skipped on the ${stepPath} path)`);
+        continue;
+      }
       const stepStart = Date.now();
       let result = stepPath === 'ui'
         ? await runStepViaUi(await ensureUiPage(), step, screens, screenshotDir)
@@ -1298,6 +1493,13 @@ async function main() {
           : await runApiStep(step);
       const stepMs = Date.now() - stepStart;
       recordTiming(step.index, step.screen_name, stepPath, stepMs, result.ok, result.ok ? undefined : result.error);
+      if (!result.ok && stepPath === 'ui' && page) {
+        // What the page looked like when the step failed, for diagnosis.
+        const failureDir = join(process.env.STEP_RUNNER_FAILURE_DIR ?? '/tmp/step-runner-failures', step.file ? step.file.replace(/^.*\//, '').replace(/\.csv$/, '') : 'run');
+        mkdirSync(failureDir, { recursive: true });
+        await page.screenshot({ path: join(failureDir, `${step.index}.png`), fullPage: true }).catch(() => {});
+        writeFileSync(join(failureDir, `${step.index}.txt`), `${page.url()}\n\n${await page.locator('body').innerText().catch(() => '')}`);
+      }
       const uiSucceededDirectly = stepPath === 'ui' && result.ok;
       console.log(result.ok ? `✅ ${step.index}: ${step.screen_name} (${stepPath}) [${stepMs}ms]` : `❌ ${step.index}: ${step.screen_name} (${stepPath}): ${result.error} [${stepMs}ms]`);
       if (verifyViaRecording && uiSucceededDirectly) {

@@ -1,0 +1,5 @@
+# Logs in as the administrator, the one user every fresh database has,
+# and continues past the session screen.
+"Default","loginShot",""
+"Login","admin","changeme123"
+"Select Business","admin"

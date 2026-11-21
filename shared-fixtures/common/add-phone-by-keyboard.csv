@@ -1,0 +1,4 @@
+# Adds the phone number ${value} to the contact on screen with the keyboard alone.
+"Set","list","Phone numbers"
+"Set","field","input >> nth=0"
+"Include","add-to-list-by-keyboard.csv"

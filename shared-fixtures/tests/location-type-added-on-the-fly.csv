@@ -1,0 +1,20 @@
+# A new location can be given a location type that does not exist yet:
+# "+ Add type" adds it and selects it, the location is created with it,
+# and the type is offered from then on.
+"Include","../common/business.csv"
+"Open Page","/locations"
+"Focus",".list-toolbar"
+"Press Key","Insert"
+"Fill",".generic-form fieldset >> nth=0 >> input","Test Pop-up Stall"
+"Fill",".generic-form fieldset >> nth=1 >> input","Adelaide"
+"Fill","input[placeholder='New type\u{2026}']:visible","Pop-up Stall"
+"Click","button:has-text('+ Add type'):visible"
+"Page Value",".generic-form fieldset >> nth=2 >> select","Pop-up Stall"
+"Focus",".generic-form fieldset >> nth=1 >> input"
+"Press Key","Enter"
+"Page Shows",".entry","Test Pop-up Stall"
+"Check Entity Exists","Test Pop-up Stall"
+"Open Page","/locations"
+"Focus",".list-toolbar"
+"Press Key","Insert"
+"Page Has Option",".generic-form fieldset >> nth=2 >> select","Pop-up Stall","true"

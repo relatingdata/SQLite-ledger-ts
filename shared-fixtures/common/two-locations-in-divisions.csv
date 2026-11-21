@@ -1,0 +1,11 @@
+# Two locations in the same city, each in a division of its own: Head
+# Office in Head Office Division, Warehouse B in Warehouse B Division.
+"Include","division-grouping.csv"
+"Set","location","Head Office"
+"Include","location.csv"
+"Set","division","Head Office Division"
+"Include","division.csv"
+"Set","location","Warehouse B"
+"Include","location.csv"
+"Set","division","Warehouse B Division"
+"Include","division.csv"

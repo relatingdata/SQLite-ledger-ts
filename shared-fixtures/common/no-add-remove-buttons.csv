@@ -1,0 +1,7 @@
+# The address and phone lists on screen have no Add or Remove buttons:
+# Insert and Delete are the only way to add and remove.
+"Page Count","button:text-is('Add New')","0"
+"Page Count","button:text-is('Remove')","0"
+"Page Lacks","body","Address line 1"
+"Page Shows","legend","Addresses"
+"Page Shows","legend","Phone numbers"

@@ -213,7 +213,7 @@ Locations are real retail outlets and warehouses --- each has a real street addr
 
 The **Items Catalog**, under Accounts Payable, is where real inventory items are created and organized (this used to be called "Parts" throughout the application — the term has changed everywhere, but the screen's own real behavior is unchanged). An item's own real, canonical details are kept separate from who actually supplies it --- the same, real item is routinely available from more than one real manufacturer or vendor, at different real prices and package sizes, and one real source can be marked preferred over the others. A new, real category can be created directly, inline, at the moment a new item needs one --- there is no need to visit a separate screen first.
 
-![The Items Catalog, with "+ New category..." selected, ready to create a real, new category inline.](manual-images/m_parts_cropped.png)
+![The Items Catalog, a new category's name being typed in, inline, in the tree.](manual-images/m_items_new_category.png)
 
 Every business now gets its own, real, separate items catalog --- selecting Wine Retail Business shows only Wine Retail Business's own real items, never another business's. This mirrors the same fix already made for warehouse/retail locations: each business's own catalog lives under its own real "{Business Name} Items" home, rather than one, single, shared list every business used to see.
 

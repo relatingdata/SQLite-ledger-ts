@@ -58,7 +58,15 @@
   // Recalculates activeSectionKey from the URL — see docs/pm-frontend-reference.md.
   $effect(() => {
     if ($page.url.pathname && rawMenuSections.length > 0) {
-      let matching = rawMenuSections.find((s) => s.links.some((l) => l.href === $page.url.pathname));
+      // The link opened, query included (/contacts?focus=customers), names
+      // its section; failing that, the current section if it has a link
+      // to this page, and only then the first section that does.
+      const opened = $page.url.pathname + $page.url.search;
+      const linksHere = (s: (typeof rawMenuSections)[number]) => s.links.some((l) => l.href.split('?')[0] === $page.url.pathname);
+      let matching =
+        rawMenuSections.find((s) => s.links.some((l) => l.href === opened)) ??
+        rawMenuSections.find((s) => s.key === activeSectionKey && linksHere(s)) ??
+        rawMenuSections.find(linksHere);
       // /setup has no direct menu link of its own — see docs/pm-frontend-reference.md.
       if (!matching && $page.url.pathname === '/setup') {
         matching = rawMenuSections.find((s) => s.label === 'Configuration');

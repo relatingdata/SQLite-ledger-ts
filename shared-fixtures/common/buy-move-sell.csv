@@ -1,0 +1,6 @@
+# Stock's whole journey for ${item}: 24 bought into Head Office, 12
+# moved on to Warehouse B, 2 sold there at 5.00 each. Needs
+# common/two-locations-in-divisions.csv and an item.
+"Cash Purchase","${business}","Head Office","${item}","24","300","Actual"
+"Transfer Items","${business}","${item}","Head Office","Warehouse B","12","TRANSFER-1","Actual"
+"POS Sale","${business}","Warehouse B","${item}","2","500","Actual"

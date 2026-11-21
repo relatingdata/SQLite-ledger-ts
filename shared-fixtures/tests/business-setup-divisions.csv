@@ -1,0 +1,17 @@
+# Business Setup shows the business's locations grouped by Division
+# (not by the User grouping of its role matrix); Insert adds a
+# division, selecting it explains that a division is a reporting
+# grouping, and Delete removes it again.
+"Include","../common/business.csv"
+"Open Page","/setup/business-setup"
+"Page Shows","body","${business} \u{2014} Division for Locations"
+"Focus","[aria-keyshortcuts='Insert Delete']"
+"Press Key","Insert"
+"Fill","input[placeholder='Division name']","Testburg"
+"Press Key","Enter"
+"Page Count","button:text-is('Testburg')","1"
+"Click","button:text-is('Testburg')"
+"Page Shows","body","is purely a reporting grouping"
+"Focus","[aria-keyshortcuts='Insert Delete']"
+"Press Key","Delete"
+"Page Count","button:text-is('Testburg')","0"

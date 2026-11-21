@@ -47,17 +47,43 @@ says what position 1, 2, 3... mean for a given screen name. A line
 starting with `#` is a free-text comment attached to the next data
 row, shown before that step runs, in `--pretty` or any actual run.
 
+Three directives are not steps; they shape the steps around them:
+
+- **`"Include","common/x.csv"`** puts every step of that file (and of
+  its own control file) here, the path relative to the including file.
+  A file that includes itself, directly or through another, is an
+  error.
+- **`"Set","name","value"`** sets a variable for every row after it,
+  included files too.
+- **`"Default","name","value"`** sets it only when it is not set yet,
+  so a shared file names its own defaults and the including file
+  overrides them.
+
+`${name}` in any value, and in any control row, is the variable's
+value; a variable never set is an error naming the file and line. A
+directive's own control row is ignored. Steps are numbered 1 to n in
+the order they run, includes expanded.
+
+```csv
+"Set","business","Supplier Co"
+"Include","../common/business.csv"
+"Create Sales Invoice","${business}","${customer}","INV-100","12500","manual"
+```
+
 ### The screen registry — `shared-fixtures/screens.csv`
 
-Header row: `screen_name,ui_path,open_selector,api_function,
-submit_selector,position,field_name,field_selector,field_type`. One
-row per field a screen accepts:
+Header row: `screen_name,screen_kind,ui_path,open_selector,
+api_function,submit_selector,position,field_name,field_selector,
+field_type`. One row per field a screen accepts. A data file beside
+its own `screens.csv` uses that one; any other uses
+`shared-fixtures/screens.csv`.
 
 - **`screen_name`**: matches a data file's first column.
 - **`ui_path`**: where this screen lives (blank if a prior step
   already navigated there).
 - **`open_selector`**: an optional click needed before fields become
-  visible.
+  visible. `{{field}}` in it is that field's value, so one screen
+  serves every name (`Set Bom Component` opens the assembly it names).
 - **`api_function`**: the direct backend function this screen's
   submit corresponds to (blank for a UI-only screen).
 - **`submit_selector`**: the button that finalizes the screen.
@@ -65,11 +91,21 @@ row per field a screen accepts:
   per field — its position in the data row, the name passed to
   `api_function`, its Playwright selector, and its kind (`text`,
   `select`, `check`).
-- **`screen_kind`**: `session` (Login, Select Business, Switch
-  Session — UI-only, no data-creation side effect to call via the API
-  path) or `data` (default — everything else). The lint check's
-  "submit_selector but no api_function" warning only applies to
-  `data`-kind screens.
+- **`screen_kind`**:
+  - `data` (the default): a form the browser fills and submits, or
+    the `api_function` the API path calls.
+  - `session`: Login, Select Business, Switch Session; browser only,
+    nothing to create through the API.
+  - `api`: setup no screen has a form for (a translation, a location's
+    capacity, an item's known supplier) or a check of stored data. It
+    calls its `api_function` on every path, the browser's too.
+  - `ui`: a browser-only gesture or check ("Browser-only steps",
+    below). It runs only on the `ui` path and is skipped, and said to
+    be, on the others.
+
+  The lint check's "submit_selector but no api_function" warning only
+  applies to `data`-kind screens, and it flags a `ui`-kind screen with
+  no browser action.
 
 ### The control file — a full, per-step execution plan
 
@@ -78,9 +114,13 @@ An optional, same-base-name `.control.csv` file, header
 — a complete, scripted alternative to manually driving the tool, able
 to mix the fast API path and the driven UI path freely within one
 non-interactive run. A row's own `path` column, when present,
-overrides the command line's `--path` flag for that row; `skip`
-(`true`/`false`) skips any specific row, not only a contiguous prefix
-(which the CLI's `--skip N` still covers).
+overrides the command line's `--path` flag for that row; `ui-only`
+runs the row only on the `ui` path (a check the API path has already
+made another way). `skip` (`true`/`false`) skips any specific row,
+not only a contiguous prefix (which the CLI's `--skip N` still
+covers). A `screenshot` name with a `/` in it is relative to `docs/`
+(`manual-images/m_login`, a picture for the manuals); a bare name goes
+to `--screenshot-dir`.
 
 **A real, current limitation, found wiring up `--path text`**: `skip`
 is one, path-agnostic boolean — there is no way for a row to say
@@ -123,7 +163,15 @@ step-runner <data.csv> [--screens screens.csv] [options]
   --timing-file FILE          write one CSV row per step (index, screen, path, ms, ok, error)
                                so a slow step can be found from a file, not by eye in scrolling
                                console output
+  --list-screenshots          print "data file<TAB>picture" for every screenshot the .csv
+                               arguments' control files take, run nothing
 ```
+
+When a step fails on the `ui` path, the runner saves what the browser
+showed: `<n>.png` and `<n>.txt` (the address and the page's text) in
+`/tmp/step-runner-failures/<file>/`, `<file>` being the data file the
+step came from and `<n>` its number (`STEP_RUNNER_FAILURE_DIR` moves
+it). A dialog the page opens (a confirm before a delete) is accepted.
 
 
 ### The step runner's own functions
@@ -136,7 +184,8 @@ step-runner <data.csv> [--screens screens.csv] [options]
   its fields sorted by position.
 - `loadSteps(dataPath)` reads a positional data file (no header row),
   and its `.control.csv` when one exists, row for row, including the
-  `skip` column.
+  `skip` column, and expands its directives (`Include`, `Set`,
+  `Default`, `${name}`).
 - `lintSteps(steps, screens)` lists every problem it finds: a screen
   name with no registry entry, a value count that differs from the
   registry, an `api_function` with no `API_REGISTRY` entry, and a
@@ -153,6 +202,8 @@ Tests:
 - "loadSteps: reads a purely positional data file with no header row" (`backend/scripts/step-runner.test.ts`)
 - "loadSteps: reads a matching .control.csv when present, aligned by row" (`backend/scripts/step-runner.test.ts`)
 - "loadSteps: reads the real skip column from a matching .control.csv" (`backend/scripts/step-runner.test.ts`)
+- "loadSteps: Include, Set and Default expand in order, ${name} in values and control rows, a directive's own control row ignored" (`backend/scripts/step-runner.test.ts`)
+- "loadSteps: an unset ${name} and a file that includes itself are errors" (`backend/scripts/step-runner.test.ts`)
 - "lintSteps: flags a screen_name with no real registry entry" (`backend/scripts/step-runner.test.ts`)
 - "lintSteps: flags a real value-count mismatch against the registry" (`backend/scripts/step-runner.test.ts`)
 - "lintSteps: flags an api_function with no real API_REGISTRY entry" (`backend/scripts/step-runner.test.ts`)
@@ -519,7 +570,7 @@ the API path, rather than calling a backend function 1:1:
   share browser session state, so a run that starts `api` and
   switches to `ui` mid-sequence finds no logged-in session in the
   freshly-launched browser.
-- A confirmed application gap, surfaced by `e2e/tests/tutorial-walkthrough.spec.ts`:
+- A confirmed application gap, surfaced by the tutorial's POS steps:
   no screen sets a persistent retail price on an item, so a POS sale with none ever
   set defaults to $0.00; the only way to get a non-zero price today is typing it
   directly into the cart line every time. The same gap applies per-currency: the
@@ -538,37 +589,10 @@ lookup both only recognize the modern shape, so for this one business
 the Business Setup tree shows no groups/locations at all, and
 creating or saving a location against it fails outright. Not fixed —
 migrating this large, pre-existing demo dataset is its own, separate,
-riskier undertaking. `e2e/tests/business-setup.spec.ts` therefore only
-covers what's genuinely functional against this business (company-wide
-staff display, group/division creation via `createHierarchyValue`/
-`setEntityRelationship` — neither touches the Locations root); full
-location/employee/open-hours/schedule coverage for Business Setup runs
-instead against a freshly-created business (`make test-e2e-tutorial-browser`).
-
-### Known gap: `e2e/tests/tutorial-walkthrough.spec.ts`'s Items-section-onward is already stale
-
-While retrofitting the Insert/Enter/Escape/Delete keyboard idiom (see
-"Insert/Enter/Escape/Delete" in docs/pm-frontend-reference.md), the
-Business Setup portion of this spec (division/location/employee
-creation, lines ~84-116) genuinely broke — it filled the same inputs
-as before but then clicked the now-removed Add buttons to confirm —
-and was fixed in place to press Enter instead, same as every other
-converted screen. Investigating further turned up a second, unrelated,
-pre-existing gap: from the "Create the first product category and
-product" section onward (`/items`'s own `select`-based "+ New
-category…" flow, a single "+ Add" button, and more further down), this
-spec describes an items screen shape that predates the current
-tree-based `items/+page.svelte` entirely — `items/+page.svelte` has no
-top-level `<select>` or "+ New category…" option at all any more. This
-is not a regression from this plan's own changes (confirmed by reading
-the current screen's markup, which never matched what this spec
-assumes) and is not fixed here — rewriting the rest of this long,
-screenshot-generating spec to match the real, current UI for every
-screen it drives (items, General Journal, Purchase Order, Cash
-Purchase, Locations, Stock Transfer, Stock Take, POS) is its own,
-separate, much larger undertaking, out of scope for a keyboard-idiom
-retrofit. `make e2e-spec-tutorial`/`e2e-spec-all` will still fail from
-that point on until someone takes that on directly.
+riskier undertaking. No test uses this business: Business Setup is
+tested against businesses the tests create (`business-setup-divisions`,
+`employee-second-location-schedule`, and the tutorial,
+`make test-e2e-tutorial-browser`).
 
 ### Known gap: a bare-selector click in `open_selector` targets the center of its element, not a safe empty spot
 
@@ -880,18 +904,6 @@ captured directly from a live, passing run of this exact tutorial" —
 true only once this target (or its two underlying pieces) actually
 runs.
 
-A separate, real browser spec covers the same ground from an entirely
-independent, hand-written Playwright test rather than the step-runner
-engine:
-
-```
-make e2e-spec-tutorial   # e2e/tests/tutorial-walkthrough.spec.ts, via browser-run
-```
-
-This drives an actual running app (the browser-test runner starts the
-dev servers itself if needed) through the same login-through-first-
-General-Journal-entry walkthrough, independently of the step runner.
-
 **Known gap**: the Tutorial fixture still covers only a fraction of
 the User Manual's own Chapter 3 walkthrough — a Division, a Warehouse
 created through Business Setup, an Employee, a location's own static
@@ -1032,17 +1044,14 @@ names are genuinely written in its own language:
 | Ditta Italiana Srl | Italian — Italy |
 | Schweizer KMU AG | German — Switzerland |
 
-`language-parameterized.spec.ts` and `coa-prototype-filtering.spec.ts`
-exercise these. Current gap: their sample data isn't yet cleanly
+No test uses them: each test builds the business it needs (a test of
+translated text, `help-text-in-german`, gives its own words their
+German translations). Current gap: their sample data isn't yet cleanly
 separated the way it once was as its own SQL file — the German BMW /
 French Peugeot/Ditta/Schweizer demo data and the per-language
 vocabulary/translations it depends on are both seeded together in
 TypeScript (`seedRemainingData()`, `backend/src/db-seed.ts`), not split
 into separate files at all any more.
-
-```
-make test-e2e-browser-languages   # runs the month simulation, then verifies every language against it in a real browser
-```
 
 ### A minimal, backend-only business-lifecycle proof
 
@@ -1212,130 +1221,182 @@ test-e2e-project-builder-full` (which resets the database first) or
 directly via `node --import tsx
 backend/scripts/simulate-project-builder-cycles.ts`.
 
-### The Playwright specs (`e2e/tests/`)
+## Standalone tests (`shared-fixtures/tests/`)
 
-`make e2e-spec-all` runs every spec in a real browser against the running
-servers, after `make reset-db`; `make e2e-spec-one TEST=<file>` runs one.
-No gate runs them.
+Every test of the running app is a data file the step runner runs.
+There are no Playwright specs: the step runner's own browser driver,
+the `playwright` library (a dependency of `backend/`), is the one way
+into the browser, and `make check-step-tests` fails on any `*.spec.ts`
+file or any use of `@playwright/test`.
 
-⚠️ **They are stale: 6 of their 61 tests pass.** Measured on 21
-November 2026 (`make e2e-spec-all`, then the files it had not reached
-before its 50-minute limit), from `make reset-db`:
+A standalone test is one data file in `shared-fixtures/tests/`, with a
+control file beside it when a row needs a path, a verify or a
+screenshot. Each one:
 
-- **Passing (6):** `general-journal.spec.ts`,
-  `installation-check.spec.ts`, `screenshot-choosebusiness.spec.ts`,
-  `screenshot-login.spec.ts`, `screenshot-rtl-mechanism.spec.ts`,
-  `screenshot-rtl.spec.ts`.
-- **Failing at their first step (49):** after logging in they choose
-  the fixture business (`fixtures.business`, `shared-fixtures/wine-retail.ts`)
-  in the session screen's first `select`. A reset database holds no
-  such business (the backend no longer seeds demo businesses on start),
-  so the option never appears and the step times out. Each needs to
-  create its business first, or to run after a tutorial has built it.
-- **Failing later at a `select` (3):** `full-business-lifecycle.spec.ts`,
-  `training-wine-business.spec.ts` and `tutorial-walkthrough.spec.ts`
-  build a business from empty, then time out on a second `select`
-  whose option is missing.
-- **Other failures (3 files, 9 tests):** `language-parameterized.spec.ts`
-  (7 languages) finds screen text that no longer matches the
-  translation data; `location-type-extensibility.spec.ts` looks for a
-  `+ New Location` button the Locations screen no longer has;
-  `min-e2e-route-smoke.spec.ts` exceeds its 5-minute limit.
+- starts from a fresh database and relies on no other test and on no
+  demo business: it builds the smallest business that shows what it
+  checks;
+- opens with comment lines saying what it checks; the file's name is
+  the test's title, and the manual lists it under the code it
+  exercises (`check-test-docs` counts them with the unit tests);
+- takes its common steps from `shared-fixtures/common/`, each file
+  there saying what it builds, what it needs first, and which
+  variables it reads, with a `Default` for each.
 
-The `debug_*` specs and `test-translation-bug.spec.ts` are one-off
-investigations, not checks of anything the manual specifies. The
-tutorials' step-runner fixtures (`make test-e2e-tutorials`, and with
-`--path ui` in the browser) are the browser checks that are kept
-current.
-
-**Screenshots for the manuals**
-
-Tests:
-- "Capture manual screenshots" (`e2e/tests/capture-manual-screenshots.spec.ts`)
-- "Screenshot BOM section on Items page" (`e2e/tests/screenshot-bom.spec.ts`)
-- "Screenshot Cash Sale after intro-box fix" (`e2e/tests/screenshot-cashsale.spec.ts`)
-- "Screenshot Choose Business page" (`e2e/tests/screenshot-choosebusiness.spec.ts`)
-- "Screenshot AP Purchase and P&L with expanded rows, to show the new font-size scale" (`e2e/tests/screenshot-font-sizes.spec.ts`)
-- "Screenshot General Journal in ${language}, for final approval" (`e2e/tests/screenshot-journal-final-approval.spec.ts`)
-- "Screenshot General Journal in Hebrew, for approval" (`e2e/tests/screenshot-journal-rtl.spec.ts`)
-- "Screenshot Login page after centering fix" (`e2e/tests/screenshot-login.spec.ts`)
-- "Screenshot Negroni BOM, real click, final verification" (`e2e/tests/screenshot-negroni.spec.ts`)
-- "Post a real sale, then screenshot the P&L with expanded rows" (`e2e/tests/screenshot-pl-with-data.spec.ts`)
-- "Screenshot Purchase Order page" (`e2e/tests/screenshot-po.spec.ts`)
-- "Screenshot Login in Hebrew - mechanism only, no translations yet" (`e2e/tests/screenshot-rtl-mechanism.spec.ts`)
-- "Screenshot Login in Hebrew, confirming full restore" (`e2e/tests/screenshot-rtl.spec.ts`)
-- "Screenshot the new Stock-Out Risk report page" (`e2e/tests/screenshot-stockout-risk.spec.ts`)
-- "Screenshot Stock Take page" (`e2e/tests/screenshot-stocktake.spec.ts`)
-- "Screenshot Welcome panel after full-panel fix" (`e2e/tests/screenshot-welcome.spec.ts`)
-
-**Debugging leftovers**
-
-Tests:
-- "debug journal" (`e2e/tests/debug_journal.spec.ts`)
-- "debug items" (`e2e/tests/debug_parts.spec.ts`)
-- "debug shelf2" (`e2e/tests/debug_shelf2.spec.ts`)
-- "Try saving a real translation" (`e2e/tests/test-translation-bug.spec.ts`)
-
-**Business walkthroughs**
-
-Tests:
-- "Create every real, new vocabulary word and apply every real translation, from one, single, real data file" (`e2e/tests/build-vocabulary-and-translations.spec.ts`)
-- "demo: create the first real vendor with address/phone, then the first product they supply, in a new sub-category" (`e2e/tests/first-vendor-and-product.spec.ts`)
-- "Full business lifecycle, entirely through the real UI, from a genuinely empty database" (`e2e/tests/full-business-lifecycle.spec.ts`)
-- "All real languages are present, then Wine Retail Business (already populated) is exercised through the UI" (`e2e/tests/full-e2e-with-languages.spec.ts`)
-- "installation check: log in, see the real languages, log out" (`e2e/tests/installation-check.spec.ts`)
-- "UI text matches the real, current translation data for ${language}" (`e2e/tests/language-parameterized.spec.ts`)
-- "Min-e2e route smoke: every real route loads without a real, unhandled error" (`e2e/tests/min-e2e-route-smoke.spec.ts`)
-- "Simple: receive stock at warehouse, transfer a quarter to retail, sell in three separate sales" (`e2e/tests/simple-receive-transfer-sell.spec.ts`)
-- "Create the second, augmented Training Wine Business through the UI" (`e2e/tests/training-wine-business.spec.ts`)
-- "Tutorial: build a real wine retail business from scratch through the UI" (`e2e/tests/tutorial-walkthrough.spec.ts`)
-- "run real transactions for Wine Retail Business entirely through the real web UI, from a fresh database" (`e2e/tests/wine-business-setup.spec.ts`)
-
-**Screens and components**
-
-Tests:
-- "AddressList and PhoneList work with keyboard only, no visible Add/Remove buttons" (`e2e/tests/address-phone-keyboard-only.spec.ts`)
-- "Business Setup: the tree, company-wide staff, and group creation via Insert" (`e2e/tests/business-setup.spec.ts`)
-- "the General Journal account dropdown shows only accounts from the current business's own real CoA prototype" (`e2e/tests/coa-prototype-filtering.spec.ts`)
-- "the 9 complex help texts (embedded <code>, dynamic session names, and true AR/AP word-choice branches) all render correctly in German" (`e2e/tests/complex-help-text.spec.ts`)
-- "Contacts page correctly uses the shared AddressList/PhoneList components" (`e2e/tests/contacts-address-migration.spec.ts`)
-- "Contacts page is context-aware — the real, focused category shown depends on which real menu link was used" (`e2e/tests/contacts-focus.spec.ts`)
-- "P&L division picker shows the real, nested hierarchy — Consolidated -> city division -> location division, any level directly selectable" (`e2e/tests/division-tree-picker.spec.ts`)
-- "Structured Editor correctly uses the shared AddressList/PhoneList components" (`e2e/tests/editor-address-migration.spec.ts`)
-- "e-invoicing: a real, posted invoice can be exported as a real UBL 2.1 document and imported back as a real, draft Purchase Invoice" (`e2e/tests/einvoice-export-import.spec.ts`)
-- "General Journal account dropdown shows each account's real currency" (`e2e/tests/general-journal-currency-display.spec.ts`)
-- "entering both debit and credit on one line clears the opposite field — a real, reported bug: it previously silently posted debit-minus-credit as a net amount instead of rejecting the invalid input" (`e2e/tests/general-journal.spec.ts`)
-- "HR/Payroll: pays a real hourly employee and a real salaried one, with real Medicare/superannuation math, and shows the real org chart" (`e2e/tests/hr-payroll.spec.ts`)
-- "Sales Invoices defaults to real account invoices only, with real pagination when showing everything" (`e2e/tests/invoices-source-filter-pagination.spec.ts`)
-- "Stock Listing shows a real, visible "Over capacity" warning on a real location genuinely over its own configured capacity" (`e2e/tests/location-capacity-warning.spec.ts`)
-- "Location Type extensibility, against the minimal admin dataset" (`e2e/tests/location-type-extensibility.spec.ts`)
-- "a new item can be assigned a real category directly on the Items page, via Insert/Delete" (`e2e/tests/parts-category-setup.spec.ts`)
-- "the redesigned P&L renders correctly with the real category hierarchy" (`e2e/tests/profit-and-loss-hierarchy.spec.ts`)
-- "Restock Retail Outlets: a real, pre-filled restocking list, a real shelf-ordered picking list, refuses to dispatch until every line is ticked, then moves real stock" (`e2e/tests/restock-retail-outlets.spec.ts`)
-- "stock listing groups real stock by real division and location, both collapsible" (`e2e/tests/stock-listing-hierarchy.spec.ts`)
-- "stock movement report shows real purchases, transfers, and sales, groupable by division/location/vendor/category" (`e2e/tests/stock-movement-report.spec.ts`)
-- "Storage origin (Hot/Cold) displays correctly on Cash Sale through the real UI" (`e2e/tests/storage-origin-display.spec.ts`)
-- "Year End Close: posts a real, unclosed expense through the real General Journal, closes it, and shows the real, honest error on a second attempt" (`e2e/tests/yearend-close.spec.ts`)
-
-## The full browser test suite
+`scripts/run-step-tests.ts` runs them, each by name:
 
 ```
-make e2e-spec-all          # every real .spec.ts file in e2e/tests — several minutes
-make e2e-spec-smoke        # every route visited once, checking only that it loads without error
-make e2e-spec-one TEST=<name>   # one named spec, against whatever is already running (no reset)
+make test-steps                 # every test, API path, a new database file each (MIDDLEWARE=legacy)
+make test-steps-browser         # every test in the browser, `make reset-db ensure-servers` before each
+make test-steps TEST=a,b        # only those
 ```
 
-`e2e-spec-all` and `e2e-spec-tutorial` both reset the database first.
-`e2e-spec-smoke` and `e2e-spec-one` do not — the former is a fast,
-minimal layer (every route, checked only for a clean load, no deep
-assertions), the latter a targeted, repeatable check against live,
-already-present data.
+`make test` runs `make test-steps`. On the API path the browser-only
+steps are skipped, so a test still builds and checks its data there.
+
+### The common steps (`shared-fixtures/common/`)
+
+- `login.csv` logs in as the administrator, the one user every fresh
+  database has, and continues past the session screen.
+- `business.csv` logs in, creates the business `${business}` ("Test
+  Business", 2026-27, a sole trader in `${currency}`, AUD) and switches
+  the session to it; its control file verifies it exists.
+- `bank-account.csv` nominates the bank account `${bank}` and builds
+  its currency structure.
+- `location.csv` creates the location `${location}` (`${locationType}`,
+  Retail, in `${city}`), with storage space, through the API: the
+  Locations form has no capacity fields.
+- `division-grouping.csv`, `division.csv` and
+  `two-locations-in-divisions.csv` give the business its Division
+  grouping, put `${location}` in the division `${division}`, and build
+  Head Office and Warehouse B, each in a division of its own.
+- `item.csv`, `item-in-category.csv`, `provider.csv` and
+  `customer.csv` create one item (in the category `${category}`), one
+  provider and one customer.
+- `buy-move-sell.csv` takes `${item}` through stock's whole journey:
+  bought into Head Office, moved to Warehouse B, sold there.
+- `journal-rent.csv` posts the general journal entry `${reference}`:
+  rent paid from Cash and Bank.
+- `language.csv` reopens the session screen and continues in
+  `${language}`.
+- `add-to-list-by-keyboard.csv`, `add-address-by-keyboard.csv`,
+  `add-phone-by-keyboard.csv` and `no-add-remove-buttons.csv` work the
+  shared address, phone and contact lists with the keyboard alone.
+- `add-item-by-insert.csv`, `add-subcategory.csv`,
+  `inline-add-on-items-page.csv` and `delete-on-items-page.csv` work
+  the Items page's tree.
+
+### Browser-only steps
+
+A `ui`-kind screen is a gesture or a check made in the browser, its
+values the screen's fields in order. Each check waits up to ten seconds
+for the page to agree, then fails saying what it waited for.
+
+| Step | Values | Does |
+|---|---|---|
+| `Open Page` | route | goes to the route and waits for the network to settle |
+| `Page Opens Cleanly` | route | goes to the route; fails on HTTP 500 or more, or on a script error the page throws (a minute to load: the dev server builds a page on its first visit) |
+| `Click`, `Focus` | selector | clicks, or focuses, the first match |
+| `Fill` | selector, value | types the value into the first match |
+| `Select Option` | selector, label | chooses the option with that label |
+| `Press Key` | key | presses the key (`Insert`, `Enter`, `Delete`, `Tab`) |
+| `Page Shows` | selector, text | the matches' text (as written, before CSS changes its case) holds the text |
+| `Page Lacks` | selector, text | it does not; with no text, there is no match at all |
+| `Page Count` | selector, count | there are that many matches |
+| `Page Value` | selector, value | the first match's input holds the value |
+| `Page Enabled` | selector, `true`/`false` | the first match is enabled, or disabled |
+| `Page Has Option` | selector, label, `true`/`false` | the first match, a select, has (or has not) that option |
+| `Page Focused` | selector | the first match has the keyboard focus |
+| `Download` | selector, file | clicks the match and keeps the file the page hands over under that name |
+| `Upload` | selector, file | gives the file kept under that name to the match, a file input |
+| `File Contains` | file, text | the kept file holds the text |
+
+Downloaded files are kept in `STEP_RUNNER_FILES_DIR`, or
+`step-runner-files` in the system's temporary directory.
+
+### The `api`-kind screens a test uses for its setup
+
+`Create Sales Invoice` (a draft, one line, today, source `manual` or
+`pos`, so a test of POS invoices needs no stock), `Post Sales Invoice`
+(revenue to Sales Revenue, tax to Sales Tax Payable), `Add Item
+Source` (a known supplier of an item, at a price, preferred or not),
+`Set Item Location Levels` (the stock listing's minimum, maximum and
+reorder levels), `Set Item Storage Origin` and `Set Employee Salary`.
+Each calls the `API_REGISTRY` function of its name in camel case with
+`Simple` on the end (`createSalesInvoiceSimple`), configured in
+`application/application.entities` like every call the runner makes.
+`Check Entity Exists` calls nothing: it carries a name for its control
+row's verify, `entity_named_exists`.
+
+### The tests
+
+Tests:
+- "business-setup-divisions" (`shared-fixtures/tests/business-setup-divisions.csv`)
+- "cash-sale-storage-origin" (`shared-fixtures/tests/cash-sale-storage-origin.csv`)
+- "contact-addresses-by-keyboard" (`shared-fixtures/tests/contact-addresses-by-keyboard.csv`)
+- "contact-persons" (`shared-fixtures/tests/contact-persons.csv`)
+- "contacts-focus" (`shared-fixtures/tests/contacts-focus.csv`)
+- "e-invoice-export-and-import" (`shared-fixtures/tests/e-invoice-export-and-import.csv`)
+- "employee-second-location-schedule" (`shared-fixtures/tests/employee-second-location-schedule.csv`)
+- "every-page-opens" (`shared-fixtures/tests/every-page-opens.csv`)
+- "general-journal-account-currency" (`shared-fixtures/tests/general-journal-account-currency.csv`)
+- "general-journal-one-side-per-line" (`shared-fixtures/tests/general-journal-one-side-per-line.csv`)
+- "general-journal-own-chart-of-accounts" (`shared-fixtures/tests/general-journal-own-chart-of-accounts.csv`)
+- "help-text-in-german" (`shared-fixtures/tests/help-text-in-german.csv`)
+- "hr-pay-hourly-and-salaried" (`shared-fixtures/tests/hr-pay-hourly-and-salaried.csv`)
+- "installation-check" (`shared-fixtures/tests/installation-check.csv`)
+- "invoices-source-filter-and-pages" (`shared-fixtures/tests/invoices-source-filter-and-pages.csv`)
+- "items-categories-insert-delete" (`shared-fixtures/tests/items-categories-insert-delete.csv`)
+- "location-addresses-by-keyboard" (`shared-fixtures/tests/location-addresses-by-keyboard.csv`)
+- "location-type-added-on-the-fly" (`shared-fixtures/tests/location-type-added-on-the-fly.csv`)
+- "profit-and-loss-by-division-and-category" (`shared-fixtures/tests/profit-and-loss-by-division-and-category.csv`)
+- "purchase-order-known-suppliers" (`shared-fixtures/tests/purchase-order-known-suppliers.csv`)
+- "restock-retail-outlet" (`shared-fixtures/tests/restock-retail-outlet.csv`)
+- "stock-listing-by-division" (`shared-fixtures/tests/stock-listing-by-division.csv`)
+- "stock-listing-over-capacity" (`shared-fixtures/tests/stock-listing-over-capacity.csv`)
+- "stock-movement-by-grouping" (`shared-fixtures/tests/stock-movement-by-grouping.csv`)
+- "user-manual-pictures" (`shared-fixtures/tests/user-manual-pictures.csv`)
+- "year-end-close-and-rollover" (`shared-fixtures/tests/year-end-close-and-rollover.csv`)
+
+`every-page-opens` opens every page of the app. `make
+check-step-tests` fails when a page (each `+page.svelte` under
+`frontend/src/routes` with no parameter in its path, the generated
+ones too) has no `Page Opens Cleanly` row there, or a row names a page
+that is gone; the one page with parameters, a journal entry, is opened
+by its link on the journal list.
+
+## Pictures for the manuals
+
+Every picture a chapter shows (`manual-images/…png`,
+`manual-images-tutorial/…png`) is taken by a test or a tutorial: the
+step's control row names it in the screenshot column, and the file's
+steps build what it shows. `user-manual-pictures` takes the everyday
+screens; a picture of one feature at work (`m_contact_persons`,
+`m_po_supplier_matching`, `m_multi_location_schedule`,
+`storage_origin_verified`) is taken by that feature's own test; the
+tutorials take the tutorial chapter's.
+
+`scripts/manual-pictures.ts` reads them all through the step runner's
+`--list-screenshots`:
+
+```
+make check-manual-pictures                  # every picture shown is taken by a test (a gate)
+make docs/manual-images/m_login.png         # takes one: runs the test that takes it, in the browser
+```
+
+`make docs/manual-images/x.png` runs `manual-pictures.ts take`, which
+runs that test through `run-step-tests.ts ui` (a tutorial's picture,
+through the tutorial's browser target). The pictures are not tracked;
+`make manual` takes any that are missing.
 
 ## Running everything, in CI or before delivering a change
 
 ```
-make test && make test-e2e
+make test && make test-e2e && make test-steps-browser && make test-e2e-tutorials
 ```
 
-Unit tests first (fast — fail fast on an isolated, easy-to-diagnose
-bug), then the full end-to-end check (slower — the integrated proof).
+`make test` runs the unit tests, the standalone tests on the API path
+and every gate. `make test-e2e` is the full simulation's exact
+figures. `make test-steps-browser` runs the standalone tests in the
+browser, and `make test-e2e-tutorials` the three tutorials (each also
+has a `-browser` target).

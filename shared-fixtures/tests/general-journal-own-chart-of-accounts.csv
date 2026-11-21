@@ -1,0 +1,11 @@
+# The General Journal's account list holds only the accounts of the
+# business's own chart of accounts prototype: English accounts, none of
+# the German, French, Italian or Danish ones.
+"Include","../common/business.csv"
+"Open Page","/post"
+"Page Shows","tbody tr >> nth=0 >> select","Cash and Bank"
+"Page Lacks","tbody tr >> nth=0 >> select","Bankkontokorrent"
+"Page Lacks","tbody tr >> nth=0 >> select","Umsatzerl\u{f6}se"
+"Page Lacks","tbody tr >> nth=0 >> select","Disponibilit\u{e9}s"
+"Page Lacks","tbody tr >> nth=0 >> select","Cassa e valori"
+"Page Lacks","tbody tr >> nth=0 >> select","Kasse"

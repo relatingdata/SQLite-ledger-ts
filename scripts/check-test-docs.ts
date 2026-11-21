@@ -15,10 +15,11 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const MANUAL = join(ROOT, 'docs', 'programmer-manual.md');
-// TypeScript unit tests (`test('title', …)`), the Playwright specs
-// (`e2e/tests/*.spec.ts`), and the storage engine's Gleam tests, whose
-// title is the test function's name (`pub fn name_test()`).
-const TEST_DIRS = ['backend/test', 'backend/scripts', 'frontend/test', 'e2e/tests', 'storage_engine/test'];
+// TypeScript unit tests (`test('title', …)`), the storage engine's Gleam
+// tests, whose title is the test function's name (`pub fn name_test()`),
+// and the step runner's standalone tests (`shared-fixtures/tests/*.csv`),
+// whose title is the file's name without `.csv`.
+const TEST_DIRS = ['backend/test', 'backend/scripts', 'frontend/test', 'storage_engine/test', 'shared-fixtures/tests'];
 const SKIP_DIRS = new Set(['node_modules', '.git']);
 
 // Collapse whitespace so a title wrapped across lines in the manual still matches.
@@ -31,7 +32,7 @@ function walk(dir: string, out: string[] = []): string[] {
     if (SKIP_DIRS.has(name)) continue;
     const full = join(dir, name);
     if (statSync(full).isDirectory()) walk(full, out);
-    else if (name.endsWith('.test.ts') || name.endsWith('.spec.ts') || name.endsWith('_test.gleam')) out.push(full);
+    else if (name.endsWith('.test.ts') || name.endsWith('_test.gleam') || (full.includes(`shared-fixtures${sep}tests${sep}`) && name.endsWith('.csv') && !name.endsWith('.control.csv'))) out.push(full);
   }
   return out;
 }
@@ -44,6 +45,10 @@ const tests: TestRef[] = [];
 for (const file of TEST_DIRS.flatMap((d) => walk(join(ROOT, d)))) {
   const rel = relative(ROOT, file).split(sep).join('/');
   const text = readFileSync(file, 'utf-8');
+  if (file.endsWith('.csv')) {
+    tests.push({ title: rel.replace(/^.*\//, '').replace(/\.csv$/, ''), file: rel });
+    continue;
+  }
   if (file.endsWith('.gleam')) {
     for (const m of text.matchAll(GLEAM_RE)) tests.push({ title: m[1], file: rel });
     continue;

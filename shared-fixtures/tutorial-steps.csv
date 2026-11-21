@@ -1,27 +1,16 @@
 # Logs in. No accounting, no entities beyond the session.
-"Login","admin","changeme123"
-# Chooses the working business before a new one exists.
-"Select Business","admin"
-# Creates the business, its Actual/Budget ledgers, a CoA skeleton, and
-# nominates its real home currency (AUD), per Chapter 3. Also exercises
-# the real CoA-prototype selector (kept at the real, same "English /
-# generic" default every later step in this fixture already assumes,
-# since switching it would change every real account name downstream)
-# and the real, optional "accept additional currencies" acceptance -
-# NZD, a real, further currency this business is willing to take cash
-# in, alongside its own real home currency.
-"Create Business","Tutorial Wine Retail Business","2026-27","Sole Trader","AUD","English / generic","NZD"
-# The real, post-creation banking wizard, immediately following
-# business creation on the exact, same real screen (never a separate
-# navigation) - nominates the business's one real bank account, then
-# confirms the one real bank/currency combination to build "Cash at
-# Bank" from, per docs/user-manual-ch2-configuration.md's own,
-# already-written "Setup then walks through the business's own real
-# banking arrangement" section.
-"Nominate Bank Account","Tutorial Wine Retail Business","Westpac Business Cheque","032-001","123456"
-"Build Bank Currency Structure","Tutorial Wine Retail Business","Westpac Business Cheque","AUD","true"
-# Moves the session into the new business.
-"Switch Session","Tutorial Wine Retail Business","Actual"
+"Set","business","Tutorial Wine Retail Business"
+"Set","secondaryCurrencies","NZD"
+"Set","bank","Westpac Business Cheque"
+"Set","bsb","032-001"
+"Set","accountNumber","123456"
+"Set","loginShot","login_landing"
+"Set","businessShot","new_business_created"
+"Set","bankShot","bank_account_nominated"
+"Set","bankStructureShot","bank_currency_structure_built"
+"Set","sessionShot","session_switched"
+"Include","common/business.csv"
+"Include","common/bank-account.csv"
 # Moved up, ahead of any real trading: the owner's own opening capital
 # (DR Cash and Bank, CR Owner's Equity, $5,000.00 / 500000 minor units)
 # - a business needs real cash on hand before it can buy anything, so
@@ -29,14 +18,14 @@
 # employee already exist. Still the real, separate sequence of calls a
 # genuine browser session actually makes - two real staged lines, then
 # one real post - never one, combined, artificial row.
-"Stage Journal Line","JE-OWNER-CAPITAL","Tutorial Wine Retail Business","Actual","Cash and Bank","500000"
-"Stage Journal Line","JE-OWNER-CAPITAL","Tutorial Wine Retail Business","Actual","Owner's Equity","-500000"
-"Post Journal Entry","JE-OWNER-CAPITAL","Tutorial Wine Retail Business","Actual"
+"Stage Journal Line","JE-OWNER-CAPITAL","${business}","Actual","Cash and Bank","500000"
+"Stage Journal Line","JE-OWNER-CAPITAL","${business}","Actual","Owner's Equity","-500000"
+"Post Journal Entry","JE-OWNER-CAPITAL","${business}","Actual"
 # A business starts with one location selling one item. Main Street
 # Cellar is created alone here, with real street/shelf/carton capacity
 # but no division at all yet (the division field is left blank) -
 # this business genuinely has zero structure beyond one shop, for now.
-"Create Location","Tutorial Wine Retail Business","Main Street Cellar","Adelaide","Retail","","120","10"
+"Create Location","${business}","Main Street Cellar","Adelaide","Retail","","120","10"
 # The simplest possible item: a block of Ice, with NO category at all
 # - not even a "General" one. Per direct instruction, the system must
 # be able to operate with zero hierarchy (no categories, divisions, or
@@ -44,7 +33,7 @@
 # category)" path (items/+page.svelte's addUncategorizedItem), not a
 # throwaway catch-all category. Every further item this tutorial
 # creates will have more going on than this one does.
-"Create Item No Category","Tutorial Wine Retail Business","Ice"
+"Create Item No Category","${business}","Ice"
 # The owner runs this single-item Ice stall for real, for the last two
 # months of this financial year (the fixture doesn't model individual
 # transaction dates - only Close Books' own "as of" date below does -
@@ -52,18 +41,18 @@
 # trading, not one single sale). 1,000 bags bought at $1.00/bag (100
 # minor units) = $1,000.00 total cost, always posting to the one real
 # "Cash" provider, not a named supplier, since none exists yet.
-"Cash Purchase","Tutorial Wine Retail Business","Main Street Cellar","Ice","1000","100","Actual"
+"Cash Purchase","${business}","Main Street Cellar","Ice","1000","100","Actual"
 # The same 1,000 bags, sold at $2.00/bag (200 minor units) = $2,000.00
 # total revenue, for a real $1,000.00 gross profit - exactly a 50%
 # margin on this, the business's one and only real two-month trading
 # period so far.
-"Cash Sale","Tutorial Wine Retail Business","Main Street Cellar","Ice","1000","200","Actual"
+"Cash Sale","${business}","Main Street Cellar","Ice","1000","200","Actual"
 # A real, further running cost for these same two months: $100.00 of
 # rent (10000 minor units), DR "Rent", CR "Cash and Bank" - the
 # business's first expense that isn't the cost of what it sold.
-"Stage Journal Line","JE-ICE-RENT","Tutorial Wine Retail Business","Actual","Rent","10000"
-"Stage Journal Line","JE-ICE-RENT","Tutorial Wine Retail Business","Actual","Cash and Bank","-10000"
-"Post Journal Entry","JE-ICE-RENT","Tutorial Wine Retail Business","Actual"
+"Stage Journal Line","JE-ICE-RENT","${business}","Actual","Rent","10000"
+"Stage Journal Line","JE-ICE-RENT","${business}","Actual","Cash and Bank","-10000"
+"Post Journal Entry","JE-ICE-RENT","${business}","Actual"
 
 # Pre year-end reports, read from the still-open "Actual" ledger
 # before Close Books runs - a real, structural check (balanced), and
@@ -72,9 +61,9 @@
 # reported for this same, real period (closeBooks' own closing entry
 # is deliberately excluded from this read - excludeCloseEntries,
 # db-reports.ts).
-"Check Trial Balance Balanced","Tutorial Wine Retail Business","Actual",""
-"Record Profit And Loss Net Income","Tutorial Wine Retail Business","Actual","",""
-"Check Profit And Loss Positive","Tutorial Wine Retail Business","Actual","",""
+"Check Trial Balance Balanced","${business}","Actual",""
+"Record Profit And Loss Net Income","${business}","Actual","",""
+"Check Profit And Loss Positive","${business}","Actual","",""
 # The simplest possible two-axis breakdown: one item, in one location,
 # with zero hierarchy configured at all (no Category, no Division -
 # see "the application should work fine with a single item in a
@@ -92,14 +81,14 @@
 # and Loss total above - proving the generic axis-resolution path
 # needs no Category or Division configured to work, or to reconcile,
 # at all.
-"Check P&L By Item","Tutorial Wine Retail Business","Actual","","","Consolidated","Item","Ice"
+"Check P&L By Item","${business}","Actual","","","Consolidated","Item","Ice"
 
 # The owner closes the books on this, the Ice business's own first
 # real financial year - end of the real year/period rollover procedure
 # (docs/ledger-scoped-accounts-and-rollover.md), exercised end to end,
 # right here, straight after the business's own first real two months
 # of trading, not at the very end of this tutorial.
-"Close Books","Tutorial Wine Retail Business","Actual","2027-06-30","Retained Earnings"
+"Close Books","${business}","Actual","2027-06-30","Retained Earnings"
 
 # Post year-end reports, OLD ledger: still balanced, and the real
 # P&L figure for the same, real period is exactly unchanged by
@@ -108,9 +97,9 @@
 # these two months - a real, UI-driven visit to each of the three
 # dedicated report screens (not just an API-level check), captured so
 # the manual actually shows them, per direct instruction.
-"Check Trial Balance Balanced","Tutorial Wine Retail Business","Actual","2027-06-30"
-"Check Profit And Loss Net Income Matches Recorded","Tutorial Wine Retail Business","Actual","",""
-"Check Balance Sheet Balanced","Tutorial Wine Retail Business","Actual","2027-06-30"
+"Check Trial Balance Balanced","${business}","Actual","2027-06-30"
+"Check Profit And Loss Net Income Matches Recorded","${business}","Actual","",""
+"Check Balance Sheet Balanced","${business}","Actual","2027-06-30"
 
 # No real, standalone "Create Ledger" screen exists in the UI at all, by design - the only place a
 # new ledger is ever created through the app is inline, as part of the Rollover screen's own flow
@@ -118,21 +107,21 @@
 # chosen). The API path genuinely needs this step on its own first; forced to "api" in
 # tutorial-steps.control.csv regardless of --path, since there is no real UI wiring to build here -
 # see docs/pm-testing-e2e.md.
-"Create Ledger","Tutorial Wine Retail Business","Actual 2027-28"
-"Rollover To New Period","Tutorial Wine Retail Business","Actual","Actual 2027-28","2027-07-01"
+"Create Ledger","${business}","Actual 2027-28"
+"Rollover To New Period","${business}","Actual","Actual 2027-28","2027-07-01"
 
 # Post year-end reports, NEW ledger: the opening Balance Sheet is
 # genuinely balanced, and its own P&L is genuinely zero - Income/
 # Expense are never carried forward across a rollover, only the real,
 # "used" Balance Sheet accounts are.
-"Check Trial Balance Balanced","Tutorial Wine Retail Business","Actual 2027-28",""
-"Check Profit And Loss Zero","Tutorial Wine Retail Business","Actual 2027-28","",""
+"Check Trial Balance Balanced","${business}","Actual 2027-28",""
+"Check Profit And Loss Zero","${business}","Actual 2027-28","",""
 
 # Records the now-closed Ice ledger's own trial balance total, so the
 # very last check in this tutorial can prove the whole wine-retail
 # build-out below - everything from here on - never once touches it
 # again.
-"Record Trial Balance Total","Tutorial Wine Retail Business","Actual",""
+"Record Trial Balance Total","${business}","Actual",""
 
 # A real, second session switch - the exact, same real screen as
 # above, re-submitted. Nothing here is a no-op: the real session now
@@ -140,16 +129,16 @@
 # which every ordinary trading screen below (Cash Purchase, Cash Sale,
 # POS Sale, Transfer, Purchase Order) reads directly from the real,
 # live session - never "Actual" again, from here on.
-"Switch Session","Tutorial Wine Retail Business","Actual 2027-28"
+"Switch Session","${business}","Actual 2027-28"
 
 # The further capital the owner puts in, in this new financial year,
 # to fund the real build-out below into a proper multi-location wine
 # retailer - a second, real $20,000.00 (2000000 minor units) DR Cash
 # and Bank / CR Owner's Equity, posted into "Actual 2027-28" this
 # time, not "Actual".
-"Stage Journal Line","JE-OWNER-CAPITAL-2","Tutorial Wine Retail Business","Actual 2027-28","Cash and Bank","2000000"
-"Stage Journal Line","JE-OWNER-CAPITAL-2","Tutorial Wine Retail Business","Actual 2027-28","Owner's Equity","-2000000"
-"Post Journal Entry","JE-OWNER-CAPITAL-2","Tutorial Wine Retail Business","Actual 2027-28"
+"Stage Journal Line","JE-OWNER-CAPITAL-2","${business}","Actual 2027-28","Cash and Bank","2000000"
+"Stage Journal Line","JE-OWNER-CAPITAL-2","${business}","Actual 2027-28","Owner's Equity","-2000000"
+"Post Journal Entry","JE-OWNER-CAPITAL-2","${business}","Actual 2027-28"
 
 # Now the business grows - entirely through the Business Structure
 # popup (Configuration → Business Structure, or the "Set up your
@@ -162,54 +151,54 @@
 # added via the popup's own "+ New Location" form (which, unlike the
 # dedicated Locations screen, has no capacity fields of its own -
 # capacity can still be set afterwards on the Locations page itself).
-"Add Location Via Structure Popup","Tutorial Wine Retail Business","Head Office","Adelaide","Warehouse"
+"Add Location Via Structure Popup","${business}","Head Office","Adelaide","Warehouse"
 # A division this business didn't have a moment ago: "Adelaide Metro",
 # created via the popup's "+ New Division" action - one click, which
 # itself ensures the Division grouping (not yet created at all, until
 # now) and then its first value, together.
-"Add Division Via Structure Popup","Tutorial Wine Retail Business","Adelaide Metro"
+"Add Division Via Structure Popup","${business}","Adelaide Metro"
 # Repositioning, not structural reparenting: Main Street Cellar
 # already existed with no division at all, and is now tagged into
 # Adelaide Metro via the popup's "Move…" action on its own tree node -
 # proving the popup can genuinely move something that predates the
 # division it's moving into, not just place a brand-new location
 # straight into one.
-"Move Main Street Cellar To Division","Tutorial Wine Retail Business","Main Street Cellar","Adelaide Metro"
+"Move Location To Division","${business}","Main Street Cellar","Adelaide Metro"
 # Head Office joins the same division, the same way.
-"Move Head Office To Division","Tutorial Wine Retail Business","Head Office","Adelaide Metro"
+"Move Location To Division","${business}","Head Office","Adelaide Metro"
 # One more growth step through the popup: a "Whiskey" category,
 # created ahead of time on the Item Categories tab, so that Highland
 # Single Malt's own creation below can select it directly instead of
 # using "+ New category…" - the popup's category-adding capability,
 # with a concrete, later-used result.
-"Add Category Via Structure Popup","Tutorial Wine Retail Business","Whiskey"
+"Add Category Via Structure Popup","${business}","Whiskey"
 # Chapter 3's Business Setup: the business's first employee, at the
 # warehouse, to receive and later staff the retail counter.
-"Create Employee","Tutorial Wine Retail Business","Jordan Lee","Head Office"
+"Create Employee","${business}","Jordan Lee","Head Office"
 # A second employee, at the retail counter — the real "manager" Jordan
 # Lee reports to below, proving setEmployeeManager's own two-employee
 # case rather than a department of one.
-"Create Employee","Tutorial Wine Retail Business","Sam Carter","Main Street Cellar"
+"Create Employee","${business}","Sam Carter","Main Street Cellar"
 # The Business Structure popup's Org Chart tab grows one more concept:
 # a real Department, auto-provisioned with its own Chart of Accounts
 # subtree (Payroll/Other Expenses) the instant it's created — see
 # createAndConfigureDepartment and /root/.claude/plans/stateful-
 # snacking-adleman.md.
-"Create Department Via Structure Popup","Tutorial Wine Retail Business","Warehouse Ops"
+"Create Department Via Structure Popup","${business}","Warehouse Ops"
 # Jordan Lee starts out Unassigned (no department) — the popup's own
 # "Move…" action on an Employee box means "change Department" (never
 # Division, which only ever applies to Location boxes).
-"Assign Employee Department Via Structure Popup","Tutorial Wine Retail Business","Jordan Lee","Warehouse Ops"
+"Assign Employee Department Via Structure Popup","${business}","Jordan Lee","Warehouse Ops"
 # A second, independent fact about Jordan Lee — who they report to —
 # set via the Employee box's own "Reports to…" action, proving it
 # coexists with both Place of Employment and Department rather than
 # clobbering either (setEntityLink, not setRelationship).
-"Set Employee Manager Via Structure Popup","Tutorial Wine Retail Business","Jordan Lee","Sam Carter"
+"Set Employee Manager Via Structure Popup","${business}","Jordan Lee","Sam Carter"
 # A second, throwaway department, created solely to be deleted below —
 # proving a clean, never-assigned department (and its two placeholder
 # leaves) really can be removed in full, not just created.
-"Create Department Via Structure Popup","Tutorial Wine Retail Business","Temp Dept"
-"Delete Department Via Structure Popup","Tutorial Wine Retail Business","Temp Dept"
+"Create Department Via Structure Popup","${business}","Temp Dept"
+"Delete Department Via Structure Popup","${business}","Temp Dept"
 # items/+page.svelte's current tree UI has no combined "new category +
 # item in it" action any more (that belonged to the old dropdown
 # form); a brand-new category is its own real, separate step now - the
@@ -217,12 +206,12 @@
 # Amber Ale can be added under it. No cost/price field exists on the
 # item screen either way - set separately below, once a Provider
 # exists.
-"Create Category","Tutorial Wine Retail Business","Beer"
-"Create Item Under Beer Category","Tutorial Wine Retail Business","Amber Ale 330ml","Beer"
+"Create Category","${business}","Beer"
+"Create Item Under Category","${business}","Amber Ale 330ml","Beer"
 # "Whiskey" already exists (the Business Structure popup created it
 # above), so this item selects it directly rather than creating a new
 # category.
-"Create Item Under Whiskey Category","Tutorial Wine Retail Business","Highland Single Malt 700ml","Whiskey"
+"Create Item Under Category","${business}","Highland Single Malt 700ml","Whiskey"
 # "330ml"/"700ml" and "Glass Bottle" are not just name suffixes - Size
 # and Packaging are two further, real, generic Hierarchy groupings
 # (the exact, same ensureHierarchyGrouping/ensureHierarchyValue/
@@ -243,12 +232,12 @@
 # has - a genuinely different case). Values are supplied in OSASCOMP
 # order (Size before Material) so a combined display name, were one
 # built by joining them, would already read in natural English order.
-"Tag Item Hierarchy","Tutorial Wine Retail Business","Amber Ale 330ml","Size","330ml"
-"Tag Item Hierarchy","Tutorial Wine Retail Business","Amber Ale 330ml","Packaging","Glass Bottle"
-"Tag Item Hierarchy","Tutorial Wine Retail Business","Highland Single Malt 700ml","Size","700ml"
-"Tag Item Hierarchy","Tutorial Wine Retail Business","Highland Single Malt 700ml","Packaging","Glass Bottle"
+"Tag Item Hierarchy","${business}","Amber Ale 330ml","Size","330ml"
+"Tag Item Hierarchy","${business}","Amber Ale 330ml","Packaging","Glass Bottle"
+"Tag Item Hierarchy","${business}","Highland Single Malt 700ml","Size","700ml"
+"Tag Item Hierarchy","${business}","Highland Single Malt 700ml","Packaging","Glass Bottle"
 # Chapter 3's first supplier, name only.
-"Create Provider","Tutorial Wine Retail Business","Highland Brewing Co","Accounts Payable"
+"Create Provider","${business}","Highland Brewing Co","Accounts Payable"
 # Amber Ale's real cost, registered as the per-carton price ($84.00 =
 # 8400 minor units, matching the Purchase Order below) and real pack
 # size (24 bottles/carton), against this specific provider - no
@@ -260,25 +249,25 @@
 # per-unit cost ($3.50/bottle) used by every COGS and transfer
 # posting - so this field must carry the per-package price, found by
 # directly reading that function, not assumed.
-"Set Item Cost and Pack Size","Tutorial Wine Retail Business","Amber Ale 330ml","Highland Brewing Co","8400","24"
+"Set Item Cost and Pack Size","${business}","Amber Ale 330ml","Highland Brewing Co","8400","24"
 # Chapter 3's Purchase Order: 4 cartons at $84.00/carton (8400 minor
 # units), placed and posted together - now in "Actual 2027-28", the
 # business's new financial year.
-"Create Purchase Order","Tutorial Wine Retail Business","Highland Brewing Co","Amber Ale 330ml","4","8400","PO-AMBER-1","Actual 2027-28"
+"Create Purchase Order","${business}","Highland Brewing Co","Amber Ale 330ml","4","8400","PO-AMBER-1","Actual 2027-28"
 # Cash Purchase: receives the order at the warehouse, 96 bottles
 # (4 cartons x 24), paid in full on the spot, at the real per-bottle
 # cost (350 minor units). Always posts to the one real "Cash" provider
 # now, not Highland Brewing Co by name - see "Cash Sale and Cash
 # Purchase" in pm-domain-reference.md.
-"Cash Purchase","Tutorial Wine Retail Business","Head Office","Amber Ale 330ml","96","350","Actual 2027-28"
+"Cash Purchase","${business}","Head Office","Amber Ale 330ml","96","350","Actual 2027-28"
 # Stock Transfer: 24 bottles (1 whole carton) warehouse to retail,
 # leaving 72 at the warehouse, per Chapter 3's own numbers.
-"Transfer Items","Tutorial Wine Retail Business","Amber Ale 330ml","Head Office","Main Street Cellar","24","TRANSFER-AMBER-1","Actual 2027-28"
+"Transfer Items","${business}","Amber Ale 330ml","Head Office","Main Street Cellar","24","TRANSFER-AMBER-1","Actual 2027-28"
 # POS Sale, at $5.00/bottle (500 minor units) - run more than once,
 # per Chapter 3; quantity per sale (2) is an assumed figure, since
 # Chapter 3 states the price but never a per-sale quantity.
-"POS Sale","Tutorial Wine Retail Business","Main Street Cellar","Amber Ale 330ml","2","500","Actual 2027-28"
-"POS Sale","Tutorial Wine Retail Business","Main Street Cellar","Amber Ale 330ml","2","500","Actual 2027-28"
+"POS Sale","${business}","Main Street Cellar","Amber Ale 330ml","2","500","Actual 2027-28"
+"POS Sale","${business}","Main Street Cellar","Amber Ale 330ml","2","500","Actual 2027-28"
 # A real, named party - not through the POS register, no cart, no
 # scanning: a local restaurant phones in an order for half a carton
 # (12 bottles - the real stock on hand at this point in the tutorial
@@ -291,8 +280,8 @@
 # pm-domain-reference.md. A sale actually invoiced to Riverside
 # Restaurant's own account would be an AR Sale instead, not currently
 # exercised by this tutorial.
-"Create Customer","Tutorial Wine Retail Business","Riverside Restaurant","Customers"
-"Cash Sale","Tutorial Wine Retail Business","Main Street Cellar","Amber Ale 330ml","12","500","Actual 2027-28"
+"Create Customer","${business}","Riverside Restaurant","Customers"
+"Cash Sale","${business}","Main Street Cellar","Amber Ale 330ml","12","500","Actual 2027-28"
 # Highland Single Malt, received sealed directly at retail (as in the
 # chapter 3 e2e review mid-session), then opened: 1 carton -> 24
 # bottles. Open Container is now constrained to a real, specific
@@ -309,19 +298,19 @@
 # honest precondition, done through the real Hierarchies screen
 # itself, exactly as a real person would before ever reaching for
 # either screen below.
-"Create Hierarchy Grouping","Tutorial Wine Retail Business","Storage"
-"Create Hierarchy Value","Tutorial Wine Retail Business","Storage","Secure"
-"Receive Into Storage","Tutorial Wine Retail Business","Highland Single Malt 700ml","Main Street Cellar","24","Storage","Secure","Actual 2027-28"
-"Create Hierarchy Grouping","Tutorial Wine Retail Business","Container"
-"Create Hierarchy Value","Tutorial Wine Retail Business","Container","Carton"
-"Create Hierarchy Value","Tutorial Wine Retail Business","Container","Bottle"
-"Open Container","Tutorial Wine Retail Business","Main Street Cellar","Highland Single Malt 700ml","Carton","1","Bottle","24","Actual 2027-28"
+"Create Hierarchy Grouping","${business}","Storage"
+"Create Hierarchy Value","${business}","Storage","Secure"
+"Receive Into Storage","${business}","Highland Single Malt 700ml","Main Street Cellar","24","Storage","Secure","Actual 2027-28"
+"Create Hierarchy Grouping","${business}","Container"
+"Create Hierarchy Value","${business}","Container","Carton"
+"Create Hierarchy Value","${business}","Container","Bottle"
+"Open Container","${business}","Main Street Cellar","Highland Single Malt 700ml","Carton","1","Bottle","24","Actual 2027-28"
 
 # Post year-end reports, NEW ledger, now at the end of the wine
 # retailer's own first real stretch of full trading: still balanced,
 # with a real, positive Profit and Loss.
-"Check Trial Balance Balanced","Tutorial Wine Retail Business","Actual 2027-28",""
-"Check Profit And Loss Positive","Tutorial Wine Retail Business","Actual 2027-28","",""
+"Check Trial Balance Balanced","${business}","Actual 2027-28",""
+"Check Profit And Loss Positive","${business}","Actual 2027-28","",""
 # The real, live New New P&L screen, grouped by Location (left at its
 # own default outer grouping) and then by Category - Beer's own real
 # row appears, carrying Amber Ale's real Sales/COGS activity at Main
@@ -335,7 +324,7 @@
 # proven - just at the API layer below, by this same step's own
 # verify, via getHierarchyParent's own generic lookup, never any
 # structural, Category-specific walk.
-"Check P&L By Category","Tutorial Wine Retail Business","Actual 2027-28","","","Location","Category","Beer","Amber Ale 330ml"
+"Check P&L By Category","${business}","Actual 2027-28","","","Location","Category","Beer","Amber Ale 330ml"
 # Full, summary/consolidated: a real Division-outer/Consolidated-inner
 # breakdown across the whole, by-now multi-location wine retailer -
 # reached by first setting Inner to Consolidated (always a real,
@@ -348,13 +337,13 @@
 # ends up tagged into the one real "Adelaide Metro" division, so this
 # also confirms that division's own outer node alone accounts for the
 # business's entire real net income.
-"Check P&L By Division","Tutorial Wine Retail Business","Actual 2027-28","","","Consolidated","Division","Adelaide Metro"
+"Check P&L By Division","${business}","Actual 2027-28","","","Consolidated","Division","Adelaide Metro"
 
 # The real, final proof that none of the real wine-retail build-out
 # above ever touched the Ice business's own, already-closed first
 # year: "Actual"'s own trial balance total is exactly what it was
 # recorded as, right after the rollover.
-"Check Trial Balance Total Matches Recorded","Tutorial Wine Retail Business","Actual",""
+"Check Trial Balance Total Matches Recorded","${business}","Actual",""
 
 # A real, separate, administrative scenario - reproducing, via this
 # same real API path (not a unit test), the exact, real two-call

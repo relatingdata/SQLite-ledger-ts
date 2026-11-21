@@ -1,0 +1,21 @@
+# The stock movement report shows purchases, transfers and sales,
+# grouped by division, location (transfers by where they went) or
+# category. Transfers have no division of their own.
+"Include","../common/business.csv"
+"Include","../common/two-locations-in-divisions.csv"
+"Set","category","Beer"
+"Set","item","Amber Ale 330ml"
+"Include","../common/item-in-category.csv"
+"Include","../common/buy-move-sell.csv"
+"Open Page","/reports/stock-movement"
+"Page Shows",".group-head","Head Office Division"
+"Page Count",".group-head:has-text('Warehouse B Division')","0"
+"Click",".group-head:has-text('Head Office Division')"
+"Page Count","tbody tr","1"
+"Click","button:text-is('Transfers')"
+"Page Shows",".empty","Transfers have no real"
+"Select Option",".controls select","Location"
+"Page Shows",".group-head:has-text('Warehouse B')","12"
+"Click","button:text-is('Sales')"
+"Select Option",".controls select","Category"
+"Page Shows",".group-head:has-text('Beer')","10.00"

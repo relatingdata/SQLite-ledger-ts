@@ -1,0 +1,17 @@
+# The Profit and Loss groups by two groupings at once: here each
+# division, and within it each category. Only Warehouse B Division sold
+# anything.
+"Include","../common/business.csv"
+"Include","../common/two-locations-in-divisions.csv"
+"Set","category","Beer"
+"Set","item","Amber Ale 330ml"
+"Include","../common/item-in-category.csv"
+"Include","../common/buy-move-sell.csv"
+"Open Page","/reports/profit-and-loss"
+"Page Shows",".title-line.company","${business}"
+"Page Shows",".grand-total","Total Profit/(Loss)"
+"Select Option",".controls fieldset >> nth=0 >> select","Division"
+"Select Option",".controls fieldset >> nth=1 >> select","Category"
+"Page Shows",".axis-head","Warehouse B Division"
+"Click",".axis-head:has-text('Warehouse B Division')"
+"Page Shows",".axis-head","Beer"

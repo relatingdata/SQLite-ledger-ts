@@ -888,7 +888,13 @@ export function revokeEntity(id: number, userId: UserId): void {
   const entity = getEntity(id);
   if (!entity) throw new NotFoundError(`Entity ${id} not found.`);
   const childNames = Entity.children(id).map((c) => c.name);
-  const hasChildren = childNames.some((n) => !FACT_ATTR_CHILD_NAMES.has(n));
+  // An item's own Category link record (`${name} — Hierarchy: Category`)
+  // only classifies it, so it never blocks deleting the item (the Items
+  // page's Delete); it stays as history, untagged below, so the category
+  // can then be deleted too. Other link records, such as a location's
+  // Division, still block.
+  const categoryLink = `${entity.name} — Hierarchy: Category`;
+  const hasChildren = childNames.some((n) => !FACT_ATTR_CHILD_NAMES.has(n) && n !== categoryLink);
   if (hasChildren) throw new ValidationError('Cannot revoke an entity that still has children — move or revoke them first.');
   const hasPostings = db.prepare(`SELECT 1 FROM journal_line WHERE account_id = ? LIMIT 1`).get(id);
   if (hasPostings) throw new ValidationError('Cannot revoke an entity that has journal postings against it.');
@@ -927,6 +933,9 @@ export function revokeEntity(id: number, userId: UserId): void {
     if (isActual && otherActualCount === 0) throw new ValidationError(`"${parent.name}" must always have a real Actual ledger — this is its only one.`);
     if (isBudget && otherBudgetCount === 0) throw new ValidationError(`"${parent.name}" must always have a real Budget ledger — this is its only one.`);
   }
+  // A revoked item no longer counts in its category: untag its link.
+  const categoryLinkRecord = Entity.children(id).find((c) => c.name === categoryLink);
+  if (categoryLinkRecord) Entity.untag(categoryLinkRecord.id, 'Hierarchy: Category', userId);
   db.prepare(`INSERT INTO entity_revoke (entity_id, revoked_by) VALUES (?, ?)`).run(id, userId);
   const revokedRoot = requireEntity('Application', typeRootName);
   Entity.ensureUnder('Revoked', revokedRoot.id, userId);
@@ -2398,11 +2407,17 @@ export interface HierarchyGroupingWithValues {
   values: string[];
 }
 
+// The two groupings of the per-business role matrix (auth.ts,
+// USER_ROLE_SHAPE): stored in the business's Hierarchy like any
+// grouping, but they classify users, never locations or items, so the
+// business's own hierarchies leave them out.
+export const ROLE_MATRIX_GROUPINGS = ['User', 'Role'] as const;
+
 export function getBusinessHierarchy(businessName: BusinessName): HierarchyGroupingWithValues[] {
   const businessId = Entity.get(businessName, 'Businesses')?.id;
   const hierarchyId = businessId !== undefined ? Entity.getUnder('Hierarchy', businessId)?.id : undefined;
   if (!hierarchyId) return [];
-  const groupings = Entity.children(hierarchyId);
+  const groupings = Entity.children(hierarchyId).filter((g) => !(ROLE_MATRIX_GROUPINGS as readonly string[]).includes(g.name));
   return groupings.map((g) => ({
     grouping: g.name,
     values: Entity.children(g.id).map((v) => v.name),
@@ -5813,6 +5828,11 @@ export function copyChartOfAccountsInto(business: TypedNode<string>, destRoot: T
           if (!existing) create(requireEntityById(destParentId, typeRootName), typeChartOfAccountsNodeName, child.name, userId);
         }
       } else {
+        // A contact (the Cash provider under Accounts Payable) is not part
+        // of the chart of accounts: its attribute facts are children, so it
+        // would otherwise look like an account group and be copied into
+        // every new business, and show there as one more provider.
+        if (Entity.hasTag(child.id, 'Contact')) continue;
         const realChildren = Entity.children(child.id);
         const hasRealStructuralChild = realChildren.some((c) => !c.name.startsWith(`${child.name} — `));
         const alwaysCopyRegardlessOfDemoData = child.name === 'Cost of Goods Sold';

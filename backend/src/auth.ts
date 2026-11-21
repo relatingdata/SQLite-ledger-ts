@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { db, ValidationError, NotFoundError, ensureProductInstance, getActiveLedger, type BusinessName, type LedgerName, type UserId } from './db.js';
+import { db, ValidationError, NotFoundError, ensureProductInstance, getActiveLedger, ROLE_MATRIX_GROUPINGS, type BusinessName, type LedgerName, type UserId } from './db.js';
 import { Entity } from './primitives.js';
 import { hashPassword, verifyPassword } from './password.js';
 
@@ -107,10 +107,7 @@ export function setUserRoles(userId: number, roleNames: string[]): void {
   }
 }
 
-const USER_ROLE_SHAPE: [string, string][] = [
-  ['User', 'User'],
-  ['Role', 'Role'],
-];
+const USER_ROLE_SHAPE: [string, string][] = ROLE_MATRIX_GROUPINGS.map((g) => [g, g]);
 
 export interface UserRoleMatrix {
   users: string[];

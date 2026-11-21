@@ -1,0 +1,6 @@
+# On the Items page: select ${name}, then press Delete in the tree; it is
+# gone.
+"Click","button:has-text('${name}')"
+"Focus","[aria-keyshortcuts='Insert Delete']"
+"Press Key","Delete"
+"Page Lacks","button","${name}"

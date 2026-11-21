@@ -1,0 +1,3 @@
+# One provider (supplier) of the business. Needs common/business.csv.
+"Default","provider","Test Provider"
+"Create Provider","${business}","${provider}","Accounts Payable"

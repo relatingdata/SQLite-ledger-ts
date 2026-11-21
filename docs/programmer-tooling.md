@@ -434,7 +434,7 @@ from history). Four were ported to TypeScript and each ran from the Makefile:
 | `docs/build-programmer-manual.py` | `scripts/build-programmer-manual.ts` | `make programmer-manual` |
 | `docs/build-user-manual.py` | `scripts/build-user-manual.ts` | `make manual` |
 | `docs/generate-screens-inventory.py` | `scripts/generate-screens-inventory.ts` | `make screens-inventory` |
-| `docs/crop-parts-screenshot.py` | `scripts/crop-parts-screenshot.ts` | `make docs/manual-images/m_parts_cropped.png` |
+| `docs/crop-parts-screenshot.py` | removed: the manual's Items picture is taken whole, by `shared-fixtures/tests/user-manual-pictures.csv` | |
 
 The programmer-manual front matter moved into
 `docs/programmer-manual-frontmatter.md`, as the user manual already did. Both

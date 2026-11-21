@@ -1,0 +1,4 @@
+# Puts ${location} in the division ${division}, creating the division.
+# Needs common/division-grouping.csv first.
+"Create Hierarchy Value","${business}","Division","${division}"
+"Move Location To Division","${business}","${location}","${division}"

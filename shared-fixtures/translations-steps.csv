@@ -1,8 +1,7 @@
 # Logs in, then selects the one, real, dummy "admin" business - the
 # exact, same, real session setup every other real fixture's own data
 # file starts with.
-"Login","admin","changeme123"
-"Select Business","admin"
+"Include","common/login.csv"
 # Every real concept below that is not already a real entity in a
 # fresh, 00-core.sql-only boot (several hundred of this file's own
 # concepts are already real, hardcoded English UI strings the

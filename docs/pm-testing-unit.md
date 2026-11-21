@@ -191,7 +191,6 @@ observe — or cause — a collision.
 make check-backend-types     # tsc --noEmit over backend/
 make check-frontend          # svelte-check over frontend/
 make check-unused            # knip — unused exports/files/deps
-make check-e2e-types         # tsc --noEmit over e2e/
 make check-db-consistency    # verify-db-consistency.ts — balanced entries, no orphans, referential integrity
 make check-function-inventory
 make check-docs-coverage

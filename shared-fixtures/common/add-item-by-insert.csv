@@ -1,0 +1,6 @@
+# On the Items page: select the category ${under}, press Insert, and add
+# the item ${name} within it.
+"Click","button:text-is('${under}')"
+"Press Key","Insert"
+"Set","placeholder","New item name"
+"Include","inline-add-on-items-page.csv"

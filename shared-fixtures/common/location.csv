@@ -1,0 +1,9 @@
+# One location of the business (Retail, unless ${locationType} says
+# otherwise), with storage space for 100 bottles and 10 cartons.
+# Created through the API on every path: the Locations screen's
+# new-location form has no capacity fields (the space is set afterwards,
+# on the location's own panel). Needs common/business.csv first.
+"Default","location","Test Store"
+"Default","city","Brisbane"
+"Default","locationType","Retail"
+"Create Location","${business}","${location}","${city}","${locationType}","","100","10"

@@ -52,7 +52,8 @@ being written:
 
 All eight files live in `shared-fixtures/`, are genuinely plain ASCII
 (any non-ASCII character — an accented name, a Hebrew or Arabic word —
-is escaped as a literal `\u{XXXX}` sequence, never a raw UTF-8 byte),
+is escaped as a literal `\u{XXXX}` sequence, never a raw UTF-8 byte,
+and so is a control character such as a line break),
 and are read by both backend scripts and Playwright e2e tests through
 the exact same, shared loader functions, so there is only ever one,
 real, single source of truth for each.

@@ -1,0 +1,13 @@
+# The minimal business every test starts from: logs in, creates the
+# business with its Actual and Budget ledgers, its home currency and the
+# generic English chart of accounts, and works in its Actual ledger.
+# Set business, currency or secondaryCurrencies before including this to
+# change them; the *Shot variables name a screenshot of that step.
+"Default","business","Test Business"
+"Default","currency","AUD"
+"Default","secondaryCurrencies",""
+"Default","businessShot",""
+"Default","sessionShot",""
+"Include","login.csv"
+"Create Business","${business}","2026-27","Sole Trader","${currency}","English / generic","${secondaryCurrencies}"
+"Switch Session","${business}","Actual"

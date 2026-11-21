@@ -1,0 +1,22 @@
+# Choosing the item on a Purchase Order narrows the providers to the
+# item's known suppliers, the preferred one chosen and its price filled
+# in; "Show all providers" opens the full list.
+"Include","../common/business.csv"
+"Set","item","Amber Ale 330ml"
+"Include","../common/item.csv"
+"Set","provider","Boutique Wine Importers Pty Ltd"
+"Include","../common/provider.csv"
+"Set","provider","Harbour Beverage Wholesale"
+"Include","../common/provider.csv"
+"Set","provider","Unrelated Paper Supplies"
+"Include","../common/provider.csv"
+"Add Item Source","${item}","Boutique Wine Importers Pty Ltd","290","true"
+"Add Item Source","${item}","Harbour Beverage Wholesale","310","false"
+"Open Page","/stock/po"
+"Select Option","fieldset:has(> legend:text-is('Item')) select","${item}"
+"Page Count","fieldset:has(> legend:text-is('Provider')) select option","3"
+"Page Has Option","fieldset:has(> legend:text-is('Provider')) select","Unrelated Paper Supplies","false"
+"Page Value","fieldset:has(> legend:text-is('Provider')) select","Boutique Wine Importers Pty Ltd"
+"Page Value","fieldset:has(> legend:text-is('Price per unit')) input","2.90"
+"Click","button:text-is('Show all providers')"
+"Page Has Option","fieldset:has(> legend:text-is('Provider')) select","Unrelated Paper Supplies","true"

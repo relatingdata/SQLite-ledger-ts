@@ -461,6 +461,8 @@ The backend mounts four things, and nothing else:
 | `POST /api/core/call` | `coreCallRouter` (`routes/core-call.ts`) | The core middleware's frontend API, always (*The Core Middleware*). |
 | `/api/recording` | `recordingRouter` (`routes/recording.ts`), behind `requireAuth` | `GET /api/recording` answers `{ recording: isRecording(user) }`; `POST /api/recording/start` calls `startRecording`; `POST /api/recording/stop` calls `stopRecording`, which writes the recorded calls out (*Testing*, "The Admin recording feature"). |
 
+Every line is plain ASCII (`shared-fixtures/csv.ts`, and its copies in `frontend/src/lib/api.ts`, `frontend/src/lib/matrix-api.ts` and `tui/src/api.ts`): a character outside printable ASCII, a line break or a tab included, is written `\u{hex}`, so one record is always one line, even a value holding a whole XML document (an exported e-invoice).
+
 A response is `ok,value1,...` (one line, a `row`) or `ok`, a header line and one line per record (a `table`); an error is `error,message` with the HTTP status (401, 403, 404, 409, 500). Values inside one field that are themselves lists, pairs or trees are packed with the `call-dispatch.ts` codecs, each the inverse of the other:
 
 - `encodeStringList`/`decodeStringList`: a list of strings as one CSV line.
@@ -473,3 +475,4 @@ A response is `ok,value1,...` (one line, a `row`) or `ok`, a header line and one
 Tests:
 - "callRouter: a call to an unknown function is a 404, never evaluated" (`backend/test/call-dispatch.test.ts`)
 - "the call-dispatch codecs: every decode is the exact inverse of its encode, including commas, quotes and empty values" (`backend/test/call-dispatch.test.ts`)
+- "the wire codec keeps a value with line breaks on one line: an XML document goes out and comes back whole" (`backend/test/call-dispatch.test.ts`)

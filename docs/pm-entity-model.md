@@ -1325,7 +1325,10 @@ its own `relation_id` slot is permanently spoken for by the Gross
 Profit report's "COGS" tag rather than a prototype tag — omitting this
 case was a confirmed, found bug (a non-`admin` business's COGS
 postings silently landed in `operating_expenses` instead of
-`cogs_expenses` on every P&L).
+`cogs_expenses` on every P&L). A contact filed under an account of the
+template (the global Cash provider under Accounts Payable) is never
+copied: contacts are global, one of each, and a copy would give every
+new business a second "Cash".
 
 `PER_BUSINESS_ROOTS` is the single, consolidated list of every
 structural root a new business gets (Locations, Items, Contacts,
@@ -1341,4 +1344,5 @@ business's starting active ledger (`setActiveLedger`).
 Tests:
 - "createBusiness: a brand-new business gets both a real Actual ledger AND a real Budget ledger for the financial year, immediately postable to, using the already-shared Chart of Accounts — no separate CoA setup needed" (`backend/test/db.test.ts`)
 - "createBusiness: a real, forced failure partway through genuinely rolls back everything - never a partially-created business left behind" (`backend/test/db.test.ts`)
+- "createBusiness copies the chart of accounts without the contacts under it: the Cash provider under Accounts Payable stays the one, global provider" (`backend/test/db.test.ts`)
 

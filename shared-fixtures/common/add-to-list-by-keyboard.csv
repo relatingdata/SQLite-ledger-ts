@@ -1,0 +1,10 @@
+# Adds an entry to one of the typed lists on screen (Addresses, Phone
+# numbers, Contacts) with the keyboard alone: focus the list, Insert
+# opens a new entry, fill its field, Save keeps it, and the list shows
+# it. Set list (the list's legend), field (the input inside the new
+# entry) and value first.
+"Click","fieldset.sub-block:has(legend:text-is('${list}')) >> [role=toolbar]"
+"Press Key","Insert"
+"Fill","fieldset.sub-block:has(legend:text-is('${list}')) >> .repeat-block-form >> ${field}","${value}"
+"Click","fieldset.sub-block:has(legend:text-is('${list}')) >> button:text-is('Save')"
+"Page Shows","fieldset.sub-block:has(legend:text-is('${list}')) >> .repeat-block-body","${value}"

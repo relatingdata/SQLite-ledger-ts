@@ -23,6 +23,11 @@ Root
    addDivisionViaStructurePopup :Call
     - :Parameter Name=businessName Type=text
     - :Parameter Name=valueName Type=text
+   addItemSourceSimple :Call
+    - :Parameter Name=itemName Type=text
+    - :Parameter Name=providerName Type=text
+    - :Parameter Name=priceMinor Type=text
+    - :Parameter Name=preferred Type=text
    addOrUpdateItemSource :Call Client=addOrUpdateItemSource
     - :Parameter Name=itemName
     - :Parameter Name="source.manufacturerName ?? undefined"
@@ -319,6 +324,12 @@ Root
     - :Parameter Name=input.transdate
     - :Parameter Name=input.description
     - :Parameter Name=input.expiryDate
+   createSalesInvoiceSimple :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=customerName Type=text
+    - :Parameter Name=reference Type=text
+    - :Parameter Name=amountMinor Type=text
+    - :Parameter Name=source Type=text
    createStockTake :Call Client=createStockTake
     - :Parameter Name=locationName
     - :Parameter Name=takeDate
@@ -754,6 +765,9 @@ Root
     - :Parameter Name=reference Type=text
     - :Parameter Name=businessName Type=text
     - :Parameter Name=ledger Type=text
+   postSalesInvoiceSimple :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=reference Type=text
    postSalesOrder :Call Client=postSalesOrder
     - :Parameter Name=reference
     - :Parameter Name=business
@@ -924,6 +938,9 @@ Root
     - :Parameter Name=businessName Type=text
     - :Parameter Name=employeeName Type=text
     - :Parameter Name=managerName Type=select
+   setEmployeeSalarySimple :Call
+    - :Parameter Name=employeeName Type=text
+    - :Parameter Name=salaryMinorPerYear Type=text
    setEmployeeSchedule :Call Client=setEmployeeSchedule
     - :Parameter Name=employeeName
     - :Parameter Name=locationName
@@ -964,6 +981,16 @@ Root
     - :Parameter Name="levels.level == null ? '' : String(levels.level)"
     - :Parameter Name=businessName
     - :Parameter Name=ledgerName
+   setItemLocationLevelsSimple :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=itemName Type=text
+    - :Parameter Name=locationName Type=text
+    - :Parameter Name=minLevel Type=text
+    - :Parameter Name=maxLevel Type=text
+    - :Parameter Name=reorderLevel Type=text
+   setItemStorageOriginSimple :Call
+    - :Parameter Name=itemName Type=text
+    - :Parameter Name=origin Type=text
    setLanguageDirection :Call Client=setLanguageDirection
     - :Parameter Name=language
     - :Parameter Name="direction ?? ''"

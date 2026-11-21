@@ -1,6 +1,6 @@
 import { test, after } from '../test/test-runtime.ts';
 import assert from 'node:assert/strict';
-import { writeFileSync, mkdtempSync, rmSync } from 'fs';
+import { writeFileSync, mkdtempSync, mkdirSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import type { Screen } from './step-runner.ts';
@@ -93,6 +93,31 @@ test('loadSteps: reads the real skip column from a matching .control.csv', () =>
   const steps = loadSteps(path);
   assert.equal(steps[0].skip, true, 'a real "true" skip value must be read as skip');
   assert.equal(steps[1].skip, false, 'a real "false" skip value must not be treated as skip');
+});
+
+test('loadSteps: Include, Set and Default expand in order, ${name} in values and control rows, a directive\'s own control row ignored', () => {
+  const dir = tempDir();
+  mkdirSync(join(dir, 'common'));
+  writeFileSync(join(dir, 'common', 'thing.csv'), '"Default","name","Default Thing"\n"Default","shot","thing"\n"Create Thing","${name}"\n');
+  writeFileSync(join(dir, 'common', 'thing.control.csv'), 'path,verify,screenshot,skip\n,,,false\n,,,false\napi,thing_exists,${shot},false\n');
+  const path = join(dir, 'data.csv');
+  writeFileSync(path, '"Include","common/thing.csv"\n"Set","name","Chosen Thing"\n"Include","common/thing.csv"\n"Use Thing","${name}"\n');
+  writeFileSync(join(dir, 'data.control.csv'), 'path,verify,screenshot,skip\nui,ignored,ignored,true\n,,,false\n,,,false\nui-only,,,false\n');
+  const steps = loadSteps(path);
+  assert.deepEqual(steps.map((s) => [s.index, s.screen_name, s.values[0]]), [[1, 'Create Thing', 'Default Thing'], [2, 'Create Thing', 'Chosen Thing'], [3, 'Use Thing', 'Chosen Thing']]);
+  assert.deepEqual([steps[0].path, steps[0].verify, steps[0].screenshot, steps[0].skip], ['api', 'thing_exists', 'thing', false], 'the included file\'s own control row, not the directive\'s');
+  assert.equal(steps[2].path, 'ui-only');
+  assert.ok(steps[0].file?.endsWith(join('common', 'thing.csv')), 'each step knows the file it came from');
+});
+
+test('loadSteps: an unset ${name} and a file that includes itself are errors', () => {
+  const dir = tempDir();
+  const unset = join(dir, 'unset.csv');
+  writeFileSync(unset, '"Use Thing","${nothing}"\n');
+  assert.throws(() => loadSteps(unset), /\$\{nothing\} is not set/);
+  const loop = join(dir, 'loop.csv');
+  writeFileSync(loop, '"Include","loop.csv"\n');
+  assert.throws(() => loadSteps(loop), /includes itself/);
 });
 
 test('lintSteps: flags a screen_name with no real registry entry', () => {

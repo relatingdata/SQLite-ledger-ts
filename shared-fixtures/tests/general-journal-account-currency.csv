@@ -1,0 +1,9 @@
+# The General Journal's account list names each account's currency when
+# it is not the home currency: a euro bank account shows "(EUR)", the
+# home-currency Cash and Bank shows none.
+"Include","../common/business.csv"
+"Include","../common/bank-account.csv"
+"Build Bank Currency Structure","${business}","${bank}","EUR","true"
+"Open Page","/post"
+"Page Shows","tbody tr >> nth=0 >> select","(EUR)"
+"Page Has Option","tbody tr >> nth=0 >> select","Cash and Bank","true"

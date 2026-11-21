@@ -143,6 +143,10 @@ Role, scoped per Business), built on the same `defineProductShape`/
 size and Currency Exchange pairs, never a bespoke relationship or
 table:
 
+- The matrix's two groupings, `User` and `Role`, are named once, in
+  `ROLE_MATRIX_GROUPINGS` (`db.ts`); `auth.ts` builds the matrix's
+  shape from it, and `getBusinessHierarchy` leaves both out, so no
+  screen or report offers them as a way to group locations.
 - `getUserRoleMatrix(businessName)` — every user × every role for one
   business, and which cells are currently set.
 - `setUserRoleInBusiness` / `unsetUserRoleInBusiness` — set/clear one
@@ -701,6 +705,10 @@ Reading invoices:
   first; `options` filters by `invoiceType` (`AR` or `AP`) and by
   `source` (`manual`, the default, `pos`, or `all`), and pages with
   `limit` and `offset`. `countInvoices` counts with the same filters.
+  The Sales and Purchase Invoices screen (`invoices/+page.svelte`)
+  shows `manual` by default and pages by the user's own page size
+  (`pageSize()`, `$lib/pagination`), like every list
+  (`invoices-source-filter-and-pages`, *Testing*, "Standalone tests").
 - `getInvoiceLine(reference, business, ledger)` reads the single
   invoice line recorded for a non-invoice posting by `recordInvoiceLine`
   (*The Journal API*); `invoice.ts` prints it.
@@ -1501,6 +1509,13 @@ throws `ValidationError` naming whatever still references it. Full
 already-working relied on revoking an entity something else still
 referenced.
 
+An item's own Category link record (`${item} — Hierarchy: Category`)
+does not count as a child: it only classifies the item, so the Items
+page's Delete removes an item in a category. Revoking the item untags
+that link (keeping it as history), so the category is then no longer
+referenced and can be deleted too. Every other link record still
+blocks: a location in a Division is not revoked while it is there.
+
 **Two name-based delete wrappers**, since neither screen's own data
 shape carries the entity id `revokeEntity` needs directly:
 
@@ -1558,6 +1573,7 @@ confirmed separately.
 
 Tests:
 - "revokeEntity refuses to delete an entity with children" (`backend/test/db.test.ts`)
+- "revokeEntity deletes an item tagged into a category: its own Category link record never blocks it" (`backend/test/db.test.ts`)
 - "revokeEntity works for a genuinely childless, unposted entity" (`backend/test/db.test.ts`)
 - "revokeEntity refuses to delete a business's last real Actual or last real Budget ledger, but allows removing a real, genuine duplicate" (`backend/test/db.test.ts`)
 - "getEntityLinksPointingAt/revokeEntity: a Hierarchy value still assigned to a live entity cannot be revoked, but can once nothing points at it any more" (`backend/test/db.test.ts`)

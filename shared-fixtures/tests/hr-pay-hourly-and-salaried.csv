@@ -1,0 +1,28 @@
+# HR pays an hourly employee for the hours worked (38.5 h at $28.50,
+# less a 1.5% Medicare levy, with 12% superannuation on top) and a
+# salaried one a month of a yearly salary ($88,000 / 12), with no hours
+# to enter; the org chart shows both at their location.
+"Include","../common/business.csv"
+"Include","../common/location.csv"
+"Create Employee","${business}","Chloe Ferraro","${location}"
+"Set Employee Wage","Chloe Ferraro","2850"
+"Create Employee","${business}","Isla Fairweather","${location}"
+"Set Employee Salary","Isla Fairweather","8800000"
+"Open Page","/hr"
+"Select Option",".form-card select >> nth=0","Chloe Ferraro"
+"Page Shows",".pay-rate","28.50"
+"Fill","input[placeholder='e.g. 38.5']","38.5"
+"Click","button:has-text('Pay employee')"
+"Page Shows",".pay-result","097.25"
+"Page Shows",".pay-result","16.46"
+"Page Shows",".pay-result","131.67"
+"Page Shows",".pay-result","080.79"
+"Select Option",".form-card select >> nth=0","Isla Fairweather"
+"Page Shows",".pay-rate","333.33"
+"Page Count","input[placeholder='e.g. 38.5']","0"
+"Click","button:has-text('Pay employee')"
+"Page Shows",".pay-result","333.33"
+"Click","button:has-text('Org Chart')"
+"Page Shows","body","${location}"
+"Page Shows","body","Chloe Ferraro"
+"Page Shows","body","Isla Fairweather"

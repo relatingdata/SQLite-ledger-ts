@@ -1,0 +1,8 @@
+# The whole installation answers: the login screen lists the languages
+# the backend serves, the administrator logs in on a fresh database and
+# reaches the application.
+"Open Page","/login"
+"Page Has Option","select >> nth=0","English","true"
+"Page Has Option","select >> nth=0","German","true"
+"Include","../common/business.csv"
+"Page Shows","body","Log out"

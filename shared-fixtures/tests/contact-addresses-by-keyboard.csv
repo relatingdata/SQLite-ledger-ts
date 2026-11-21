@@ -1,0 +1,16 @@
+# The Contacts screen and the Structured Editor both use the shared
+# address and phone lists: no Add/Remove buttons, no single "Address
+# line 1" field, and an address added with the keyboard alone.
+"Include","../common/business.csv"
+"Include","../common/provider.csv"
+"Open Page","/contacts"
+"Click",".lists .entry:has-text('Test Provider')"
+"Include","../common/no-add-remove-buttons.csv"
+"Set","value","88 Vendor Way"
+"Include","../common/add-address-by-keyboard.csv"
+"Open Page","/editor"
+"Click","tr:has-text('Test Provider')"
+"Page Shows","h2, h3","Contact details"
+"Include","../common/no-add-remove-buttons.csv"
+"Set","value","1 Import Terminal Road"
+"Include","../common/add-address-by-keyboard.csv"

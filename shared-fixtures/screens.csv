@@ -25,22 +25,19 @@ Create Location,data,/locations,.list-toolbar;;key:Insert,createAndConfigureLoca
 Create Location,data,/locations,.list-toolbar;;key:Insert,createAndConfigureLocation,key:Enter,5,division,,text
 Create Location,data,/locations,.list-toolbar;;key:Insert,createAndConfigureLocation,key:Enter,6,bottleCapacity,,text
 Create Location,data,/locations,.list-toolbar;;key:Insert,createAndConfigureLocation,key:Enter,7,cartonCapacity,,text
-Create Employee,data,/setup/business-setup,"button:has-text('Head Office') >> nth=1;;key:Insert",createEmployeeAt,key:Enter,1,businessName,,text
-Create Employee,data,/setup/business-setup,"button:has-text('Head Office') >> nth=1;;key:Insert",createEmployeeAt,key:Enter,2,employeeName,input[placeholder='Employee name'],text
-Create Employee,data,/setup/business-setup,"button:has-text('Head Office') >> nth=1;;key:Insert",createEmployeeAt,key:Enter,3,locationName,,text
+Create Employee,data,/setup/business-setup,button:has-text('{{locationName}}') >> nth=1;;key:Insert,createEmployeeAt,key:Enter,1,businessName,,text
+Create Employee,data,/setup/business-setup,button:has-text('{{locationName}}') >> nth=1;;key:Insert,createEmployeeAt,key:Enter,2,employeeName,input[placeholder='Employee name'],text
+Create Employee,data,/setup/business-setup,button:has-text('{{locationName}}') >> nth=1;;key:Insert,createEmployeeAt,key:Enter,3,locationName,,text
 Create Provider,data,/editor,.card.list th:first-child;;key:Insert,createProviderSimple,key:Enter,1,businessName,,text
 Create Provider,data,/editor,.card.list th:first-child;;key:Insert,createProviderSimple,key:Enter,2,providerName,input[placeholder='e.g. Gamma LLC'],text
 Create Provider,data,/editor,.card.list th:first-child;;key:Insert,createProviderSimple,key:Enter,3,parent,select >> nth=0,select
 Create Item No Category,data,/items,button:has-text('+ Item (no category)'),createUncategorizedItem,key:Enter,1,businessName,,text
 Create Item No Category,data,/items,button:has-text('+ Item (no category)'),createUncategorizedItem,key:Enter,2,itemName,input[placeholder='New item name'],text
-Create Category,data,/items,[role="toolbar"][aria-keyshortcuts];;key:Insert,createCategorySimple,key:Enter,1,businessName,,text
-Create Category,data,/items,[role="toolbar"][aria-keyshortcuts];;key:Insert,createCategorySimple,key:Enter,2,categoryName,input[placeholder='Category name'],text
-Create Item Under Whiskey Category,data,/items,button:has-text('Whiskey');;key:Insert,createItemUnderCategory,key:Enter,1,businessName,,text
-Create Item Under Whiskey Category,data,/items,button:has-text('Whiskey');;key:Insert,createItemUnderCategory,key:Enter,2,itemName,input[placeholder='New item name'],text
-Create Item Under Whiskey Category,data,/items,button:has-text('Whiskey');;key:Insert,createItemUnderCategory,key:Enter,3,category,,text
-Create Item Under Beer Category,data,/items,button:has-text('Beer');;key:Insert,createItemUnderCategory,key:Enter,1,businessName,,text
-Create Item Under Beer Category,data,/items,button:has-text('Beer');;key:Insert,createItemUnderCategory,key:Enter,2,itemName,input[placeholder='New item name'],text
-Create Item Under Beer Category,data,/items,button:has-text('Beer');;key:Insert,createItemUnderCategory,key:Enter,3,category,,text
+Create Category,data,/items,"[role=""toolbar""][aria-keyshortcuts];;key:Insert",createCategorySimple,key:Enter,1,businessName,,text
+Create Category,data,/items,"[role=""toolbar""][aria-keyshortcuts];;key:Insert",createCategorySimple,key:Enter,2,categoryName,input[placeholder='Category name'],text
+Create Item Under Category,data,/items,button:has-text('{{category}}');;key:Insert,createItemUnderCategory,key:Enter,1,businessName,,text
+Create Item Under Category,data,/items,button:has-text('{{category}}');;key:Insert,createItemUnderCategory,key:Enter,2,itemName,input[placeholder='New item name'],text
+Create Item Under Category,data,/items,button:has-text('{{category}}');;key:Insert,createItemUnderCategory,key:Enter,3,category,,text
 Set Item Cost and Pack Size,data,/items,button:has-text('Amber Ale 330ml'),setItemCostAndPackSize,button:has-text('Add source'),1,businessName,,text
 Set Item Cost and Pack Size,data,/items,button:has-text('Amber Ale 330ml'),setItemCostAndPackSize,button:has-text('Add source'),2,itemName,,text
 Set Item Cost and Pack Size,data,/items,button:has-text('Amber Ale 330ml'),setItemCostAndPackSize,button:has-text('Add source'),3,providerName,select >> nth=1,select
@@ -62,11 +59,11 @@ Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Comp
 Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),4,quantity,input[type=number] >> nth=0,text
 Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Complete purchase'),5,unitCostMinor,input[type=number] >> nth=1,money
 Cash Purchase,data,,,,,6,ledger,,text
-Create Hierarchy Grouping,data,/setup/hierarchy,.hierarchy-layout fieldset.sub-block:first-of-type [role="toolbar"];;key:Insert,createHierarchyGroupingSimple,key:Enter,1,businessName,,text
-Create Hierarchy Grouping,data,/setup/hierarchy,.hierarchy-layout fieldset.sub-block:first-of-type [role="toolbar"];;key:Insert,createHierarchyGroupingSimple,key:Enter,2,groupingName,"input[placeholder='New grouping name (e.g. Storage, Glass Size)']",text
-Create Hierarchy Value,data,/setup/hierarchy,.hierarchy-layout fieldset.sub-block:first-of-type .repeat-block:last-of-type;;.hierarchy-layout fieldset.sub-block:last-of-type [role="toolbar"];;key:Insert,createHierarchyValueSimple,key:Enter,1,businessName,,text
-Create Hierarchy Value,data,/setup/hierarchy,.hierarchy-layout fieldset.sub-block:first-of-type .repeat-block:last-of-type;;.hierarchy-layout fieldset.sub-block:last-of-type [role="toolbar"];;key:Insert,createHierarchyValueSimple,key:Enter,2,groupingName,,text
-Create Hierarchy Value,data,/setup/hierarchy,.hierarchy-layout fieldset.sub-block:first-of-type .repeat-block:last-of-type;;.hierarchy-layout fieldset.sub-block:last-of-type [role="toolbar"];;key:Insert,createHierarchyValueSimple,key:Enter,3,valueName,.hierarchy-layout fieldset.sub-block:last-of-type input[placeholder='New value'],text
+Create Hierarchy Grouping,data,/setup/hierarchy,".hierarchy-layout fieldset.sub-block:first-of-type [role=""toolbar""];;key:Insert",createHierarchyGroupingSimple,key:Enter,1,businessName,,text
+Create Hierarchy Grouping,data,/setup/hierarchy,".hierarchy-layout fieldset.sub-block:first-of-type [role=""toolbar""];;key:Insert",createHierarchyGroupingSimple,key:Enter,2,groupingName,"input[placeholder='New grouping name (e.g. Storage, Glass Size)']",text
+Create Hierarchy Value,data,/setup/hierarchy,".hierarchy-layout fieldset.sub-block:first-of-type .repeat-block:last-of-type;;.hierarchy-layout fieldset.sub-block:last-of-type [role=""toolbar""];;key:Insert",createHierarchyValueSimple,key:Enter,1,businessName,,text
+Create Hierarchy Value,data,/setup/hierarchy,".hierarchy-layout fieldset.sub-block:first-of-type .repeat-block:last-of-type;;.hierarchy-layout fieldset.sub-block:last-of-type [role=""toolbar""];;key:Insert",createHierarchyValueSimple,key:Enter,2,groupingName,,text
+Create Hierarchy Value,data,/setup/hierarchy,".hierarchy-layout fieldset.sub-block:first-of-type .repeat-block:last-of-type;;.hierarchy-layout fieldset.sub-block:last-of-type [role=""toolbar""];;key:Insert",createHierarchyValueSimple,key:Enter,3,valueName,.hierarchy-layout fieldset.sub-block:last-of-type input[placeholder='New value'],text
 Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),receiveStockWithCombination,button:has-text('Receive'),1,businessName,,text
 Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),receiveStockWithCombination,button:has-text('Receive'),2,itemName,,text
 Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),receiveStockWithCombination,button:has-text('Receive'),3,locationName,select >> nth=2,select
@@ -91,7 +88,7 @@ Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transf
 Transfer Items,data,,,,,7,ledger,,text
 POS Sale,data,/pos,maybe-click:button:has-text('New sale'),posSaleSimple,button:has-text('Complete Sale'),1,businessName,,text
 POS Sale,data,/pos,maybe-click:button:has-text('New sale'),posSaleSimple,button:has-text('Complete Sale'),2,locationName,select >> nth=0,select_value
-POS Sale,data,/pos,maybe-click:button:has-text('New sale'),posSaleSimple,button:has-text('Complete Sale'),3,itemName,"input[placeholder='Scan barcode or type a name…']",text_enter
+POS Sale,data,/pos,maybe-click:button:has-text('New sale'),posSaleSimple,button:has-text('Complete Sale'),3,itemName,input[placeholder='Scan barcode or type a name…'],text_enter
 POS Sale,data,/pos,maybe-click:button:has-text('New sale'),posSaleSimple,button:has-text('Complete Sale'),4,quantity,.qty-input,text
 POS Sale,data,/pos,maybe-click:button:has-text('New sale'),posSaleSimple,button:has-text('Complete Sale'),5,unitPriceMinor,.price-input >> nth=0,money
 POS Sale,data,,,,,6,ledger,,text
@@ -99,33 +96,33 @@ Close Books,data,/setup/yearend,,closeBooksSimple,button:has-text('Preview the c
 Close Books,data,/setup/yearend,,closeBooksSimple,button:has-text('Preview the close');;button:has-text('Accept and close'),2,ledger,,text
 Close Books,data,/setup/yearend,,closeBooksSimple,button:has-text('Preview the close');;button:has-text('Accept and close'),3,asOfDate,input[type=date],text
 Close Books,data,/setup/yearend,,closeBooksSimple,button:has-text('Preview the close');;button:has-text('Accept and close'),4,retainedEarningsAccount,select >> nth=1,select
-Create Ledger,data,,,createLedgerSimple,,1,businessName,,text
-Create Ledger,data,,,createLedgerSimple,,2,ledger,,text
-Tag Item Hierarchy,data,,,tagItemHierarchy,,1,businessName,,text
-Tag Item Hierarchy,data,,,tagItemHierarchy,,2,itemName,,text
-Tag Item Hierarchy,data,,,tagItemHierarchy,,3,groupingName,,text
-Tag Item Hierarchy,data,,,tagItemHierarchy,,4,valueName,,text
+Create Ledger,api,,,createLedgerSimple,,1,businessName,,text
+Create Ledger,api,,,createLedgerSimple,,2,ledger,,text
+Tag Item Hierarchy,api,,,tagItemHierarchy,,1,businessName,,text
+Tag Item Hierarchy,api,,,tagItemHierarchy,,2,itemName,,text
+Tag Item Hierarchy,api,,,tagItemHierarchy,,3,groupingName,,text
+Tag Item Hierarchy,api,,,tagItemHierarchy,,4,valueName,,text
 Rollover To New Period,data,/setup/yearend,,rolloverToNewPeriodSimple,button:has-text('Resolve opening balances');;button:has-text('Accept and roll over'),1,businessName,,text
 Rollover To New Period,data,/setup/yearend,,rolloverToNewPeriodSimple,button:has-text('Resolve opening balances');;button:has-text('Accept and roll over'),2,oldLedger,,text
 Rollover To New Period,data,/setup/yearend,,rolloverToNewPeriodSimple,button:has-text('Resolve opening balances');;button:has-text('Accept and roll over'),3,newLedger,input[placeholder='New ledger name'],text
 Rollover To New Period,data,/setup/yearend,,rolloverToNewPeriodSimple,button:has-text('Resolve opening balances');;button:has-text('Accept and roll over'),4,asOfDate,input[type=date],text
-Stage Journal Line,data,/post,,stageJournalLine,,1,reference,"input[placeholder='e.g. GJ-1001']",text
+Stage Journal Line,data,/post,,stageJournalLine,,1,reference,input[placeholder='e.g. GJ-1001'],text
 Stage Journal Line,data,/post,,stageJournalLine,,2,businessName,,text
 Stage Journal Line,data,/post,,stageJournalLine,,3,ledger,,text
 Stage Journal Line,data,/post,,stageJournalLine,,4,account,table:has(select) tbody tr:last-child select,select
-Stage Journal Line,data,/post,,stageJournalLine,,5,amountMinor,"table:has(select) tbody tr:last-child td:nth-child(3) input|table:has(select) tbody tr:last-child td:nth-child(4) input",signed_money
-Create Entity,data,,,createEntitySimple,,1,name,,text
-Create Entity,data,,,createEntitySimple,,2,parent,,text
-Stage Purchase Order,data,,,stagePurchaseOrderSimple,,1,reference,,text
-Stage Purchase Order,data,,,stagePurchaseOrderSimple,,2,businessName,,text
-Stage Purchase Order,data,,,stagePurchaseOrderSimple,,3,ledger,,text
-Stage Purchase Order,data,,,stagePurchaseOrderSimple,,4,vendor,,text
-Stage Purchase Order,data,,,stagePurchaseOrderSimple,,5,item,,text
-Stage Purchase Order,data,,,stagePurchaseOrderSimple,,6,quantity,,text
-Stage Purchase Order,data,,,stagePurchaseOrderSimple,,7,priceMinor,,text
-Post Purchase Order,data,,,postPurchaseOrderSimple,,1,reference,,text
-Post Purchase Order,data,,,postPurchaseOrderSimple,,2,businessName,,text
-Post Purchase Order,data,,,postPurchaseOrderSimple,,3,ledger,,text
+Stage Journal Line,data,/post,,stageJournalLine,,5,amountMinor,table:has(select) tbody tr:last-child td:nth-child(3) input|table:has(select) tbody tr:last-child td:nth-child(4) input,signed_money
+Create Entity,api,,,createEntitySimple,,1,name,,text
+Create Entity,api,,,createEntitySimple,,2,parent,,text
+Stage Purchase Order,api,,,stagePurchaseOrderSimple,,1,reference,,text
+Stage Purchase Order,api,,,stagePurchaseOrderSimple,,2,businessName,,text
+Stage Purchase Order,api,,,stagePurchaseOrderSimple,,3,ledger,,text
+Stage Purchase Order,api,,,stagePurchaseOrderSimple,,4,vendor,,text
+Stage Purchase Order,api,,,stagePurchaseOrderSimple,,5,item,,text
+Stage Purchase Order,api,,,stagePurchaseOrderSimple,,6,quantity,,text
+Stage Purchase Order,api,,,stagePurchaseOrderSimple,,7,priceMinor,,text
+Post Purchase Order,api,,,postPurchaseOrderSimple,,1,reference,,text
+Post Purchase Order,api,,,postPurchaseOrderSimple,,2,businessName,,text
+Post Purchase Order,api,,,postPurchaseOrderSimple,,3,ledger,,text
 Cash Sale,data,/arap/cash-sale,,cashSaleSimple,button:has-text('Complete sale'),1,businessName,,text
 Cash Sale,data,/arap/cash-sale,,cashSaleSimple,button:has-text('Complete sale'),2,locationName,select >> nth=0,select
 Cash Sale,data,/arap/cash-sale,,cashSaleSimple,button:has-text('Complete sale'),3,itemName,input[placeholder='e.g. Golden Lager 330ml'],text
@@ -135,12 +132,12 @@ Cash Sale,data,,,,,6,ledger,,text
 Create Customer,data,/editor,.card.list th:first-child;;key:Insert,createCustomerSimple,key:Enter,1,businessName,,text
 Create Customer,data,/editor,.card.list th:first-child;;key:Insert,createCustomerSimple,key:Enter,2,customerName,input[placeholder='e.g. Gamma LLC'],text
 Create Customer,data,/editor,.card.list th:first-child;;key:Insert,createCustomerSimple,key:Enter,3,parent,select >> nth=0,select
-POS Sale In Ledger,data,,,posSaleInLedgerSimple,,1,businessName,,text
-POS Sale In Ledger,data,,,posSaleInLedgerSimple,,2,locationName,,text
-POS Sale In Ledger,data,,,posSaleInLedgerSimple,,3,ledger,,text
-POS Sale In Ledger,data,,,posSaleInLedgerSimple,,4,itemName,,text
-POS Sale In Ledger,data,,,posSaleInLedgerSimple,,5,quantity,,text
-POS Sale In Ledger,data,,,posSaleInLedgerSimple,,6,unitPriceMinor,,text
+POS Sale In Ledger,api,,,posSaleInLedgerSimple,,1,businessName,,text
+POS Sale In Ledger,api,,,posSaleInLedgerSimple,,2,locationName,,text
+POS Sale In Ledger,api,,,posSaleInLedgerSimple,,3,ledger,,text
+POS Sale In Ledger,api,,,posSaleInLedgerSimple,,4,itemName,,text
+POS Sale In Ledger,api,,,posSaleInLedgerSimple,,5,quantity,,text
+POS Sale In Ledger,api,,,posSaleInLedgerSimple,,6,unitPriceMinor,,text
 Check Trial Balance Balanced,data,/reports/trial-balance,,,,1,businessName,,text
 Check Trial Balance Balanced,data,/reports/trial-balance,,,,2,ledger,select,select
 Check Trial Balance Balanced,data,/reports/trial-balance,,,,3,asOfDate,input[type=date],text
@@ -191,15 +188,15 @@ Check P&L By Division,data,/reports/profit-and-loss,,,,4,toDate,input[type=date]
 Check P&L By Division,data,/reports/profit-and-loss,,,,5,innerAxis,select >> nth=1,select_value
 Check P&L By Division,data,/reports/profit-and-loss,,,,6,outerAxis,select >> nth=0,select_value
 Check P&L By Division,data,/reports/profit-and-loss,,,,7,divisionName,,text
-Create User,data,/setup/users,[role="toolbar"][aria-keyshortcuts];;key:Insert,createUserSimple,key:Enter,1,username,.form-card fieldset:has(legend:has-text('Username')) input,text
-Create User,data,/setup/users,[role="toolbar"][aria-keyshortcuts];;key:Insert,createUserSimple,key:Enter,2,password,.form-card fieldset:has(legend:has-text('Password')) input,text
-Create User,data,/setup/users,[role="toolbar"][aria-keyshortcuts];;key:Insert,createUserSimple,key:Enter,3,roles,.form-card .multiselect,check_by_text
-Set User Roles,data,,,setUserRolesSimple,,1,username,,text
-Set User Roles,data,,,setUserRolesSimple,,2,roles,,text
+Create User,data,/setup/users,"[role=""toolbar""][aria-keyshortcuts];;key:Insert",createUserSimple,key:Enter,1,username,.form-card fieldset:has(legend:has-text('Username')) input,text
+Create User,data,/setup/users,"[role=""toolbar""][aria-keyshortcuts];;key:Insert",createUserSimple,key:Enter,2,password,.form-card fieldset:has(legend:has-text('Password')) input,text
+Create User,data,/setup/users,"[role=""toolbar""][aria-keyshortcuts];;key:Insert",createUserSimple,key:Enter,3,roles,.form-card .multiselect,check_by_text
+Set User Roles,api,,,setUserRolesSimple,,1,username,,text
+Set User Roles,api,,,setUserRolesSimple,,2,roles,,text
 Set Translation,data,/setup/translations,,setTranslationSimple,.edit-card fieldset:has(legend:has-text('{{language}}')) button:has-text('Save'),1,concept,.word-list-card input|.word-list-card .repeat-block,search_and_select
 Set Translation,data,/setup/translations,,setTranslationSimple,.edit-card fieldset:has(legend:has-text('{{language}}')) button:has-text('Save'),2,language,,text
 Set Translation,data,/setup/translations,,setTranslationSimple,.edit-card fieldset:has(legend:has-text('{{language}}')) button:has-text('Save'),3,translationText,.edit-card fieldset:has(legend:has-text('{{language}}')) input,text
-Add Vocabulary Word,data,/setup/translations,.word-list-card [role="toolbar"][aria-keyshortcuts];;key:Insert,createEntitySimple,key:Enter,1,name,.word-list-card input[placeholder='e.g. Balance Sheet'],text
+Add Vocabulary Word,data,/setup/translations,".word-list-card [role=""toolbar""][aria-keyshortcuts];;key:Insert",createEntitySimple,key:Enter,1,name,.word-list-card input[placeholder='e.g. Balance Sheet'],text
 Add Vocabulary Word,data,/setup/translations,,createEntitySimple,.new-word-card button:has-text('Add word'),2,parent,,text
 Add Location Via Structure Popup,data,/setup/business-structure,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create Location'),1,businessName,,text
 Add Location Via Structure Popup,data,/setup/business-structure,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create Location'),2,locationName,.generic-form fieldset >> nth=0 >> input,text
@@ -207,12 +204,9 @@ Add Location Via Structure Popup,data,/setup/business-structure,button:has-text(
 Add Location Via Structure Popup,data,/setup/business-structure,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create Location'),4,locationType,.generic-form fieldset >> nth=2 >> select,select
 Add Division Via Structure Popup,data,/setup/business-structure,button:has-text('+ New Division'),addDivisionViaStructurePopup,.inline-form button:has-text('Create'),1,businessName,,text
 Add Division Via Structure Popup,data,/setup/business-structure,button:has-text('+ New Division'),addDivisionViaStructurePopup,.inline-form button:has-text('Create'),2,valueName,"input[placeholder='Division name, e.g. Adelaide Metro']",text
-Move Main Street Cellar To Division,data,/setup/business-structure,.box:has-text('Main Street Cellar');;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,1,businessName,,text
-Move Main Street Cellar To Division,data,/setup/business-structure,.box:has-text('Main Street Cellar');;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,2,locationName,,text
-Move Main Street Cellar To Division,data,/setup/business-structure,.box:has-text('Main Street Cellar');;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,3,division,.inline-panel select,select
-Move Head Office To Division,data,/setup/business-structure,.box:has-text('Head Office');;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,1,businessName,,text
-Move Head Office To Division,data,/setup/business-structure,.box:has-text('Head Office');;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,2,locationName,,text
-Move Head Office To Division,data,/setup/business-structure,.box:has-text('Head Office');;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,3,division,.inline-panel select,select
+Move Location To Division,data,/setup/business-structure,.box:has(.box-label:text-is('{{locationName}}'));;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,1,businessName,,text
+Move Location To Division,data,/setup/business-structure,.box:has(.box-label:text-is('{{locationName}}'));;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,2,locationName,,text
+Move Location To Division,data,/setup/business-structure,.box:has(.box-label:text-is('{{locationName}}'));;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,3,division,.inline-panel select,select
 Add Category Via Structure Popup,data,/setup/business-structure,button:has-text('Item Categories');;button:has-text('+ New top-level category'),addTopLevelCategoryViaStructurePopup,.inline-form button:has-text('Create'),1,businessName,,text
 Add Category Via Structure Popup,data,/setup/business-structure,button:has-text('Item Categories');;button:has-text('+ New top-level category'),addTopLevelCategoryViaStructurePopup,.inline-form button:has-text('Create'),2,categoryName,input[placeholder='Category name'],text
 Create Department Via Structure Popup,data,/setup/business-structure,button:has-text('+ New Department'),addDepartmentViaStructurePopup,.inline-form button:has-text('Create'),1,businessName,,text
@@ -225,152 +219,139 @@ Set Employee Manager Via Structure Popup,data,/setup/business-structure,.box:has
 Set Employee Manager Via Structure Popup,data,/setup/business-structure,.box:has-text('Jordan Lee');;.side-panel button:has-text('Reports to'),setEmployeeManagerViaStructurePopup,key:Enter,3,managerName,.inline-panel select,select
 Delete Department Via Structure Popup,data,/setup/business-structure,.box:has-text('Temp Dept');;key:Delete,deleteDepartmentViaStructurePopup,,1,businessName,,text
 Delete Department Via Structure Popup,data,/setup/business-structure,.box:has-text('Temp Dept');;key:Delete,deleteDepartmentViaStructurePopup,,2,departmentName,,text
-Rename Entity,data,,,renameEntitySimple,,1,businessName,,text
-Rename Entity,data,,,renameEntitySimple,,2,oldName,,text
-Rename Entity,data,,,renameEntitySimple,,3,newName,,text
-Rename Entity,data,,,renameEntitySimple,,4,parentName,,text
-Move Raw Materials Store To Division,data,/setup/business-structure,.box:has-text('Raw Materials Store');;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,1,businessName,,text
-Move Raw Materials Store To Division,data,/setup/business-structure,.box:has-text('Raw Materials Store');;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,2,locationName,,text
-Move Raw Materials Store To Division,data,/setup/business-structure,.box:has-text('Raw Materials Store');;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,3,division,.inline-panel select,select
-Move Factory To Division,data,/setup/business-structure,.box:has-text('Factory');;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,1,businessName,,text
-Move Factory To Division,data,/setup/business-structure,.box:has-text('Factory');;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,2,locationName,,text
-Move Factory To Division,data,/setup/business-structure,.box:has-text('Factory');;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,3,division,.inline-panel select,select
-Move Finished Goods Store To Division,data,/setup/business-structure,.box:has-text('Finished Goods Store');;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,1,businessName,,text
-Move Finished Goods Store To Division,data,/setup/business-structure,.box:has-text('Finished Goods Store');;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,2,locationName,,text
-Move Finished Goods Store To Division,data,/setup/business-structure,.box:has-text('Finished Goods Store');;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,3,division,.inline-panel select,select
-Receive Stock Quantity,data,,,receiveStockQuantitySimple,,1,reference,,text
-Receive Stock Quantity,data,,,receiveStockQuantitySimple,,2,businessName,,text
-Receive Stock Quantity,data,,,receiveStockQuantitySimple,,3,ledger,,text
-Receive Stock Quantity,data,,,receiveStockQuantitySimple,,4,itemName,,text
-Receive Stock Quantity,data,,,receiveStockQuantitySimple,,5,locationName,,text
-Receive Stock Quantity,data,,,receiveStockQuantitySimple,,6,quantity,,text
-Dispatch Stock Quantity,data,,,dispatchStockQuantitySimple,,1,reference,,text
-Dispatch Stock Quantity,data,,,dispatchStockQuantitySimple,,2,businessName,,text
-Dispatch Stock Quantity,data,,,dispatchStockQuantitySimple,,3,ledger,,text
-Dispatch Stock Quantity,data,,,dispatchStockQuantitySimple,,4,itemName,,text
-Dispatch Stock Quantity,data,,,dispatchStockQuantitySimple,,5,locationName,,text
-Dispatch Stock Quantity,data,,,dispatchStockQuantitySimple,,6,quantity,,text
-Set Bom Component For Aluminum Window Frame,data,/items,button:has-text('Aluminum Window Frame'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
-Set Bom Component For Aluminum Window Frame,data,/items,button:has-text('Aluminum Window Frame'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
-Set Bom Component For Aluminum Window Frame,data,/items,button:has-text('Aluminum Window Frame'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
-Set Bom Component For Aluminum Window Frame,data,/items,button:has-text('Aluminum Window Frame'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
-Set Bom Component For Aluminum Window Frame,data,/items,button:has-text('Aluminum Window Frame'),setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
-Set Bom Component For Wooden Front Door Frame,data,/items,button:has-text('Wooden Front Door Frame'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
-Set Bom Component For Wooden Front Door Frame,data,/items,button:has-text('Wooden Front Door Frame'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
-Set Bom Component For Wooden Front Door Frame,data,/items,button:has-text('Wooden Front Door Frame'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
-Set Bom Component For Wooden Front Door Frame,data,/items,button:has-text('Wooden Front Door Frame'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
-Set Bom Component For Wooden Front Door Frame,data,/items,button:has-text('Wooden Front Door Frame'),setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
-Set Bom Component For Wooden Rear Door Frame,data,/items,button:has-text('Wooden Rear Door Frame'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
-Set Bom Component For Wooden Rear Door Frame,data,/items,button:has-text('Wooden Rear Door Frame'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
-Set Bom Component For Wooden Rear Door Frame,data,/items,button:has-text('Wooden Rear Door Frame'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
-Set Bom Component For Wooden Rear Door Frame,data,/items,button:has-text('Wooden Rear Door Frame'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
-Set Bom Component For Wooden Rear Door Frame,data,/items,button:has-text('Wooden Rear Door Frame'),setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
-Set Bom Component For Wooden Internal Door Frame,data,/items,button:has-text('Wooden Internal Door Frame'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
-Set Bom Component For Wooden Internal Door Frame,data,/items,button:has-text('Wooden Internal Door Frame'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
-Set Bom Component For Wooden Internal Door Frame,data,/items,button:has-text('Wooden Internal Door Frame'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
-Set Bom Component For Wooden Internal Door Frame,data,/items,button:has-text('Wooden Internal Door Frame'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
-Set Bom Component For Wooden Internal Door Frame,data,/items,button:has-text('Wooden Internal Door Frame'),setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
-Set Bom Component For Aluminum Patio Door Frame,data,/items,button:has-text('Aluminum Patio Door Frame'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
-Set Bom Component For Aluminum Patio Door Frame,data,/items,button:has-text('Aluminum Patio Door Frame'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
-Set Bom Component For Aluminum Patio Door Frame,data,/items,button:has-text('Aluminum Patio Door Frame'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
-Set Bom Component For Aluminum Patio Door Frame,data,/items,button:has-text('Aluminum Patio Door Frame'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
-Set Bom Component For Aluminum Patio Door Frame,data,/items,button:has-text('Aluminum Patio Door Frame'),setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
-Set Bom Component For Front Door Unit - Complete,data,/items,button:has-text('Front Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
-Set Bom Component For Front Door Unit - Complete,data,/items,button:has-text('Front Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
-Set Bom Component For Front Door Unit - Complete,data,/items,button:has-text('Front Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
-Set Bom Component For Front Door Unit - Complete,data,/items,button:has-text('Front Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
-Set Bom Component For Front Door Unit - Complete,data,/items,button:has-text('Front Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
-Set Bom Component For Rear Door Unit - Complete,data,/items,button:has-text('Rear Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
-Set Bom Component For Rear Door Unit - Complete,data,/items,button:has-text('Rear Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
-Set Bom Component For Rear Door Unit - Complete,data,/items,button:has-text('Rear Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
-Set Bom Component For Rear Door Unit - Complete,data,/items,button:has-text('Rear Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
-Set Bom Component For Rear Door Unit - Complete,data,/items,button:has-text('Rear Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
-Set Bom Component For Internal Door Unit - Complete,data,/items,button:has-text('Internal Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
-Set Bom Component For Internal Door Unit - Complete,data,/items,button:has-text('Internal Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
-Set Bom Component For Internal Door Unit - Complete,data,/items,button:has-text('Internal Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
-Set Bom Component For Internal Door Unit - Complete,data,/items,button:has-text('Internal Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
-Set Bom Component For Internal Door Unit - Complete,data,/items,button:has-text('Internal Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
-Set Bom Component For Sliding Patio Door Unit - Complete,data,/items,button:has-text('Sliding Patio Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
-Set Bom Component For Sliding Patio Door Unit - Complete,data,/items,button:has-text('Sliding Patio Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
-Set Bom Component For Sliding Patio Door Unit - Complete,data,/items,button:has-text('Sliding Patio Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
-Set Bom Component For Sliding Patio Door Unit - Complete,data,/items,button:has-text('Sliding Patio Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
-Set Bom Component For Sliding Patio Door Unit - Complete,data,/items,button:has-text('Sliding Patio Door Unit - Complete'),setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
-Set Bom Component For Aluminum Extrusion,data,/items,button:has-text('Aluminum Extrusion') >> nth=0,setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
-Set Bom Component For Aluminum Extrusion,data,/items,button:has-text('Aluminum Extrusion') >> nth=0,setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
-Set Bom Component For Aluminum Extrusion,data,/items,button:has-text('Aluminum Extrusion') >> nth=0,setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
-Set Bom Component For Aluminum Extrusion,data,/items,button:has-text('Aluminum Extrusion') >> nth=0,setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
-Set Bom Component For Aluminum Extrusion,data,/items,button:has-text('Aluminum Extrusion') >> nth=0,setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
-Set Bom Component For Timber Stile,data,/items,button:has-text('Timber Stile') >> nth=0,setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
-Set Bom Component For Timber Stile,data,/items,button:has-text('Timber Stile') >> nth=0,setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
-Set Bom Component For Timber Stile,data,/items,button:has-text('Timber Stile') >> nth=0,setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
-Set Bom Component For Timber Stile,data,/items,button:has-text('Timber Stile') >> nth=0,setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
-Set Bom Component For Timber Stile,data,/items,button:has-text('Timber Stile') >> nth=0,setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
-Set Bom Component For Timber Rail,data,/items,button:has-text('Timber Rail') >> nth=0,setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
-Set Bom Component For Timber Rail,data,/items,button:has-text('Timber Rail') >> nth=0,setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
-Set Bom Component For Timber Rail,data,/items,button:has-text('Timber Rail') >> nth=0,setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
-Set Bom Component For Timber Rail,data,/items,button:has-text('Timber Rail') >> nth=0,setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
-Set Bom Component For Timber Rail,data,/items,button:has-text('Timber Rail') >> nth=0,setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
-Check Bom Components Recorded,data,,,,,1,assemblyItem,,text
-Check Bom Components Recorded,data,,,,,2,expectedCount,,text
-Check Stock Nonnegative,data,,,,,1,businessName,,text
-Ensure Item Inventory Account,data,,,ensureItemInventoryAccountSimple,,1,businessName,,text
-Ensure Item Inventory Account,data,,,ensureItemInventoryAccountSimple,,2,itemName,,text
-Create Plant Item,data,,,createPlantItemSimple,,1,name,,text
-Create Plant Item,data,,,createPlantItemSimple,,2,businessName,,text
-Create Plant Item,data,,,createPlantItemSimple,,3,hourlyRateMinor,,text
-Create Plant Item,data,,,createPlantItemSimple,,4,ownedOrHired,,text
-Create Plant Item,data,,,createPlantItemSimple,,5,hireVendor,,text
-Ensure Skill,data,,,ensureSkillSimple,,1,skillName,,text
-Tag Skill,data,,,tagSkillSimple,,1,contactName,,text
-Tag Skill,data,,,tagSkillSimple,,2,skillName,,text
-Tag Skill,data,,,tagSkillSimple,,3,rateMinorPerHour,,text
-Set Employee Wage,data,,,setEmployeeWageSimple,,1,employeeName,,text
-Set Employee Wage,data,,,setEmployeeWageSimple,,2,wageMinorPerHour,,text
-Create Prototype,data,,,createPrototypeSimple,,1,prototypeName,,text
-Create Prototype,data,,,createPrototypeSimple,,2,businessName,,text
-Add Prototype Line,data,,,addPrototypeLineSimple,,1,prototypeName,,text
-Add Prototype Line,data,,,addPrototypeLineSimple,,2,businessName,,text
-Add Prototype Line,data,,,addPrototypeLineSimple,,3,kind,,text
-Add Prototype Line,data,,,addPrototypeLineSimple,,4,resourceOrItemName,,text
-Add Prototype Line,data,,,addPrototypeLineSimple,,5,quantity,,text
-Add Prototype Line,data,,,addPrototypeLineSimple,,6,unit,,text
-Add Prototype Line,data,,,addPrototypeLineSimple,,7,priceMinor,,text
-Add Prototype Line,data,,,addPrototypeLineSimple,,8,durationHours,,text
-Add Prototype Line,data,,,addPrototypeLineSimple,,9,scheduledStart,,text
-Instantiate Project Proposal,data,,,instantiateProjectProposalSimple,,1,prototypeName,,text
-Instantiate Project Proposal,data,,,instantiateProjectProposalSimple,,2,reference,,text
-Instantiate Project Proposal,data,,,instantiateProjectProposalSimple,,3,client,,text
-Instantiate Project Proposal,data,,,instantiateProjectProposalSimple,,4,businessName,,text
-Instantiate Project Proposal,data,,,instantiateProjectProposalSimple,,5,ledger,,text
-Instantiate Project Proposal,data,,,instantiateProjectProposalSimple,,6,headerItem,,text
-Instantiate Project Proposal,data,,,instantiateProjectProposalSimple,,7,transdate,,text
-Instantiate Project Proposal,data,,,instantiateProjectProposalSimple,,8,targetCompletionDate,,text
-Accept Project Proposal,data,,,acceptProjectProposalSimple,,1,reference,,text
-Accept Project Proposal,data,,,acceptProjectProposalSimple,,2,projectName,,text
-Accept Project Proposal,data,,,acceptProjectProposalSimple,,3,targetCompletionDate,,text
-Clock In To Project,data,,,clockInToProjectSimple,,1,employeeName,,text
-Clock In To Project,data,,,clockInToProjectSimple,,2,projectExpenseAccount,,text
-Clock In To Project,data,,,clockInToProjectSimple,,3,businessName,,text
-Clock In To Project,data,,,clockInToProjectSimple,,4,ledger,,text
-Clock Out Of Project,data,,,clockOutOfProjectSimple,,1,employeeName,,text
-Clock Out Of Project,data,,,clockOutOfProjectSimple,,2,businessName,,text
-Clock Out Of Project,data,,,clockOutOfProjectSimple,,3,ledger,,text
-Clock Plant In,data,,,clockPlantInSimple,,1,plantName,,text
-Clock Plant In,data,,,clockPlantInSimple,,2,projectExpenseAccount,,text
-Clock Plant In,data,,,clockPlantInSimple,,3,businessName,,text
-Clock Plant In,data,,,clockPlantInSimple,,4,ledger,,text
-Clock Plant Out,data,,,clockPlantOutSimple,,1,plantName,,text
-Clock Plant Out,data,,,clockPlantOutSimple,,2,businessName,,text
-Clock Plant Out,data,,,clockPlantOutSimple,,3,ledger,,text
-Update Prototype Line,data,,,updatePrototypeLineSimple,,1,prototypeName,,text
-Update Prototype Line,data,,,updatePrototypeLineSimple,,2,businessName,,text
-Update Prototype Line,data,,,updatePrototypeLineSimple,,3,resourceOrItemName,,text
-Update Prototype Line,data,,,updatePrototypeLineSimple,,4,newDurationHours,,text
-Update Prototype Line,data,,,updatePrototypeLineSimple,,5,newPriceMinor,,text
-Check Schedule Risk Absent,data,,,,,1,projectName,,text
-Check Schedule Risk Flagged,data,,,,,1,projectName,,text
-Check Project Margin Sign,data,,,,,1,projectName,,text
-Check Project Margin Sign,data,,,,,2,expectedSign,,text
-Check Prototype Line Updated,data,,,,,1,prototypeName,,text
-Check Prototype Line Updated,data,,,,,2,component,,text
-Check Prototype Line Updated,data,,,,,3,expectedPriceMinor,,text
+Rename Entity,api,,,renameEntitySimple,,1,businessName,,text
+Rename Entity,api,,,renameEntitySimple,,2,oldName,,text
+Rename Entity,api,,,renameEntitySimple,,3,newName,,text
+Rename Entity,api,,,renameEntitySimple,,4,parentName,,text
+Receive Stock Quantity,api,,,receiveStockQuantitySimple,,1,reference,,text
+Receive Stock Quantity,api,,,receiveStockQuantitySimple,,2,businessName,,text
+Receive Stock Quantity,api,,,receiveStockQuantitySimple,,3,ledger,,text
+Receive Stock Quantity,api,,,receiveStockQuantitySimple,,4,itemName,,text
+Receive Stock Quantity,api,,,receiveStockQuantitySimple,,5,locationName,,text
+Receive Stock Quantity,api,,,receiveStockQuantitySimple,,6,quantity,,text
+Dispatch Stock Quantity,api,,,dispatchStockQuantitySimple,,1,reference,,text
+Dispatch Stock Quantity,api,,,dispatchStockQuantitySimple,,2,businessName,,text
+Dispatch Stock Quantity,api,,,dispatchStockQuantitySimple,,3,ledger,,text
+Dispatch Stock Quantity,api,,,dispatchStockQuantitySimple,,4,itemName,,text
+Dispatch Stock Quantity,api,,,dispatchStockQuantitySimple,,5,locationName,,text
+Dispatch Stock Quantity,api,,,dispatchStockQuantitySimple,,6,quantity,,text
+Set Bom Component,data,/items,button:has-text('{{assemblyItem}}') >> nth=0,setBomComponentSimple,button:has-text('Add component'),1,assemblyItem,,text
+Set Bom Component,data,/items,button:has-text('{{assemblyItem}}') >> nth=0,setBomComponentSimple,button:has-text('Add component'),2,businessName,,text
+Set Bom Component,data,/items,button:has-text('{{assemblyItem}}') >> nth=0,setBomComponentSimple,button:has-text('Add component'),3,componentItem,.bom-card select >> nth=0,select
+Set Bom Component,data,/items,button:has-text('{{assemblyItem}}') >> nth=0,setBomComponentSimple,button:has-text('Add component'),4,quantity,input[placeholder='e.g. 30'],text
+Set Bom Component,data,/items,button:has-text('{{assemblyItem}}') >> nth=0,setBomComponentSimple,button:has-text('Add component'),5,unit,.bom-card select >> nth=1,select
+Check Bom Components Recorded,api,,,,,1,assemblyItem,,text
+Check Bom Components Recorded,api,,,,,2,expectedCount,,text
+Check Stock Nonnegative,api,,,,,1,businessName,,text
+Ensure Item Inventory Account,api,,,ensureItemInventoryAccountSimple,,1,businessName,,text
+Ensure Item Inventory Account,api,,,ensureItemInventoryAccountSimple,,2,itemName,,text
+Create Plant Item,api,,,createPlantItemSimple,,1,name,,text
+Create Plant Item,api,,,createPlantItemSimple,,2,businessName,,text
+Create Plant Item,api,,,createPlantItemSimple,,3,hourlyRateMinor,,text
+Create Plant Item,api,,,createPlantItemSimple,,4,ownedOrHired,,text
+Create Plant Item,api,,,createPlantItemSimple,,5,hireVendor,,text
+Ensure Skill,api,,,ensureSkillSimple,,1,skillName,,text
+Tag Skill,api,,,tagSkillSimple,,1,contactName,,text
+Tag Skill,api,,,tagSkillSimple,,2,skillName,,text
+Tag Skill,api,,,tagSkillSimple,,3,rateMinorPerHour,,text
+Set Employee Wage,api,,,setEmployeeWageSimple,,1,employeeName,,text
+Set Employee Wage,api,,,setEmployeeWageSimple,,2,wageMinorPerHour,,text
+Create Prototype,api,,,createPrototypeSimple,,1,prototypeName,,text
+Create Prototype,api,,,createPrototypeSimple,,2,businessName,,text
+Add Prototype Line,api,,,addPrototypeLineSimple,,1,prototypeName,,text
+Add Prototype Line,api,,,addPrototypeLineSimple,,2,businessName,,text
+Add Prototype Line,api,,,addPrototypeLineSimple,,3,kind,,text
+Add Prototype Line,api,,,addPrototypeLineSimple,,4,resourceOrItemName,,text
+Add Prototype Line,api,,,addPrototypeLineSimple,,5,quantity,,text
+Add Prototype Line,api,,,addPrototypeLineSimple,,6,unit,,text
+Add Prototype Line,api,,,addPrototypeLineSimple,,7,priceMinor,,text
+Add Prototype Line,api,,,addPrototypeLineSimple,,8,durationHours,,text
+Add Prototype Line,api,,,addPrototypeLineSimple,,9,scheduledStart,,text
+Instantiate Project Proposal,api,,,instantiateProjectProposalSimple,,1,prototypeName,,text
+Instantiate Project Proposal,api,,,instantiateProjectProposalSimple,,2,reference,,text
+Instantiate Project Proposal,api,,,instantiateProjectProposalSimple,,3,client,,text
+Instantiate Project Proposal,api,,,instantiateProjectProposalSimple,,4,businessName,,text
+Instantiate Project Proposal,api,,,instantiateProjectProposalSimple,,5,ledger,,text
+Instantiate Project Proposal,api,,,instantiateProjectProposalSimple,,6,headerItem,,text
+Instantiate Project Proposal,api,,,instantiateProjectProposalSimple,,7,transdate,,text
+Instantiate Project Proposal,api,,,instantiateProjectProposalSimple,,8,targetCompletionDate,,text
+Accept Project Proposal,api,,,acceptProjectProposalSimple,,1,reference,,text
+Accept Project Proposal,api,,,acceptProjectProposalSimple,,2,projectName,,text
+Accept Project Proposal,api,,,acceptProjectProposalSimple,,3,targetCompletionDate,,text
+Clock In To Project,api,,,clockInToProjectSimple,,1,employeeName,,text
+Clock In To Project,api,,,clockInToProjectSimple,,2,projectExpenseAccount,,text
+Clock In To Project,api,,,clockInToProjectSimple,,3,businessName,,text
+Clock In To Project,api,,,clockInToProjectSimple,,4,ledger,,text
+Clock Out Of Project,api,,,clockOutOfProjectSimple,,1,employeeName,,text
+Clock Out Of Project,api,,,clockOutOfProjectSimple,,2,businessName,,text
+Clock Out Of Project,api,,,clockOutOfProjectSimple,,3,ledger,,text
+Clock Plant In,api,,,clockPlantInSimple,,1,plantName,,text
+Clock Plant In,api,,,clockPlantInSimple,,2,projectExpenseAccount,,text
+Clock Plant In,api,,,clockPlantInSimple,,3,businessName,,text
+Clock Plant In,api,,,clockPlantInSimple,,4,ledger,,text
+Clock Plant Out,api,,,clockPlantOutSimple,,1,plantName,,text
+Clock Plant Out,api,,,clockPlantOutSimple,,2,businessName,,text
+Clock Plant Out,api,,,clockPlantOutSimple,,3,ledger,,text
+Update Prototype Line,api,,,updatePrototypeLineSimple,,1,prototypeName,,text
+Update Prototype Line,api,,,updatePrototypeLineSimple,,2,businessName,,text
+Update Prototype Line,api,,,updatePrototypeLineSimple,,3,resourceOrItemName,,text
+Update Prototype Line,api,,,updatePrototypeLineSimple,,4,newDurationHours,,text
+Update Prototype Line,api,,,updatePrototypeLineSimple,,5,newPriceMinor,,text
+Check Schedule Risk Absent,api,,,,,1,projectName,,text
+Check Schedule Risk Flagged,api,,,,,1,projectName,,text
+Check Project Margin Sign,api,,,,,1,projectName,,text
+Check Project Margin Sign,api,,,,,2,expectedSign,,text
+Check Prototype Line Updated,api,,,,,1,prototypeName,,text
+Check Prototype Line Updated,api,,,,,2,component,,text
+Check Prototype Line Updated,api,,,,,3,expectedPriceMinor,,text
+Open Page,ui,,,,,1,route,,text
+Click,ui,,,,,1,selector,,text
+Fill,ui,,,,,1,selector,,text
+Fill,ui,,,,,2,value,,text
+Select Option,ui,,,,,1,selector,,text
+Select Option,ui,,,,,2,label,,text
+Press Key,ui,,,,,1,key,,text
+Page Shows,ui,,,,,1,selector,,text
+Page Shows,ui,,,,,2,text,,text
+Page Lacks,ui,,,,,1,selector,,text
+Page Lacks,ui,,,,,2,text,,text
+Page Count,ui,,,,,1,selector,,text
+Page Count,ui,,,,,2,count,,text
+Page Value,ui,,,,,1,selector,,text
+Page Value,ui,,,,,2,value,,text
+Page Enabled,ui,,,,,1,selector,,text
+Page Enabled,ui,,,,,2,enabled,,text
+Page Has Option,ui,,,,,1,selector,,text
+Page Has Option,ui,,,,,2,label,,text
+Page Has Option,ui,,,,,3,present,,text
+Page Focused,ui,,,,,1,selector,,text
+Focus,ui,,,,,1,selector,,text
+Page Opens Cleanly,ui,,,,,1,route,,text
+Download,ui,,,,,1,selector,,text
+Download,ui,,,,,2,file,,text
+Upload,ui,,,,,1,selector,,text
+Upload,ui,,,,,2,file,,text
+File Contains,ui,,,,,1,file,,text
+File Contains,ui,,,,,2,text,,text
+Set Employee Salary,api,,,setEmployeeSalarySimple,,1,employeeName,,text
+Set Employee Salary,api,,,setEmployeeSalarySimple,,2,salaryMinorPerYear,,text
+Set Item Storage Origin,api,,,setItemStorageOriginSimple,,1,itemName,,text
+Set Item Storage Origin,api,,,setItemStorageOriginSimple,,2,origin,,text
+Create Sales Invoice,api,,,createSalesInvoiceSimple,,1,businessName,,text
+Create Sales Invoice,api,,,createSalesInvoiceSimple,,2,customerName,,text
+Create Sales Invoice,api,,,createSalesInvoiceSimple,,3,reference,,text
+Create Sales Invoice,api,,,createSalesInvoiceSimple,,4,amountMinor,,text
+Create Sales Invoice,api,,,createSalesInvoiceSimple,,5,source,,text
+Post Sales Invoice,api,,,postSalesInvoiceSimple,,1,businessName,,text
+Post Sales Invoice,api,,,postSalesInvoiceSimple,,2,reference,,text
+Add Item Source,api,,,addItemSourceSimple,,1,itemName,,text
+Add Item Source,api,,,addItemSourceSimple,,2,providerName,,text
+Add Item Source,api,,,addItemSourceSimple,,3,priceMinor,,text
+Add Item Source,api,,,addItemSourceSimple,,4,preferred,,text
+Set Item Location Levels,api,,,setItemLocationLevelsSimple,,1,businessName,,text
+Set Item Location Levels,api,,,setItemLocationLevelsSimple,,2,itemName,,text
+Set Item Location Levels,api,,,setItemLocationLevelsSimple,,3,locationName,,text
+Set Item Location Levels,api,,,setItemLocationLevelsSimple,,4,minLevel,,text
+Set Item Location Levels,api,,,setItemLocationLevelsSimple,,5,maxLevel,,text
+Set Item Location Levels,api,,,setItemLocationLevelsSimple,,6,reorderLevel,,text
+Check Entity Exists,api,,,,,1,name,,text

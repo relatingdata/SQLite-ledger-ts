@@ -1,0 +1,4 @@
+# Adds the address ${value} to the contact on screen with the keyboard alone.
+"Set","list","Addresses"
+"Set","field","textarea"
+"Include","add-to-list-by-keyboard.csv"

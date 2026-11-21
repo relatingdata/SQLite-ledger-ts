@@ -1,0 +1,19 @@
+# An employee can have a weekly schedule at a second location as well as
+# at the one they are filed under: Business Setup's "Additional
+# locations" adds one, with its own weekly grid.
+"Include","../common/business.csv"
+"Set","location","Eastside Cellar Door"
+"Include","../common/location.csv"
+"Set","location","Harbourside Bottle Shop"
+"Include","../common/location.csv"
+"Create Employee","${business}","Nadia Petrovska","Eastside Cellar Door"
+"Open Page","/setup/business-setup"
+"Click","button:text-is('Nadia Petrovska')"
+"Click","button:has-text('Add a location')"
+"Select Option","#new-additional-location","Harbourside Bottle Shop"
+"Click",".additional-location-form input[type=checkbox] >> nth=1"
+"Click",".additional-location-form input[type=checkbox] >> nth=3"
+"Click",".additional-location-form button:text-is('Save')"
+"Click","fieldset.sub-block:has(> legend:text-is('Additional locations')) >> button.tree-item:text-is('Harbourside Bottle Shop')"
+"Page Shows",".additional-location-form h5","Harbourside Bottle Shop"
+"Page Count",".additional-location-form input[type=checkbox]:checked","2"

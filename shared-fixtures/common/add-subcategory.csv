@@ -1,0 +1,6 @@
+# On the Items page: select the category ${under}, and nest the new
+# category ${name} within it with "+ Subcategory".
+"Click","button:text-is('${under}')"
+"Click","button:text-is('+ Subcategory')"
+"Set","placeholder","Subcategory name"
+"Include","inline-add-on-items-page.csv"

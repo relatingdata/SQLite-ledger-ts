@@ -1,0 +1,9 @@
+path,verify,screenshot,skip
+,,,false
+,,,false
+,,,false
+,,,false
+,,,false
+,,,false
+,business_exists,${businessShot},false
+,,${sessionShot},false

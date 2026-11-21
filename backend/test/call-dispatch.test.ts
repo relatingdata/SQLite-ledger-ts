@@ -29,3 +29,11 @@ test('the call-dispatch codecs: every decode is the exact inverse of its encode,
   const generic = [{ name: 'Total', accountId: null, own: {}, total: { EUR: 5 }, children: [{ name: 'Cash', accountId: 7, own: { EUR: 5 }, total: { EUR: 5 }, children: [] }] }];
   assert.deepEqual(dispatch.decodeGenericTree(dispatch.encodeGenericTree(generic)), generic);
 });
+
+test('the wire codec keeps a value with line breaks on one line: an XML document goes out and comes back whole', async () => {
+  const { csvField, splitCsvLine, unescapeAscii } = await import('../../shared-fixtures/csv.ts');
+  const xml = '<?xml version="1.0"?>\n<Invoice>\r\n\t<ID>INV-1, café</ID>\n</Invoice>';
+  const line = ['ok', csvField(xml)].join(',');
+  assert.equal(line.split('\n').length, 1, 'one record is one line');
+  assert.deepEqual(splitCsvLine(line).map(unescapeAscii), ['ok', xml]);
+});

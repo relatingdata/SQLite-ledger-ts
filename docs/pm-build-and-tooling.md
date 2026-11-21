@@ -10,7 +10,8 @@
 | `make dev-no-demo` | The same, with `SEED_DEMO_BUSINESSES=false` — only the one, dummy "My Business," no Wine Retail/BMW/Peugeot/Ditta/Schweizer demo data |
 | `make web-frontend` | The real, browser (SvelteKit) frontend alone — `make frontend` stays as a working alias to it, for old muscle memory |
 | `make text-frontend` | The real, Ink-based terminal frontend (`tui/`) alone — a second, real client of the exact same backend API; needs its own real terminal, so never bundled into `dev`/`dev-verbose` the way backend+web are paired there. See `docs/tui-design.md`. |
-| `make test` | Backend unit tests (Node's built-in test runner) + frontend tests — see the Testing: Unit chapter — then `make check-manual` ("Gates", below) |
+| `make test` | Backend unit tests (Node's built-in test runner) + frontend tests — see the Testing: Unit chapter — then the standalone step-runner tests on the API path (`make test-steps`), then `make check-manual` ("Gates", below) |
+| `make test-steps` / `make test-steps-browser` | The standalone tests in `shared-fixtures/tests/`, on the API path or in the browser, each on a fresh database (`scripts/run-step-tests.ts`; `TEST=a,b` runs only those) — see the Testing: E2E chapter, "Standalone tests" |
 | `make test-e2e` / `make demo-full-year` | Full/volume simulation and full-year data generation — see the Testing: E2E chapter |
 | `make test-e2e-tutorials` | The Retail, Manufacturing and Project Builder fixtures on the API path. `MIDDLEWARE=core` (the default) sends every step through the core middleware's frontend API in-process; `MIDDLEWARE=legacy` runs them on the original middleware. See "The Core Middleware" |
 | `make test-e2e-tutorials-http` | The same three fixtures on the core, over real HTTP: starts the backend with `MIDDLEWARE=core` on `CORE_HTTP_PORT` (default 3101), runs the step runner with `STEP_RUNNER_API_URL`, stops the server |
@@ -61,24 +62,23 @@ Node's own built-in `node:test` module with `node:assert/strict`.
 `frontend/test/*.test.ts` (`journalGrid.test.ts`, `entityTree.test.ts`,
 `format.test.ts`, …) run the same way via `tsx --test test/*.test.ts`
 — plain TypeScript logic tests (formatting, data-shaping helpers), not
-rendered-component tests; those are covered live via Playwright.
+rendered-component tests; those are covered live by the step runner's
+standalone tests in the browser.
 
-## Playwright — live, end-to-end browser testing
+## Browser tests — the step runner, never a spec file
 
-`e2e/tests/*.spec.ts`, run via `npx playwright test` from `e2e/`.
-`playwright.config.ts`'s `reuseExistingServer: !process.env.CI` means,
-outside CI, every spec file run together shares the same live SQLite
-database and its accumulating state — a test that assumes an entity
-created by an earlier file already exists has a real test-order
-dependency (distinguishable from an application bug by re-running the
-same test in isolation against a freshly-reset database: if it now
-passes, the dependency was real).
+Every test of the running app is a step-runner data file: a tutorial
+(`shared-fixtures/*-steps.csv`) or a standalone test
+(`shared-fixtures/tests/*.csv`), each building its own business on a
+fresh database (*Testing*, "Standalone tests"). In the browser
+(`--path ui`) the runner drives Chromium through the `playwright`
+library, a dependency of `backend/`; there is no Playwright test
+runner, no spec file and no `e2e/` directory, and `check-step-tests`
+keeps it so.
 
-A reliable debugging technique: a small, throwaway `debug_*.spec.ts`
-file, deleted immediately after use, with `console.log` between every
-step and `page.on('console'/'requestfinished', ...)` handlers attached
-— isolates exactly which step a hang or failure occurs at and what the
-live network traffic looked like at that moment.
+When a browser step fails, the runner saves a picture and the page's
+text in `/tmp/step-runner-failures/` (*Testing*, "The CLI"): look there
+first.
 
 ## Testing the terminal frontend — `@microsoft/tui-test`
 
@@ -203,20 +203,21 @@ when the manual and the code agree.
 |---|---|
 | `check-docs-coverage` | Every exported backend function and constant, Makefile target and frontend route is described in the manual. A name that occurs only in a generated section (the function inventory, the screens inventory) or only in a test title does not count. |
 | `check-docs-staleness` | Everything the manual names exists. A file path with a directory names a real file (the whole path, or its tail); an HTTP route is one of the backend's mounts or a storage engine route; every code-shaped name in backticks (camelCase, PascalCase, snake_case) occurs in some tracked source file outside its comments. |
-| `check-test-docs` | Every test is listed in the manual: the TypeScript unit tests, the Playwright specs, and the storage engine's Gleam tests (by function name). Every test the manual lists as `- "title" (`file`)` exists in that file. |
+| `check-test-docs` | Every test is listed in the manual: the TypeScript unit tests, the storage engine's Gleam tests (by function name) and the step runner's standalone tests (by file name). Every test the manual lists as `- "title" (`file`)` exists in that file. |
 | `check-function-inventory` | `docs/function-inventory.md` matches the code (`make function-inventory` regenerates it). |
 | `check-cycles` | The backend's import cycles are exactly the ones listed under "Import cycles" below. |
 | `check-schema-table-count` | No table but the four permanent ones and `journal_entry_staging` (see "The four permanent tables" below). |
 | `check-journal-staging-only` | Only `db-journal.ts` and `core/store.ts` write `journal` and `journal_line`. |
 | `check-unused` | `noUnusedLocals` (`TS6133` only) over `backend/src/`, `backend/test/` and the step runner, via `backend/tsconfig.unused.json`. A name prefixed `_` is exempt by TypeScript design. |
 | `check-no-python` | No `.py` file, and no build file that invokes python. |
+| `check-step-tests` | No Playwright spec (`*.spec.ts`) and no use of `@playwright/test`; every page of the app is opened by `shared-fixtures/tests/every-page-opens.csv`, and every page it opens exists (`scripts/check-step-tests.ts`; it runs `make generate` first, as some pages are generated). |
+| `check-manual-pictures` | Every picture a chapter shows is taken by a test or tutorial's screenshot column (`scripts/manual-pictures.ts check`). |
 
 Other checks, not part of `check-manual`:
 
 | Check | What it does |
 |---|---|
 | `check-backend-types` | `tsc --noEmit` against `backend/src` and `../shared-fixtures`. |
-| `check-e2e-types` | The same, against the Playwright suite. |
 | `check-frontend` | `svelte-check` across every `.svelte` file. |
 | `check-db-consistency` | See above. |
 

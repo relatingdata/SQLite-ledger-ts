@@ -1,0 +1,14 @@
+# The Cash Sale lines show where each item is kept: a Cold item is
+# tagged Cold, a Hot (shelf) item Hot. The screenshot is the user
+# manual's picture of it.
+"Include","../common/business.csv"
+"Include","../common/location.csv"
+"Create Item No Category","${business}","Golden Lager 330ml"
+"Create Item No Category","${business}","Barossa Shiraz 2021"
+"Set Item Storage Origin","Golden Lager 330ml","Cold"
+"Set Item Storage Origin","Barossa Shiraz 2021","Hot"
+"Open Page","/arap/cash-sale"
+"Fill","table.lines-table tbody tr >> nth=0 >> input >> nth=0","Golden Lager 330ml"
+"Fill","table.lines-table tbody tr >> nth=1 >> input >> nth=0","Barossa Shiraz 2021"
+"Page Shows","table.lines-table tbody tr >> nth=0 >> .storage-tag.cold","Cold"
+"Page Shows","table.lines-table tbody tr >> nth=1 >> .storage-tag.shelf","Hot"

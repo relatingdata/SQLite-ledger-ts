@@ -1,0 +1,4 @@
+# One item in the business's catalogue, with no category. Needs
+# common/business.csv first.
+"Default","item","Test Item"
+"Create Item No Category","${business}","${item}"

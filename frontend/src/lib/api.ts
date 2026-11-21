@@ -96,7 +96,7 @@ function escapeAscii(text: string): string {
   return Array.from(text)
     .map((ch) => {
       const code = ch.codePointAt(0)!;
-      return code < 128 ? ch : '\\u{' + code.toString(16) + '}';
+      return code >= 32 && code < 128 ? ch : '\\u{' + code.toString(16) + '}';
     })
     .join('');
 }

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { auth } from '$lib/state.svelte';
   import { formatAmount } from '$lib/format';
+  import { pageSize as userPageSize } from '$lib/pagination';
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import { session } from '$lib/state.svelte';
@@ -27,7 +28,8 @@
   let invoices: Invoice[] = $state([]);
   let totalCount = $state(0);
   let pageIndex = $state(0);
-  const pageSize = 50;
+  // The logged-in user's own page size (Account Settings), as every list.
+  let pageSize = $derived(userPageSize());
   let sourceFilter: 'manual' | 'pos' | 'all' = $state('manual');
   let loading = $state(true);
   let error = $state('');

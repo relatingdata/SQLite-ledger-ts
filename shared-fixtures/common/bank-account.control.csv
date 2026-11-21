@@ -1,0 +1,8 @@
+path,verify,screenshot,skip
+,,,false
+,,,false
+,,,false
+,,,false
+,,,false
+api,,${bankShot},false
+api,cash_at_bank_exists,${bankStructureShot},false

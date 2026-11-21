@@ -30,7 +30,6 @@ docs/manual-images/
 docs/manual-images-*/
 *.pdf
 
-e2e/test-results/
 test-results/
 
 # A real, temporary, per-checkpoint file - written fresh before each

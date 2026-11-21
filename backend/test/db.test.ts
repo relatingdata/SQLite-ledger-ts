@@ -101,6 +101,20 @@ test('revokeEntity works for a genuinely childless, unposted entity', () => {
   assert.equal(db.getEntity(e.id)!.relation_id, null);
 });
 
+test('revokeEntity deletes an item tagged into a category: its own Category link record never blocks it', () => {
+  const business = db.createBusiness(db.asBusinessName(fx.uniqueName('RevokeTagged Co')), '2027-28', fx.userId).business;
+  const { valueName: category } = fx.freshHierarchyValue(business, 'Category', 'Revoke Category');
+  const item = fx.uniqueName('Revoke Tagged Item');
+  db.createItem(item, 'Items', fx.userId, business);
+  db.setHierarchyParent(item, 'Category', category, fx.userId);
+  const id = (db.db.prepare(`SELECT id FROM current_entities WHERE name = ?`).get(item) as { id: number }).id;
+  const links = db.db.prepare(`SELECT COUNT(*) AS n FROM current_entities WHERE parent_id = ? AND name = ?`).get(id, `${item} — Hierarchy: Category`) as { n: number };
+  assert.equal(links.n, 1, 'the item has its own Category link record');
+  db.revokeEntity(id, fx.userId);
+  assert.equal(db.getEntity(id)!.relation_id, null);
+  db.deleteHierarchyValue(business, 'Category', category, fx.userId); // the now-empty category goes too
+});
+
 test('revokeEntity refuses to delete a business\'s last real Actual or last real Budget ledger, but allows removing a real, genuine duplicate', () => {
   const name = fx.uniqueName('LedgerRuleTest Business');
   db.create(db.requireEntity('Businesses', db.typeRootName), db.typeRootName, name, fx.userId);
@@ -3914,6 +3928,20 @@ test('addTypedAddress/getTypedAddresses/addTypedPhone/getTypedPhones: multiple, 
 
   db.deleteTypedPhone(storeName, 'Mobile', fx.userId);
   assert.equal(db.getTypedPhones(storeName).length, 1);
+});
+
+test('createBusiness copies the chart of accounts without the contacts under it: the Cash provider under Accounts Payable stays the one, global provider', () => {
+  const result = db.createBusiness(db.asBusinessName(fx.uniqueName('NoContactsInCoA Co')), '2027-28', fx.userId);
+  const coa = db.db
+    .prepare(`SELECT c.id FROM current_entities c JOIN current_entities b ON b.id = c.parent_id WHERE c.name = 'Chart of Accounts' AND b.name = ?`)
+    .get(result.business) as { id: number };
+  const copied = db.db
+    .prepare(
+      `WITH RECURSIVE tree(id) AS (SELECT ? UNION ALL SELECT e.id FROM current_entities e JOIN tree t ON e.parent_id = t.id)
+       SELECT COUNT(*) AS n FROM current_entities e JOIN tree t ON e.id = t.id WHERE e.name = 'Cash' AND e.parent_id IN (SELECT id FROM current_entities WHERE name = 'Accounts Payable')`
+    )
+    .get(coa.id) as { n: number };
+  assert.equal(copied.n, 0, 'no Cash provider may be copied into the new business\'s Accounts Payable');
 });
 
 test('createBusiness: a brand-new business gets both a real Actual ledger AND a real Budget ledger for the financial year, immediately postable to, using the already-shared Chart of Accounts — no separate CoA setup needed', () => {

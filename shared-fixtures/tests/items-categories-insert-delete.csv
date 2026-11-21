@@ -1,0 +1,23 @@
+# The Items page is a tree of categories and items. Insert adds an item
+# within the selected category; "+ Subcategory" nests a new category;
+# Delete removes an item, then its now-empty category.
+"Include","../common/business.csv"
+"Create Category","${business}","Vodka"
+"Create Category","${business}","Red Wine"
+"Open Page","/items"
+"Set","under","Vodka"
+"Set","name","Test Vodka Product"
+"Include","../common/add-item-by-insert.csv"
+"Click","button:has-text('Test Vodka Product')"
+"Page Shows",".category-line","Category: Vodka"
+"Set","under","Red Wine"
+"Set","name","Dessert Wine"
+"Include","../common/add-subcategory.csv"
+"Set","under","Dessert Wine"
+"Set","name","Test Dessert Product"
+"Include","../common/add-item-by-insert.csv"
+"Click","button:has-text('Test Dessert Product')"
+"Page Shows",".category-line","Category: Dessert Wine"
+"Include","../common/delete-on-items-page.csv"
+"Set","name","Dessert Wine"
+"Include","../common/delete-on-items-page.csv"

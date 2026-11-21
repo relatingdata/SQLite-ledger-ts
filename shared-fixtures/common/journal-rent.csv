@@ -1,0 +1,7 @@
+# A general journal entry ${reference}: ${amount} (minor units) of Rent
+# paid from Cash and Bank, in the Actual ledger. Needs common/business.csv.
+"Default","reference","JE-RENT"
+"Default","amount","50000"
+"Stage Journal Line","${reference}","${business}","Actual","Rent","${amount}"
+"Stage Journal Line","${reference}","${business}","Actual","Cash and Bank","-${amount}"
+"Post Journal Entry","${reference}","${business}","Actual"

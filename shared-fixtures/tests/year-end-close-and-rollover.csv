@@ -1,0 +1,13 @@
+# Year end: closing the books zeroes the year's expenses into Retained
+# Earnings; a second close of the same date has nothing to close; the
+# rollover then opens a new ledger with the balances carried forward.
+"Include","../common/business.csv"
+"Include","../common/journal-rent.csv"
+"Close Books","${business}","Actual","2027-06-30","Retained Earnings"
+"Open Page","/setup/yearend"
+"Fill","input[type=date] >> nth=0","2027-06-30"
+"Click","button:has-text('Preview the close')"
+"Page Shows",".error","Nothing to close"
+"Create Ledger","${business}","Actual 2027-28"
+"Rollover To New Period","${business}","Actual","Actual 2027-28","2027-07-01"
+"Check Entity Exists","Actual 2027-28"

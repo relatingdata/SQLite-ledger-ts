@@ -1411,7 +1411,13 @@ tree. A new location is also tagged via the Hierarchy mechanism
 chart relationship, since every hierarchy-driven report (Old P&L,
 Stock Listing, Stock Movement, Bank Accounts, Year-End) reads that tag
 — `locationHierarchyName` is always this business's own chosen name,
-never hardcoded to "Division". This closes a previously-latent gap: a
+never hardcoded to "Division": the grouping whose values are the
+groups shown, else the business's first grouping, else `Division`.
+`getBusinessHierarchy` never lists `User` and `Role`, which hold the
+per-business role matrix (`ROLE_MATRIX_GROUPINGS`, *Core Domain
+Reference*, "Access control"), so the tree, the stock listing and the
+stock movement report never group locations by them. This closes a
+previously-latent gap: a
 location added through this page never carried the tag before, so
 those reports silently showed it as ungrouped.
 
@@ -1602,6 +1608,13 @@ effects, each fixing a specific regression found live:
   recalculated from the current URL on every navigation, not only
   set by a direct top-bar click (previously, a bookmark, a refresh, or
   browser back/forward left the sidebar showing the wrong section).
+  The section is the one whose link is exactly the page opened, query
+  included (`/contacts?focus=customers` is Accounts Receivable's
+  Customers link); failing that, the current section if one of its
+  links opens this page; and only then the first section that has
+  one. Matching on the path alone sent Customers, opened from Accounts
+  Receivable, to the Inventory section, whose Providers link opens
+  `/contacts` too.
   `/setup` itself (the Configuration landing page) has no direct menu
   link of its own, so it needs an explicit case rather than a prefix
   match — a plain "starts with /setup" prefix would wrongly claim

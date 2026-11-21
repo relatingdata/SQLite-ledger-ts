@@ -1,6 +1,8 @@
 // A real, minimal, dependency-free CSV reader/writer, per direct,
-// absolute instruction: plain ASCII files, unicode escaped as \uXXXX
-// (JavaScript-style), never raw UTF-8 bytes, never JSON. Shared
+// absolute instruction: plain ASCII files, unicode escaped as \u{hex}
+// (JavaScript-style), never raw UTF-8 bytes, never JSON. Control
+// characters (a line break, a tab) are escaped the same way, so a value
+// with a line break in it (an XML document) still stays on its own line. Shared
 // identically by backend scripts and e2e Playwright tests - both are
 // plain Node/TypeScript, so one real file, one real import path,
 // works for both.
@@ -9,7 +11,7 @@ export function escapeAscii(text: string): string {
   return Array.from(text)
     .map((ch) => {
       const code = ch.codePointAt(0)!;
-      if (code < 128) return ch;
+      if (code >= 32 && code < 128) return ch;
       return '\\u{' + code.toString(16) + '}';
     })
     .join('');

@@ -1,0 +1,9 @@
+# Nominates the business's bank account and builds its Cash at Bank
+# account in the home currency. Needs common/business.csv first.
+"Default","bank","Test Bank"
+"Default","bsb","000-000"
+"Default","accountNumber","123456"
+"Default","bankShot",""
+"Default","bankStructureShot",""
+"Nominate Bank Account","${business}","${bank}","${bsb}","${accountNumber}"
+"Build Bank Currency Structure","${business}","${bank}","${currency}","true"

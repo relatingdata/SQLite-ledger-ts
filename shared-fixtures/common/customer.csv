@@ -1,0 +1,3 @@
+# One customer of the business. Needs common/business.csv.
+"Default","customer","Test Customer"
+"Create Customer","${business}","${customer}","Customers"

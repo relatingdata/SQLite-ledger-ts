@@ -1,0 +1,13 @@
+# The stock listing warns "Over capacity" on a location holding more
+# bottles than its storage space (150 in a store with room for 100),
+# and not on one within its space.
+"Include","../common/business.csv"
+"Include","../common/two-locations-in-divisions.csv"
+"Include","../common/item.csv"
+"Cash Purchase","${business}","Head Office","${item}","150","300","Actual"
+"Cash Purchase","${business}","Warehouse B","${item}","10","300","Actual"
+"Open Page","/stock/listing"
+"Click",".group-head:has-text('Head Office Division')"
+"Page Shows",".location-head:has-text('Head Office') >> .capacity-warning","Over capacity"
+"Click",".group-head:has-text('Warehouse B Division')"
+"Page Count",".location-head:has-text('Warehouse B') >> .capacity-warning","0"

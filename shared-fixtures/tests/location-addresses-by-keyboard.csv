@@ -1,0 +1,14 @@
+# A location's addresses and phone numbers are added and removed with
+# the keyboard alone (Insert, Delete), with no Add or Remove buttons.
+"Include","../common/business.csv"
+"Include","../common/location.csv"
+"Open Page","/locations"
+"Click",".entry:has-text('Test Store')"
+"Include","../common/no-add-remove-buttons.csv"
+"Set","value","12 Cellar Lane"
+"Include","../common/add-address-by-keyboard.csv"
+"Click","fieldset.sub-block:has(legend:text-is('Addresses')) >> .repeat-block >> nth=0"
+"Press Key","Delete"
+"Page Count","fieldset.sub-block:has(legend:text-is('Addresses')) >> .repeat-block","0"
+"Set","value","555-0199"
+"Include","../common/add-phone-by-keyboard.csv"
