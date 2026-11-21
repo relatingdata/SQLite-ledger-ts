@@ -41,19 +41,22 @@ needed. `setSessionBusiness` (`call-dispatch/auth.ts`, via `POST /api/call`)
 is the one dispatch entry a person's business selection reaches this
 session through.
 
-**Deliberate boundary**: this is an HTTP-layer concern only.
-`db.ts`/`db-stock.ts`'s own 100+ business-taking functions keep
-`businessName` as an explicit, real parameter — they stay pure and
-directly testable with no implicit session dependency
-(`backend/test/db.test.ts` calls every one of them directly, with no
-request or session involved). A route's job is simply to supply the
-session's current business as the argument these functions already
-expect.
+**Where the session is read.** Business-taking functions in `db.ts`,
+`db-journal.ts`, `db-reports.ts` and the other domain modules take the
+business as an explicit parameter, and `backend/test/db.test.ts` calls
+them directly with no request or session. A dispatch entry supplies the
+session's business as that argument. Three functions in `db-stock.ts`
+read the session themselves:
 
-**Not yet done**: converting those 100+ functions to read
-`getCurrentBusiness()` instead of taking an explicit parameter is
-further, not-yet-started work; nothing in `db.ts` reads the session
-context today.
+- `setItemLocationLevelDetails` and `getInventoryListingByLocation` take
+  the business (and ledger and user) as optional parameters, and fall
+  back to `Session.Business`, `Session.Ledger` and `Session.UserId` when
+  they are left out.
+- `getStorageSpaceReport` takes no business at all and reports the
+  session's business (*The Stock API*, "The Storage Space Report").
+
+Nothing else outside `call-dispatch.ts` and `call-dispatch/*.ts` reads
+the session context.
 
 ### Auth/user functions (`backend/src/auth.ts` unless noted)
 
@@ -68,8 +71,8 @@ instruction, JSON is no longer used for this (removed together with
 every other non-exempted `detail_json` use in the app; only bank
 account routing/account-number and business notes remain JSON-backed).
 Each granted (global) role is a direct child entity under the user,
-`relation_id` pointing at the role — the same pattern already used for
-`vocabulary_preference`.
+`relation_id` pointing at the role — the same pattern a vocabulary
+preference uses.
 
 - `listUsers()` / `listRoles()` — every active user, every available role.
 - `setUserRoles(userId, roleNames)` / `setUserActive(userId, active)` — admin control over roles/login ability. Re-granting a role previously revoked from the same user used to collide under the global name-uniqueness constraint, because untagging alone left the old link entity alive; fixed by revoking the whole link (tag child first, since `revokeEntity` refuses to revoke an entity that still has children), freeing the `(userId, roleName)` slot for a fresh grant.
@@ -79,6 +82,23 @@ Each granted (global) role is a direct child entity under the user,
 - `getSessionUser(token)` — resolves a live token to its user, `null` if missing/expired/unknown.
 - `setOwnPageSize` / `setOwnNumberFormat` / `setOwnDateFormat` — personal display preferences.
 - `hashPassword` / `verifyPassword` (`password.ts`, shared with self-registered customer accounts in `db.ts` to avoid a circular import) — every stored password goes through this; never stored or compared as plain text.
+
+Tests:
+- "password hashing: correct password verifies, wrong password is rejected" (`backend/test/auth.test.ts`)
+- "two hashes of the same password are different (salted), but both verify correctly" (`backend/test/auth.test.ts`)
+- "the bootstrap admin user exists with Administrator role and the documented default password" (`backend/test/auth.test.ts`)
+- "login rejects a wrong password, and gives the same error for a nonexistent username (no user enumeration)" (`backend/test/auth.test.ts`)
+- "a valid session token resolves to the correct user and roles; an invalid one resolves to null" (`backend/test/auth.test.ts`)
+- "logout invalidates the session immediately" (`backend/test/auth.test.ts`)
+- "createUser rejects a duplicate username and a too-short password" (`backend/test/auth.test.ts`)
+- "a newly created user can log in with the exact role(s) assigned" (`backend/test/auth.test.ts`)
+- "setUserRoles changes what a session created afterward reflects" (`backend/test/auth.test.ts`)
+- "deactivating a user immediately kills their existing sessions and blocks new logins" (`backend/test/auth.test.ts`)
+- "changePassword replaces the password — the old one stops working, the new one works" (`backend/test/auth.test.ts`)
+- "changeOwnPassword requires proving the current password first — unlike the admin path, which does not need to" (`backend/test/auth.test.ts`)
+- "setOwnPageSize: a real, user-settable preference, defaulting to 20, rejecting nonsense values" (`backend/test/auth.test.ts`)
+- "setOwnNumberFormat/setOwnDateFormat: explicit, fixed-choice patterns — not locale inference — defaulting to 1 000.00 / dd/mm/yyyy, rejecting anything outside the fixed list" (`backend/test/auth.test.ts`)
+- "the per-business role matrix is a real, genuine Cartesian Product — the same user can hold a different role in a different business, independent of their global role" (`backend/test/auth.test.ts`)
 
 ### Sessions
 
@@ -155,6 +175,11 @@ a business, managing the global user/role list) uses
 `requireGlobalRole` instead, which only ever checks a user's real,
 global roles.
 
+The role name is the constant `BUSINESS_ADMIN_ROLE` (`'Business Admin'`,
+`auth.ts`). `userMayActAsRole(user, roles, business)` is the one test
+both `requireRole`s use: true when the user holds one of `roles`
+globally, or holds Business Admin in `business`.
+
 **Posting into a non-active ledger** (`canUserPostToLedger`, `auth.ts`)
 is a related, narrower check: posting into a business's own current
 active ledger is always allowed; posting into an already-rolled-over,
@@ -165,6 +190,11 @@ treats as "full access within this business" elsewhere. Deliberately
 not a hard lock: an old ledger stays postable forever for real
 corrections, only restricted to a smaller role set once it's no longer
 current (see the ledger rollover design in the Historical log).
+
+Tests:
+- "provisionBusinessAdminUser gives a new business a real, dedicated admin user with Business Admin only in that one business, never any global role" (`backend/test/auth.test.ts`)
+- "requireRole accepts a real, global role as before, and ALSO accepts Business Admin held in the session's current business — but requireGlobalRole never does" (`backend/test/auth.test.ts`)
+- "Developer role, the global Employees/Manufacturers branches, and item_source all exist exactly once — the migration that restores these on an existing database is idempotent" (`backend/test/db.test.ts`)
 
 ### The HTTP middleware layer (`backend/src/auth-middleware.ts`)
 
@@ -215,11 +245,14 @@ of the four have genuine line-item detail beyond an optional single
 item). `ensureLocationScopedAccount` generalizes the `{account} —
 {location}` pattern for an account with no specific product.
 
-The underlying mechanism (`setDimensionParent`/`getDimensionParent` —
-see "Hierarchies," below, for its current, generic name) generalizes
+The underlying mechanism (`setHierarchyParent`/`getHierarchyParent`,
+see "Hierarchies," below) generalizes
 to any further lateral classification with zero new structural code —
 a region, a brewer, or any other lateral fact about a product or
 location.
+
+Tests:
+- "createEntityRaw: scoped, not global, uniqueness — the exact, same real rule everywhere else in the entity tree, verified specifically for Vocabulary and its own real translations" (`backend/test/db.test.ts`)
 
 ## Money: integer minor units, never floating-point
 
@@ -247,17 +280,17 @@ mechanisms address it:
 
 **ID-alongside-name.** `journal_entry_staging` carries an optional
 `account_id` column alongside `account` (the name);
-`post_journal_entry_insert`/`post_quantity_movement_insert` both
-resolve via `COALESCE(account_id, (SELECT id FROM current_entities
-WHERE name = account))` — the direct id is preferred when a caller
-has one, falling back to the name lookup for an ordinary, user-typed
-value. `createEntity`, `resolvePostingRoot`,
+`commitStagedEntry` uses the staged `account_id` when a caller gave
+one, and resolves the name (`resolveStagedAccountId`) only for an
+ordinary, user-typed value. `createEntity`, `resolvePostingRoot`,
 `ensureItemSalesCogsAccounts`, `ensureProductTierPart`,
 `ensureItemLocationLeaf`, `ensureItemTierLocationLeaf`,
 `ensureItemInventoryAccount`, and `ensureItemLocationInventoryAccount`
 all resolve and return a real id alongside the name for this reason.
-`resolvePartId` is the shared way to resolve a product's entity id
-specifically, confirming its ancestor chain reaches `Parts`.
+`resolveItemId` is the shared way to resolve an item's entity id
+specifically: it returns the id of the entity of that name whose
+ancestor chain reaches `Items` (or a business's `… Items` root), and
+`undefined` for any other entity of that name.
 
 A number of bare-name lookups remain for structurally singular,
 low-collision-risk anchors (`Chart of Accounts`, `Vocabulary`,
@@ -280,7 +313,7 @@ export function asBusinessName(name: string): BusinessName {
 }
 ```
 
-Every `asXxxName` constructor is the one, explicit boundary where an
+Every `as…Name` constructor is the one, explicit boundary where an
 ordinary string becomes branded — a database read or a zod-parsed
 HTTP body is cast exactly once, at the point it's read; every function
 downstream carries the correct, branded type automatically. Applied
@@ -289,8 +322,11 @@ location/employee/customer/vendor/part parameter surface — confirmed
 exhaustively (an empty-result grep for any remaining `(business:
 string, ledger: string)` pair), not assumed. A product's own name and
 its quantity-tracking account name are often the identical string but
-are not the same *kind* — `PartName` is cast to `AccountName`
+are not the same *kind* — `ItemName` is cast to `AccountName`
 explicitly, visibly, at the exact point it's staged as a posting line.
+
+Tests:
+- "a real business can genuinely be named "Equity" (or "Asset", "Chart of Accounts", "Hierarchies", any other real, structural word this codebase itself already uses) - per direct instruction: a business name and a real, structural CoA category/root name share no real namespace at all, so no real collision should ever be possible" (`backend/test/db.test.ts`)
 
 ## Language-neutral translation
 
@@ -321,6 +357,10 @@ language ("Setup" and "Configuration" both translate to
 scoped-uniqueness constraint and logs it as a flagged collision for
 further review rather than crashing or silently resolving it.
 
+Tests:
+- "languages list and localized_text fallback/override work end to end" (`backend/test/db.test.ts`)
+- "French works as a genuine, complete third language — no special-casing needed for a third language to work at all" (`backend/test/db.test.ts`)
+
 ## Contact field storage: 27 independent attr facts, not one JSON blob
 
 `contact`/`contact_entry` (00-core.sql) are compatibility views giving
@@ -336,7 +376,8 @@ is its own independent `Entity.setAttr`/`getAttr` fact, and "is this
 entity a contact at all" is a real `Entity.tag(id, 'Contact', userId)`,
 not a JSON flag. `mergeContactDetail` (db.ts) is the one write path
 every contact field setter (`setContact`, `setPosPin`, `setItem`,
-`setLocation`, `registerCustomer`, `verifyCustomer`, `setReminderLevel`,
+`setLocation`, `registerCustomer`, `verifyCustomer`, `recordReminderSent`,
+`resetReminderLevel`,
 …) funnels through; it tags the entity Contact once and, per field,
 calls `Entity.setAttr` for a real value or `Entity.clearAttr` (a small
 new primitive, revoking any current value under that field's container
@@ -367,6 +408,11 @@ documented in code comments at their fix sites:
   relationship children by id (`getEntitiesWithRelationship` now also
   returns `sourceId`/`targetId`), the same bug class already fixed
   several times elsewhere in this codebase, applied here too.
+
+Tests:
+- "a new entity has no contact until one is set" (`backend/test/db.test.ts`)
+- "setContact then getContact round-trips correctly" (`backend/test/db.test.ts`)
+- "setContact is a full replace, not a partial merge — calling it again with fewer fields clears the rest" (`backend/test/db.test.ts`)
 
 ## Contact types: one contact, any combination of roles
 
@@ -401,11 +447,25 @@ underneath: create the contact entity under `Contacts`, then
 `createProvider`/`createCustomer`/`createEmployeeContact`, each its
 own dispatch key in `call-dispatch/entities.ts` (via `POST /api/call`).
 
+A contact's typed people, phones and addresses are child records made
+by one generic mechanism (*The Entity Model*, "Entity retrieval"):
+`addTypedContactPerson(entity, type, { name, phone, email })`,
+`getTypedContactPersons(entity)` and `deleteTypedContactPerson(entity,
+type)`; `listPhoneTypes()` lists the phone types under `Phone Types`,
+and `ensurePhoneType` adds one the first time a phone of that type is
+saved.
+
 **Open question, not yet decided**: whether two contacts can share one
 address/phone record, or whether each must always hold its own,
 independent copy even when the values coincidentally match (no
 structural sharing mechanism exists today — each `addTypedAddress`
 call always creates an independent record).
+
+Tests:
+- "addTypedAddress/getTypedAddresses/addTypedPhone/getTypedPhones: multiple, genuinely typed addresses and phones per entity, zero new tables — reusing parent_id + relation_id + contact recursively" (`backend/test/db.test.ts`)
+- "createProvider genuinely tags the new contact as a real Provider type, per docs/contact-types-and-translations.md" (`backend/test/db.test.ts`)
+- "a real contact can genuinely hold more than one real type at once - a Provider later also registered as a Customer keeps both, per docs/contact-types-and-translations.md" (`backend/test/db.test.ts`)
+- "createEmployee genuinely tags the new contact as a real Employee type, per docs/contact-types-and-translations.md - Employee correctly derives Accounts Payable as its own base account too, per the same, direct, deliberate accounting point" (`backend/test/db.test.ts`)
 
 ## Application vocabulary vs. sample business data
 
@@ -483,7 +543,7 @@ name as a parameter:
 - `getHierarchyGroups(hierarchyName)`, `getHierarchyGroupForAccount(accountName, hierarchyName)`, `getHierarchyGroupForLocation(locationName, hierarchyName)`
 - `getProfitAndLossByHierarchy(business, ledger, hierarchyPath, ...)`, `getProfitAndLossForHierarchyGroup(business, ledger, hierarchyPath, groups, groupName, ...)`, `getProfitAndLossByHierarchyTree(business, ledger, hierarchyPath, hierarchyName, ...)`
 - `getLedgerBalancesByHierarchyStructural(business, ledger, hierarchyPath, fromDate?, toDate?, excludeCloseEntries?)` — resolves each account to its group by walking `hierarchyPath` (an ordered list of hierarchy names) one `getHierarchyParent` hop at a time; `['Location']` for a one-hop breakdown, `['Location', 'Division']` for a two-hop one.
-- `closeBooks`/`previewCloseBooks`/`computeCloseLines` take an explicit `hierarchyPath: string[] = []`; their result's informational summary field is `groupBreakdown`, not `divisionBreakdown`.
+- `closeBooks`/`previewCloseBooks`/`computeCloseLines` take an explicit `hierarchyPath: string[] = []`; their result's informational summary field is `groupBreakdown`.
 - `MatrixAxis` is `'Item' | 'Location' | 'Consolidated' | (string & {})` — no fixed `'Division'` or `'Category'` member; `resolveKey`'s fallback tries a hierarchy-parent lookup on the product, then its location, for any axis name not already structurally known. Category used to be the one exception — a product's own real ancestor position in the Items catalog tree, and the one real-GL-account-mirroring hierarchy in the codebase (`ensureCategoryChain`, since removed) — until it was generalized to the exact same lateral tag mechanism Division already used (`resolvePostingRoot` now posts every product's Sales/COGS leaves flat, with no category-shaped sub-account structure at all).
 - The frontend's generic `HierarchyGroupTreePicker.svelte`/`HierarchyGroupPLNode.svelte`/`HierarchyGroupTreeNode.svelte` each take a `hierarchyName` prop; the matrix-report pages read a business's configured hierarchies live (`getHierarchy`/`getAxisValues`) rather than hardcoding `'Division'` or `'Category'` in an axis list.
 - `BusinessStructurePopup.svelte`'s "Org Chart" and "Item Categories" steps likewise each treat their own hierarchy name (`Division`, `Category`) as just the one, conventional name they happen to tag Locations or Items against — see `docs/pm-frontend-reference.md`'s "Business Structure popup" section for the full design, including the hierarchy-tag-vs-structural-reparent distinction both depend on.
@@ -501,6 +561,10 @@ back to that business.
 tree-builder for any hierarchy — plain structural nesting
 (`parent_id`), a named relationship, or, in the genuine edge case
 above, both at once.
+
+Tests:
+- "setHierarchyParent/getHierarchyParent/getHierarchyChildren/getHierarchyAncestorChain: the generic, reusable hierarchy-link mechanism (docs/multi-dimensional-reporting.md) — a real, reversible up/down index per named hierarchy, never touching an entity's own relation_id, and never a "dimension" in the matrix-stock-report/drag-and-drop sense" (`backend/test/db.test.ts`)
+- "getLocationForAccount/getHierarchyGroupForAccount: the real, structural replacement for journal_line.division_id — walking a real account to its own, real, structural location and hierarchy group, not reading a separate tag" (`backend/test/db.test.ts`)
 
 ### The product/tier/leaf structure
 
@@ -568,6 +632,25 @@ from `payment_terms_days` (null → conventional 30/60/90; 0 → cash-only,
 whose single bucket boundary is 0 itself — nothing is ever exempt from
 aging), never a fixed 30/60/90 for every account.
 
+- `getAgingBuckets(paymentTermsDays)` returns those buckets: for a term
+  T, `1-T`, `T+1-2T` and `2T+1-3T`; for 0, one `Due immediately`
+  bucket; for `null`, the 30-day term.
+- `getReminderCandidates(business, ledger, asOfDate)` groups every
+  overdue AR invoice by customer: the outstanding total, the oldest
+  days overdue, the customer's current reminder level and the next one
+  (one higher, at most 3).
+- `getCounterpartyHistory(business, ledger, counterparty)` lists every
+  line of that counterparty's posted invoices, manual and POS, newest
+  first.
+
+Tests:
+- "payment_terms_days persists per customer/vendor, since account management practice genuinely varies (30/60/90 for one, 7/14/21 for another, cash only for a third)" (`backend/test/db.test.ts`)
+- "getAgingBuckets derives 1x/2x/3x buckets from a single term, matching real variation across customers" (`backend/test/db.test.ts`)
+- "getCreditStatus: a real customer/vendor's own real balance checked against their own real, configured credit limit" (`backend/test/db.test.ts`)
+- "aged invoices: bucketed by each customer's own payment terms, and partial payment allocation genuinely reduces what is outstanding" (`backend/test/db.test.ts`)
+- "Reminders: escalate per customer, cap at level 3, and reset independently of any other contact edit" (`backend/test/db.test.ts`)
+- "aged summary rolls up per customer (matching SQL-Ledger's Summary aging view), and counterparty history shows real line-item activity" (`backend/test/db.test.ts`)
+
 ## Invoices — AR and AP share one mechanism
 
 Invoices are the real billing event, distinct from the physical
@@ -612,6 +695,24 @@ historical "as of" statement, which must only count payments actually
 allocated by that date. Recomputed directly, filtered by
 `allocation_date`.
 
+Reading invoices:
+
+- `listInvoices(business, ledger, options)` returns invoices newest
+  first; `options` filters by `invoiceType` (`AR` or `AP`) and by
+  `source` (`manual`, the default, `pos`, or `all`), and pages with
+  `limit` and `offset`. `countInvoices` counts with the same filters.
+- `getInvoiceLine(reference, business, ledger)` reads the single
+  invoice line recorded for a non-invoice posting by `recordInvoiceLine`
+  (*The Journal API*); `invoice.ts` prints it.
+
+Tests:
+- "real multi-line invoices: header + lines, due date derived from the counterparty's own payment terms, posting creates the actual GL entry" (`backend/test/db.test.ts`)
+- "Credit Note reverses an invoice correctly — the same mechanism run in reverse, not a parallel schema" (`backend/test/db.test.ts`)
+- "Credit Invoice (restocks) vs Credit Note (does not) — matching SQL-Ledger's real distinction, applied per-line based on whether restocking was actually requested" (`backend/test/db.test.ts`)
+- "allocatePayment: actually posts the real GL movement, not just a tracking record — confirmed directly, since this exact gap once let $920,626.23 in "paid" sales never reach Cash and Bank" (`backend/test/db.test.ts`)
+- "getCustomerStatement: shows every real, posted invoice for one customer — paid, partially paid, and outstanding — correctly respecting a real, historical "as of" date, not just the current, real-time balance" (`backend/test/db.test.ts`)
+- "postInvoice: a real, forced failure (posting to a non-existent account) genuinely rolls back everything - the invoice stays a real, untouched draft, no real, orphaned journal entry or staged lines survive" (`backend/test/db.test.ts`)
+
 ## E-invoicing (UBL 2.1)
 
 `exportInvoiceAsUbl`/`parseUblInvoice` target the core, mandatory UBL
@@ -637,12 +738,16 @@ it, the same mechanism every other invoice uses); any discrepancy
 found is recorded directly in the invoice's description so it's
 visible to whoever reviews the draft.
 
+Tests:
+- "e-invoicing: a real, posted invoice exports as a real UBL 2.1 document, and a real, incoming one round-trips back through a genuinely separate ledger as a draft, never auto-posted" (`backend/test/db.test.ts`)
+- "e-invoicing: a real 3-way match catches a genuine mismatch between a purchase order and an incoming e-invoice" (`backend/test/db.test.ts`)
+
 ## Picking, packing, dispatch, and restocking
 
 Built on the existing invoice mechanism (an unposted invoice *is* an
-approved order — no new "order" concept needed) and the existing
-`item_location` shelf fields, not the old abstract Qty/Value
-stock-dispatch mechanism, which never knew about real shelves.
+approved order — no new "order" concept needed) and each item's shelf
+position at a location (`shelf_side`, `rack`, `level`, set by
+`setItemLocationLevelDetails`, *The Stock API*).
 `getPickingList` sorts by shelf order — rack (alphabetical), then
 level (low to high, so a person works one level at a time), then
 shelf side — with shelf detail printed last so the column can be torn
@@ -650,18 +755,21 @@ off before the list goes out with the delivery, without a customer
 ever seeing the warehouse layout. A line with no shelf recorded sorts
 last, not first.
 
-`confirmPickedLine` is the third and final exception to the
-single-financial-posting-path rule described above: a bare `journal`
-row with no `journal_line` and no account at all, since a tick-off has
-no financial or quantity meaning whatsoever — the real stock reduction
-happens once, later, at `dispatchOrderFromPickingList`.
+`confirmPickedLine` records a tick-off as a fact, not as a journal entry:
+it has no financial or quantity meaning. The fact is an entity named
+`<invoice reference>-PICK-<line id>` under the business's own
+`Picked Lines` entity, and its row records who ticked the line and when.
+Ticking it again does nothing. The stock itself is reduced once, later,
+at `dispatchOrderFromPickingList`.
 `dispatchOrderFromPickingList` is the "delivery run/courier pickup
 completed" moment: posts the invoice (recognizing revenue) and
 dispatches physical stock via the same `dispatchItems` mechanism POS
 sales already use.
 
 Restocking retail outlets from a warehouse (`getRestockPickingList`/
-`confirmRestockPickedLine`/`dispatchRestockFromPickingList`) is a
+`confirmRestockPickedLine`/`dispatchRestockFromPickingList`; a tick-off
+is `<run reference>-PICK-<item>` under the warehouse's business's
+`Picked Lines`) is a
 deliberately separate case — an internal transfer has no customer and
 no revenue, so it's genuinely not an invoice, but needs the same
 shelf-order/tick-off/refuse-until-complete pattern. Built on
@@ -669,6 +777,10 @@ shelf-order/tick-off/refuse-until-complete pattern. Built on
 transfer reference must be distinct per product within a run, since
 `journal.reference` must be unique per (business, ledger) and a shared
 base reference across products in the same run would collide.
+
+Tests:
+- "picking/packing/dispatch: a real order becomes a real, shelf-ordered picking list, requires every real line ticked off before it can dispatch, and reduces real, physical stock at the exact location it was actually picked from" (`backend/test/db.test.ts`)
+- "restocking retail outlets from warehouses: the same real, shelf-ordered picking and refuse-until-complete pattern, but a real internal transfer, not an invoice — a real, distinct reference per real line, since a shared reference across different real products in the same run would genuinely collide" (`backend/test/db.test.ts`)
 
 ## POS and cash-register flows
 
@@ -718,6 +830,19 @@ no match, never a fuzzy search or a NULL-UPC coincidence.
 `getCombinationByUpc` is the combination-aware counterpart (see
 "Barcode scanning" in `pm-entity-model.md`).
 
+Tests:
+- "completePosSale: the real, live, end-to-end border scenario - two real terminals, one real location, one real product, sold in two different, real currencies" (`backend/test/db.test.ts`)
+- "POS terminal: a complete register sale posts the invoice, dispatches stock from the exact location sold at, and allocates payment atomically, with change due calculated correctly" (`backend/test/db.test.ts`)
+- "completePosSale honors an explicit transdate instead of always using the real current date — the actual bug that broke every backdated/simulated sale" (`backend/test/db.test.ts`)
+- "completePosSale: a real, immediate cash sale posts a genuine invoice to the customer's own AR account, then a genuine payment that nets it straight back to zero" (`backend/test/db.test.ts`)
+- "completePosSale defaults to real, per-product Sales accounts — not one shared aggregate that could never distinguish one product's margin from another's" (`backend/test/db.test.ts`)
+- "a item's real retail_price_minor is a genuine lookup field, reachable via every real path a POS screen actually uses — not something the operator types in" (`backend/test/db.test.ts`)
+- "POS clerk sign-on/sign-off: a real employee needs a real PIN, can only be signed on at one real location at a time, and signing off closes the real shift record cleanly" (`backend/test/db.test.ts`)
+- "completePosSale: the real, live wiring — a real sale with a real tier now genuinely ensures its own, real tier-level item, not just its own Sales/COGS accounts" (`backend/test/db.test.ts`)
+- "completePosSale: the real, live wiring — a real sale with both a real tier and a real, known location now genuinely ensures its own, real (tier, location) leaf, the real, actual posting target" (`backend/test/db.test.ts`)
+- "completePosSale: a real, genuine combination sale correctly resolves its own, real, combination-specific price, and posts through the new Sales/COGS/Inventory leaves, per direct instruction" (`backend/test/db.test.ts`)
+- "completePosSale, through a real, foreign-currency terminal at a real, nominated-currency location, correctly resolves the real, foreign price AND correctly posts the real payment into its own, real, currency-tagged "Cash at Bank" sibling - the real gap found and reported earlier this session, now closed per docs/multicurrency-design.md" (`backend/test/db.test.ts`)
+
 ### Account resolution split between frontend and backend
 
 Per `docs/canned-journal-to-frontend-design.md`: for a canned
@@ -734,13 +859,32 @@ every dimension is already baked into the account's own name.
 `resolveOpenContainerAccounts` is the equivalent for Open Container,
 which (unlike Transfer) has no physical quantity-on-hand side effect —
 it only reclassifies which storage-space/Inventory tier the same stock
-already sits in. Cash Purchase and Cash Sale used to have their own
-narrow resolvers here too (`resolveCashTransactionAccounts`/
-`resolveSaleAccounts`), computing a canned journal client-side exactly
-like Transfer does — removed entirely once both screens moved onto
-`completeCashPurchase`/`completePosSale` (see "POS and cash-register
-flows" above), which resolve everything server-side as part of their
-one atomic call.
+already sits in. Cash Purchase and Cash Sale resolve everything
+server-side, in `completeCashPurchase`/`completePosSale` (see "POS and
+cash-register flows" above).
+
+
+## Customer self-registration
+
+A customer can register at a self-service terminal without a staff
+login:
+
+- `registerCustomer(input, userId)` creates the customer under the
+  `Customers` root (not under a business's `Contacts`), sets its contact
+  type to `Customer`, saves the contact fields, stores a password hash
+  and sets `verification_status` to `pending`. A name that already
+  exists is refused.
+- `authenticateCustomer(name, password)` is true only for a customer
+  with a stored password hash that matches.
+- `listPendingCustomers()` lists every contact still `pending`, by name.
+- `verifyCustomer(name, approve)` moves a pending customer to `active`
+  or `rejected`; any other status is refused.
+- `completePosSale` refuses to sell on account to a customer whose
+  status is `pending` or `rejected`.
+
+Tests:
+- "customer self-registration: a customer is a customer — same contact invoices already use, pending until staff verifies, and the real gate blocks on-account selling until then" (`backend/test/db.test.ts`)
+- "registerCustomer genuinely tags the new contact as a real Customer type, per docs/contact-types-and-translations.md" (`backend/test/db.test.ts`)
 
 ## Cash Sale and Cash Purchase
 
@@ -787,10 +931,7 @@ or receive the stock, and then immediately `allocatePayment` the whole
 thing to zero. So a Cash Sale/Purchase is structurally indistinguishable
 from an on-account Sale/Purchase to the "Cash" party, right up until
 the instant it's reconciled; there is no separate, direct-to-Cash-and-
-Bank code path any more (the old `resolveCashTransactionAccounts`/
-`resolveSaleAccounts`/`cashPurchaseLines`/`posSaleLines` mechanism —
-see "Account resolution split between frontend and backend" above —
-was removed entirely, not merely stopped being called).
+Bank code path.
 
 **Every one of these roads ends at the General Journal** — the
 ordinary, generic staging+posting mechanism (`stageLine`/
@@ -799,6 +940,9 @@ ordinary, generic staging+posting mechanism (`stageLine`/
 There is no separate posting mechanism for "a cash transaction" versus
 "an on-account one": by the time any of these reach the journal, the
 difference between them is already gone.
+
+Tests:
+- "completeCashPurchase: a real, immediate cash purchase posts a genuine invoice to the vendor's own AP account, then a genuine payment that nets it straight back to zero" (`backend/test/db.test.ts`)
 
 ## Employee payroll and timecards
 
@@ -839,6 +983,14 @@ employee cannot work two different locations at the same time, checked
 against every *other* location's already-saved shifts (never this
 location's own shifts, which are the ones about to be replaced).
 
+`getLocationOpenHours(location)` reads back the open days, each with
+its `opens_at` and `closes_at`, Monday first; `getScheduleAtLocation(location)`
+lists every employee's shifts at that location, by day.
+
+Tests:
+- "payEmployeeWages: a real employee treated as AP — real Medicare levy withheld from their own pay, real superannuation as a genuine, separate employer cost, hourly or salaried" (`backend/test/db.test.ts`)
+- "Location open hours and employee weekly scheduling, built entirely on the real entity tree — no new table, each real record is its own, real, named child entity" (`backend/test/db.test.ts`)
+
 ## Where currency lives, and precedence
 
 Per `docs/multicurrency-design.md`: operational currency facts exist
@@ -849,6 +1001,14 @@ traded there, `nominateLocationCurrency`/`getLocationCurrencies`) and
 absent — both are pure reporting rollups, never operational units, and
 never nominate a currency of their own. A sale resolving to a currency
 a location never nominated is rejected, not silently allowed through.
+
+`getBusinessHomeCurrency(business)` reads the business's `Home
+Currency` attribute, or `null` when none was set.
+
+Tests:
+- "a business nominates one real home currency, stored as an attribute of the business - per multicurrency-design.md, "Where currency lives, and precedence"" (`backend/test/db.test.ts`)
+- "a location nominates a real SET of currencies it trades in, not a single value - per multicurrency-design.md, "Where currency lives, and precedence"" (`backend/test/db.test.ts`)
+- "the fully worked example from multicurrency-design.md: a real sale through a real, nominated-currency location posts every real leg (Revenue, Tax, COGS, Cash) to its own, real, currency-tagged sibling, never converted, genuinely balancing entirely within its own real currency group" (`backend/test/db.test.ts`)
 
 ## Currency exchange is a cartesian product, not one rate per currency
 
@@ -869,6 +1029,14 @@ of the home/reporting currency equal one minor unit of
 `fromCurrency`," with buy and sell set independently (a genuine
 bid/ask spread, never one shared number); a self-pair is rejected
 outright, since its rate is always, definitionally 1.
+
+`ensureCurrencyPair(business, from, to)` creates (or finds) the pair's
+Product Instance. `getCurrencyExchangeRate(business, from, to, side)`
+reads the buy or sell rate: 1 for a self-pair, `null` when the pair,
+either currency or the rate was never set.
+
+Tests:
+- "Currency exchange is genuinely a cartesian product (From x To), never one rate per currency - per direct instruction: N currencies means N*N ordered pairs, N of them trivial self-pairs always exactly 1, leaving N*(N-1) real, distinct, independently-configurable buy/sell rates" (`backend/test/db.test.ts`)
 
 ## Cash flow — bank account registration, cash position, and forecasting
 
@@ -905,6 +1073,17 @@ Three layers, per `docs/cash-flow-and-growth-planning.md`:
    none is reported when the limit is unknown, rather than silently
    treating "unknown" as "zero headroom."
 
+   `getBankAccounts(business, ledger)` lists the registered accounts
+   with their balance, currency and overdraft limit;
+   `unregisterBankAccount(account)` removes both links and clears the
+   overdraft limit (an in-place update of `account`, plan step 4 in
+   `docs/engine-single-writer-plan.md`).
+
+Tests:
+- "registerBankAccount/getBankAccounts/getCashPosition: Layer 1 of the real, dedicated cash-flow/growth-planning design — real, registered bank accounts scoped correctly to one real business, grouped by real currency, with honest overdraft headroom" (`backend/test/db.test.ts`)
+- "getCashFlowForecast: Layer 2 of the real, dedicated cash-flow/growth-planning design — anticipated AR receipts, committed AP payments, and genuinely recurring cash movements, never one-off historical postings" (`backend/test/db.test.ts`)
+- "getCashFlowForecast: Layer 3 — a real, honest first-shortfall date and amount, evaluated against the real, arranged overdraft limit, never a bare "goes negative" check" (`backend/test/db.test.ts`)
+
 ## Vocabulary, translation, and localized alternates
 
 The global Vocabulary (scoped through `Application`, distinct from
@@ -923,8 +1102,16 @@ whichever entity now carries the chosen name. `setVocabularyPreference`/
 first, then business-scoped, then the global default — the same shape
 already proven for the menu (`getMenuTree`, also 3-tier: user, then
 business, then global). A menu override lives as a direct child entity
-of the menu item itself (`setEntityLink`), never a dedicated
-`menu_override` table or JSON.
+of the menu item itself (`setEntityLink`), never a table or JSON.
+
+- `setMenuOverride(menuItemKey, scope, scopeId, label, hidden)` makes
+  (or reuses) the item's `{item} — Override: {scope} {scopeId}` child,
+  links its `Label` to a Vocabulary word (created when new), and sets or
+  clears its `Hidden` tag; `deleteMenuOverride` clears both.
+- `deleteVocabularyPreference(concept, scope, scopeId)` removes a
+  scoped preference, so the next tier applies again.
+- `getVocabularyAlternates(word)` lists every word that shares the
+  word's `Header Account` concept; a word with none returns itself.
 
 `setTranslation` prefers the Vocabulary concept over any other
 same-named entity when resolving which entity a translation attaches
@@ -940,6 +1127,9 @@ word under the exact same language) is flagged to a log file
 (`docs/flagged-translation-collisions.log`) rather than silently
 worked around with a suffix, and never halts any other, unrelated
 translation.
+
+Tests:
+- "the system default display language lives on Application, reachable before any session exists, and setting it preserves append-only history" (`backend/test/db.test.ts`)
 
 ## The "active" ledger
 
@@ -1000,6 +1190,9 @@ note: manufacturers and providers are global entities, never part of
 any one business's own scoped subtree, so the page needs a second,
 separate, unscoped fetch for them.
 
+Tests:
+- "getEntityTree(businessName): scoped to one business's own subtree - a real regression guard for the business-lookup condition (a business entity sits under "Businesses", never at parent_id NULL)" (`backend/test/db.test.ts`)
+
 ## Reporting periods — a real financial-year start date and frequency
 
 `closeBooks`/`rolloverToNewPeriod` (`backend/src/db-reports.ts`) were
@@ -1014,9 +1207,9 @@ financial-year structure.
 `setBusinessReportingPeriod`/`getBusinessReportingPeriod`
 (`backend/src/db.ts`) store a real ISO `financialYearStart` date and a
 `ReportingFrequency` (`'annual' | 'biannual' | 'quarterly' |
-'monthly'`) the same way `setBusinessHomeCurrency` already stores
-`home_currency` — in the business entity's own `detail_json`, not a
-new table. `createBusiness` takes both as new, trailing, optional
+'monthly'`) the same way `setBusinessHomeCurrency` stores the home
+currency: as attributes of the business entity (`Financial Year
+Start`, `Reporting Frequency`). `createBusiness` takes both as new, trailing, optional
 parameters; omitted (every pre-existing caller, including all of
 `backend/test/db.test.ts`'s fixtures), a business has no stored
 reporting period at all and every downstream feature here falls back
@@ -1054,6 +1247,9 @@ deliberately permissive behavior (any date, including one mid-period,
 for a genuine correction). This is additive period *awareness*, not a
 new period-locking subsystem; a harder lock was not part of what was
 asked for and would be a materially larger, separate feature.
+
+Tests:
+- "createBusiness + getReportingPeriods: a real financial-year start date and frequency, understood well enough to compute real quarter/month boundaries — omitted entirely, a business behaves exactly as before" (`backend/test/db.test.ts`)
 
 ## Entity tree performance: two real indexes, measured before and after
 
@@ -1153,6 +1349,10 @@ read of that account's own `balance_minor` (via a new, read-only
 account just by being asked about a location an item never moved to —
 undefined reads as zero).
 
+`allQtyLocationAccounts()` (`db-stock.ts`) reads every such `— Qty`
+account at once, with its item, its location and its balance; the
+stock listing and the stock-out report read quantities through it.
+
 Once a transfer's two lines hit two genuinely different accounts, the
 original reason for `location_id`'s existence disappears entirely:
 `journal_line`'s unique index — "no two lines for the same account on
@@ -1186,9 +1386,7 @@ resolve item/location from the account's own parent and
 `getItemLocation`, `getLocationCapacityStatus`,
 `getInventoryListingByLocation`, `countInventoryListing`,
 `getStockMovementReport`, `getStockOutRiskReport` (db-stock.ts), and
-`getStockOnHandMatrix` (db-matrix-reports.ts). `Balance.getScoped`
-(primitives.ts), the one-off `'location_id'`-dimension helper these
-all used, was deleted outright — nothing else called it.
+`getStockOnHandMatrix` (db-matrix-reports.ts).
 
 **A real, separate, pre-existing ambiguity bug, found and fixed in
 passing**: `setHierarchyParent`'s bare, unscoped name lookup for its
@@ -1216,8 +1414,8 @@ same-named Storage-capacity doppelganger by the time anything tags it.
 Confirmed directly: `createAndConfigureLocation`'s own internal
 `setHierarchyParent(locationName, groupingName, group, userId)` call
 (the one that tags a brand-new location with its division at creation
-time) and `BusinessStructurePopup.svelte`'s `confirmMoveLocation`
-(`setHierarchyTag(node.name, DIVISION, destination)`, no entity id
+time) and `BusinessStructurePopup.svelte`'s `confirmMoveStructureNode`
+(`setHierarchyTag(node.label, DIVISION, destination)`, no entity id
 available to pass even if the frontend wanted to — the `setHierarchyTag`
 dispatch entry's own positional args (`call-dispatch/hierarchy.ts`) have
 no `entityId` field at all)
@@ -1358,6 +1556,18 @@ left untouched, out of scope), frontend unit tests all passing,
 API-path tutorial e2e 62/62, browser-path tutorial e2e run and
 confirmed separately.
 
+Tests:
+- "revokeEntity refuses to delete an entity with children" (`backend/test/db.test.ts`)
+- "revokeEntity works for a genuinely childless, unposted entity" (`backend/test/db.test.ts`)
+- "revokeEntity refuses to delete a business's last real Actual or last real Budget ledger, but allows removing a real, genuine duplicate" (`backend/test/db.test.ts`)
+- "getEntityLinksPointingAt/revokeEntity: a Hierarchy value still assigned to a live entity cannot be revoked, but can once nothing points at it any more" (`backend/test/db.test.ts`)
+- "getEntityLinksPointingAt/revokeEntity: a Location still referenced by a real per-location quantity account cannot be revoked, but can once that account is retagged elsewhere" (`backend/test/db.test.ts`)
+- "deleteHierarchyGrouping/deleteHierarchyValue: name-based wrappers resolve the real entity and reuse revokeEntity's own guards — a grouping with a live value still refuses, exactly like revokeEntity itself already does" (`backend/test/db.test.ts`)
+- "deleteLocation: name-based wrapper resolves the real entity and reuses revokeEntity's own guards — a Division tag still pointing at it refuses, exactly like revokeEntity itself already does" (`backend/test/db.test.ts`)
+- "getTranslationsReferencing/deleteTranslationConcept: a word still genuinely translated somewhere cannot be deleted, but can once every real translation of it is gone" (`backend/test/db.test.ts`)
+- "revokeEntity closes the entity out but deliberately keeps its contact record — a historical fact about a now-closed entity, not something that disappears" (`backend/test/db.test.ts`)
+- "revokeEntity records who revoked it, and moves it permanently out of its old structural position" (`backend/test/db.test.ts`)
+
 ## Design note (not yet built): converting a sole trader to a partnership
 
 Not implemented — the user asked for a design to review before any
@@ -1387,8 +1597,8 @@ design, then, is a short wizard — likely a new step on
    stored anywhere as mutable state — `entityStructure` is only ever
    an input to `createBusiness`/`setupEquityStructure`, never read
    back; this conversion is also the first real need for storing it,
-   the same `detail_json`-on-the-business pattern as `home_currency`
-   and the new reporting-period fields above).
+   as an attribute of the business, like the home currency and the
+   reporting-period fields above).
 2. Calls `setupEquityStructure` again with the new structure and
    partner names, creating the new equity accounts.
 3. Shows the business's current `Owner's Equity` balance and proposes

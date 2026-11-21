@@ -16,7 +16,7 @@ in older design documents.
 | **Service** | something provided that is not held | distinct from an Item — not folded into the Items catalogue (the dedicated Services catalogue is not yet built — see Not Yet Built, below) |
 | **Product** / **Cartesian Product** | one combination of a value from each Factor, and the set of all such combinations | always this meaning; never a synonym for Item. Cartesian Products live under the Application and under each business's own name — not a level of the item tree. |
 | **Factor** | one of the things multiplied together to make a Cartesian Product | may be a single- or multi-level Hierarchy |
-| **Dimension** | a Factor | `setDimensionParent(entity, dimensionName, parent)` places an entity within one named hierarchy; `dimensionName` is a free-form string, deliberately not hardcoded to any specific classification |
+| **Dimension** | a Factor | `setHierarchyParent(entity, hierarchyName, parent)` places an entity within one named hierarchy; `hierarchyName` is a free-form string, deliberately not hardcoded to any specific classification |
 | **Hierarchy** | a single- or multi-level reporting and naming classification | plural, **Hierarchies** |
 | **Division**, **Category** | *examples* of hierarchical classifications of Locations and Items | used by the bundled demo businesses; suggestions, not built-in concepts |
 | **Save**, **Update** | labels on a UI Submit button | translatable Vocabulary words, not code verbs |
@@ -73,9 +73,6 @@ its qualifier, never by the bare word "receipt" alone.
   `undefined` when missing). The function has not been renamed; a
   reader expecting ordinary `get*` behavior should know `fetch` is the
   one, deliberate exception.
-- **`AR`/`AP` capitalisation in code identifiers.** Settled in prose;
-  not yet applied to the ~28 code identifiers that still spell these
-  `Ar`/`Ap` (`ArSaleInput`, `stageArSale`, `arApRouter`, and similar).
 - **Vendor → Provider, applied to code naming and the frontend's
   user-facing labels** (menu, screen legends, local component
   variables — per direct instruction). Not yet applied to the

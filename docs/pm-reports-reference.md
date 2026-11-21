@@ -2,9 +2,12 @@
 
 ## The core rule: balances for financial statements always come from `getLedgerBalances`, never from `account.balance_minor`
 
-`account.balance_minor` (maintained by the `post_journal_entry` trigger) is a single running total across every ledger a business has — it does not distinguish "Actual" from a budget scenario. Posting 100 to Actual and 500 to a Budget ledger for the same account adds both into that one column. Every financial statement in this file instead computes balances fresh from `journal_occurrences`, filtered to one specific ledger (`getLedgerBalances`), and that is the only place this filtering logic lives.
+`account.balance_minor` (maintained by `commitStagedEntry`) is a single running total across every ledger a business has — it does not distinguish "Actual" from a budget scenario. Posting 100 to Actual and 500 to a Budget ledger for the same account adds both into that one column. Every financial statement in this file instead computes balances fresh from `journal_occurrences`, filtered to one specific ledger (`getLedgerBalances`), and that is the only place this filtering logic lives.
 
-`getLedgerBalances` reads from `journal_occurrences`, not `journal_line` directly, so a recurring journal's virtual occurrences (a budget's monthly rent, stepped through a year) count toward a ledger's balances exactly like an ordinary one-off posting. Its account universe is `allAccountIds()`: every account with at least one genuinely real posting (a journal_line under a reference that does NOT match any pseudo-posting convention — `-QTY`/`LEVEL-`/`-PLACE-VALUE`/`-PLACE-ONORDER`/`-FULFILL-...`), minus the synthetic-unit-currency accounts (`SPACE-`/`UNITS-`/a real item's own unit-of-measure) a plain, non-pseudo-referenced posting can still land on. An earlier version of this function instead walked real descendants of "Chart of Accounts" plus the `Customers`/`Vendors` subtrees — that was dropped because it silently zeroed any real account created under a *different* root (e.g. a Division hierarchy value used directly as an AR counterparty), breaking the very identity ("a trial balance always balances") it was meant to protect. `realAccountIds()` (the Chart of Accounts walk alone) still exists and is still used, but only for `getBusinessReports`'s own CoA-tree display — a genuinely different job from computing a balance; its sibling `contactAccountIds()` (the old `Customers`/`Vendors` walk) was deleted once `getLedgerBalances` stopped calling it and nothing else did. `fromDate`/`toDate` are both optional; point-in-time reports (Trial Balance, Balance Sheet) only ever pass `toDate` ("as of"), while Profit and Loss needs both, since income/expense should accumulate only within the period, not from inception.
+`getLedgerBalances` reads from `journal_occurrences`, not `journal_line` directly, so a recurring journal's virtual occurrences (a budget's monthly rent, stepped through a year) count toward a ledger's balances exactly like an ordinary one-off posting. Its account universe is `allAccountIds()`: every account with at least one genuinely real posting (a journal_line under a reference that does NOT match any pseudo-posting convention — `-QTY`/`LEVEL-`/`-PLACE-VALUE`/`-PLACE-ONORDER`/`-FULFILL-...`), minus the synthetic-unit-currency accounts (`SPACE-`/`UNITS-`/a real item's own unit-of-measure) a plain, non-pseudo-referenced posting can still land on. An earlier version of this function instead walked real descendants of "Chart of Accounts" plus the `Customers`/`Vendors` subtrees — that was dropped because it silently zeroed any real account created under a *different* root (e.g. a Division hierarchy value used directly as an AR counterparty), breaking the very identity ("a trial balance always balances") it was meant to protect. `realAccountIds()` (the Chart of Accounts walk alone) is used only for `getBusinessReports`'s own CoA-tree display — a genuinely different job from computing a balance. `fromDate`/`toDate` are both optional; point-in-time reports (Trial Balance, Balance Sheet) only ever pass `toDate` ("as of"), while Profit and Loss needs both, since income/expense should accumulate only within the period, not from inception.
+
+Tests:
+- "Actual and a budget ledger are genuinely isolated in every financial statement — this is the whole point of having separate ledgers, and it was actually broken once" (`backend/test/db.test.ts`)
 
 ## `getBusinessReports` / `getChartOfAccounts`
 
@@ -13,6 +16,11 @@ Both replace direct reads of the old `business_reports` / `chart_of_accounts` vi
 `getBusinessReports`'s category-to-report resolution has to handle two different join depths: a business-scoped category's `relation_id` normally points at its global counterpart, whose own `relation_id` finally points at the report (two hops) — except for `admin`, which falls back straight to the global category, so `relation_id` already points at the report directly (one hop). The query disambiguates by checking whether the first hop already lands on a report (a direct child of "Business Reports").
 
 `getChartOfAccounts` additionally merges in accounts that live structurally outside the Chart of Accounts but have set a CoA leaf as their "Header Account" hierarchy parent — generically, for any entity, not hardcoded to `Customers`/`Vendors` — so a vivified customer/vendor account with a real balance still shows up under the right heading. Structural plumbing entities (`% — Hierarchy: %`, `% — Contact Type: %`) are excluded from that merged subtree.
+
+Tests:
+- "business_reports groups categories under their fixed report via relation_id" (`backend/test/db.test.ts`)
+- "chart_of_accounts shows the real hierarchy including sub-accounts" (`backend/test/db.test.ts`)
+- "reassigning a category to a different report via relation changes business_reports immediately" (`backend/test/db.test.ts`)
 
 ## Currency- and Profit-Center-tagged sibling accounts
 
@@ -38,6 +46,15 @@ Cash is included in the same lazy currency-tagging pattern every other leg of a 
 
 `by_currency` gives independent per-currency debit/credit subtotals, each checked for balance on its own — because this schema's rule is that a single journal entry may span multiple currencies, but every distinct currency present must independently balance to zero, so a caller checking for a genuine imbalance should prefer this breakdown over the single combined total.
 
+Tests:
+- "trial balance shows every posted account split into debit/credit, and the two columns match" (`backend/test/db.test.ts`)
+- "trial balance omits accounts with a zero balance" (`backend/test/db.test.ts`)
+- "Trial Balance and Balance Sheet asOfDate correctly excludes postings after the cutoff, without needing a period to be closed at all" (`backend/test/db.test.ts`)
+- "getTrialBalance: by_currency genuinely separates each real currency's own debit/credit totals - a combined, cross-currency sum can look balanced or unbalanced for entirely the wrong reason" (`backend/test/db.test.ts`)
+- "getTrialBalance: has_quantity_postings correctly flags an account that has genuinely received a real, direct quantity-tracking ("-QTY") posting alongside its own, ordinary value postings" (`backend/test/db.test.ts`)
+- "getTrialBalance: must always balance, even with real posted AR/AP — Customers/Vendors live outside the Chart of Accounts but their real monetary postings must still be included" (`backend/test/db.test.ts`)
+- "getQualifiedDisplayName never doubles a real, already-qualified name - a real, confirmed bug found directly in the trial balance, where a combination-leaf account's own, real, already-descriptive name (e.g. "Amber Ale 330ml (Bottle) — Eastside Cellar Door") got its own, real parent's name prepended a second time, producing a real, visibly doubled name" (`backend/test/db.test.ts`)
+
 ## Balance Sheet
 
 `getBalanceSheet` uses `getBusinessReports` only for structural grouping (which category an account falls under); the actual balance per line always comes from `getLedgerBalances`. `is_contra` marks a line whose balance landed in the column opposite its section's normal side (an Asset with a credit balance, say) — genuinely unusual, not an error, worth flagging rather than presenting as an ordinary signed number.
@@ -48,6 +65,12 @@ Accounts Receivable and Accounts Payable are summed separately via `sumHierarchy
 
 `assets_tree`/`liabilities_tree` group leaves by their real CoA category structure via `buildCategoryTree` (Current Assets/Non-Current Assets, etc.); AR/AP/Current Year Earnings appear as synthetic top-level nodes since they have no structural category to nest under. `equity_tree` is always flat — there is no genuine Current/Non-Current split for equity.
 
+Tests:
+- "balance sheet computes real totals and confirms Assets = Liabilities + Equity" (`backend/test/db.test.ts`)
+- "Balance Sheet and P&L split each line into debit/credit columns per accounting convention, and flag a line whose balance sits opposite its normal side" (`backend/test/db.test.ts`)
+- "getBalanceSheet: a real close must not leave Current Year Earnings still showing the closed period's net income" (`backend/test/db.test.ts`)
+- "getBalanceSheet includes real AR/AP posted directly to customer/vendor names — without this, any ledger with outstanding AR/AP silently fails to balance" (`backend/test/db.test.ts`)
+
 ## Profit and Loss
 
 `getProfitAndLoss` is a thin wrapper: fetch the one balance map this ledger/date-range needs via `getLedgerBalances`, then hand it to `buildProfitAndLossFromBalances`, which holds the actual P&L-building logic. This split exists so `getProfitAndLossByHierarchy` can call the shared balance query exactly once and build every group's P&L from its own slice of that one result, rather than re-querying the whole dataset once per group (an earlier version did the latter and measured roughly 20 seconds against a full business simulation).
@@ -55,6 +78,13 @@ Accounts Receivable and Accounts Payable are summed separately via `sumHierarchy
 `cogs_expenses` is split out of `expenses` via a direct `relation_id` check against the "COGS" entity — not derived from `getBusinessReports`, which only tags top-level categories, not individual accounts within one. `gross_profit_minor` is revenue minus COGS specifically, a distinct subtotal from `net_income_minor` that most tax/lending contexts expect.
 
 `buildCategoryTree` walks `Hierarchy.buildTree` for every node under a root regardless of balance, then prunes any node that is both non-leaf and has no surviving (non-zero) children, restoring the established sparse-output behavior (no category rows with nothing posted under them).
+
+Tests:
+- "profit and loss computes real totals and net income" (`backend/test/db.test.ts`)
+- "profit and loss excludes a Year End Close entry from its own totals, even when the close happened within the requested date range — a real, direct bug report: "the consolidated p&l shows zero"" (`backend/test/db.test.ts`)
+- "profit and loss income_tree reflects the real GL account tree directly - Category never leaks into real account structure, however deep the Items catalog itself is nested" (`backend/test/db.test.ts`)
+- "Profit and Loss fromDate/toDate is a genuine range, not just a single cutoff — excludes postings both before AND after the window" (`backend/test/db.test.ts`)
+- "getProfitAndLoss: Gross Profit is a real subtotal (Revenue minus COGS specifically), Net Profit unchanged — via the real, bootstrap-tagged COGS account, not a test-only setup" (`backend/test/db.test.ts`)
 
 ## Grouped/hierarchy-based P&L (`getProfitAndLossByHierarchy`, `getProfitAndLossForHierarchyGroup`, `getProfitAndLossByHierarchyTree`)
 
@@ -66,6 +96,11 @@ Accounts Receivable and Accounts Payable are summed separately via `sumHierarchy
 
 `getProfitAndLossByHierarchyTree` nests the flat per-group breakdown into a tree by each group's own parent. A top-level group with active children but no direct activity of its own still gets a synthesized, genuinely empty P&L node, so its children have somewhere to nest — without this, such a level would simply vanish and leave its children orphaned. The null-group "(No group)" entry is always its own separate root, never nested under anything.
 
+Tests:
+- "getProfitAndLossByHierarchy: "Consolidated per Division" — one real, full P&L per real group actually active in this ledger/date range, income/COGS/operating split intact per group, derived structurally from real, live sales at real locations" (`backend/test/db.test.ts`)
+- "getProfitAndLossByHierarchyTree: "Consolidated per Division per Location" — real groups nested under their own real parent, a genuinely empty node synthesized for a real, top-level group with no direct activity of its own" (`backend/test/db.test.ts`)
+- "getLedgerBalancesByHierarchyStructural: correctly derives division by walking location, per real, live sale, at multiple real outlets" (`backend/test/db.test.ts`)
+
 ## Year-end close (`closeBooks`, `previewCloseBooks`, `computeCloseLines`)
 
 Zeroes every Income and Expense account and transfers the net difference to Retained Earnings as one single balanced journal entry — not a special rule, just an ordinary posting that happens to touch every P&L account at once. `computeCloseLines` is the one shared computation both `previewCloseBooks` and `closeBooks` use, so a preview can never drift from what actually posts.
@@ -73,6 +108,14 @@ Zeroes every Income and Expense account and transfers the net difference to Reta
 A hierarchy group (e.g. "Division") is purely a reporting dimension here, never a structural split in what gets posted: every group's net income still rolls into the single, caller-chosen `retainedEarningsAccount`. `groupBreakdown` on the result is read-only summary information about what closed, not a decision about where anything posted. An earlier version created a separate `"{account} - {group}"` Retained Earnings leaf per group; that has been removed.
 
 What **does** structurally split the posted Retained Earnings lines is currency and Profit Center: closing a foreign-currency Income/Expense account against a plain home-currency Retained Earnings would break the per-currency balance check, so lines are grouped by (group, currency, Profit Center) before collapsing to one combined line per (currency, Profit Center) pair, each posted against its own currency-/Profit-Center-tagged Retained Earnings sibling (`ensureCurrencyAccount`, `ensureProfitCenterRetainedEarningsAccount`). A Profit Center is never read off the journal line the way currency and group are — it's determined structurally per account via `getAccountProfitCenter`, constant across every group/balance under that one account. `profitCenterBreakdown` merges across group and currency (unlike `groupBreakdown`, which keeps per-currency entries); a business with zero Profit Centers gets exactly one entry, `{ profitCenter: null, netIncomeMinor: <the whole net income> }`.
+
+Tests:
+- "closeBooks: year-end close zeroes every Income/Expense account into Retained Earnings as one reversible entry, with the correct sign for both profit and loss" (`backend/test/db.test.ts`)
+- "closeBooks: division is only a real, pure sub-totaling/reporting dimension - every division's net income rolls into the exact same, single, chosen Retained Earnings account, never a separate, division-specific one" (`backend/test/db.test.ts`)
+- "Profit Centers (Phase B, docs/profit-centers-design.md): closeBooks posts a Profit Center's own net income into its own, real, Profit-Center-tagged Retained Earnings sibling - never the plain, shared one - and profitCenterBreakdown reports it; a business with zero Profit Centers used gets exactly one, unchanged, null-profitCenter entry" (`backend/test/db.test.ts`)
+- "previewCloseBooks: the real, proposed lines it returns exactly match what closeBooks itself actually posts, and nothing is staged or posted by the preview itself" (`backend/test/db.test.ts`)
+- "closeBooks: division is only a pure reporting dimension — every division's net income rolls into one, single, combined Retained Earnings line, never a separate line per division" (`backend/test/db.test.ts`)
+- "closeBooks: a real, foreign-currency Income account closes against its own, real, currency-tagged Retained Earnings sibling - never the plain, home-currency one, per docs/multicurrency-design.md. Also a real, confirmed regression fix: closing an already-fully-closed ledger a second time correctly rejects with "nothing to close", never a real, confusing PostingError instead" (`backend/test/db.test.ts`)
 
 ## Rollover (`resolveRolloverLines`, `rolloverToNewPeriod`)
 
@@ -89,6 +132,9 @@ Three phases, split the same way Close Books splits preview from posting:
 
 `getSalesReport` includes every posted AR sale line (ordinary invoices and POS sales alike); credit notes are excluded, since a return isn't a sale. Category rollup groups each line by the sold item's own, optional `Hierarchy: Category` tag (`getHierarchyParent(itemName, 'Category')`, falling back to `'Other'` when untagged) — a pure, computed lookup, never a real position in the catalog's entity tree, so an item can be re-tagged into a different category at any time with no catalog reshuffling.
 
+Tests:
+- "getSalesReport: detailed lines and a genuine category rollup (via the real, generic Hierarchy tag, not a hand-maintained list) that both sum to the same real total" (`backend/test/db.test.ts`)
+
 ## Comparison reports
 
 `getTrialBalanceComparison` and `getProfitAndLossComparison` both just call `getLedgerBalances` (or `getProfitAndLoss`) twice, once per ledger, and merge the results — no new balance-computation logic, so there's nothing new to get wrong. `ProfitAndLossComparisonLine.variance_minor` is always `(ledgerB − ledgerA)` in the conventional positive-total presentation, so calling this with `(Actual, Budget)` gives "how much more the budget expects than actually happened," positive meaning the budget is ahead.
@@ -99,9 +145,14 @@ Three phases, split the same way Close Books splits preview from posting:
 
 A separate, standalone reporting engine, deliberately kept in its own file and touching none of the mechanisms above. The core idea: Sales vs. COGS (and, separately, Stock on Hand) broken down along two independent axes at once — one for "what was sold" (`Item` / `Consolidated`, or any further business-defined grouping such as `Category`), one for "where" (`Location` / `Consolidated`, or any further business-defined grouping such as `Division`) — so any combination of the two is a valid report, from the most granular Item-by-Location matrix down to a single Consolidated-by-Consolidated total. Only Item and Location are structural in the Chart of Accounts; every other grouping, Category and Division included, is a lateral `Hierarchy:` tag lookup, never a structural walk.
 
+Tests:
+- "trial balance comparison shows Actual and Budget side by side for the same account" (`backend/test/db.test.ts`)
+- "profit and loss comparison computes variance in the conventional direction (budget minus actual)" (`backend/test/db.test.ts`)
+- "getProfitAndLossComparison correctly reconstructs each lines actual amount from debit_minor/credit_minor, not a stale removed field" (`backend/test/db.test.ts`)
+
 ## Axes are open-ended, not a closed enum
 
-`MatrixAxis` names `Item`/`Location`/`Consolidated` for IDE autocomplete, but is typed as `'Item' | 'Location' | 'Consolidated' | (string & {})` — any other string, Category and Division included, is treated as a genuinely user-defined hierarchy name (e.g. "Category", "Division", "Bottle Size", or anything a business defines), resolved through `getHierarchyParent`/`getHierarchyChildren` the exact same generic way, with no axis name ever privileged in code. Category used to be a fourth structural literal here (a product's own real ancestor position in the Items catalog tree, resolved by two now-removed functions, `categoryForAccount`/`categoryForItem`) until it was generalized to this same tag mechanism — see "Hierarchies and multi-dimensional reporting" in `docs/pm-domain-reference.md`.
+`MatrixAxis` names `Item`/`Location`/`Consolidated` for IDE autocomplete, but is typed as `'Item' | 'Location' | 'Consolidated' | (string & {})` — any other string, Category and Division included, is treated as a genuinely user-defined hierarchy name (e.g. "Category", "Division", "Bottle Size", or anything a business defines), resolved through `getHierarchyParent`/`getHierarchyChildren` the exact same generic way, with no axis name ever privileged in code. Category is one such tag — see "Hierarchies and multi-dimensional reporting" in `docs/pm-domain-reference.md`.
 
 `resolveKey(axis, accountId, entityIndex)` (for Sales/COGS accounts) and `resolveItemKey(axis, itemName, locationName)` (for Stock on Hand items) are the two key-resolution functions. For an axis that isn't one of the two structural ones, resolution is tried first directly on the product/item itself (a hierarchy tag like "Category" or "Bottle Size" typically lives there), falling back to the product's resolved Location (a tag like "Division" more often lives there instead) — both via the same generic `getHierarchyParent` link every hierarchy uses.
 
@@ -117,7 +168,7 @@ Sums every Sales Revenue/Cost of Goods Sold account's ledger-scoped balance (dat
 
 ## `getStockOnHandMatrix`
 
-Simpler than the Sales/COGS matrix: no date filtering at all, since stock on hand is always "right now." Per-unit cost is deliberately approximated given build-time constraints: `item_location` tracks quantity only, with no per-item cost column, and Inventory value is tracked at one single shared GL account rather than per item, so there is no existing per-item "average cost over time" to read. Cost is instead taken from the preferred (or first available) vendor's current `item_source.price_minor`, **divided by `package_quantity`** to get a correct per-unit figure — `price_minor` is confirmed to be the whole package's price (e.g. a carton of 24), not a per-unit price; skipping that division would overstate inventory value by a whole package's worth. The same per-unit cost is used for both "last" and "average" cost fields, since no separate historical-average figure exists to distinguish them. `lastCostMinor`/`averageCostMinor` are only precisely meaningful for a cell representing a single item; once multiple distinct items share a cell (e.g. under "Consolidated"), the figure is indicative only.
+Simpler than the Sales/COGS matrix: no date filtering at all, since stock on hand is always "right now." Per-unit cost is approximated: the quantity comes from each item's per-location quantity account, which carries no cost. Cost is instead taken from the preferred (or first available) vendor's current `item_source.price_minor`, **divided by `package_quantity`** to get a correct per-unit figure — `price_minor` is confirmed to be the whole package's price (e.g. a carton of 24), not a per-unit price; skipping that division would overstate inventory value by a whole package's worth. The same per-unit cost is used for both "last" and "average" cost fields, since no separate historical-average figure exists to distinguish them. `lastCostMinor`/`averageCostMinor` are only precisely meaningful for a cell representing a single item; once multiple distinct items share a cell (e.g. under "Consolidated"), the figure is indicative only.
 
 ## `getProfitAndLossByAxis` and `getAxisValues`
 
@@ -126,6 +177,10 @@ Simpler than the Sales/COGS matrix: no date filtering at all, since stock on han
 `plAccountIds` collects every account whose structural ancestor chain reaches an "Income" or "Expense" entity. It must collect **every** entity named "Income"/"Expense", not just one: these names are only genuinely global as report categories — every business gets its own separate "Income"/"Expense" entity (via `copyChartOfAccountsInto`), a distinct id from the global template and from every other business's own copy, all sharing the same plain name. A `.find()`-style lookup that stops at the first match silently excludes every other business's P&L accounts from axis-based reports entirely — this was a confirmed bug, fixed by collecting the full set.
 
 `getAxisValues` returns every distinct value that exists for each axis type, including one further entry per hierarchy a business has actually set up (`getBusinessHierarchy`) — e.g. "Division" — never a hardcoded, privileged axis name. It makes one pass over every P&L account's resolved axis keys; no full P&L is computed.
+
+Tests:
+- "getProfitAndLossByAxis: real, direct reproducibility — every real division and every real location must exactly reproduce the original, division-filtered P&L (Sales AND COGS both), per direct, reported concern" (`backend/test/db.test.ts`)
+- "getProfitAndLossByAxis: a genuinely user-defined "Bottle Size" hierarchy - not one of the four, recommended default axes - works identically, through the same, real, generic mechanism" (`backend/test/db.test.ts`)
 
 ## Open area
 

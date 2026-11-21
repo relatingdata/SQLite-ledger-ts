@@ -1,6 +1,6 @@
 # Plan: the storage engine as the only writer
 
-**Status:** plan, 21 November 2026. Nothing below is built yet.
+**Status:** step 1 is done (commit `e13ce47`); steps 2 to 5 are not built yet.
 
 ## Why
 
@@ -50,9 +50,9 @@ journal entry. It already has that call (`POST /journal`,
 `storage.post_journal_entry`), and the backend's entities already go
 through it under `ENTITY_DRIVER=gleam`.
 
-## Where the code departs from the design
+## Where the code departed from the design (step 1, done)
 
-These staging tables in `backend/schema/00-core.sql` should not exist:
+These staging tables in `backend/schema/00-core.sql` were removed in step 1:
 
 | Table | Used by |
 |---|---|
@@ -87,6 +87,10 @@ Each step ends with its tests passing, and is committed on its own.
    - Under `ENTITY_DRIVER=gleam` it sends the staged entry to the
      engine's `POST /journal`, which checks the balance and writes
      header, lines and stored balances in one transaction.
+   - Quantity movements must be balanced first: `postQuantityMovement`
+     (14 callers) and `Balance.post` (2) post a single line, which the
+     engine's balance check would refuse (*The Stock API*, "Open
+     questions").
    - The staging table itself is per-request scratch, so it moves out of
      the shared file into the backend's own memory or file. Then the
      backend writes nothing to `entities.sqlite`, and nothing locks.

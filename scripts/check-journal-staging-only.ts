@@ -16,7 +16,10 @@
 import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 
-const ALLOWED_FILES = new Set(['backend/src/db-journal.ts']);
+// db-journal.ts is the original middleware's one posting path
+// (commitStagedEntry); core/store.ts is the core middleware's (Store.post,
+// on its own database). Documented in docs/pm-entity-model.md.
+const ALLOWED_FILES = new Set(['backend/src/db-journal.ts', 'backend/src/core/store.ts']);
 const PATTERN = /INSERT\s+(OR\s+\w+\s+)?INTO\s+journal(_line)?\b/gi;
 
 function walk(dir: string, exts: string[]): string[] {
@@ -48,9 +51,9 @@ if (violations.length > 0) {
     console.error(`   ${v.file}:${v.line}: ${v.text}`);
   }
   console.error(
-    '\nAll financial data must be guaranteed to go through the journal_entry_staging + post_journal_entry_insert trigger mechanism (backend/src/db-journal.ts). A direct INSERT INTO journal/journal_line anywhere else bypasses the real, per-currency balance check entirely.'
+    '\nAll financial data must go through one posting path: journal_entry_staging and commitStagedEntry (backend/src/db-journal.ts), or the core Store.post (backend/src/core/store.ts). A direct INSERT INTO journal/journal_line anywhere else bypasses the real, per-currency balance check entirely.'
   );
   process.exit(1);
 }
 
-console.log('✅ Journal-staging-only guarantee holds — no direct INSERT INTO journal/journal_line found outside backend/src/db-journal.ts.');
+console.log('✅ Journal-staging-only guarantee holds — no direct INSERT INTO journal/journal_line found outside the two posting paths.');

@@ -23,12 +23,9 @@
 // db.ts doesn't already provide — see storage.gleam's `relate_entity` doc
 // comment for the matching half of this reasoning on the Gleam side.
 //
-// Stage-C-category methods (resolveAncestor, descendantsWithDepth,
-// ancestorChain, getMany, findAll, findByNameContaining) throw "not
-// implemented", same treatment as KaappiEntityDriver — nothing calls them
-// yet (Stage A only wires primitives.ts/routes/i18n.ts); building them
-// honestly against real Stage-C call sites, rather than speculatively,
-// is the same choice already made for Kaappi.
+// The Stage-C methods (resolveAncestor, descendantsWithDepth,
+// ancestorChain, getMany, findAll, findByNameContaining) are pure reads
+// in plain SQL against db.ts's own connection to the same file (below).
 import { Worker } from 'node:worker_threads';
 import type { EntityDriver, EntityNode } from '../entity-driver.js';
 import { db, revokeEntity, type UserId } from '../db.js';

@@ -83,7 +83,23 @@ db.exec(`
   DROP TABLE IF EXISTS stock_dispatch_staging;
   DROP TABLE IF EXISTS location_staging;
   DROP TABLE IF EXISTS assembly_bom_staging;
+  DROP TABLE IF EXISTS db_version;
 `);
+
+// The version of the schema and data this database was last brought up
+// to date with: the Application entity's "Database Version" attribute.
+// Documented in docs/pm-build-and-tooling.md, "The four permanent tables".
+export const DB_VERSION = '0.0.0.400';
+{
+  const applicationId = Entity.get('Application')?.id;
+  if (applicationId !== undefined && Entity.getAttr(applicationId, 'Database Version') === undefined) {
+    Entity.setAttr(applicationId, 'Database Version', DB_VERSION, 1 as unknown as UserId);
+  }
+}
+export function getDbVersion(): string {
+  const applicationId = Entity.get('Application')?.id;
+  return (applicationId !== undefined ? Entity.getAttr(applicationId, 'Database Version') : undefined) ?? DB_VERSION;
+}
 
 export class ValidationError extends Error {}
 export class NotFoundError extends Error {}
@@ -106,10 +122,7 @@ export const typeBusinessPlantRootName: TypeDescriptor<'BusinessPlantRootName'> 
 export const typePlantItemName: TypeDescriptor<'PlantItemName'> = { brand: 'PlantItemName' };
 // Named "Live Projects", deliberately NOT "Projects" — a real, pre-existing,
 // unrelated entity named "Projects" already exists (a Vocabulary/menu
-// label, schema/00-core.sql row 394, `notImplemented: true`), and the
-// existing createProjectTask/getProjectTasks mechanism (further above)
-// already resolves a bare, unscoped `requireEntity('Projects', typeRootName)`
-// against it in its own tests. A second, real, per-business root sharing
+// label, schema/00-core.sql row 394, `notImplemented: true`). A second, real, per-business root sharing
 // that exact name would make every unscoped `Entity.get('Projects')`/
 // `requireEntity('Projects', ...)` call genuinely ambiguous — confirmed by
 // reading requireEntity's own resolution (a bare resolveId(name), no
@@ -131,7 +144,6 @@ export const typeRelationshipRecordName: TypeDescriptor<'RelationshipRecordName'
 export const typeOpenHoursRecordName: TypeDescriptor<'OpenHoursRecordName'> = { brand: 'OpenHoursRecordName' };
 export const typeScheduleRecordName: TypeDescriptor<'ScheduleRecordName'> = { brand: 'ScheduleRecordName' };
 export const typeEntityLinkRecordName: TypeDescriptor<'EntityLinkRecordName'> = { brand: 'EntityLinkRecordName' };
-export const typeProjectTaskName: TypeDescriptor<'ProjectTaskName'> = { brand: 'ProjectTaskName' };
 export const typeMenuOverrideName: TypeDescriptor<'MenuOverrideName'> = { brand: 'MenuOverrideName' };
 export const typeHiddenMarkerName: TypeDescriptor<'HiddenMarkerName'> = { brand: 'HiddenMarkerName' };
 export const typeTranslationConceptName: TypeDescriptor<'TranslationConceptName'> = { brand: 'TranslationConceptName' };
@@ -1345,14 +1357,47 @@ export interface PickingListLine {
   picked: boolean;
 }
 
+// A picking-list line confirmed picked is a fact, not an amount: an entity
+// named after the confirmation (`<reference>-PICK-<line>`) under the
+// business's own `Picked Lines`. The entity row records who confirmed it
+// and when; confirming again finds it and does nothing.
+// Documented in docs/pm-domain-reference.md, "Picking, packing, dispatch,
+// and restocking".
+function pickedLinesRoot(business: string, userId?: UserId): number | undefined {
+  const businessId = Entity.get(business, 'Businesses')?.id;
+  if (businessId === undefined) throw new NotFoundError(`No business named "${business}".`);
+  const existing = Entity.getUnder('Picked Lines', businessId);
+  if (existing) return existing.id;
+  return userId === undefined ? undefined : Entity.create('Picked Lines', businessId, userId).id;
+}
+
+function pickedReferences(business: string, prefix: string): Set<string> {
+  const root = pickedLinesRoot(business);
+  if (root === undefined) return new Set();
+  return new Set(Entity.children(root).map((c) => c.name).filter((n) => n.startsWith(prefix)));
+}
+
+function confirmPicked(business: string, ref: string, userId: UserId): void {
+  const root = pickedLinesRoot(business, userId)!;
+  if (Entity.getUnder(ref, root)) return; // already confirmed: nothing new to record
+  Entity.create(ref, root, userId);
+}
+
+/** The business whose locations include this one. */
+function businessOfLocation(location: string): BusinessName {
+  for (const b of getBusinesses()) {
+    const root = resolveBusinessLocationsRootId(b.name);
+    if (root !== undefined && Entity.getUnder(location, root)) return b.name;
+  }
+  throw new NotFoundError(`No business has a location named "${location}".`);
+}
+
 export function getPickingList(invoiceId: number, locationName: LocationName): PickingListLine[] {
   const invoice = getInvoice(invoiceId);
   if (!invoice) throw new NotFoundError(`No invoice with id ${invoiceId}.`);
   if (invoice.status !== 'draft') throw new ValidationError(`Invoice ${invoice.reference} is already ${invoice.status} — a picking list is for a real, still-unfulfilled order.`);
 
-  const pickedRefs = new Set(
-    (db.prepare(`SELECT DISTINCT reference FROM journal WHERE reference LIKE ?`).all(`${invoice.reference}-PICK-%`) as { reference: string }[]).map((r) => r.reference)
-  );
+  const pickedRefs = pickedReferences(invoice.business, `${invoice.reference}-PICK-`);
 
   const lines = invoice.lines
     .filter((l) => l.itemName)
@@ -1376,22 +1421,10 @@ export function getPickingList(invoiceId: number, locationName: LocationName): P
   });
 }
 
-export function confirmPickedLine(invoiceId: number, invoiceLineId: number, business: BusinessName, ledger: LedgerName, userId: UserId): void {
+export function confirmPickedLine(invoiceId: number, invoiceLineId: number, _business: BusinessName, _ledger: LedgerName, userId: UserId): void {
   const invoice = getInvoice(invoiceId);
   if (!invoice) throw new NotFoundError(`No invoice with id ${invoiceId}.`);
-  const ref = `${invoice.reference}-PICK-${invoiceLineId}`;
-  const already = db.prepare(`SELECT 1 FROM journal WHERE reference = ?`).get(ref);
-  if (already) return; // idempotent — ticking an already-ticked line does nothing, not a duplicate real record
-  const businessId = Entity.get(business, 'Businesses')?.id ?? -1;
-  const ledgersRootId = Entity.getUnder('Ledgers', businessId)?.id;
-  const ledgerId = ledgersRootId !== undefined ? Entity.getUnder(ledger, ledgersRootId)?.id ?? -1 : -1;
-  db.prepare(`INSERT INTO journal (business_id, ledger_id, reference, description, transdate, user_id) VALUES (?, ?, ?, ?, date('now'), ?)`).run(
-    businessId,
-    ledgerId,
-    ref,
-    'Picking list line confirmed picked',
-    userId
-  );
+  confirmPicked(invoice.business, `${invoice.reference}-PICK-${invoiceLineId}`, userId);
 }
 
 export function dispatchOrderFromPickingList(invoiceId: number, locationName: LocationName, revenueAccount: string, taxAccount: string, userId: UserId): void {
@@ -1415,9 +1448,7 @@ export interface RestockLineInput {
 }
 
 export function getRestockPickingList(runReference: string, warehouseName: LocationName, lines: RestockLineInput[]): PickingListLine[] {
-  const pickedRefs = new Set(
-    (db.prepare(`SELECT DISTINCT reference FROM journal WHERE reference LIKE ?`).all(`${runReference}-PICK-%`) as { reference: string }[]).map((r) => r.reference)
-  );
+  const pickedRefs = pickedReferences(businessOfLocation(warehouseName), `${runReference}-PICK-`);
 
   const rows = lines.map((l, i) => {
     const shelf = getItemLocation(asItemName(l.item), warehouseName);
@@ -1439,20 +1470,8 @@ export function getRestockPickingList(runReference: string, warehouseName: Locat
   });
 }
 
-export function confirmRestockPickedLine(runReference: string, itemName: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
-  const ref = `${runReference}-PICK-${itemName}`;
-  const already = db.prepare(`SELECT 1 FROM journal WHERE reference = ?`).get(ref);
-  if (already) return;
-  const businessId = Entity.get(business, 'Businesses')?.id ?? -1;
-  const ledgersRootId = Entity.getUnder('Ledgers', businessId)?.id;
-  const ledgerId = ledgersRootId !== undefined ? Entity.getUnder(ledger, ledgersRootId)?.id ?? -1 : -1;
-  db.prepare(`INSERT INTO journal (business_id, ledger_id, reference, description, transdate, user_id) VALUES (?, ?, ?, ?, date('now'), ?)`).run(
-    businessId,
-    ledgerId,
-    ref,
-    'Restocking run line confirmed picked',
-    userId
-  );
+export function confirmRestockPickedLine(runReference: string, itemName: string, business: BusinessName, _ledger: LedgerName, userId: UserId): void {
+  confirmPicked(business, `${runReference}-PICK-${itemName}`, userId);
 }
 
 export function dispatchRestockFromPickingList(
@@ -1867,24 +1886,6 @@ export function isDescendantOf(entityName: string, rootName: string): boolean {
     }
   }
   return false;
-}
-
-export interface HierarchyChainNode {
-  readonly id: EntityId;
-  readonly name: string;
-}
-
-export function getHierarchyChain(leafName: ItemName | LocationName): HierarchyChainNode[] {
-  const entities = getEntityTree();
-  const businessesRootId = entities.find((e) => e.name === 'Businesses')?.id;
-  const chain: HierarchyChainNode[] = [];
-  let current = entities.find((e) => e.name === leafName);
-  for (let i = 0; i < 100 && current; i++) {
-    chain.push({ id: asEntityId(current.id), name: current.name });
-    if (current.parent_id === businessesRootId) break; // current IS the real Business node itself, already pushed
-    current = entities.find((e) => e.id === current!.parent_id);
-  }
-  return chain;
 }
 
 // Resolves where an item's Sales/COGS leaf account should post: the
@@ -3131,12 +3132,6 @@ export function getInvoiceLine(reference: string, business: BusinessName, ledger
   return { reference, description: detail.description, quantity: detail.quantity, unit_price_minor: detail.unit_price_minor, amount_minor: detail.amount_minor, tax_minor: detail.tax_minor };
 }
 
-export function getAccountsPostedTo(reference: string): string[] {
-  const accountIds = db
-    .prepare(`SELECT DISTINCT jl.account_id AS accountId FROM journal_line jl JOIN journal j ON j.id = jl.journal_id WHERE j.reference = ?`)
-    .all(reference) as { accountId: number }[];
-  return Entity.getMany(accountIds.map((r) => r.accountId)).map((e) => e.name);
-}
 
 // Per standing, non-negotiable instruction, "contact" fields are no
 // longer one merged detail_json blob - each is its own independent
@@ -3722,72 +3717,6 @@ export function getBomComponents(assemblyItem: string): BomComponentLine[] {
       priceMinor: priceRaw != null ? Number(priceRaw) : undefined,
     };
   });
-}
-
-export function createProjectTask(
-  projectName: string,
-  taskName: string,
-  plannedStart: string,
-  plannedEnd: string,
-  userId: UserId
-): void {
-  const name = `${taskName} (${plannedStart} to ${plannedEnd})`;
-  create(requireEntity(`${projectName} Tasks`, typeRootName), typeProjectTaskName, name, userId);
-}
-
-export function getProjectTasks(projectName: string): { task: string; plannedStart: string; plannedEnd: string }[] {
-  const parentId = Entity.get(`${projectName} Tasks`)?.id;
-  const rows = parentId !== undefined ? Entity.children(parentId) : [];
-  const results: { task: string; plannedStart: string; plannedEnd: string }[] = [];
-  for (const row of rows) {
-    const match = row.name.match(/^(.+) \(([0-9-]+) to ([0-9-]+)\)$/);
-    if (match) results.push({ task: match[1], plannedStart: match[2], plannedEnd: match[3] });
-  }
-  return results;
-}
-
-const PROJECT_TASK_DATE_SUFFIX = /^(.+) \(([0-9-]+) to ([0-9-]+)\)$/;
-
-function resolveProjectTaskName(name: string): string {
-  if (Entity.get(name)) return name;
-  // Deliberately NOT Entity.findByNameContaining: "<name> (%" is a
-  // prefix match, not the substring-anywhere match findByNameContaining
-  // performs.
-  const candidates = db.prepare(`SELECT name FROM current_entities WHERE name LIKE ?`).all(`${name} (%)`) as { name: string }[];
-  const match = candidates.find((c) => PROJECT_TASK_DATE_SUFFIX.exec(c.name)?.[1] === name);
-  if (!match) throw new ValidationError(`No project task named "${name}".`);
-  return match.name;
-}
-
-export function addTaskDependency(
-  dependentTask: string,
-  predecessorTask: string,
-  dependencyType: 'finish_to_start' | 'start_to_start' | 'finish_to_finish' | 'start_to_finish',
-  userId: UserId
-): void {
-  const dependentFullName = resolveProjectTaskName(dependentTask);
-  const predecessorFullName = resolveProjectTaskName(predecessorTask);
-  const linkType = `Depends On — ${predecessorFullName}`;
-  setEntityLink(dependentFullName, linkType, predecessorFullName, userId);
-  const record = Entity.get(`${dependentFullName} — ${linkType}`, dependentFullName);
-  if (record) {
-    Entity.tag(record.id, 'Dependency', userId);
-    Entity.setAttr(record.id, 'Dependency Type', dependencyType, userId);
-  }
-}
-
-export function getTaskDependencies(dependentTask: string): { predecessor: string; dependencyType: string }[] {
-  const rows = db
-    .prepare(
-      `SELECT child.id, target.name AS predecessor
-       FROM current_entities child
-       JOIN current_entities parent ON parent.id = child.parent_id
-       JOIN current_entities target ON target.id = child.relation_id
-       JOIN current_entities tag ON tag.parent_id = child.id AND tag.name = 'Dependency' AND tag.relation_id IS NOT NULL
-       WHERE parent.name = ?`
-    )
-    .all(resolveProjectTaskName(dependentTask)) as { id: number; predecessor: string }[];
-  return rows.map((row) => ({ predecessor: PROJECT_TASK_DATE_SUFFIX.exec(row.predecessor)?.[1] ?? row.predecessor, dependencyType: Entity.getAttr(row.id, 'Dependency Type') ?? '' }));
 }
 
 export function setHierarchyParent(entityName: string, hierarchyName: string, parentName: string, userId: UserId, entityId?: number, targetId?: number): void {
@@ -4970,16 +4899,6 @@ export function getCurrencyExchangeRate(businessName: BusinessName, fromCurrency
     .prepare(`SELECT price_minor FROM item_source WHERE item_id = ? AND vendor_id = ? AND product_instance_id = ?`)
     .get(itemId, vendorId, pair.id) as { price_minor: number | null } | undefined;
   return row?.price_minor ?? null;
-}
-
-export function listCurrencyPairs(currencies: string[]): { from: string; to: string }[] {
-  const pairs: { from: string; to: string }[] = [];
-  for (const from of currencies) {
-    for (const to of currencies) {
-      if (from !== to) pairs.push({ from, to });
-    }
-  }
-  return pairs;
 }
 
 export function deleteItemSource(id: number): void {

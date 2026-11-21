@@ -92,9 +92,8 @@ confirmed live — `tutorial-steps.csv`'s own control file is
 deliberately left untouched rather than risk breaking
 `test-e2e-tutorial`/`test-e2e-tutorial-browser` — a full `--path text`
 run over the whole fixture isn't attempted yet; only `--only 1`
-(`make test-e2e-tutorial-text`) is. A real per-path skip column (or a
-`skip_text`/`skip_ui`/`skip_api` triple) would be needed before a
-wider `--path text` run is worth attempting here.
+(`make test-e2e-tutorial-text`) is. A skip column per path would be
+needed before a wider `--path text` run is worth attempting here.
 
 ### The CLI
 
@@ -125,6 +124,42 @@ step-runner <data.csv> [--screens screens.csv] [options]
                                so a slow step can be found from a file, not by eye in scrolling
                                console output
 ```
+
+
+### The step runner's own functions
+
+`backend/scripts/step-runner.ts` exports the pieces its tests check:
+
+- `parseCsvLine(line)` splits one CSV line: plain fields, quoted fields
+  holding commas, and doubled quotes inside a quoted field.
+- `loadScreens(path)` reads `screens.csv` into one entry per screen,
+  its fields sorted by position.
+- `loadSteps(dataPath)` reads a positional data file (no header row),
+  and its `.control.csv` when one exists, row for row, including the
+  `skip` column.
+- `lintSteps(steps, screens)` lists every problem it finds: a screen
+  name with no registry entry, a value count that differs from the
+  registry, an `api_function` with no `API_REGISTRY` entry, and a
+  data-submitting screen with no `api_function` at all (it would do
+  nothing). A correct fixture has none.
+- `runStepViaApi(step, screens)` runs one step against the live backend
+  and reports failure when its verify does not hold.
+
+Tests:
+- "parseCsvLine: plain fields" (`backend/scripts/step-runner.test.ts`)
+- "parseCsvLine: quoted fields with embedded commas" (`backend/scripts/step-runner.test.ts`)
+- "parseCsvLine: doubled quotes inside a quoted field" (`backend/scripts/step-runner.test.ts`)
+- "loadScreens: groups fields by screen and sorts by position" (`backend/scripts/step-runner.test.ts`)
+- "loadSteps: reads a purely positional data file with no header row" (`backend/scripts/step-runner.test.ts`)
+- "loadSteps: reads a matching .control.csv when present, aligned by row" (`backend/scripts/step-runner.test.ts`)
+- "loadSteps: reads the real skip column from a matching .control.csv" (`backend/scripts/step-runner.test.ts`)
+- "lintSteps: flags a screen_name with no real registry entry" (`backend/scripts/step-runner.test.ts`)
+- "lintSteps: flags a real value-count mismatch against the registry" (`backend/scripts/step-runner.test.ts`)
+- "lintSteps: flags an api_function with no real API_REGISTRY entry" (`backend/scripts/step-runner.test.ts`)
+- "lintSteps: a genuinely correct fixture reports zero real problems" (`backend/scripts/step-runner.test.ts`)
+- "lintSteps: flags a real, data-submitting screen with no real api_function as a real, silent no-op waiting to happen" (`backend/scripts/step-runner.test.ts`)
+- "runStepViaApi: a real createBusiness step, run through the real, live backend, genuinely creates the business" (`backend/scripts/step-runner.test.ts`)
+- "runStepViaApi: a real, deliberately-wrong verify correctly reports failure, not a false pass" (`backend/scripts/step-runner.test.ts`)
 
 ### Field types and action sequences
 
@@ -238,42 +273,32 @@ two ways of testing the same moments.
   — the entry exists, is balanced, and its lines hit the correct
   accounts for the correct amounts.
 
-### The Admin recording feature — self-verification via the real backend
+### The Admin recording feature — ⚠️ records nothing today
 
-One toggle, "Record," visible only to an Administrator:
-`POST /api/recording/start` / `POST /api/recording/stop` (two separate,
-idempotent endpoints). While on, every request from a frontend call
-site tagged with an explicit `X-Screen-Name` header
-(`frontend/src/lib/api.ts`'s `request<T>(path, init, screenName?)`) is
-appended as a data-file row to `<user>.recording`. A screen may make
-several real API calls; there is no "the screen's own row" — only one
-row per successful HTTP call, each complete in itself (e.g. the
-General Journal is `Stage Journal Line` ×N + `Post Journal Entry`, not
-one combined row).
+`recordingRouter` (`routes/recording.ts`, behind `requireAuth`, so any
+logged-in user): `GET /api/recording` answers `isRecording(user)`;
+`POST /api/recording/start` calls `startRecording(user, username)`,
+which opens `<username>.recording` for appending and writes an opening
+comment line, and answers 409 when that user is already recording;
+`POST /api/recording/stop` calls `stopRecording(user)`, which writes a
+closing comment line and closes the file, and answers 409 when nothing
+was being recorded.
 
-`recordRequest` (`backend/src/recording.ts`) reads each field from
-whichever of `req.params`/`req.query`/`req.body` actually carries it,
-via an explicit, hand-verified override table
-(`REAL_FIELD_SOURCE_OVERRIDES`) for every screen whose field names or
-locations differ from "the body, same name." A position with no
-matching field in the real route (e.g. `Create Business`'s own
-`homeCurrency`, `Create Location`'s own `division`) is expected to
-come back blank — an honest gap, not a bug in the recorder.
+While a user is recording, `recordingMiddleware` (`recording.ts`)
+appends one row per successful (2xx) request that carries an
+`X-Screen-Name` header: the screen name, then each of that screen's
+`screens.csv` fields, read by `recordRequest` from the request's
+params, query or JSON body (`REAL_FIELD_SOURCE_OVERRIDES` names the
+exceptions), blank when absent.
 
-`--path ui` runs can use this mechanism as their own verification
-oracle: start recording right after Login, run the steps, stop, then
-compare the recorded file's rows (in order, for every step that ran
-via the real UI, is `data`-kind, and reported `ok: true`) against each
-step's own original values, position for position. A mismatch, or a
-UI step with no matching recorded row, is an independently-confirmed
-failure — stronger than "the click didn't throw."
-
-`--verify-via-recording`'s own HTTP calls (start/stop recording) use an
-absolute `http://localhost:3001/...` URL rather than a relative one: the
-browser context's `baseURL` is the frontend's own origin (`:5173`, which
-proxies nothing — `frontend/vite.config.ts` has no proxy), and
-`page.request` does not throw on a non-2xx response, so the response
-status is checked explicitly rather than trusted.
+**What does not work:** the frontend sends `X-Screen-Name` only from
+`request(path, init, screenName)` (`frontend/src/lib/api.ts`), and no
+call passes a screen name; every screen now uses `POST /api/call`,
+whose body is CSV text, not JSON. So a recording holds only its two
+comment lines, and `--verify-via-recording` (`step-runner.ts`) reports
+every UI step as unmatched. Making it work needs the call functions to
+send the screen name and `recordRequest` to read the call's positional
+values.
 
 ### `runStepViaUi` fails loudly when a screen has no UI wiring
 
@@ -1186,6 +1211,84 @@ Milestone; net income across all 3 cycles is positive. Run via `make
 test-e2e-project-builder-full` (which resets the database first) or
 directly via `node --import tsx
 backend/scripts/simulate-project-builder-cycles.ts`.
+
+### The Playwright specs (`e2e/tests/`)
+
+`make e2e-spec-all` runs every spec in a real browser against the running
+servers, after `make reset-db`; `make e2e-spec-one TEST=<file>` runs one.
+No gate runs them. ⚠️ Their current results are being recorded (a full
+run of 21 November 2026); until then, a spec here is listed, not
+vouched for. The `debug_*` specs and `test-translation-bug.spec.ts` are
+one-off investigations, not checks of anything the manual specifies.
+
+**Screenshots for the manuals**
+
+Tests:
+- "Capture manual screenshots" (`e2e/tests/capture-manual-screenshots.spec.ts`)
+- "Screenshot BOM section on Items page" (`e2e/tests/screenshot-bom.spec.ts`)
+- "Screenshot Cash Sale after intro-box fix" (`e2e/tests/screenshot-cashsale.spec.ts`)
+- "Screenshot Choose Business page" (`e2e/tests/screenshot-choosebusiness.spec.ts`)
+- "Screenshot AP Purchase and P&L with expanded rows, to show the new font-size scale" (`e2e/tests/screenshot-font-sizes.spec.ts`)
+- "Screenshot General Journal in ${language}, for final approval" (`e2e/tests/screenshot-journal-final-approval.spec.ts`)
+- "Screenshot General Journal in Hebrew, for approval" (`e2e/tests/screenshot-journal-rtl.spec.ts`)
+- "Screenshot Login page after centering fix" (`e2e/tests/screenshot-login.spec.ts`)
+- "Screenshot Negroni BOM, real click, final verification" (`e2e/tests/screenshot-negroni.spec.ts`)
+- "Post a real sale, then screenshot the P&L with expanded rows" (`e2e/tests/screenshot-pl-with-data.spec.ts`)
+- "Screenshot Purchase Order page" (`e2e/tests/screenshot-po.spec.ts`)
+- "Screenshot Login in Hebrew - mechanism only, no translations yet" (`e2e/tests/screenshot-rtl-mechanism.spec.ts`)
+- "Screenshot Login in Hebrew, confirming full restore" (`e2e/tests/screenshot-rtl.spec.ts`)
+- "Screenshot the new Stock-Out Risk report page" (`e2e/tests/screenshot-stockout-risk.spec.ts`)
+- "Screenshot Stock Take page" (`e2e/tests/screenshot-stocktake.spec.ts`)
+- "Screenshot Welcome panel after full-panel fix" (`e2e/tests/screenshot-welcome.spec.ts`)
+
+**Debugging leftovers**
+
+Tests:
+- "debug journal" (`e2e/tests/debug_journal.spec.ts`)
+- "debug items" (`e2e/tests/debug_parts.spec.ts`)
+- "debug shelf2" (`e2e/tests/debug_shelf2.spec.ts`)
+- "Try saving a real translation" (`e2e/tests/test-translation-bug.spec.ts`)
+
+**Business walkthroughs**
+
+Tests:
+- "Create every real, new vocabulary word and apply every real translation, from one, single, real data file" (`e2e/tests/build-vocabulary-and-translations.spec.ts`)
+- "demo: create the first real vendor with address/phone, then the first product they supply, in a new sub-category" (`e2e/tests/first-vendor-and-product.spec.ts`)
+- "Full business lifecycle, entirely through the real UI, from a genuinely empty database" (`e2e/tests/full-business-lifecycle.spec.ts`)
+- "All real languages are present, then Wine Retail Business (already populated) is exercised through the UI" (`e2e/tests/full-e2e-with-languages.spec.ts`)
+- "installation check: log in, see the real languages, log out" (`e2e/tests/installation-check.spec.ts`)
+- "UI text matches the real, current translation data for ${language}" (`e2e/tests/language-parameterized.spec.ts`)
+- "Min-e2e route smoke: every real route loads without a real, unhandled error" (`e2e/tests/min-e2e-route-smoke.spec.ts`)
+- "Simple: receive stock at warehouse, transfer a quarter to retail, sell in three separate sales" (`e2e/tests/simple-receive-transfer-sell.spec.ts`)
+- "Create the second, augmented Training Wine Business through the UI" (`e2e/tests/training-wine-business.spec.ts`)
+- "Tutorial: build a real wine retail business from scratch through the UI" (`e2e/tests/tutorial-walkthrough.spec.ts`)
+- "run real transactions for Wine Retail Business entirely through the real web UI, from a fresh database" (`e2e/tests/wine-business-setup.spec.ts`)
+
+**Screens and components**
+
+Tests:
+- "AddressList and PhoneList work with keyboard only, no visible Add/Remove buttons" (`e2e/tests/address-phone-keyboard-only.spec.ts`)
+- "Business Setup: the tree, company-wide staff, and group creation via Insert" (`e2e/tests/business-setup.spec.ts`)
+- "the General Journal account dropdown shows only accounts from the current business's own real CoA prototype" (`e2e/tests/coa-prototype-filtering.spec.ts`)
+- "the 9 complex help texts (embedded <code>, dynamic session names, and true AR/AP word-choice branches) all render correctly in German" (`e2e/tests/complex-help-text.spec.ts`)
+- "Contacts page correctly uses the shared AddressList/PhoneList components" (`e2e/tests/contacts-address-migration.spec.ts`)
+- "Contacts page is context-aware — the real, focused category shown depends on which real menu link was used" (`e2e/tests/contacts-focus.spec.ts`)
+- "P&L division picker shows the real, nested hierarchy — Consolidated -> city division -> location division, any level directly selectable" (`e2e/tests/division-tree-picker.spec.ts`)
+- "Structured Editor correctly uses the shared AddressList/PhoneList components" (`e2e/tests/editor-address-migration.spec.ts`)
+- "e-invoicing: a real, posted invoice can be exported as a real UBL 2.1 document and imported back as a real, draft Purchase Invoice" (`e2e/tests/einvoice-export-import.spec.ts`)
+- "General Journal account dropdown shows each account's real currency" (`e2e/tests/general-journal-currency-display.spec.ts`)
+- "entering both debit and credit on one line clears the opposite field — a real, reported bug: it previously silently posted debit-minus-credit as a net amount instead of rejecting the invalid input" (`e2e/tests/general-journal.spec.ts`)
+- "HR/Payroll: pays a real hourly employee and a real salaried one, with real Medicare/superannuation math, and shows the real org chart" (`e2e/tests/hr-payroll.spec.ts`)
+- "Sales Invoices defaults to real account invoices only, with real pagination when showing everything" (`e2e/tests/invoices-source-filter-pagination.spec.ts`)
+- "Stock Listing shows a real, visible "Over capacity" warning on a real location genuinely over its own configured capacity" (`e2e/tests/location-capacity-warning.spec.ts`)
+- "Location Type extensibility, against the minimal admin dataset" (`e2e/tests/location-type-extensibility.spec.ts`)
+- "a new item can be assigned a real category directly on the Items page, via Insert/Delete" (`e2e/tests/parts-category-setup.spec.ts`)
+- "the redesigned P&L renders correctly with the real category hierarchy" (`e2e/tests/profit-and-loss-hierarchy.spec.ts`)
+- "Restock Retail Outlets: a real, pre-filled restocking list, a real shelf-ordered picking list, refuses to dispatch until every line is ticked, then moves real stock" (`e2e/tests/restock-retail-outlets.spec.ts`)
+- "stock listing groups real stock by real division and location, both collapsible" (`e2e/tests/stock-listing-hierarchy.spec.ts`)
+- "stock movement report shows real purchases, transfers, and sales, groupable by division/location/vendor/category" (`e2e/tests/stock-movement-report.spec.ts`)
+- "Storage origin (Hot/Cold) displays correctly on Cash Sale through the real UI" (`e2e/tests/storage-origin-display.spec.ts`)
+- "Year End Close: posts a real, unclosed expense through the real General Journal, closes it, and shows the real, honest error on a second attempt" (`e2e/tests/yearend-close.spec.ts`)
 
 ## The full browser test suite
 

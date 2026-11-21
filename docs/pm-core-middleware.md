@@ -262,6 +262,47 @@ lines are the record it is checked against.
   reference posts once. `reversal_of` is set once. An entry whose euro
   lines do not balance writes nothing, even though its home-currency
   lines do.
+- `entities_test`: a live name is unique under its parent, a rename to its own name is allowed, a rename onto another entity's live name is refused. `storage_engine_test` is the runner (`main`).
+
+Tests:
+- "a_balanced_pair_is_ok_test" (`storage_engine/test/accounting_test.gleam`)
+- "an_unbalanced_pair_is_rejected_with_the_real_shortfall_test" (`storage_engine/test/accounting_test.gleam`)
+- "no_lines_at_all_is_rejected_test" (`storage_engine/test/accounting_test.gleam`)
+- "each_currency_must_independently_balance_test" (`storage_engine/test/accounting_test.gleam`)
+- "balance_deltas_sum_per_account_test" (`storage_engine/test/accounting_test.gleam`)
+- "reversing_lines_negates_every_amount_and_keeps_the_same_accounts_test" (`storage_engine/test/accounting_test.gleam`)
+- "reversing_an_already_balanced_entry_is_itself_always_balanced_test" (`storage_engine/test/accounting_test.gleam`)
+- "an_entity_row_can_never_be_updated_or_deleted_test" (`storage_engine/test/constraints_test.gleam`)
+- "a_rename_is_a_new_version_and_the_old_one_stays_test" (`storage_engine/test/constraints_test.gleam`)
+- "a_posted_entry_can_never_be_edited_or_deleted_test" (`storage_engine/test/constraints_test.gleam`)
+- "a_reference_is_posted_once_test" (`storage_engine/test/constraints_test.gleam`)
+- "a_reversal_is_stamped_once_and_only_on_reversal_of_test" (`storage_engine/test/constraints_test.gleam`)
+- "an_unbalanced_entry_in_any_currency_writes_nothing_test" (`storage_engine/test/constraints_test.gleam`)
+- "the_core_stores_refuse_every_update_and_delete_test" (`storage_engine/test/constraints_test.gleam`)
+- "the_ice_trader_needs_only_a_business_and_two_postings_test" (`storage_engine/test/core_test.gleam`)
+- "the_global_business_never_trades_test" (`storage_engine/test/core_test.gleam`)
+- "only_the_global_business_creates_businesses_test" (`storage_engine/test/core_test.gleam`)
+- "a_user_of_one_business_cannot_open_another_test" (`storage_engine/test/core_test.gleam`)
+- "an_entry_that_does_not_balance_writes_nothing_test" (`storage_engine/test/core_test.gleam`)
+- "a_reference_is_unique_within_a_ledger_not_across_businesses_test" (`storage_engine/test/core_test.gleam`)
+- "a_locked_ledger_refuses_dates_on_or_before_the_lock_test" (`storage_engine/test/core_test.gleam`)
+- "a_relation_holds_a_value_another_entity_or_yes_test" (`storage_engine/test/core_test.gleam`)
+- "a_business_renames_its_own_instance_and_nobody_elses_test" (`storage_engine/test/core_test.gleam`)
+- "a_renamed_account_is_still_the_same_account_test" (`storage_engine/test/core_test.gleam`)
+- "money_and_quantities_balance_separately_in_one_entry_test" (`storage_engine/test/core_test.gleam`)
+- "an_entry_carries_its_own_relations_test" (`storage_engine/test/core_test.gleam`)
+- "copy_makes_an_independent_instance_of_a_prototype_test" (`storage_engine/test/core_test.gleam`)
+- "create_with_free_name_is_ok_test" (`storage_engine/test/entities_test.gleam`)
+- "create_with_taken_name_under_same_parent_is_rejected_test" (`storage_engine/test/entities_test.gleam`)
+- "same_name_is_fine_under_a_different_parent_test" (`storage_engine/test/entities_test.gleam`)
+- "renaming_an_entity_to_its_own_current_name_never_collides_with_itself_test" (`storage_engine/test/entities_test.gleam`)
+- "renaming_onto_a_different_entitys_live_name_is_rejected_test" (`storage_engine/test/entities_test.gleam`)
+- "create_and_list_entities_test" (`storage_engine/test/ledger_test.gleam`)
+- "creating_a_duplicate_name_under_the_same_parent_is_rejected_test" (`storage_engine/test/ledger_test.gleam`)
+- "renaming_carries_the_same_entity_id_forward_test" (`storage_engine/test/ledger_test.gleam`)
+- "posting_a_balanced_entry_vivifies_accounts_and_updates_balances_test" (`storage_engine/test/ledger_test.gleam`)
+- "posting_an_unbalanced_entry_writes_nothing_test" (`storage_engine/test/ledger_test.gleam`)
+- "reversing_a_posted_entry_undoes_its_balances_and_is_write_once_test" (`storage_engine/test/ledger_test.gleam`)
 
 ### The backend on the engine (`ENTITY_DRIVER=gleam`)
 

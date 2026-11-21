@@ -1,0 +1,28 @@
+# The manual and the code may not differ. Every push and pull request runs
+# the unit tests and every manual gate (`make test`, which ends with
+# `make check-manual`), and the storage engine's own suite.
+# Documented in docs/pm-build-and-tooling.md, "Gates".
+name: check
+on:
+  push:
+  pull_request:
+jobs:
+  check:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: '25'
+          gleam-version: '1.17.0'
+      - name: SQLite command-line program (the storage engine writes through it)
+        run: sudo apt-get update && sudo apt-get install -y sqlite3
+      - name: Install
+        run: make install
+      - name: Unit tests and the manual gates
+        run: make test
+      - name: Storage engine tests
+        run: make test-storage-engine

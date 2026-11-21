@@ -3,7 +3,7 @@ import cors from 'cors';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { db } from './db.js';
+import { getDbVersion } from './db.js';
 import { callRouter } from './routes/call.js';
 import { coreCallRouter } from './routes/core-call.js';
 import { recordingRouter } from './routes/recording.js';
@@ -18,9 +18,6 @@ app.use(recordingMiddleware);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 function getAppVersion(): string {
   return readFileSync(join(__dirname, '../../VERSION'), 'utf-8').trim();
-}
-function getDbVersion(): string {
-  return (db.prepare('SELECT version FROM db_version WHERE id = 1').get() as { version: string }).version;
 }
 
 // Every real screen now goes through the one ASCII-CSV call protocol

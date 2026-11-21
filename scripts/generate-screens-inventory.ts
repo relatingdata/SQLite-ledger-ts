@@ -105,9 +105,11 @@ out.push(
     '— never hand-edited.',
 );
 out.push('');
+out.push('<!-- generated:start -->');
 out.push('| Route | Source File | Code Lines | Comment Lines | Status |');
 out.push('|---|---|---|---|---|');
 for (const r of rows) out.push(`| ${r.route} | ${r.relPath} | ${r.code} | ${r.comments} | ${r.status} |`);
+out.push('<!-- generated:end -->');
 
 const totalCode = rows.reduce((n, r) => n + r.code, 0);
 const totalComments = rows.reduce((n, r) => n + r.comments, 0);

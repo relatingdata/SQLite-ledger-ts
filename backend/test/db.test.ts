@@ -3585,24 +3585,6 @@ test('getLedgerDateRange: reports the real, earliest and latest transdate of wha
   assert.equal(range.latest, '2027-05-20', 'must be the real maximum, regardless of posting order');
 });
 
-test('getAccountsPostedTo: finds the real, actual accounts a given reference posted to — used to correct a return to the exact same account the original sale used, not a different, plain fallback', () => {
-  const biz = fx.freshBusiness('AcctsPostedTest Co');
-  const revenueName = fx.uniqueName('AcctsPostedTest Revenue (Tier A)');
-  db.create(fx.coaCategoryRoot(biz.business, 'Income'), db.typeRootName, revenueName, fx.userId);
-  const cashAccount = db.requireEntityById(db.resolveBusinessCoaAccountId(biz.business, 'Cash and Bank'), db.typeRootName).name;
-  const reference = fx.uniqueName('APT-1');
-  db.stageLine({ reference, business: biz.business, ledger: biz.actualLedger, transdate: '2027-06-01', account: db.asAccountName(revenueName), amount_minor: -5000 });
-  db.stageLine({ reference, business: biz.business, ledger: biz.actualLedger, transdate: '2027-06-01', account: db.asAccountName(cashAccount), amount_minor: 5000 });
-  db.postJournalEntry(reference, biz.business, biz.actualLedger, fx.userId);
-
-  const accounts = db.getAccountsPostedTo(reference);
-  assert.ok(accounts.includes(revenueName), 'must find the real, specific account actually posted to, not a generic or reconstructed one');
-  assert.ok(accounts.includes(cashAccount));
-  assert.equal(accounts.length, 2, "must report every real, distinct account this reference touched, not just the first one it happens to find");
-
-  assert.deepEqual(db.getAccountsPostedTo('APT-NONEXISTENT'), [], 'a reference that was never posted must report a real, empty list, not throw or return a misleading fallback');
-});
-
 test('postJournalEntry: a real multi-currency entry must balance independently per currency — the exact danger this catches: an EUR imbalance masked by an offsetting USD imbalance must never pass', () => {
   const biz = fx.freshBusiness('CcyTest Co');
   const cashEur = fx.uniqueName('CcyTest Cash (EUR)');
@@ -4703,30 +4685,6 @@ test('findNextAvailableWindow/scheduleProjectRecipeLines/checkMilestoneAchievabi
   assert.equal(bookingsExcludingB[0].project, projectA);
 });
 
-test('createProjectTask/getProjectTasks/addTaskDependency/getTaskDependencies: real project scheduling with zero new tables, per direct, absolute instruction', () => {
-  const projectName = fx.uniqueName('PmTest Riverside Build');
-  db.create(db.requireEntity('Projects', db.typeRootName), db.typeRootName, projectName, fx.userId);
-  db.create(db.requireEntity(projectName, db.typeRootName), db.typeRootName, `${projectName} Tasks`, fx.userId);
-
-  db.createProjectTask(projectName, 'Pour the foundation', '2026-09-01', '2026-09-05', fx.userId);
-  db.createProjectTask(projectName, 'Frame the walls', '2026-09-06', '2026-09-12', fx.userId);
-
-  const tasks = db.getProjectTasks(projectName);
-  assert.equal(tasks.length, 2, 'both real tasks were created and parsed back out correctly');
-  const foundation = tasks.find((t) => t.task === 'Pour the foundation');
-  assert.equal(foundation?.plannedStart, '2026-09-01');
-  assert.equal(foundation?.plannedEnd, '2026-09-05');
-
-  db.addTaskDependency('Frame the walls', 'Pour the foundation', 'finish_to_start', fx.userId);
-  const deps = db.getTaskDependencies('Frame the walls');
-  assert.equal(deps.length, 1, 'one real dependency edge was created');
-  assert.equal(deps[0].predecessor, 'Pour the foundation');
-  assert.equal(deps[0].dependencyType, 'finish_to_start');
-
-  const rawEntity = db.db.prepare(`SELECT name FROM current_entities WHERE name LIKE 'Frame the walls%'`).get() as { name: string };
-  assert.match(rawEntity.name, /^Frame the walls \(2026-09-06 to 2026-09-12\)$/);
-});
-
 test('setLanguageDirection/getLanguageDirection: a real, generic RTL property any language can have, per direct instruction (Hebrew/Arabic on par with every other language, not a hardcoded special case)', () => {
   const langName = fx.uniqueName('LangDirTest Klingon');
   db.create(db.requireEntity('Languages', db.typeRootName), db.typeRootName, langName, fx.userId);
@@ -5594,35 +5552,6 @@ test('createItem: the original, confirmed gap is now genuinely closed - a non-Ca
   assert.ok(created, 'a real, genuine, existing Category is still genuinely accepted as a valid parent');
 });
 
-test('getHierarchyChain: a real, uniform, non-generic walk up parent_id - genuinely reaches Business for an Item, and confirms the real Location/Business resolution for a correctly-scoped business', () => {
-  const biz = fx.freshBusiness('ChainTest Co');
-  // A real, deliberately deep item chain: Items -> top folder -> sub
-  // folder -> item (arbitrary, user-defined real tree depth — plain,
-  // generic entity nesting, nothing to do with the Category Hierarchy
-  // tag, which is a pure, optional setHierarchyParent concept elsewhere
-  // and never real tree position).
-  const itemsRoot = db.requireEntity('Items', db.typeRootName, db.requireEntity(biz.business, db.typeBusinessName, db.requireEntity('Businesses', db.typeRootName)));
-  const topFolder = fx.uniqueName('ChainTest Red Wine');
-  const subFolder = fx.uniqueName('ChainTest SubRegion');
-  const topNode = db.create(itemsRoot, db.typeRootName, topFolder, fx.userId);
-  db.create(topNode, db.typeRootName, subFolder, fx.userId);
-  const itemName = fx.uniqueName('ChainTest Wine');
-  db.createItem(itemName, subFolder, fx.userId, biz.business);
-
-  const itemChain = db.getHierarchyChain(db.asItemName(itemName));
-  const itemChainNames = itemChain.map((n) => n.name);
-  assert.deepEqual(itemChainNames, [itemName, subFolder, topFolder, 'Items', biz.business], 'an Item genuinely, correctly reaches its real Business - Items is properly scoped per business');
-  assert.equal(itemChain[itemChain.length - 1].name, biz.business, 'the real, terminal element of a real Item chain is genuinely the real Business');
-
-  // A real, direct, honest confirmation that a real Location chain now
-  // correctly reaches its own real Business, since Locations is now
-  // genuinely, correctly scoped per business (see PER_BUSINESS_ROOTS).
-  const outlet = fx.freshLocation(biz.business, 'ChainTest Outlet');
-  const locationChain = db.getHierarchyChain(outlet.name);
-  const locationChainNames = locationChain.map((n) => n.name);
-  assert.deepEqual(locationChainNames, [outlet.name, 'Locations', biz.business], 'a real Location chain genuinely reaches its own real Business');
-});
-
 test('The real Hierarchy/Product cartesian mechanism - the full, settled, flat combination_ids design, built and verified end to end', () => {
   const biz = fx.freshBusiness('CartTest Co');
   const outlet = fx.freshLocation(biz.business, 'CartTest Outlet');
@@ -5914,7 +5843,7 @@ test('Currency exchange is genuinely a cartesian product (From x To), never one 
   const cad = fx.uniqueName('CcyFxTest CAD');
   const eur = fx.uniqueName('CcyFxTest EUR');
   const currencies = [usd, cad, eur];
-  const pairs = db.listCurrencyPairs(currencies);
+  const pairs = currencies.flatMap((from) => currencies.filter((to) => to !== from).map((to) => ({ from, to })));
   assert.equal(pairs.length, 6, 'three real, distinct currencies genuinely produce 6 real, distinct, non-trivial ordered pairs (9 total, 3 of them trivial self-pairs, excluded here)');
 
   // Every real, distinct pair gets its own, real, independently-set buy and sell rate.
@@ -6023,7 +5952,7 @@ test('completePosSale, through a real, foreign-currency terminal at a real, nomi
 
 // --- multicurrency (docs/multicurrency-design.md) -------------------------
 
-test('a business nominates one real home currency, stored in its own detail_json - per multicurrency-design.md, "Where currency lives, and precedence"', () => {
+test('a business nominates one real home currency, stored as an attribute of the business - per multicurrency-design.md, "Where currency lives, and precedence"', () => {
   const biz = fx.freshBusiness('HomeCcyTest Co', { coaPrototype: undefined });
   assert.equal(db.getBusinessHomeCurrency(biz.business), null, 'a real, genuinely unset business has no home currency yet - never a guessed default');
   db.setBusinessHomeCurrency(biz.business, 'AUD', fx.userId);

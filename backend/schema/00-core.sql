@@ -138,49 +138,9 @@ BEGIN
   SELECT RAISE(ABORT, 'entities: a different, live entity already has this name under this parent');
 END;
 
--- Per direct instruction: a real, application-level version stamp on
--- the database itself, distinct from the running application's own
--- VERSION file - the one, real place a future migration feature
--- checks what version of the schema/data this specific database file
--- was last brought up to date with. Exactly one, real row, always -
--- enforced by the fixed, real primary key rather than a table-level
--- constraint, since SQLite has no direct "at most one row" check.
-CREATE TABLE db_version (
-  id      INTEGER PRIMARY KEY CHECK (id = 1),
-  version TEXT NOT NULL
-);
-INSERT INTO db_version (id, version) VALUES (1, '0.0.0.400');
-
--- The Kaappi entity-server's write-ahead log, per Stage B of
--- /root/.claude/plans/stateful-snacking-adleman.md ("move the Kaappi WAL
--- into SQLite"). A single JSONB blob (one row, same exactly-one-row
--- discipline as db_version above) holding a JSON array of ops, oldest
--- first — not a row-per-op table, per direct instruction, with the
--- explicit, accepted trade-off that every write reads, appends to, and
--- rewrites the whole array (cost grows with the log's size, not O(1); see
--- that plan's "2. The WAL-in-SQLite redesign" for the full reasoning).
--- Only ever read or written by KaappiEntityDriver's worker thread
--- (backend/src/drivers/kaappi-worker.ts) — under ENTITY_DRIVER=sql (the
--- committed default), this table exists but stays untouched.
---
--- IF NOT EXISTS / OR IGNORE, not a plain CREATE+INSERT: confirmed directly
--- (Stage E's first real ENTITY_DRIVER=kaappi run against a freshly-reset
--- db) that under ENTITY_DRIVER=kaappi, primitives.ts's import of
--- entity-driver-select.ts constructs KaappiEntityDriver — and therefore
--- spawns kaappi-worker.ts's own SQLite connection and runs ITS
--- ensureWalTable() — synchronously, BEFORE db.ts reaches this file's own
--- schema-init check (db.ts's `import ... from './primitives.js'` runs
--- ahead of its own module-level init code). So on a fresh db, by the time
--- this script runs, kaappi_wal may already exist (created by the worker)
--- even though `entities` does not yet — a genuine ordering race between
--- two independent connections to the same file, same shape as the
--- worker's own ensureWalTable() comment already anticipated in the other
--- direction, just not this one until it was actually exercised.
-CREATE TABLE IF NOT EXISTS kaappi_wal (
-  id       INTEGER PRIMARY KEY CHECK (id = 1),
-  ops_json TEXT NOT NULL DEFAULT '[]'
-);
-INSERT OR IGNORE INTO kaappi_wal (id, ops_json) VALUES (1, '[]');
+-- The database version is the Application entity's "Database Version"
+-- attribute (db.ts, DB_VERSION). The Kaappi and memory entity drivers
+-- create their own op log, kaappi_wal, when they are selected.
 
 -- A plain, non-unique index on name alone. Cannot be UNIQUE — scoped
 -- uniqueness (one real name per real parent, not globally) is this

@@ -48,6 +48,8 @@ function sortedNames(nodes: { name: string }[]): string[] {
 // same replay path real bootstrapped data takes, and is the only way to
 // get a parentless box into this engine at all.
 function seedRootOp(): void {
+  db.db.exec(`CREATE TABLE IF NOT EXISTS kaappi_wal (id INTEGER PRIMARY KEY CHECK (id = 1), ops_json TEXT NOT NULL DEFAULT '[]')`);
+  db.db.exec(`INSERT OR IGNORE INTO kaappi_wal (id, ops_json) VALUES (1, '[]')`);
   db.db.prepare('UPDATE kaappi_wal SET ops_json = ? WHERE id = 1').run(JSON.stringify([['create', 1, 'Root', null, null, 1]]));
 }
 

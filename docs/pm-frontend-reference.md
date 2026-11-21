@@ -140,34 +140,30 @@ gives it a border and embedded legend), never a `<label>`-wrapped
 `<input>` — the same native mechanism as the outer panel, all the way
 down.
 
-### Every transaction-posting screen, its backend function, and how it posts
+### Every transaction-posting screen, its backend calls, and how it posts
 
-| Screen (route) | Backend function | Posts via |
+| Screen (route) | Backend calls | Posts via |
 |---|---|---|
-| AR Sale (`/arap/ar-sale`) | `postARSale` | `post_journal_entry_insert` |
-| AR Receipt (`/arap/ar-receipt`) | `postARReceipt` | `post_journal_entry_insert` |
-| AP Purchase (`/arap/ap-purchase`) | `postAPPurchase` | `post_journal_entry_insert` |
-| AP Payment (`/arap/ap-payment`) | `postAPPayment` | `post_journal_entry_insert` |
-| Cash Sale (`/arap/cash-sale`) | `completePosSale` (no location) | `post_journal_entry_insert` |
-| Cash Purchase (`/arap/cash-purchase`) | `completeCashPurchase` | `post_journal_entry_insert` |
-| POS Terminal (`/pos`) | `completePosSale` | `post_journal_entry_insert` |
-| General Journal (`/post`) | `stageLine` + `postJournalEntry` (direct) | `post_journal_entry_insert` |
-| Purchase Order (`/stock/po`) | `postPurchaseOrder` | *(memo only — no ledger effect until fulfilled)* |
-| Sales Order (`/stock/so`) | `postSalesOrder` | *(memo only — no ledger effect until fulfilled)* |
-| Stock Receipt (`/stock/stock-receipt`) | `postOrderReceipt` | `post_quantity_movement_insert` |
-| Stock Dispatch (`/stock/stock-dispatch`) | `postOrderDispatch` | `post_quantity_movement_insert` |
-| Stock Transfer (`/stock/transfer`) | `transferItems` | `post_quantity_movement_insert` |
-| Stock Take (`/stock/stock-take`) | `completeStockTake` | both triggers |
-| Write-offs & Expiration (`/stock/write-offs`) | `writeOffItems` | both triggers |
-| HR wage payment (`/hr`) | `payEmployeeWages` | `post_journal_entry_insert` |
-| Recurring transactions (`/post`, recurring) | `createRecurringJournal` | **none — writes directly, bypassing staging (known gap, see Journal API chapter)** |
+| Invoiced Sale (`/arap/ar-sale`) | `createInvoice`, `dispatchStock`, `postInvoiceById` | `postJournalEntry` |
+| AR Receipt (`/arap/ar-receipt`) | `stageARReceipt`, `postARReceipt` | `postJournalEntry` |
+| Invoiced Purchase (`/arap/ap-purchase`) | `createInvoice`, `receiveStock`, `postInvoiceById` | `postJournalEntry` |
+| AP Payment (`/arap/ap-payment`) | `stageAPPayment`, `postAPPayment` | `postJournalEntry` |
+| Cash Sale (`/arap/cash-sale`) | `completePosSale` | `postJournalEntry` |
+| Cash Purchase (`/arap/cash-purchase`) | `completeCashPurchase` | `postJournalEntry` |
+| POS Terminal (`/pos`) | `completePosSale` | `postJournalEntry` |
+| General Journal (`/post`) | `stageLine`, `postJournalEntry` | `postJournalEntry` |
+| Purchase Order (`/stock/po`) | `stagePurchaseOrder`, `postPurchaseOrder` | `postJournalEntry` (On Order) |
+| Sales Order (`/stock/so`) | `stageSalesOrder`, `postSalesOrder` | `postJournalEntry` (On Order) |
+| Stock Receipt (`/stock/stock-receipt`) | `stageOrderReceipt`, `postOrderReceipt` | `postJournalEntry` and `commitStagedQuantityMovement` |
+| Stock Dispatch (`/stock/stock-dispatch`) | `stageOrderDispatch`, `postOrderDispatch` | `postJournalEntry` and `commitStagedQuantityMovement` |
+| Stock Transfer (`/stock/transfer`) | `transferStock`, then the `-VALUE` entry | `commitStagedQuantityMovement`, then `postJournalEntry` |
+| Stock Take (`/stock/stock-take`) | `completeStockTake` | both |
+| Write-offs & Expiration (`/stock/write-offs`) | `writeOffItems` | both |
+| HR wage payment (`/hr`) | `payEmployeeWages` | `postJournalEntry` |
+| Recurring transactions (`/post`, recurring) | `createRecurringJournal` | written directly (*The Journal API*, "The three posting paths") |
 
-Every one of these, financial and quantity-movement alike, shares the
-exact same `journal_entry_staging` table — there is no second staging
-table for stock movements. AR Sale/AP Purchase stage into their own
-screen-specific table first (`ar_sale_staging`, `ap_purchase_staging`),
-whose own trigger then inserts into `journal_entry_staging` in turn;
-every other screen stages into it directly.
+Every one of these stages into the one `journal_entry_staging` table
+(*The Journal API*, "Staging").
 
 **Not yet built**: Quotations, RFQ, Assembly/BOM management UI, FX
 Adjustment, and the three Voucher screens
@@ -175,101 +171,14 @@ Adjustment, and the three Voucher screens
 are confirmed stubs — see the screens table below for the full,
 current, generated list.
 
-## Screens inventory (generated — regenerate via `make screens-inventory`)
+## Screens inventory
 
-Every frontend route, source file, code/comment line count, and
-whether it's implemented, a thin wrapper around a shared component, or
-still a stub. Generated directly from source by
-`scripts/generate-screens-inventory.ts` — never hand-edited; re-run
-rather than trusting this copy once the application has grown further.
-
-| Route | Source File | Code Lines | Comment Lines | Status |
-|---|---|---|---|---|
-| / | frontend/src/routes/+page.svelte | 27 | 0 | Implemented |
-| /account/password | frontend/src/routes/account/password/+page.svelte | 89 | 0 | Implemented |
-| /arap | frontend/src/routes/arap/+page.svelte | 47 | 0 | Implemented |
-| /arap/ap-payment | frontend/src/routes/arap/ap-payment/+page.svelte | 4 | 0 | Thin wrapper (shared component) |
-| /arap/ap-purchase | frontend/src/routes/arap/ap-purchase/+page.svelte | 280 | 6 | Implemented |
-| /arap/ar-receipt | frontend/src/routes/arap/ar-receipt/+page.svelte | 4 | 0 | Thin wrapper (shared component) |
-| /arap/ar-sale | frontend/src/routes/arap/ar-sale/+page.svelte | 301 | 9 | Implemented |
-| /arap/cash-purchase | frontend/src/routes/arap/cash-purchase/+page.svelte | 4 | 0 | Thin wrapper (shared component) |
-| /arap/cash-sale | frontend/src/routes/arap/cash-sale/+page.svelte | 4 | 0 | Thin wrapper (shared component) |
-| /arap/quotations | frontend/src/routes/arap/quotations/+page.svelte | 7 | 0 | Not implemented |
-| /arap/rfq | frontend/src/routes/arap/rfq/+page.svelte | 7 | 0 | Not implemented |
-| /cash | frontend/src/routes/cash/+page.svelte | 7 | 0 | Not implemented |
-| /contacts | frontend/src/routes/contacts/+page.svelte | 454 | 27 | Implemented |
-| /customer-terminal | frontend/src/routes/customer-terminal/+page.svelte | 120 | 1 | Implemented |
-| /editor | frontend/src/routes/editor/+page.svelte | 408 | 60 | Implemented |
-| /exchange-rates | frontend/src/routes/exchange-rates/+page.svelte | 7 | 0 | Not implemented |
-| /gl/fx-adjustment | frontend/src/routes/gl/fx-adjustment/+page.svelte | 7 | 0 | Not implemented |
-| /goods-services | frontend/src/routes/goods-services/+page.svelte | 7 | 0 | Not implemented |
-| /hr | frontend/src/routes/hr/+page.svelte | 317 | 0 | Implemented |
-| /invoices | frontend/src/routes/invoices/+page.svelte | 652 | 4 | Implemented |
-| /items | frontend/src/routes/items/+page.svelte | 658 | 46 | Implemented |
-| /jobs | frontend/src/routes/jobs/+page.svelte | 7 | 0 | Not implemented |
-| /journal | frontend/src/routes/journal/+page.svelte | 72 | 0 | Implemented |
-| /journal/[id]/[date] | frontend/src/routes/journal/[id]/[date]/+page.svelte | 119 | 0 | Implemented |
-| /locations | frontend/src/routes/locations/+page.svelte | 680 | 37 | Implemented |
-| /login | frontend/src/routes/login/+page.svelte | 127 | 20 | Implemented |
-| /logistics/assembly-bom | frontend/src/routes/logistics/assembly-bom/+page.svelte | 7 | 0 | Not implemented |
-| /order-entry/generate-invoices | frontend/src/routes/order-entry/generate-invoices/+page.svelte | 7 | 0 | Not implemented |
-| /order-entry/generate-po | frontend/src/routes/order-entry/generate-po/+page.svelte | 7 | 0 | Not implemented |
-| /pos | frontend/src/routes/pos/+page.svelte | 515 | 21 | Implemented |
-| /post | frontend/src/routes/post/+page.svelte | 427 | 28 | Implemented |
-| /projects | frontend/src/routes/projects/+page.svelte | 151 | 0 | Implemented |
-| /reconciliation | frontend/src/routes/reconciliation/+page.svelte | 7 | 0 | Not implemented |
-| /recurring | frontend/src/routes/recurring/+page.svelte | 7 | 0 | Not implemented |
-| /reports | frontend/src/routes/reports/+page.svelte | 55 | 0 | Implemented |
-| /reports/aged | frontend/src/routes/reports/aged/+page.svelte | 160 | 0 | Implemented |
-| /reports/balance-sheet | frontend/src/routes/reports/balance-sheet/+page.svelte | 279 | 36 | Implemented |
-| /reports/below-reorder | frontend/src/routes/reports/below-reorder/+page.svelte | 77 | 0 | Implemented |
-| /reports/business-configuration | frontend/src/routes/reports/business-configuration/+page.svelte | 128 | 0 | Implemented |
-| /reports/cash-flow-forecast | frontend/src/routes/reports/cash-flow-forecast/+page.svelte | 214 | 0 | Implemented |
-| /reports/compare | frontend/src/routes/reports/compare/+page.svelte | 195 | 11 | Implemented |
-| /reports/new-new-pl | frontend/src/routes/reports/new-new-pl/+page.svelte | 228 | 38 | Implemented |
-| /reports/new-pl | frontend/src/routes/reports/new-pl/+page.svelte | 258 | 9 | Implemented |
-| /reports/new-stock-on-hand | frontend/src/routes/reports/new-stock-on-hand/+page.svelte | 238 | 0 | Implemented |
-| /reports/old-pl | frontend/src/routes/reports/old-pl/+page.svelte | 215 | 14 | Implemented |
-| /reports/pl-pivot | frontend/src/routes/reports/pl-pivot/+page.svelte | 307 | 17 | Implemented |
-| /reports/profit-and-loss | frontend/src/routes/reports/profit-and-loss/+page.svelte | 228 | 38 | Implemented |
-| /reports/reminders | frontend/src/routes/reports/reminders/+page.svelte | 145 | 0 | Implemented |
-| /reports/sales | frontend/src/routes/reports/sales/+page.svelte | 188 | 3 | Implemented |
-| /reports/statement | frontend/src/routes/reports/statement/+page.svelte | 207 | 9 | Implemented |
-| /reports/stock-movement | frontend/src/routes/reports/stock-movement/+page.svelte | 250 | 6 | Implemented |
-| /reports/stock-out-risk | frontend/src/routes/reports/stock-out-risk/+page.svelte | 77 | 0 | Implemented |
-| /reports/trial-balance | frontend/src/routes/reports/trial-balance/+page.svelte | 147 | 1 | Implemented |
-| /session | frontend/src/routes/session/+page.svelte | 181 | 7 | Implemented |
-| /setup | frontend/src/routes/setup/+page.svelte | 129 | 1 | Implemented |
-| /setup/bank-accounts | frontend/src/routes/setup/bank-accounts/+page.svelte | 224 | 0 | Implemented |
-| /setup/business-setup | frontend/src/routes/setup/business-setup/+page.svelte | 644 | 26 | Implemented |
-| /setup/chart-of-accounts | frontend/src/routes/setup/chart-of-accounts/+page.svelte | 269 | 9 | Implemented |
-| /setup/currencies | frontend/src/routes/setup/currencies/+page.svelte | 7 | 0 | Not implemented |
-| /setup/hierarchy | frontend/src/routes/setup/hierarchy/+page.svelte | 261 | 4 | Implemented |
-| /setup/new-business | frontend/src/routes/setup/new-business/+page.svelte | 429 | 42 | Implemented |
-| /setup/periods | frontend/src/routes/setup/periods/+page.svelte | 152 | 0 | Implemented |
-| /setup/taxes | frontend/src/routes/setup/taxes/+page.svelte | 7 | 0 | Not implemented |
-| /setup/translations | frontend/src/routes/setup/translations/+page.svelte | 242 | 9 | Implemented |
-| /setup/tree | frontend/src/routes/setup/tree/+page.svelte | 87 | 0 | Implemented |
-| /setup/users | frontend/src/routes/setup/users/+page.svelte | 164 | 0 | Implemented |
-| /setup/vocabulary | frontend/src/routes/setup/vocabulary/+page.svelte | 130 | 24 | Implemented |
-| /setup/yearend | frontend/src/routes/setup/yearend/+page.svelte | 287 | 0 | Implemented |
-| /shipping | frontend/src/routes/shipping/+page.svelte | 7 | 0 | Not implemented |
-| /stock | frontend/src/routes/stock/+page.svelte | 47 | 0 | Implemented |
-| /stock/listing | frontend/src/routes/stock/listing/+page.svelte | 240 | 8 | Implemented |
-| /stock/po | frontend/src/routes/stock/po/+page.svelte | 229 | 18 | Implemented |
-| /stock/restock | frontend/src/routes/stock/restock/+page.svelte | 285 | 13 | Implemented |
-| /stock/so | frontend/src/routes/stock/so/+page.svelte | 168 | 0 | Implemented |
-| /stock/stock-dispatch | frontend/src/routes/stock/stock-dispatch/+page.svelte | 251 | 1 | Implemented |
-| /stock/stock-receipt | frontend/src/routes/stock/stock-receipt/+page.svelte | 238 | 1 | Implemented |
-| /stock/stock-take | frontend/src/routes/stock/stock-take/+page.svelte | 215 | 2 | Implemented |
-| /stock/transfer | frontend/src/routes/stock/transfer/+page.svelte | 107 | 4 | Implemented |
-| /stock/write-offs | frontend/src/routes/stock/write-offs/+page.svelte | 288 | 2 | Implemented |
-| /vouchers/general-ledger | frontend/src/routes/vouchers/general-ledger/+page.svelte | 7 | 0 | Not implemented |
-| /vouchers/payable | frontend/src/routes/vouchers/payable/+page.svelte | 7 | 0 | Not implemented |
-| /vouchers/payment | frontend/src/routes/vouchers/payment/+page.svelte | 7 | 0 | Not implemented |
-
-**82 screens total** — 60 implemented, 4 thin wrapper (shared
-component), 18 not yet implemented.
+The Screens Inventory, every route with its source file, size and
+whether it is implemented, is generated from the route tree by
+`make screens-inventory` (`scripts/generate-screens-inventory.ts`) into
+`docs/screens-inventory.md`; the manual build regenerates it and
+includes it after this chapter. It counts the generated pages too, so
+the manual is built after `make generate`.
 
 ## `frontend/src/lib/api.ts` — the request wrapper and its design notes
 
@@ -289,7 +198,7 @@ backend are separate TypeScript projects with no shared types package,
 so `BusinessName`/`LedgerName`/`AccountName`/etc. (mirroring the
 backend's own system — see "Branded (nominal) types" in the Entity
 Model chapter) are declared independently on each side, with their own
-`asXxxName()` functions as the one explicit boundary where an ordinary
+`as…Name()` functions as the one explicit boundary where an ordinary
 string becomes branded.
 
 **`checkVersion()`** compares the frontend's own build-time
@@ -321,7 +230,6 @@ narrower kinds of endpoint instead of one wide one:
 
 - **A `resolve*Accounts` endpoint** (`resolveOpenContainerAccounts`,
   `resolveReceiveAccounts`, `resolveTransferAccounts`,
-  `resolveCashTransactionAccounts`, `resolveSaleAccounts`,
   `resolveRolloverLines`) — a read-only, stateless call that resolves
   or creates whichever accounts the frontend will need to stage lines
   against (including each item's own known per-unit cost), but posts
@@ -414,22 +322,8 @@ rationale as `StagedLine.accountId` (see the "pass the resolved
 account id" rule under `api.ts`, above) — repeated here only as a
 reminder at the point of use, not re-explained.
 
-The five per-screen canned shapes:
+The three canned shapes (`canned-journal.ts`):
 
-- **`cashPurchaseLines`** (Cash Purchase) — debits each item's
-  location-scoped Inventory account (resolved by
-  `resolveCashTransactionAccounts`) for that line's amount, debits the
-  tax account for the total tax if any, and credits Cash-and-Bank for
-  the grand total. Mirrors what `completeCashPurchase`/`postInvoice`
-  compute server-side.
-- **`posSaleLines`** (Cash Sale) — mirrors `completePosSale`'s own
-  revenue-account resolver and COGS loop, but split into two separate
-  results since the backend always posted these as two separate
-  journal entries: the main sale entry (credit Sales Revenue per item,
-  credit tax, debit Cash-and-Bank) and a COGS-only entry, posted only
-  for lines whose per-unit cost is actually known (debit COGS, credit
-  Inventory). A new product with no known cost yet simply posts no
-  COGS/Inventory line — never a fabricated cost.
 - **`transferLines`** (Stock Transfer) — credits the source location's
   Inventory account and debits the destination's, for the real cost
   of the quantity moved. Returns an empty line list when the item's
@@ -647,63 +541,83 @@ accounting structure itself, not just data integrity, since the
 Balance Sheet and P&L's own shape rests on these existing exactly
 where they are.
 
-## `frontend/src/routes/reports/statement/+page.svelte` — the Customer/Provider Statement report
 
-A race is possible here: `loadCustomers()` fetches the full entity
-tree, which can take a moment on a populated business — long enough
-that a person could already change the customer or date before it
-resolves. Without a guard, a slower, earlier request's result could
-land last and silently overwrite the person's later choice. Fixed the
-standard way: each call captures its own request id, and only applies
-its result if it's still the most recent request by the time it
-completes.
+## The remaining screens, by route
 
-## `frontend/src/routes/reports/trial-balance/+page.svelte` — the Trial Balance report
+Hand-written pages (`frontend/src/routes/…/+page.svelte`):
 
-The same `{@html}`-reactivity fix as Balance Sheet applies here (see
-that chapter above). Per the User Manual's specification of this
-screen, every currency present gets its own clearly separate group of
-rows, never one flat list mixing a dollar account next to a
-bottle-count account as if they were the same kind of number: a
-storage-unit or quantity currency is shown as a plain whole-number
-count (`fmt` would wrongly treat it as cents); only a null (home) or
-other monetary currency is run through `fmt`.
+- `/account/password` — Account Settings: the user's own password
+  (`changeOwnPassword`), page size, number format and date format.
+- `/customer-terminal` — Customer Registration at a self-service
+  terminal, no staff login: `registerCustomer` (*Core Domain
+  Reference*, "Customer self-registration").
+- `/journal/[id]/[date]` — one journal entry's occurrence
+  (`getJournalEntry`), with Reverse (`reverseJournalEntry`).
+- `/reports/stock-out-risk` — `getStockOutRiskReport` (*The Stock API*,
+  "Reorder, lead times, and stock-out risk").
+- `/setup/bank-accounts` — register and unregister bank accounts, with
+  their balances (`registerBankAccount`, `unregisterBankAccount`,
+  `getBankAccounts`).
+- `/setup/business-structure` — the Business Structure popup
+  (`BusinessStructurePopup.svelte`).
+- `/setup/tree` — the whole entity tree, read-only (`getEntityTree`).
+- `/setup/users` — users and their roles per business
+  (`getUsers`, `createUserAccount`, `setUserActiveApi`,
+  `changeUserPassword`, `getUserRoleMatrix`, `setUserRoleInBusiness`).
 
-## `frontend/src/routes/arap/ap-purchase/+page.svelte` — the Invoiced Purchase screen
+Generated report pages (template `report`, `screen-runtime.ts`
+`reports.…`): `/reports/trial-balance`, `/reports/balance-sheet` and
+`/reports/statement` (next section), `/reports/below-reorder`
+(`reports.belowReorder`), `/reports/business-configuration`
+(`reports.businessConfiguration`), `/reports/cash-flow-forecast`
+(`reports.cashFlow`) and `/reports/reminders` (`reports.reminders`).
 
-Auto-add matches Cash Sale/Purchase and AR Sale's established
-convention (see the CashTransaction chapter above). Items are scoped
-per business. Any postable account can be the "what this purchase was
-for" side — an expense (Office, Rent) or an asset (Inventory).
+Not implemented yet (template `not-implemented`, ⚠️ in the menu):
+`/exchange-rates`, `/gl/fx-adjustment`, `/jobs`,
+`/logistics/assembly-bom`, `/order-entry/generate-invoices`,
+`/order-entry/generate-po`, `/reconciliation`, `/recurring`,
+`/setup/currencies`, `/setup/taxes`, `/shipping`.
 
-**Stock receipt on an on-account Purchase.** A line whose item name
-matches a real catalog item is received into stock automatically,
-alongside the invoice — the same "physical stock IN and the AP
-invoice, posted together" mechanism as PO fulfillment and Cash
-Purchase, just reached from the plain on-account screen instead. A
-line that isn't a real catalog item (an expense like Office Rent,
-posted straight against its own account) is left alone — `itemName`
-here can genuinely be either, and only the real-item lines are checked
-against `items`/`itemsByName` to decide. `purchaseLocation` — long
-captured in state but never actually sent anywhere — is now required
-whenever at least one line needs it, and `receiveStock` runs before
-`postInvoiceById`, matching Cash Sale's "the physical step most likely
-to fail runs first" ordering (see the CashTransaction chapter), even
-though receiving stock essentially never fails for want of a location.
+## Generated transaction and report screens
 
-## `frontend/src/routes/reports/new-pl/+page.svelte` — the P&L pivot table
+The Invoiced Purchase and Sale, Purchase Order, Stock Transfer,
+Statement, Trial Balance and Balance Sheet screens are generated from
+`application/application.entities` (*Application Configuration as
+Entities*): their pages are not source. What each does is the named
+behaviour in `frontend/src/lib/screen-runtime.ts` it calls:
 
-Further business-chosen hierarchies (e.g. "Division") are never
-hardcoded — read live from the business's own Hierarchy
-configuration. Location and any further hierarchy are the same one
-hierarchy (Location Categorization) at two grains; the same is true of
-Category and Item (Item Categorization) — crossing a hierarchy
-against its own other level is redundant (see the fuller comment in
-the New New P&L chapter above). The axis dropdowns still work with
-just Item/Category/Location if that configuration lookup fails;
-further hierarchies are an addition, not a requirement. Row/column
-keys and the (row, col) → cell lookup are built once in the standard
-pivot-table shape.
+- **Invoiced Purchase and Sale** (`actions.purchase`, `actions.sale`).
+  To the `Cash` party, the purchase or sale is completed and paid at
+  once (`completeCashPurchase`, `completePosSale`); a location is
+  required. Otherwise `onAccount` creates the invoice; the lines whose
+  item is in the business's catalogue are received into stock
+  (`receiveStock`) or dispatched from it (`dispatchStock`) at the chosen
+  location, which is then required; and only after that is the invoice
+  posted (`postInvoiceById`), so a failed dispatch leaves no posted
+  invoice. Tax comes from the tax-rate field (`totals.taxRate`).
+- **Purchase Order** (`actions.purchaseOrder`). Choosing an item fetches
+  its sources (`reactions.itemSources`): the provider list becomes the
+  item's known providers, preferred first, with the preferred price
+  filled in; an item with no sources leaves the list open. Choosing a
+  provider fills that source's price (`reactions.providerPrice`). The
+  order is staged and posted in one step.
+- **Stock Transfer** (`actions.transfer`). The destination list holds
+  only locations in the source's city (`filters.sameCityAsFrom`), and
+  the on-hand quantity follows the item and source
+  (`reactions.onHand`, `reactions.fromLocationChanged`). The stock moves
+  first (`transferStock`); then `transferLines` (`canned-journal.ts`)
+  works out the value entry between the two locations' Inventory
+  accounts, posted as `{reference}-VALUE`.
+- **Statement** (`reports.statement`): the customer's invoices as of a
+  date, with total, paid and outstanding, from `getCustomerStatement`.
+- **Trial Balance** (`reports.trialBalance`): one group per currency,
+  each flagged when out of balance; a `SPACE-` currency is shown as a
+  whole-number count, every other as money; an account with quantity
+  postings carries a `qty` badge.
+- **Balance Sheet** (`reports.balanceSheet`): Assets, then Liabilities
+  and Equity, each a collapsible tree with its total in the debit or
+  credit column by its sign; a contra amount is shown in parentheses;
+  the status line says whether Assets = Liabilities + Equity.
 
 ## `frontend/src/routes/reports/stock-movement/+page.svelte` — the Stock Movement report
 
@@ -760,48 +674,24 @@ positive number needs opposite treatment depending on which section
 it's in. The same `{@html}`-reactivity fix as Balance Sheet (see that
 chapter above) applies here too.
 
-## `frontend/src/routes/arap/ar-sale/+page.svelte` — the Invoiced Sale screen
 
-Auto-add matches Cash Sale/Purchase's convention: a fresh empty line
-appears once every existing line has an item name filled in, so
-there's never an "Add line" button (see the CashTransaction chapter
-above). The credit-limit check is a non-blocking warning, never
-silently refusing the sale, since account management practice
-sometimes genuinely extends credit past a nominal limit for a trusted
-customer — this only makes sure that's a deliberate, informed choice,
-not an accident. Items are scoped per business, never fetched before
-the business is known. Customers live under Accounts Receivable in
-the entity tree.
+## `frontend/src/lib/org-chart-layout.ts` — laying out the org chart
 
-**Stock dispatch on an on-account Sale.** Mirrors AP Purchase's own
-new "Stock receipt" paragraph above: a line matching a real catalog
-item is dispatched from stock automatically, alongside the invoice —
-every real sale in this application moves real stock, there's no
-"expense sale" concept the way AP Purchase has non-inventory expense
-lines. `saleLocation` — long captured in state but never actually
-sent anywhere — is now required whenever at least one real-item line
-is present, and `dispatchStock` runs before `postInvoiceById`, for the
-same reason Cash Sale's does: a failed dispatch (not enough stock on
-hand) must never leave a posted invoice behind for stock that was
-never actually sent out.
+`layoutOrgChart(nodes)` places the boxes of the org chart
+(`OrgChartNode.svelte`) without any layout library: depth gives the row,
+the in-order leaf position gives the column, and a parent is centred
+over its children (`BOX_WIDTH`, `BOX_HEIGHT`, `H_GAP`, `V_GAP` fix the
+spacing). A box whose `parentId` is not in the set is a root; a
+`managerId` pointing outside the set draws no connector; no two boxes
+overlap; an empty chart lays out to nothing, zero by zero. It has no
+Svelte or DOM dependency, so `frontend/test/org-chart-layout.test.ts`
+tests it directly.
 
-## `frontend/src/routes/stock/po/+page.svelte` — the Purchase Order screen
-
-**Known sources** for the selected item ("purchase orders need to
-match suppliers of products being ordered") are fetched fresh
-whenever the item changes; they drive which providers are offered and
-auto-fill the preferred one's known price. A PO can still be placed
-even if the known-sources list fails to load — it's a direct guide,
-not a hard requirement.
-
-**Provider list** is the item's own preferred source's provider first,
-then every other known alternate; `showAllProviders` is the escape
-hatch for a genuine new, one-off supplier this item has never been
-bought from before — never silently blocked, just not the default.
-Changing the provider directly (picking a known alternate instead of
-the auto-selected preferred one) follows that source's own known
-price too, rather than leaving a stale figure from whichever source
-was previously selected.
+Tests:
+- "layoutOrgChart: no two boxes ever overlap, and depth strictly matches containment" (`frontend/test/org-chart-layout.test.ts`)
+- "layoutOrgChart: a managerId pointing outside the chart (or to a box that got filtered out) is simply ignored, never a crash" (`frontend/test/org-chart-layout.test.ts`)
+- "layoutOrgChart: a dangling parentId (parent not present in this box set) is treated as a root, not dropped" (`frontend/test/org-chart-layout.test.ts`)
+- "layoutOrgChart: an empty chart produces an empty, zero-sized layout" (`frontend/test/org-chart-layout.test.ts`)
 
 ## `frontend/src/lib/money.ts` — currency and quantity parsing
 
@@ -820,21 +710,6 @@ currency (JPY, KRW) or three-decimal currency (BHD, KWD).
 `decimalPlacesFor(unitCode)` in `format.ts` (see the Format chapter)
 already has the correct per-currency scale; this function doesn't yet
 take a unit code and apply it.
-
-## `frontend/src/routes/stock/transfer/+page.svelte` — the Stock Transfer screen
-
-On-hand quantity is re-checked and the destination reset whenever the
-item or source location changes — the same dynamic dependency the
-original hand-written page already had. Per
-`docs/canned-journal-to-frontend-design.md` Phase 1: the physical
-quantity movement (`transferStock`) happens first, deliberately,
-since it's the step most likely to fail (not enough stock on hand, or
-the two locations aren't actually in the same city), and a failed
-transfer must never leave a posted dollar journal entry behind for
-stock that never actually moved. The canned account selection for the
-dollar VALUE entry is computed client-side by `transferLines` (see
-the canned-journal chapter); the backend is only asked to
-resolve/create the Inventory accounts and move the stock.
 
 ## `frontend/src/routes/stock/listing/+page.svelte` — the Stock Listing report
 
@@ -889,26 +764,6 @@ cannot be bound to in Svelte 5 runes mode, so this can't be exposed
 via `bind:this` for an external caller to trigger instead — handling
 it here, once, is the correct fix, not a workaround.)
 
-## `frontend/src/routes/reports/old-pl/+page.svelte` — the original consolidated P&L
-
-"Division" here is only ever a business-chosen hierarchy name — the
-one this particular demo business happens to use — not a hardcoded,
-privileged concept; a business could configure any other hierarchy
-name instead and this page would work identically against it.
-"Consolidated per Division" belongs inside this same one P&L report,
-not as a separate report page, with the same drill-down capability —
-"Per Division" and picking one specific group via the tree picker are
-mutually exclusive views of the same underlying report.
-
-**Default date range**: once a Year End Close has run (zeroing every
-Income/Expense account, exactly as intended), a blank date range shows
-"right now" — correctly zero, but reads as broken to a person who
-never set a date on purpose. Defaults to the ledger's own
-earliest-to-latest activity instead, so the first thing shown is
-genuinely real data, not a technically-correct but misleading zero;
-defaulting the range is a convenience, not a requirement, so it falls
-through to "all time" if that lookup fails.
-
 ## `frontend/src/routes/pos/+page.svelte` — the POS terminal screen
 
 Per `docs/multicurrency-design.md` Slice 4, each POS terminal is a
@@ -938,7 +793,7 @@ business's own Hierarchy configuration. If that fails, the close
 still works with just a Location breakdown.
 
 **Close Books posting**: `previewCloseBooks` has already done all the
-arithmetic, so `completeClose` posts the already-computed
+arithmetic, so `acceptAndClose` posts the already-computed
 `preview.lines` directly from the frontend via the same generic
 `stageLine`/`postJournalEntry` calls the General Journal "Save"
 button uses, rather than the old all-in-one `closeBooks()` backend
@@ -967,36 +822,12 @@ hard constraint. See `docs/pm-domain-reference.md` ("Reporting
 periods") for why no backend changes to `closeBooks`/
 `rolloverToNewPeriod` themselves were needed.
 
-## `frontend/src/routes/reports/pl-pivot/+page.svelte` — the drag-and-drop P&L pivot builder
-
-Per `docs/pl-pivot-builder-dnd-plan.md`, this enforces the same
-`opposingHierarchyAxes` constraint `new-new-pl` enforces via its two
-dropdowns (see the two-axis P&L chapter above): a business's further
-chosen hierarchy and Location are the same hierarchy at two different
-grains, and so are Category/Item, so crossing either against its
-own other level is redundant, never a second independent axis. No
-further hierarchy name is hardcoded; `LOCATION_HIERARCHY` is filled in
-once `axisValues` loads, with whatever hierarchies the business
-actually configured. Further business-chosen hierarchies and the
-specific-value narrowing are both a convenience, not a requirement —
-the zones still work with just Location/Category/Item if that load
-fails.
-
-**Drag-and-drop zones**: a per-zone narrowing value ("this whole axis"
-vs. "just this one specific value within it") is attached to the zone
-itself once it holds a chip, per the plan's stated design, rather
-than a separate disconnected control. A drop zone holds exactly one
-axis at a time — a second chip landing there bumps the zone's prior
-occupant back to the tray, rather than allowing two. A redundant
-same-hierarchy crossing makes the chip visibly, immediately return to
-the tray instead of silently producing a self-crossed, meaningless
-report.
-
 ## `frontend/src/routes/setup/vocabulary/+page.svelte` — per-business word-choice overrides
 
 The current business's structural entity id is resolved once from the
-already-available entity tree (rather than a new endpoint) for use as
-the `scope_id` of a business-level preference. The per-concept
+already-available entity tree (rather than a new endpoint) and passed
+as the scope id of a business-level preference
+(`setVocabularyPreference(concept, 'business', businessId, word)`). The per-concept
 selection state defaults to whichever alternate word the business
 already currently sees (resolved via `translations.current`, the
 same live source every other page reads), so the form opens already
@@ -1120,7 +951,7 @@ of record — but which one is shown by default is now clear from the
 person's own immediate perspective, rather than left for them to pick
 out of four lists every time.
 
-## `frontend/src/routes/reports/profit-and-loss/+page.svelte` and `reports/new-new-pl/+page.svelte` — the two-axis P&L breakdown
+## `frontend/src/routes/reports/profit-and-loss/+page.svelte` — the two-axis P&L breakdown
 
 **The axis dropdown** is a single, unified dropdown per vector:
 "Consolidated" at the top, then each axis type as its own selectable
@@ -1158,66 +989,11 @@ Svelte correctly rejects the reactive form here as a genuine cyclical
 dependency (`outerAxis` depends on `outerSelection`, which the guard
 itself would also assign).
 
-**A real, confirmed bug, found and fixed while wiring the Division/
-Category tutorial screenshots**: `allowedOuterAxes`/`allowedInnerAxes`
-— the two reactive statements that decide which axes actually appear
-as options in each dropdown — called `opposingHierarchyAxes(axis)` as
-a plain function, reading `locationHierarchy`/`groupableAxes` from the
-enclosing scope rather than naming them in the reactive statement
-itself. Svelte's reactive dependency tracking is static, keyed off the
-identifiers a `$:` statement's own right-hand side actually names —
-not off whatever a called function happens to close over — so these
-two statements only ever re-ran when `outerAxis`/`innerAxis`
-themselves changed (the person picking a new value), never when
-`axisValues` first resolved (`onMount`'s own async `getAxisValues`
-call) or changed again on a session/ledger switch. In practice this
-meant any further hierarchy beyond Location (Division, or any other a
-business has configured) could become selectable only after the
-person happened to first toggle one side to "Consolidated" — the one
-dependency change guaranteed to force a recompute, via
-`opposingHierarchyAxes`'s own unrestricted, "anything goes" branch —
-and pick the axis they actually wanted from there; with no such detour
-of their own idea, a first-time visitor to this screen had no way to
-reach Division at all. Fixed by giving `opposingHierarchyAxes` two
-further, explicit parameters (`locHier`, `groupable`) and passing
-`locationHierarchy`/`groupableAxes` at each of its three call sites —
-the two reactive statements now name them directly, so Svelte tracks
-them correctly; the two imperative `onOuterChange`/`onInnerChange`
-handlers pass the same two values along too, though they never needed
-the fix themselves, since a plain function call already reads whatever
-is passed at the moment it runs.
-
-## `frontend/src/routes/reports/balance-sheet/+page.svelte` — the Balance Sheet report
-
-The `{@html}`-vs-template bug: an early version computed the
-session-dependent heading text inline inside an `{@html}` block,
-which never re-evaluated once `session.current` populated after the
-page's first render — it only ever showed the "…" fallback, even long
-after `session.current` genuinely was ready, even though the same
-read works fine elsewhere on the page (`load()`). The underlying
-reactive variable recomputed correctly the whole time; Svelte's
-hydration just doesn't reliably re-diff `{@html}` content against a
-later client value once the server-rendered pass (which always sees
-`session.current` as null, since it reads from browser storage) has
-already run. Fixed by splitting on the `{NAME}` placeholder and
-rendering each piece as ordinary Svelte template content with a real
-`<strong>` element in between, never `{@html}`, computed via an
-explicit reactive statement rather than inline in the template.
-
-A contra line's amount is shown parenthesized and in red wherever it
-actually falls (debit or credit) — an Asset with a credit balance, a
-Liability with a debit balance, and so on: a genuinely unusual
-position (an overdrawn account), not an error, but worth flagging
-rather than presenting as an ordinary number. A section total (Total
-Assets, Total Liabilities, Total Equity) is a single signed number but
-still needs to land in the correct debit/credit column exactly like
-every individual line, including the case where a whole section nets
-to the unusual side (e.g. a genuine deficit — negative Total Equity,
-confirmed live on real data) rather than always assuming the expected
-sign. Every category starts collapsed, the same drill-down pattern
-the P&L report already uses; each of the three sections (Assets/
-Liabilities/Equity) gets its own independent expand state, since the
-same category name could in principle appear on more than one side.
+`allowedOuterAxes` and `allowedInnerAxes` are `$derived` from
+`opposingHierarchyAxes`, which reads `locationHierarchy` and
+`groupableAxes` (themselves `$derived` from `axisValues`), so a further
+hierarchy such as Division becomes selectable as soon as the axis
+values load.
 
 ## `frontend/src/lib/components/TypedList.svelte` — the generic typed sub-list
 
@@ -1607,10 +1383,7 @@ Sale/Purchase is, structurally, indistinguishable from an on-account
 Sale/Purchase to the "Cash" party, right up until the instant it's
 paid off — see "Cash Sale and Cash Purchase" in
 `docs/pm-domain-reference.md` for the full picture, including the
-diagram. The older, direct-to-Cash code paths this replaced —
-`resolveCashTransactionAccounts`/`resolveSaleAccounts` and the
-canned-journal `cashPurchaseLines`/`posSaleLines` they fed — have been
-removed entirely, not merely stopped being called.
+diagram.
 
 ## `frontend/src/routes/setup/business-setup/+page.svelte` — org chart: groups, locations, employees
 
@@ -1938,6 +1711,14 @@ format) — again never `Intl.DateTimeFormat` locale inference, for the
 same reasoning as `formatAmount`, and again takes `dateFormat` as a
 required parameter for the same testability reason.
 
+Tests:
+- "formatAmount applies each explicit pattern directly — never Intl locale inference" (`frontend/test/format.test.ts`)
+- "formatAmount respects a currency's real ISO 4217 precision when an explicit unit code is given — zero-decimal, three-decimal, and the ordinary two-decimal default all correct" (`frontend/test/format.test.ts`)
+- "formatAmount's unit-code mechanism generalizes beyond currency — any unit with its own real precision, same lookup" (`frontend/test/format.test.ts`)
+- "formatAmount handles small amounts, negatives, and zero correctly under every pattern" (`frontend/test/format.test.ts`)
+- "formatDate applies each explicit pattern directly to a real ISO date" (`frontend/test/format.test.ts`)
+- "formatDate handles null/undefined/empty gracefully, and a datetime string by taking just the date item" (`frontend/test/format.test.ts`)
+
 ## `frontend/src/lib/state.svelte.ts` — consolidated shared application state
 
 The one consolidated home for every shared piece of application
@@ -2070,6 +1851,12 @@ product itself and returns only its own internal sub-accounts instead,
 which is the bug that was found live in the Purchase Order page's own
 Item dropdown.
 
+Tests:
+- "isDescendantOf correctly identifies real ancestry, not just any postable leaf" (`frontend/test/entityTree.test.ts`)
+- "filterToItems excludes every non-product leaf, and does NOT require is_postable_account — real items never have that flag set at all" (`frontend/test/entityTree.test.ts`)
+- "filterToItems still finds a tagged item once mergeContactDetail has given it its own "Contact" attribute-holder child — the real stock/po tutorial regression" (`frontend/test/entityTree.test.ts`)
+- "isDescendantOf never infinite-loops on a malformed/cyclic tree" (`frontend/test/entityTree.test.ts`)
+
 ## `frontend/src/lib/journalGrid.ts` — the General Journal entry grid
 
 Pure logic for a classic General Journal entry grid — no staging
@@ -2150,3 +1937,21 @@ auto-expansion removes that whole class of surprise.
   become filled) means this can only ever add one row at a time, and
   only right when it's actually needed; this is the exact historical
   bug class this project hit before.
+
+Tests:
+- "an empty row is empty and not filled" (`frontend/test/journalGrid.test.ts`)
+- "a row needs both an account and a nonzero amount to count as filled" (`frontend/test/journalGrid.test.ts`)
+- "debit/credit totals only count active (filled) rows" (`frontend/test/journalGrid.test.ts`)
+- "isBalanced requires at least two real rows and an exact zero difference" (`frontend/test/journalGrid.test.ts`)
+- "addRow/removeRowAt are the only ways the row count changes — never automatic" (`frontend/test/journalGrid.test.ts`)
+- "ensureAtLeastOneRow is a no-op on a non-empty grid and adds exactly one row to an empty one" (`frontend/test/journalGrid.test.ts`)
+- "computeSuggestedFill returns the amount needed to balance, or null if nothing to suggest" (`frontend/test/journalGrid.test.ts`)
+- "autoBalanceTrailingRow fills the last row to the correct side and amount, without changing the row count" (`frontend/test/journalGrid.test.ts`)
+- "autoBalanceTrailingRow never overwrites the last row when the edit that just happened was to that row itself" (`frontend/test/journalGrid.test.ts`)
+- "the exact feedback-loop bug from before: changing an already-filled row must not use its own stale value" (`frontend/test/journalGrid.test.ts`)
+- "the exact bug just fixed: picking an account for the auto-balanced trailing row must not spawn a new row" (`frontend/test/journalGrid.test.ts`)
+- "the real bug just fixed: building a 4-line entry incrementally (Cash, Revenue, COGS, then realizing Rent is still needed) must correctly suggest the remaining amount the instant Insert is pressed, not leave the new row blank" (`frontend/test/journalGrid.test.ts`)
+- "the real reported bug: an auto-suggested amount must count toward the visible running totals immediately, even before its row has an account chosen" (`frontend/test/journalGrid.test.ts`)
+- "the requested "just keep typing" workflow: completing the last row reveals a new one only if the entry is STILL unbalanced — not just because a row became filled" (`frontend/test/journalGrid.test.ts`)
+- "typing a negative number into an amount field is never treated as negative — direction comes from which column, never from a typed minus sign" (`frontend/test/journalGrid.test.ts`)
+

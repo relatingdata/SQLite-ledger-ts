@@ -8,6 +8,9 @@
 //
 // Run via `make programmer-manual`.
 import { buildManual, type Parts } from './manual-builder.ts';
+// The Screens Inventory is generated from the route tree (generated pages
+// included) every time the manual is built, so it cannot go stale.
+import './generate-screens-inventory.ts';
 
 // Ordered the way a programmer reimplementing this system would actually
 // want to read it: what it is and where the real spec lives, then the data
@@ -39,6 +42,7 @@ const PARTS: Parts = [
   ]],
   ['Part 5 --- Frontend Reference', [
     'pm-frontend-reference.md',
+    'screens-inventory.md',
   ]],
   ['Part 6 --- Testing: Unit, Sanity, and Compile-Level', [
     'pm-testing-unit.md',

@@ -1,4 +1,4 @@
-.PHONY: all install clean seed seed-pivot-demo print-screen dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-e2e test-e2e-tutorial test-e2e-tutorials test-e2e-tutorials-http test-storage-engine storage-engine-deps generator generate format-application-config test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs test-e2e-manufacturing-tutorial test-e2e-manufacturing-tutorial-browser test-e2e-manufacturing-full test-e2e-project-builder-tutorial test-e2e-project-builder-tutorial-browser test-e2e-project-builder-full e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual historical-manual entity-tree-svg entity-tree-sample-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers documentation-baseline-report check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles cycles-baseline dependency-graph analyze-vocabulary strip-comments check-test-docs test-docs-baseline test-one release
+.PHONY: all install clean seed seed-pivot-demo print-screen dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-e2e test-e2e-tutorial test-e2e-tutorials test-e2e-tutorials-http test-storage-engine storage-engine-deps generator generate format-application-config test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs test-e2e-manufacturing-tutorial test-e2e-manufacturing-tutorial-browser test-e2e-manufacturing-full test-e2e-project-builder-tutorial test-e2e-project-builder-tutorial-browser test-e2e-project-builder-full e2e-spec-tutorial e2e-spec-all reset-db manual programmer-manual historical-manual entity-tree-svg entity-tree-sample-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations e2e-spec-one check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch check-e2e-types proof-year-end e2e-spec-smoke check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles analyze-vocabulary strip-comments check-test-docs check-manual test-one release
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -64,6 +64,7 @@ all: install test manual programmer-manual historical-manual
 # shared node_modules at the root, not three separate ones.
 install:
 	$(RUN_INSTALL)
+	git config core.hooksPath githooks
 
 clean:
 	rm -rf node_modules package-lock.json bun.lockb
@@ -157,6 +158,17 @@ text-frontend:
 test: generate
 	cd backend && ENTITY_DRIVER=sql $(RUN_TEST) test/*.test.ts scripts/*.test.ts
 	cd frontend && $(RUN_TEST) test/*.test.ts
+	$(MAKE) check-manual
+
+# The manual and the code may not differ. Every gate runs and reports, and
+# one failing gate never hides another; `make test`, the pre-commit hook
+# (githooks/pre-commit) and CI (.github/workflows/check.yml) all run this.
+# See docs/pm-build-and-tooling.md, "Gates".
+MANUAL_GATES = check-docs-coverage check-docs-staleness check-test-docs check-function-inventory check-cycles check-schema-table-count check-unused check-no-python check-journal-staging-only
+check-manual:
+	@fail=0; for g in $(MANUAL_GATES); do \
+	  $(MAKE) -s $$g || { echo "GATE FAILED: $$g"; fail=1; }; \
+	done; exit $$fail
 
 # End-to-end verification against real, deterministic business data —
 # genuinely different from `test` above (which only exercises small,
@@ -630,21 +642,13 @@ check-node-refs:
 verify-fresh: reset-db
 	cd backend && $(RUN_SCRIPT) scripts/sanity-check-db-loads.ts
 	$(MAKE) test
-	@# Every independent gate runs and reports; one failing gate must never
-	@# hide the others (make normally stops at the first failure, which
-	@# silently masked two of these for a long time).
-	@fail=0; for g in check-docs-coverage check-docs-staleness check-test-docs check-function-inventory check-cycles check-schema-table-count check-unused check-no-python check-journal-staging-only; do \
-	  $(MAKE) $$g || { echo "GATE FAILED: $$g"; fail=1; }; \
-	done; exit $$fail
 
 check-schema-table-count:
 	$(RUN_SCRIPT) scripts/check-schema-table-count.ts
 
-# A real, mechanical, structural check - per
-# /mnt/skills/user/documentation-coverage-enforcement/SKILL.md. Fails
-# loudly if any real, exported backend function, Makefile target, or
-# frontend route is never mentioned anywhere in the assembled manual.
-check-docs-coverage: docs/documentation-baseline-report.md
+# Fails if any exported backend function, Makefile target or frontend
+# route is not described in the manual (a test title does not count).
+check-docs-coverage:
 	$(RUN_SCRIPT) scripts/build-programmer-manual.ts
 	$(RUN_SCRIPT) scripts/check-docs-coverage.ts
 
@@ -683,17 +687,6 @@ svelte-call-trace:
 # scripts/source-reference.ts for the real, stated scope.
 source-reference:
 	$(RUN_SCRIPT) scripts/source-reference.ts > docs/source-reference.md
-
-documentation-baseline-report:
-	$(RUN_SCRIPT) scripts/documentation-baseline-report.ts > docs/documentation-baseline-report.md
-
-# A real file-target rule, per direct request: the Programmer's Manual
-# includes this real, generated report directly (not just a pointer to
-# it), so it must be genuinely regenerated whenever its own, real
-# inputs change - the baseline list itself, the script that reads it,
-# or any real backend source file it scans - never left stale.
-docs/documentation-baseline-report.md: docs/documentation-coverage-baseline.md scripts/documentation-baseline-report.ts $(shell find backend/src -name '*.ts')
-	$(RUN_SCRIPT) scripts/documentation-baseline-report.ts > docs/documentation-baseline-report.md
 
 # A real, generated architectural diagram set - per direct request,
 # "a picture is worth a thousand words." Renders every real .mmd
@@ -824,24 +817,16 @@ explain-function:
 # e.g. KNIP='npx --yes -p knip@5.30.6 -p typescript@5.6.3 knip' (the newest knip
 # needs more memory than some sandboxes allow).
 KNIP ?= npx --yes knip
-DEPCRUISE ?= npx --yes dependency-cruiser
 
 # knip: exports nothing imports, and files nothing reaches. A report, not a
 # gate: it exits non-zero while there is anything to find. Backend only for now.
 knip:
 	$(KNIP) --no-progress --workspace backend --include exports,files --reporter symbols
 
-# dependency-cruiser: fails on an import cycle that is NOT in the known
-# violations baseline. `make cycles-baseline` re-records that baseline.
+# Fails when the backend's import cycles differ from the ones the manual
+# lists (docs/pm-build-and-tooling.md, "Import cycles").
 check-cycles:
-	$(DEPCRUISE) --config .dependency-cruiser.json --ignore-known --output-type err backend/src
-
-cycles-baseline:
-	$(DEPCRUISE) --config .dependency-cruiser.json --output-type baseline backend/src > .dependency-cruiser-known-violations.json
-
-# The import graph as a Mermaid diagram (no hand-rolled include graph).
-dependency-graph:
-	$(DEPCRUISE) --config .dependency-cruiser.json --output-type mermaid backend/src
+	$(RUN_SCRIPT) scripts/check-cycles.ts
 
 # One-shot: comments out named top-level functions that have no references,
 # leaving a marker that points at docs/unused-functions.md. No standard tool
@@ -885,16 +870,11 @@ show-comments:
 
 # Every test's exact title must appear in the Programmer's Manual, so a
 # failing test leads straight to the explanation of the code it exercises.
-# Fails only for a NEW undocumented test (docs/test-documentation-baseline.txt
-# holds the known gap). See docs/coding-standards.md, "Where explanation lives".
+# Also fails when the manual lists a test that does not exist.
+# See docs/coding-standards.md, "Where explanation lives".
 check-test-docs:
 	$(RUN_SCRIPT) scripts/build-programmer-manual.ts
 	$(RUN_SCRIPT) scripts/check-test-docs.ts
-
-# Regenerates the baseline of undocumented tests, after documenting some.
-test-docs-baseline:
-	$(RUN_SCRIPT) scripts/build-programmer-manual.ts
-	$(RUN_SCRIPT) scripts/check-test-docs.ts --write-baseline
 
 # Runs only the backend tests whose title contains TEST. The tests share one
 # database, so a test may depend on rows an earlier test created: if one fails
@@ -1294,8 +1274,6 @@ HISTORICAL_MANUAL_CHAPTERS := \
 	docs/skill-no-new-tables.md \
 	docs/skill-documentation-coverage-enforcement.md \
 	docs/skill-pattern-recognition-to-tooling.md \
-	docs/documentation-coverage-baseline.md \
-	docs/documentation-baseline-report.md \
 	docs/sql-ledger-comparison.md \
 	docs/svelte-5-runes-migration-plan.md \
 	docs/svelte-usage.md \
@@ -1448,7 +1426,7 @@ historical-manual: scripts/build-historical-manual.ts scripts/manual-builder.ts 
 	  -H ../historical-manual-header-includes.tex -f markdown+raw_tex --resource-path=..
 	@echo "Built sql-ledger-ts_Historical_Design_Log.pdf"
 
-programmer-manual: scripts/build-programmer-manual.ts docs/programmer-manual-frontmatter.md $(PROGRAMMER_MANUAL_CHAPTERS)
+programmer-manual: generate scripts/build-programmer-manual.ts docs/programmer-manual-frontmatter.md $(PROGRAMMER_MANUAL_CHAPTERS)
 	$(RUN_SCRIPT) scripts/build-programmer-manual.ts
 	cd docs && pandoc programmer-manual.md -o ../sql-ledger-ts_Programmer_Manual.pdf \
 	  --pdf-engine=xelatex -V documentclass=book -V geometry:margin=1in \

@@ -1,11 +1,7 @@
 # The Stock API — `backend/src/db-stock.ts`
 
-The seven functions that move stock and space —
-`ensureLocationCapacityAccount`, `adjustLocationCapacity`,
-`ensureUnitsTrackingBaseAccounts`, `receiveItems`, `dispatchItems`,
-`transferItems`, `writeOffItems` — are documented, with their tests,
-in `docs/storage-space-as-currency-design.md`, "Code and tests: where
-to look," and not repeated here.
+The functions that move stock and space are described under "Moving
+stock and space", below.
 
 ## Two design decisions the whole file rests on
 
@@ -14,8 +10,8 @@ debit/credit pair of each other.** Money is naturally double-entry —
 it always has a from and a to. A physical unit arriving has no such
 natural counter-item in the books. Monetary movements keep using the
 existing balanced staging/posting mechanism unchanged; quantity
-movements use a separate, simpler counter update (the
-`post_quantity_movement` trigger) — still an ordinary `journal`/
+movements are posted by `commitStagedQuantityMovement` without the
+balance check — still an ordinary `journal`/
 `journal_line` row, so there is a full audit trail, but never forced
 through a zero-sum check that only makes sense for money. (Whether
 this still holds cleanly in practice is Open Question 1, below.)
@@ -54,8 +50,12 @@ unique name, so passing the id explicitly is what keeps posting
 correct.
 
 `postStagedQuantityMovement` posts every line staged under a
-reference through the parallel `post_quantity_movement` trigger, not
-a direct write.
+reference through `commitStagedQuantityMovement` (*The Journal API*,
+"The three posting paths").
+
+Tests:
+- "quantity movements carry a real, queryable location — receive, dispatch, and transfer (both legs) each record where it actually happened, not just updating the current-state snapshot" (`backend/test/db.test.ts`)
+- "true double-entry quantity tracking: a real "on order" account for receipts and a real "units sold" account for dispatches — the genuine counteritem, not derived arithmetic, per direct confirmation" (`backend/test/db.test.ts`)
 
 ## Locations
 
@@ -99,6 +99,60 @@ including seasonal transitions (Sydney and Brisbane, sharing a long
 border, are an hour apart every southern-hemisphere summer, since NSW
 observes daylight saving and Queensland never does).
 
+Tests:
+- "Locations: per-location stock, exactly one billing address, warehouse-direct dispatch for large orders, same-city transfers, and below-reorder reporting" (`backend/test/db.test.ts`)
+- "getLocation/setLocation: two real locations sharing the exact same name under two different real businesses stay genuinely distinct" (`backend/test/db.test.ts`)
+- "createAndConfigureLocation: real, atomic, balanced Storage Capacity Remaining/Installed accounts, created as part of location creation itself, never a single-sided posting" (`backend/test/db.test.ts`)
+
+## Moving stock and space
+
+Receipt, dispatch and transfer each run in one `db.transaction`, so
+their quantity, space and value postings land together or not at all;
+a write-off posts its value entry and its quantity entry one after the
+other, outside a transaction:
+
+- **`receiveItems`** refuses a quantity that is not positive, an
+  unknown item or location, and a service item. It moves the quantity
+  onto the item's per-location quantity account against its **On
+  Order** account (a receipt with no order drives On Order negative),
+  and occupies space (`adjustLocationCapacity`). For a combination it
+  also debits the combination's Inventory leaf against Accounts
+  Payable at the item's known unit cost (none when the cost is
+  unknown), and counts the units: `Units On Hand` against `Units
+  Received From` (`ensureUnitsTrackingBaseAccounts`), in a
+  `UNITS-{values}` currency.
+- **`dispatchItems`** refuses more than is on hand at that location.
+  It moves the quantity off the per-location account against **Units
+  Sold** and frees space; for a combination it credits the Inventory
+  leaf against Cost of Goods Sold and reverses the unit count.
+- **`transferItems`** refuses locations in different cities and more
+  than is on hand at the source. It posts one two-line quantity entry
+  (source down, destination up) and moves space at both locations; for
+  a combination it moves the value and the count from the source's
+  combination to the destination's.
+- **`writeOffItems`** refuses a quantity that is not positive. It debits
+  the write-off expense and credits the item's Inventory account for
+  quantity × unit cost, moves the quantity against **Write-off**, and,
+  given a location, frees its space; for a combination it also writes
+  off the unit count.
+- **`ensureLocationCapacityAccount`** gives a location its space
+  account the first time it is needed (see "The Storage Space Report")
+  and posts its opening capacity; **`adjustLocationCapacity`** moves
+  space between Remaining and Occupied by the item quantity, divided by
+  the package size for a carton location. It never touches Installed.
+
+Tests:
+- "stock write-offs (breakage/spoilage): a real dual-effect transaction, reducing quantity on hand AND recognizing the actual loss in the GL, not just an adjustment with no accounting consequence" (`backend/test/db.test.ts`)
+- "ensureLocationCapacityAccount: a real, one-time opening balance from the location's own static capacity, retail tracks bottles, warehouse tracks carton-equivalents" (`backend/test/db.test.ts`)
+- "adjustLocationCapacity: a real, direct check of the capacity math, retail (1:1 bottles) and warehouse (real, per-item carton conversion)" (`backend/test/db.test.ts`)
+- "receiveItems: a real, combination-tagged receipt builds up a real, distinct Inventory value at the exact, right leaf, per direct instruction" (`backend/test/db.test.ts`)
+- "transferItems: a real, combination-tagged transfer correctly moves the real Inventory value from the source location instance to the destination location instance, per direct instruction" (`backend/test/db.test.ts`)
+- "adjustLocationCapacity: a real, genuinely balanced posting against Occupied - never single-sided, and Installed = Remaining + Occupied holds as a real accounting identity" (`backend/test/db.test.ts`)
+- "receiveItems with a real combination: parallel currency AND count postings both appear, each genuinely balanced on its own" (`backend/test/db.test.ts`)
+- "dispatchItems with a real combination: parallel currency AND count postings both appear, genuinely reversed from a real receipt, each independently balanced" (`backend/test/db.test.ts`)
+- "transferItems with a real combination: the real unit count moves in parallel with the real dollar value, one, shared, real currency for the same, physical units - genuinely balanced" (`backend/test/db.test.ts`)
+- "writeOffItems with a real combination: the real Inventory value and real unit count are both genuinely written off, in parallel, each independently balanced" (`backend/test/db.test.ts`)
+
 ## Item-location levels and capacity status
 
 **`getLocationCapacityStatus`** returns a location's current total
@@ -129,17 +183,16 @@ frontend, must pass the business explicitly.
 `setItemLocationLevels` is the narrower, UI-facing wrapper that accepts
 the same levels by their camelCase field names.
 
-**`ensureLocationCapacityAccount`/`adjustLocationCapacity`/
-`ensureUnitsTrackingBaseAccounts`/`receiveItems`/`dispatchItems`/
-`transferItems`/`writeOffItems`** are documented, with their tests, in
-`docs/storage-space-as-currency-design.md` § 24, "Code and tests: where
-to look" — not repeated here. One naming quirk worth knowing:
+One naming quirk worth knowing:
 `ensureLocationCapacityAccount` resolves a business's own `Locations`
 root via the shared `resolveBusinessLocationsRootId` helper rather than
 assuming the root is always named plain `"Locations"` — the bundled
 Wine Retail Business's own seed data names its root `"Wine Retail
 Business Locations"` instead, a pre-existing, tolerated irregularity
 in that one business's seed data, not a bug in this function.
+
+Tests:
+- "getLocationCapacityStatus: a real location's own, current real stock checked against its own, real configured capacity — found to be purely informational and never enforced anywhere, per docs/TODO.md" (`backend/test/db.test.ts`)
 
 ## POS terminals
 
@@ -153,10 +206,17 @@ its resolved currency; `null` means it transacts in the business's
 home currency. A location with no terminal ever created returns an
 empty array, never a guessed default.
 
+`createPosTerminal(terminal, location)` creates the terminal under the
+location's `{location} Terminals` container (both only when missing);
+`setTerminalCurrency(terminal, currency)` sets or clears its currency.
+
 `getEffectiveSaleCurrency` extends the currency precedence chain
 (`docs/multicurrency-design.md`: Division → Business → Account →
 Contact) by one level: a terminal's own currency, when set, wins over
 all of them.
+
+Tests:
+- "createPosTerminal/setTerminalCurrency/getEffectiveSaleCurrency: a real, direct, border-business scenario - two real terminals, one location, two different currencies" (`backend/test/db.test.ts`)
 
 ## Stock listing and the movement report
 
@@ -215,14 +275,22 @@ reference, Sales account name) to avoid a per-row query — a Sales
 account named `Sales - X (Bottle)` is reduced to `X`, the plain item
 name a dispatch's quantity row already carries.
 
+Tests:
+- "getStockMovementReport: the real, physical journey of stock — purchases into a warehouse, a real transfer on to a retail outlet, and a real sale, each correctly enriched with its own real category, division, and vendor" (`backend/test/db.test.ts`)
+- "getInventoryListing/countInventoryListing: a real, paginated listing of every item/location combination with stock" (`backend/test/db.test.ts`)
+- "getInventoryListingByLocation: groups the same real stock data by real location, tagging each with its real group where one exists" (`backend/test/db.test.ts`)
+
 ## The Storage Space Report
 
 **`getStorageSpaceReport`** is a dedicated report for the physical
 storage-space accounts under each Location's own `Storage Capacity`
 structure (Installed/Occupied/Remaining, per currency —
-`SPACE-BOTTLE`/`SPACE-CARTON`) — these are never financial accounts
-under Chart of Accounts, so the Trial Balance's own tree walk
-structurally excludes them; this is the one place to see them.
+`SPACE-BOTTLE`/`SPACE-CARTON`). They sit in the business's Chart of
+Accounts, under `Storage` > *location* > `Storage Capacity`
+(`ensureLocationStorageRoot`, then `ensureStorageCapacityStructure`,
+`db.ts`); the financial statements leave them out by their `SPACE-`
+currency (`nonMoneyCurrencyAccountIds`, `db-reports.ts`), so this is
+the one report that shows them.
 Installed balances against Remaining at opening (Occupied starts at
 zero); a currency's own `balanced` flag checks that however much space
 is occupied or remaining still sums to exactly the installed total.
@@ -242,6 +310,36 @@ Scoped to the current session's own business (`Session.Business`: see
 - **Shown by** the generated *Inventory and Storage* screen
   (`/reports/storage-space`, report `storageSpace` in
   `frontend/src/lib/screen-runtime.ts`).
+
+
+## Converting storage space, and opening a container
+
+Both are balanced journal entries between storage-space accounts, each
+space account a Product Instance leaf (*The Entity Model*, "The
+Hierarchy / Product cartesian mechanism") with a `SPACE-{values}`
+currency:
+
+- **`convertStorageSpace(business, ledger, item, shape, from, to,
+  quantity, userId, reference?)`** re-fits space from one combination to
+  another (shelving for cartons into shelving for bottles) under the
+  business's own `Storage Capacity`. The rate is the `sell` exchange
+  rate between the two `SPACE-` currencies (*Core Domain Reference*,
+  "Currency exchange"); a direction with no rate is refused. It posts
+  four lines: `from`'s Remaining and Installed both shrink by
+  `quantity`, and `to`'s both grow by `quantity × rate`.
+- **`openStorageContainer(business, ledger, location, item, shape,
+  container, cartons, unit, units, userId, reference?)`** opens sealed
+  cartons into loose units at a location. A location with no
+  `bottle_capacity` is refused. It posts four lines: the container's
+  Remaining up and Occupied down by `cartons`, the unit's Remaining down
+  and Occupied up by `units`; no rate is involved. When the item has a
+  unit cost, a second entry moves `units × cost` from the container
+  tier's Inventory account to the unit tier's at that location.
+
+Tests:
+- "convertStorageSpace: a real, balanced conversion between storage combinations - never single-sided, and a real, undefined reverse direction genuinely refuses" (`backend/test/db.test.ts`)
+- "openStorageContainer: opening a carton is two, real, independent space movements - never a rate-linked conversion, and genuinely never requires one to be defined" (`backend/test/db.test.ts`)
+- "openStorageContainer: a dozen 12-bottle cartons (144 bottles) moves directly into its own, real, bottle-tier Inventory account, with no contra accounting of any kind - the same real dollar value, just re-tagged, per direct instruction" (`backend/test/db.test.ts`)
 
 ## Receive/transfer: physical-only variants that post value from the frontend
 
@@ -309,6 +407,33 @@ still use `getItemUnitCostMinor`.
 **Tests:** `backend/test/cube.test.ts`, "a POS sale costs its units first
 in, first out, and a transfer carries their cost".
 
+
+## Item sources
+
+An item's sources are `Item Source` records under the item, each
+related to its vendor, with its detail in `detail_json`, read through
+the `item_source` view (`backend/src/db.ts`):
+
+- `addOrUpdateItemSource(input)` creates or replaces the source for one
+  (manufacturer, vendor, currency, product instance) combination: SKU,
+  UPC, price, package quantity, preferred flag and notes. The item,
+  vendor and manufacturer must exist. Preference is set, never derived
+  from price.
+- `listItemSources(item)` lists them, preferred first.
+- `deleteItemSource(id)` removes the `Item Source` tag, so the record
+  drops out of the view.
+- `getItemPriceForCurrency(item, currency, productInstanceId?)` is the
+  price for a currency: the combination's own price when one is set,
+  else the item's price in that currency, else its home-currency
+  price, else `null`. The preferred source wins at each step.
+- `setItemSourceLeadTime(item, vendor, days)` sets a source's lead time
+  (below).
+
+Tests:
+- "a item can be sourced from multiple manufacturer/vendor combinations, and preference is never derived from price" (`backend/test/db.test.ts`)
+- "addOrUpdateItemSource/getItemPriceForCurrency: a real, direct, dual-currency pricing scenario - one real product, two real, independently-set prices" (`backend/test/db.test.ts`)
+- "getItemPriceForCurrency: a real, combination-specific price wins over the base item price, per direct instruction (a cold beer costs more than a warm one)" (`backend/test/db.test.ts`)
+
 ## Reorder, lead times, and stock-out risk
 
 **`getBelowReorderStock`** lists every (item, location) at or below
@@ -326,6 +451,9 @@ fresh order placed today could arrive? Recent consumption (a
 deliberately short trailing window) is compared against the shortest
 lead time among the item's known vendors.
 
+Tests:
+- "setItemSourceLeadTime/getItemLeadTimes/getStockOutRiskReport: will this genuinely run out before a fresh order could arrive?" (`backend/test/db.test.ts`)
+
 ## Stock takes
 
 **`createStockTake`** creates a sheet for one location: one line per
@@ -337,14 +465,22 @@ pointing at the item. `counted` starts empty. Takes `business` as an
 optional, explicit parameter for the same reason noted above for
 `getInventoryListingByLocation`, which it calls internally.
 
+**`recordStockTakeCount(take, item, counted)`** records one line's
+count on a draft take, by renaming the line to `… counted:{n}`. A
+completed take, a negative count or an item not on the sheet is
+refused.
+
 **`completeStockTake`** treats every counted line's variance as a
 genuine loss or gain, never a silent correction — posts the variance
-to the ledger and brings `item_location.quantity_on_hand` into line
-with what was actually counted. A shortage debits the variance expense
+to the ledger and moves the item's per-location quantity account to
+what was counted (the quantity against **Count Adjustment**, and the
+storage space with `adjustLocationCapacity`), then renames the take
+from `— draft` to `— completed`. A shortage debits the variance expense
 and credits inventory; an overage is the reverse. Lines never counted
-are left untouched. Its `inventoryAccount` parameter is deprecated and
-unused (each line resolves its own per-product Inventory account) but
-kept so existing callers don't break.
+are left untouched. A counted line needs a unit cost in
+`unitCostMinorByItem`, or the take is refused. Its `inventoryAccount`
+parameter is unused (each line resolves its own per-location Inventory
+account).
 
 Two fixed bugs shaped its current shape: each product's variance now
 uses its own reference (not one reference shared by every product in
@@ -354,6 +490,12 @@ whenever more than one product shared a variance-expense account);
 and the quantity side now has its own counter-account, **Count
 Adjustment** (it used to stage a single, unbalanced line with no
 counter-item, unlike every other movement).
+
+Tests:
+- "stock take sheets: ordered by shelf_side/rack (alphabetically, as free text) then level numerically (top to bottom), and completing posts genuine loss/gain variance while leaving uncounted lines untouched" (`backend/test/db.test.ts`)
+- "completeStockTake: multiple real, different products sharing the same variance expense account in one real stock take must all post, keeping debit == credit" (`backend/test/db.test.ts`)
+- "completeStockTake and writeOffItems: the real quantity-movement journal entry itself must be balanced (debit == credit), not just the dollar-value side" (`backend/test/db.test.ts`)
+- "createStockTake resolves an item by its real, scoped item identity, never a same-named entity of a different kind elsewhere in the tree" (`backend/test/db.test.ts`)
 
 ## Lots
 
@@ -375,6 +517,9 @@ means acquisition order).
 **`getExpiringStock`** returns lots expiring within a window or
 already expired (negative `days_until_expiration`). Lots with no
 expiration date are never included.
+
+Tests:
+- "lot/expiration tracking: consumption is genuinely FIFO by expiration date, not receipt order, and the expiring-stock report only shows what actually still has quantity" (`backend/test/db.test.ts`)
 
 ## Orders
 
@@ -408,15 +553,17 @@ order.
 
 ## Open questions — recorded, not resolved
 
-1. **Are quantity movements balanced, and is that enforced?** Decision
-   1 above (and the Journal API chapter's "three posting paths") both
-   say a quantity movement is a single line with no counter-item. But
-   every movement function now gives its lines a counter-item: receipt
-   uses On Order, dispatch uses Units Sold, write-off uses Write-off, a
-   stock take uses Count Adjustment, a transfer uses the same item at
-   the other location. Whether the `post_quantity_movement` trigger
-   *enforces* that the lines sum to zero has **not been checked**. Both
-   descriptions cannot be right.
+1. **Quantity movements are not all balanced, and nothing enforces
+   it.** `commitStagedQuantityMovement` posts without the balance
+   check. Receipt, dispatch, write-off, stock take and transfer stage a
+   counter-item (On Order, Units Sold, Write-off, Count Adjustment, the
+   same item at the other location), but `postQuantityMovement` posts
+   one line on its own and is called from 14 places, and `Balance.post`
+   (2 places) likewise. The design says every transaction is a cooked,
+   balanced general journal entry; step 2 of
+   `docs/engine-single-writer-plan.md` (one posting path through the
+   engine, which refuses an unbalanced entry) needs these to be
+   balanced first.
 2. **`placeOrder`'s "on order" line is single-sided.** The standing
    rule is that no posting is ever single-sided. Whether an order is a
    genuine exception, or needs a counter-item, is undecided.

@@ -176,10 +176,7 @@ leave pointers dangling.
 - `make check-docs-coverage` fails if an exported function, Makefile target or
   frontend route is never mentioned in the manual.
 - `make check-test-docs` fails if a test's exact title appears nowhere in the
-  manual. Tests that were undocumented when the check was introduced are
-  listed in `docs/test-documentation-baseline.txt`; the check fails only for
-  a *new* undocumented test, so the gap can shrink but not grow.
-  `make test-docs-baseline` regenerates that list after documenting some.
+  manual, or if the manual lists a test that does not exist.
 
 A caution about the coverage check itself: it counts a symbol as documented if
 it is *mentioned* anywhere in the manual, including inside a generated report.

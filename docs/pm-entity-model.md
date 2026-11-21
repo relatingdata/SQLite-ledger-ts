@@ -106,6 +106,9 @@ Entity names are globally unique in this system — a type-marker name
 must not collide with any other real entity's name anywhere in the
 tree.
 
+Tests:
+- "setRelationship/getRelationship/getEntitiesWithRelationship: the real relationship-type pattern, confirmed the same shape as an ordinary relation_id tag, not a special case" (`backend/test/db.test.ts`)
+
 ## The primitive set (`backend/src/primitives.ts`)
 
 Almost every backend function is one of five kinds of fact about an
@@ -252,7 +255,7 @@ parent can't share a name; the same name is fine under a different
 parent) is enforced natively.
 
 Roughly three dozen `TypeDescriptor` constants exist
-(`typeBusinessName`, `typeDivisionName`, `typeLocationEntityName`,
+(`typeBusinessName`, `typeLocationEntityName`,
 `typeVocabularyWordName`, `typeCategoryOrItemsRootName`, and more —
 see `docs/source-reference.md`'s generated, complete index rather than
 a copy here that could go stale), grouped by purpose:
@@ -261,7 +264,10 @@ a copy here that could go stale), grouped by purpose:
 - **Structural/reporting kinds**: `typeItemName`, `typeLedgerName`, `typeExpenseCategoryName`.
 - **Chart of Accounts structure**: `typeChartOfAccountsNodeName`.
 - **Per-record marker/detail kinds**: `typeLineTypeMarkerName`, `typeStorageOriginMarkerName`, `typeTextDirectionMarkerName`, `typeRelationshipRecordName`, `typeOpenHoursRecordName`/`typeScheduleRecordName`, `typeEntityLinkRecordName`, `typeLocationTypeMarkerName`, `typeIsBillingAddressMarkerName`.
-- **Project/task tracking**: `typeProjectTaskName`.
+- **Per-business roots**: `typeBusinessItemsRootName`, `typeBusinessLocationsRootName`, `typeBusinessContactsRootName`, `typeBusinessPlantRootName`, `typeChartOfAccountsRootName`.
+- **Accounts by kind**: `typeAssetAccountName`, `typeEquityAccountName`.
+- **People and organisation**: `typeEmployeeName`, `typeDepartmentEntityName`, `typeBusinessTypeName`.
+- **Project Builder**: `typePlantItemName`, `typePrototypeName`, `typeLiveProjectName`, `typeMilestoneName`.
 - **Menu/UI configuration**: `typeMenuOverrideName`, `typeMenuSectionName`, `typeMenuLinkName`, `typeMenuLinkFlagName`, `typeHiddenMarkerName`.
 - **Translation/vocabulary infrastructure**: `typeTranslationConceptName`.
 - **Business-type setup**: `typeBusinessTypeQuestionsRootName`, `typeBusinessTypeQuestionName`.
@@ -271,6 +277,9 @@ rather than a specific `TypeDescriptor`, since a genuinely open-ended
 tool should stay generic: the Entity Tree Editor's own `createEntity`
 call-dispatch entry (`call-dispatch/entities.ts`, an administrator may
 create any kind) and `primitives.ts`'s own `Entity.create`.
+
+Tests:
+- "create<T>: the real, generic, typed-descriptor creation primitive - genuinely preserves the Springfield principle (scoped, not global, uniqueness)" (`backend/test/db.test.ts`)
 
 ### Primitive implementation notes
 
@@ -321,19 +330,18 @@ real generalization. A few implementation details worth knowing:
   would read. `Currency.fromDebitCredit` is the same class, the other
   direction — every lines-entry screen (AR sale, AP purchase, POS,
   stock receipt/dispatch) produces a signed `amount_minor` this way
-  before it ever reaches `post_journal_entry`.
+  before it is staged.
 - **`Balance.post`** is genuinely not always a balanced, double-entry
   transaction — a quantity movement or a capacity figure has no
   meaningful counter-item; a caller needing real double-entry posts
   two of these, to two accounts, under the same reference.
 - **`Hierarchy.buildTree`** is deliberately one general function, never
-  one named per specific category (no `buildCategoryTree`, no
-  `buildDivisionTree`) — the same function serves a P&L drill-down, an
+  one named per specific category — the same function serves a P&L drill-down, an
   Inventory drill-down, or, passing more than one property at once, a
   combined view showing several figures side by side per row, all from
   the same walk.
 
-`asUserId`, `asEntityId`, `asDivisionName`, `asLocationName`,
+`asUserId`, `asEntityId`, `asLocationName`,
 `asEmployeeName`, `asCustomerName`, `asProviderName`, `asItemName`
 (`backend/src/db.ts`) are the paired, compile-time-only branding
 functions — no runtime validation of their own (that's the paired
@@ -364,6 +372,20 @@ Items sit. Each dimension in parentheses (`(Ale)`, `(330ml)`,
 `(Aluminum Can)`, `(Cold)`) is a naming convention today, not yet a
 separate, structured field per dimension.
 
+- `createProduct(name, parent)` creates a product under a category
+  folder or an `Items` root (refused anywhere else:
+  `typeCategoryOrItemsRootName` validates the parent with
+  `isGenuineCategoryOrItemsRoot`, true for `Items`, a `… Items` root,
+  or anything beneath `Items`).
+- `setItemProduct(item, product)` moves an item under a product, or
+  back to `Items` for `null`.
+- `countItems(business)` counts the business's items (entities under
+  its Items tree with contact facts), for paging the item list.
+- `resolveDispatchLocation(item, location)`: an item whose storage
+  origin is `Cold` is dispatched from the location's cold
+  sub-location (the entity related to it), when there is one;
+  everything else from the location itself.
+
 **Category is a separate, optional, lateral tag** — exactly like
 Division — applied to a Product or an Item by name
 (`setHierarchyParent(name, 'Category', parentName, userId)`,
@@ -390,6 +412,12 @@ entity parent (`Storage Origin Types`, `Text Direction Types`):
 `setItemStorageOrigin`/`getItemStorageOrigin`,
 `setLanguageDirection`/`getLanguageDirection` (`backend/src/db.ts`).
 
+Tests:
+- "Category: an arbitrarily deep, generic Hierarchy of pure tags (setHierarchyParent) — never a real position in the Items catalog, and never mistaken for an item" (`backend/test/db.test.ts`)
+- "ensureItemSalesCogsAccounts: posts flat, directly under Sales Revenue/Cost of Goods Sold — Category is a real, optional reporting tag (setHierarchyParent), never real account structure" (`backend/test/db.test.ts`)
+- "setLanguageDirection/getLanguageDirection: a real, generic RTL property any language can have, per direct instruction (Hebrew/Arabic on par with every other language, not a hardcoded special case)" (`backend/test/db.test.ts`)
+- "createItem: the original, confirmed gap is now genuinely closed - a non-Category, non-Items-root parent is rejected" (`backend/test/db.test.ts`)
+
 ## Chart of Accounts: shared categories, per-prototype leaves
 
 Only the five top-level report categories (`Asset`, `Liability`,
@@ -398,9 +426,22 @@ business — every country's accounting still groups into the same five
 buckets. The named *leaf* accounts underneath are country-specific
 prototypes: distinct entities (confirmed by `entity_id`, not just
 display name) per prototype (English/German/French/Italian/Swiss
-CoA). `getCoaPrototypeAccounts(ledgerName)` surfaces which accounts a
-ledger has actually posted to, for the new-business-setup UI's
-prototype picker (only works for ledgers with posted history).
+CoA). `getChartOfAccountsPrototype(language)` lists, sorted, the leaf
+accounts of the global Chart of Accounts that belong to that
+language's prototype (`{language} CoA`) or to none; the
+new-business screen's prototype picker shows them through the
+`getCoaPrototypeAccounts` call (`call-dispatch/businesses.ts`).
+
+A Chart of Accounts line can carry a **Line Type**:
+`setLineType(entity, lineType)` links it (creating the type under
+`Chart of Accounts Line Types` when new), `setLineType(entity, null)`
+removes the link, and `listLineTypes()` lists the types, sorted.
+
+**Business types** (`Sole Trader`, `Partnership`, …) live under
+`Business Type`, each with its `{type} Questions`. `getBusinessTypes()`
+returns each type with its questions in creation order;
+`saveBusinessTypeAnswers(business, answers)` stores every non-blank
+answer as a detail of the business.
 
 A word and its translations stay owned by the one, global Vocabulary
 by default; a business's own `Vocabulary` entry is created only for a
@@ -430,6 +471,12 @@ structural parent with one leaf per combination, named `"{headerName}
 Accounts," not "is a leaf" — nothing currently prevents posting
 directly to a structural header node once it has leaves underneath.
 
+Tests:
+- "createBusiness: real, optional secondary currencies each get a real, automatic "Cash at Bank ({currency})" account, correctly tagged and immediately postable to — a genuinely ordinary business omits this entirely" (`backend/test/db.test.ts`)
+- "nominateBankAccount/buildBankCurrencyStructure: a real, single bank account in one real currency collapses to one, plain, postable "Cash at Bank" account - no header, no further structure" (`backend/test/db.test.ts`)
+- "nominateBankAccount/buildBankCurrencyStructure: more than one real bank/currency combination genuinely becomes a real header, with one real, postable leaf per ticked combination" (`backend/test/db.test.ts`)
+- "buildBankCurrencyStructure: the exact, same real mechanism applies to a real partner's own Drawing account, per direct instruction" (`backend/test/db.test.ts`)
+
 ## Notes to the Financial Statements, and the Business Configuration Report
 
 `addFinancialStatementNote(businessName, noteText, userId)` /
@@ -444,6 +491,10 @@ Locations, Categories (deliberately never Item Details — see the
 Inventory Catalog/Listing reports for those). Reachable via the
 `getBusinessConfigurationReport` dispatch key (`call-dispatch/businesses.ts`,
 via `POST /api/call`).
+
+Tests:
+- "addFinancialStatementNote/getFinancialStatementNotes: a real, free-text disclosure genuinely belongs to one specific business, never the shared, global Business Reports list itself" (`backend/test/db.test.ts`)
+- "getBusinessConfigurationReport: everything a real business's own setup actually captured - name, addresses, phones, owner/partners, banking, currencies, divisions, locations, categories - deliberately never item details" (`backend/test/db.test.ts`)
 
 ## How data actually moves
 
@@ -471,8 +522,9 @@ requires.
 
 ### Append-only, not mutated in place
 
-Most core tables are append-only. `updateEntity` never runs `UPDATE`
-on an entity's own row — it inserts a new row into `entity_update`,
+Most core tables are append-only. `Entity.rename` (and every other
+change to an entity) never runs `UPDATE` on an entity's own row — it
+inserts a new row through `entity_update`,
 recording the new name/parent/relation alongside who changed it and
 when. `current_entities`, what an ordinary query actually reads from,
 is itself a computed view over this full history, always resolving to
@@ -485,6 +537,11 @@ with a plain `UPDATE` — no history of a past account number is kept.
 The guiding distinction is whether a past value is worth keeping (an
 entity's own name or structural position: yes; an account-number
 correction: generally not), not one blanket rule applied everywhere.
+
+Tests:
+- "entities are append-only: renaming closes out the old row and appends a replacement under the same id, full history preserved" (`backend/test/db.test.ts`)
+- "a renamed-away-from name can be reused immediately for an unrelated new entity" (`backend/test/db.test.ts`)
+- "renaming a parent never orphans its children — a childs parent_id keeps resolving correctly with zero other changes" (`backend/test/db.test.ts`)
 
 ### The commit path, concretely — a Structured Editor "Save" click
 
@@ -545,38 +602,23 @@ CREATE TABLE journal_entry_staging (
 A temporary holding area — every posting function inserts one row per
 individual debit or credit line here first, all sharing the same
 `reference` + `business` + `ledger` triple, before ever touching a
-`journal`/`journal_line` row. Nothing here is posted yet; a trigger
-(below) finds every line belonging to one transaction and acts on all
-of them together, atomically, in one `INSERT`.
+`journal`/`journal_line` row. Nothing here is posted yet;
+`commitStagedEntry` (below) takes every line of one transaction and
+posts them together.
 
-### `commitStagedEntry` — TypeScript orchestration behind every balanced posting (formerly `post_journal_entry_insert`/`post_quantity_movement_insert`)
+### `commitStagedEntry` — the one posting function
 
-**Stage D of `/root/.claude/plans/stateful-snacking-adleman.md` removed
-both trigger/view pairs this section used to describe** —
-`post_journal_entry`/`post_journal_entry_insert` and
-`post_quantity_movement`/`post_quantity_movement_insert`. Both fused
-entity resolution (business/ledger/account id lookup) into
-financial-posting SQL inside one atomic trigger body, which the
-`EntityDriver` isolation effort (letting a non-SQL backend, Kaappi
-today, stand in for SQL behind one seam) could not tolerate: a driver
-call may need to call out to that non-SQL backend, which must never
-happen inside an open SQLite transaction. Their combined logic now
-lives as one shared TypeScript function, `commitStagedEntry`
-(`backend/src/db-journal.ts`), called two ways — see
-`docs/pm-journal-api.md`, "The three posting paths," for the full
-detail, including the `resolveStagingBusinessId`/
-`resolveStagingLedgerId`/`resolveStagedAccountId` entity-resolution
-helpers that replaced the triggers' own `COALESCE` chains. In order,
-`commitStagedEntry` still performs exactly the same eight steps the
-old triggers did, just as ordinary TypeScript, with entity resolution
-happening *before* its own `db.transaction(...)` opens rather than
-fused into the same atomic SQL statement:
+`commitStagedEntry` (`backend/src/db-journal.ts`) posts a staged entry;
+*The Journal API*, "The three posting paths", says who calls it. It
+resolves the business, ledger and account ids first
+(`resolveStagingBusinessId`, `resolveStagingLedgerId`,
+`resolveStagedAccountId`), then, in order:
 
 1. **Refuses to post nothing** — aborts if no staged rows exist for
    this reference/business/ledger.
-2. **Refuses to post into a closed period** — checks the most recent
-   `period_lock_history` row for this business/ledger; aborts if the
-   staged transaction date falls on or before the locked-through date.
+2. **Refuses to post into a closed period** — reads the business and
+   ledger's locked-through date (`getPeriodLockStatus`) and aborts if
+   the staged transaction date falls on or before it.
 3. **Refuses to post an entry that doesn't balance, per currency**
    (ordinary postings only — see below) — groups staged lines by
    account currency (an account with no explicit currency, or one that
@@ -595,8 +637,7 @@ fused into the same atomic SQL statement:
    business/ledger.
 
 All eight steps happen inside one `db.transaction(...)` call —
-atomic; there is no intermediate, half-posted state, same guarantee
-the old trigger body gave.
+atomic; there is no intermediate, half-posted state.
 
 **`postJournalEntry`** calls `commitStagedEntry` with
 `{ requireBalance: true, includeBankReference: true }` (step 3's
@@ -609,75 +650,68 @@ one product's own quantity-tracking account ("+50 bottles received"),
 not a debit-here/credit-there relationship between two accounts.
 Forcing it to sum to zero would mean inventing a fake, meaningless
 offsetting account. `commitStagedEntry` (via these two entry points)
-is still the *only* code path that ever writes to `journal`,
-`journal_line`, and `account` — enforced mechanically by
-`make check-journal-staging-only`; every posting screen ultimately
-goes through one or the other.
+is the only code in the original middleware that writes `journal` and
+`journal_line`, and the only code that changes `account.balance_minor`.
+The core middleware's one equivalent is `Store.post`
+(`backend/src/core/store.ts`), on its own database.
+`make check-journal-staging-only` fails if any other file inserts into
+`journal` or `journal_line`. An account's number, currency and overdraft
+limit are still set in place on `account` (`db.ts`, `db-reports.ts`); the
+plan in `docs/engine-single-writer-plan.md` (step 4) makes them relations.
 
-### Every other `INSTEAD OF INSERT` trigger in the schema
+### The `INSTEAD OF INSERT` views in the schema
 
-The same mechanism — an otherwise-empty view, backed by a trigger
-that does the real work — is still used throughout for everything
-*except* the financial commit step above, which moved to TypeScript:
+Every write to `entities` goes through an otherwise-empty view whose
+`INSTEAD OF INSERT` trigger appends a new version row
+(`backend/schema/00-core.sql`). None of them updates or deletes a row:
 
-| View | What its trigger does |
+| View | What its trigger appends |
 |---|---|
-| `entity_entry` | Creates a brand-new entity |
-| `entity_update` | Records a rename/reparent/relation change (append-only) |
-| `entity_delete` | Records an entity deletion |
-| `account_entry` | Sets an account's account number/currency |
-| `contact_entry` | Sets an entity's address/phone/contact-person/payment-terms fields — and a location's city/capacity/timezone and a part's description/unit/UPC/retail price too, since neither is a separate table (below) |
-| `translation_entry` | Sets a vocabulary translation |
+| `entity_entry` | A brand-new entity (name, parent, relation, creator). |
+| `entity_update` | A new version with a new name, parent or relation; the entity's `combination_ids` and `detail_json` are carried forward. Refused for an id that is not a current entity. |
+| `entity_revoke` | A new version with no relation, recording who revoked it (`revokeEntity`). |
+| `entity_set_relation` | A new version with a new `relation_id`. |
+| `entity_set_detail` | A new version with a replaced `detail_json`. |
+| `entity_merge_detail` | A new version with `json_patch` applied to `detail_json`. |
+| `entity_set_combination_ids` | A new version with a new `combination_ids` array (*The Hierarchy / Product cartesian mechanism*). |
+| `account_entry` | Inserts an `account` row by entity name, or sets its account number on conflict. |
 
-### Division, location, and part are genuinely just entities — no dedicated table
+`contact` and `contact_entry` are read-only views. `contact` gathers an
+entity's attribute facts (the `Person Name`, `Phone`, `City`,
+`Item Description` … child entities that `mergeContactDetail` writes
+through `Entity.setAttr`) into one row of columns; `contact_entry` adds
+the entity's name, and `getContact` reads it (*Core Domain Reference*,
+"Contact field storage").
 
-An entity's own append-only, self-auditing name/parent/relation record
-(`entities`) is sufficient on its own — being a division, a location,
-or a part is never a reason for a separate `CREATE TABLE`. Three
-tables (`division`, `location`, `part`) were introduced this way at
-various points in the project's history and have since been removed.
+### Division, location, and item are entities — no dedicated table
 
-**Where the data lives now:**
+Being a division, a location or an item is never a reason for a
+separate table. Their facts live in the entity tree:
 
-- A division's "kind" (cost vs. profit center): a named relationship
-  record, `Division Type — {division} → Cost Center` or `→ Profit
-  Center` — the same mechanism `Belongs To Division` already uses.
-- A location's city, shelving/floor-area capacity, and IANA timezone:
-  ordinary per-entity data on `contact` (the general-purpose table
-  every party's details already live on), never a dedicated table.
-- A location's "kind" (retail vs. warehouse) and billing-address flag:
-  named relationship records (`Location Type — {location} → Retail`/
+- A location's city, bottle and carton capacity and IANA timezone are
+  attribute facts read through the `contact` view (`city`,
+  `bottle_capacity`, `carton_capacity`, `timezone`).
+- A location's kind (retail or warehouse) and billing-address flag are
+  relationship records (`Location Type — {location} → Retail` or
   `→ Warehouse`, `Is Billing Address — {location} → Billing Address`).
-- A part's description, unit of measure, UPC, and current retail
-  price: likewise ordinary per-entity data on `contact` (prefixed
-  `part_description`, `part_unit_of_measure`, `part_upc`,
-  `part_retail_price_minor`, to avoid colliding with `contact`'s own
-  pre-existing columns).
+- An item's description, unit of measure, UPC, retail price and
+  storable flag are attribute facts read through `contact`
+  (`item_description`, `item_unit_of_measure`, `item_upc`,
+  `item_retail_price_minor`, `item_is_storable`).
+- An item's sources (manufacturer, vendor, price, package quantity,
+  preference) are `Item Source` records, read through the
+  `item_source` view (*The Stock API*, "Item sources").
+- An item's quantity at a location is the balance of its per-location
+  quantity account (*Core Domain Reference*, "Quantity-on-hand by
+  location").
+- The menu is a hierarchy under `Application` (`Menu` > `Menu Section:
+  X` > `Menu Link: X — Y`), a link's route a `setEntityLink` record,
+  `notImplemented` and `isSubheading` marker children, `requiredRoles`
+  one child per role; the display order is the creation order.
 
-**Why a named relationship record and not the entity's own
-`relation_id` directly**: an entity has only one `relation_id` slot. A
-location already uses its own `relation_id` for `Belongs To Division`,
-so a "kind" tag can't also live there without silently overwriting it.
-A separate, small marker entity sidesteps this, at the cost of one
-extra entity per tagged fact.
-
-**`part_source` remains a genuinely dedicated table** — correctly so:
-a part sourced from multiple vendors is a real many-to-many
-relationship, not 1:1 extension data one entity could hold alone.
-
-**`part_location` and `menu_section`/`menu_link`/`menu_override` did
-not belong, and have been removed** — the same class of mistake:
-a dedicated table that was also mutated in place, instead of living in
-the self-auditing entity tree. A (part, location) pair's quantity on
-hand is now a `journal_line.location_id`-tagged posting through
-`stageQuantityMovementLine`/`post_quantity_movement` — the same
-mechanism Stock Receipt already uses, genuinely append-only. The menu
-is just another hierarchy (`Menu` > `Menu Section: X` > `Menu Link: X
-— Y`), ordinary entities under `Application`, with a link's target
-route as a `setEntityLink` record, `notImplemented`/`isSubheading` as
-presence-only marker children, `requiredRoles` as one child per role,
-and `sort_order` needing no mechanism at all since `entity_id`'s own
-creation order already is the seeded display order.
+A relationship record is used instead of the entity's own
+`relation_id` because an entity has one `relation_id` slot, and a
+location's is already taken by `Belongs To Division`.
 
 ### Entity retrieval — the core functions everything else is built on
 
@@ -702,6 +736,9 @@ screen. A small handful underneath all of them are foundational:
   entity pointing at a given relation type. The generic mechanism
   behind "Place of Employment," category links, and every other
   lateral (non-hierarchical) reference in the system.
+- **`getBusinesses()`**, **`getLedgers(business)`**,
+  **`getLanguages()`** — the children of `Businesses`, of a business's
+  `Ledgers`, and of `Languages`, each with its id, in creation order.
 - **`getContact(entityName)`** — reads the shared address/phone/
   payment-terms/language fields any entity can carry, regardless of
   whether it's a customer, vendor, employee, or location.
@@ -733,7 +770,10 @@ screen. A small handful underneath all of them are foundational:
 Nearly every other `get*` function is built by composing these —
 reading an entity's tree position, its relation, and its contact
 fields, then joining against whatever additional tables
-(`journal_line`, `part`, `account`) a particular report needs.
+(`journal_line`, `account`) a particular report needs.
+
+Tests:
+- "businesses and ledgers list correctly" (`backend/test/db.test.ts`)
 
 ### `EntityDriver` / `entityDriver` — the one seam entity storage goes through
 
@@ -746,7 +786,7 @@ SQL directly any more. Every one of its methods — `create`, `get`,
 `findAll`, `findByNameContaining`, `descendantsWithDepth` — is a
 one-line delegation to `entityDriver`, an `EntityDriver`-typed instance
 exported by `backend/src/entity-driver-select.ts`. That file reads
-`ENTITY_DRIVER=sql|kaappi|memory` (default `sql`) and is the *only*
+`ENTITY_DRIVER=sql|kaappi|memory|gleam` (default `sql`) and is the *only*
 module (besides the deliberately-exempted `bench-entity-drivers.ts`/
 `bench-biwascheme.ts` benchmark scripts) permitted to import more than
 one concrete implementation:
@@ -781,6 +821,19 @@ one concrete implementation:
   journal-postings/incoming-links/ledger guards), not a pure storage
   primitive, and reimplementing all of that independently here would
   risk real drift from `db.ts`'s own logic.
+- **`GleamEntityDriver`** (`backend/src/drivers/gleam-entity-driver.ts`)
+  — backed by the storage engine (`storage_engine/`, *The Core
+  Middleware*, "The storage engine") over HTTP, reached synchronously
+  through a worker thread and `Atomics.wait` (`drivers/gleam-worker.ts`),
+  as the Kaappi driver is. Every entity call is one round trip.
+  `revoke` reparents under `Revoked` through the driver, with the
+  guards left to `revokeEntity` in `db.ts`. `resolveAncestor`,
+  `descendantsWithDepth`, `ancestorChain`, `getMany`, `findAll` and
+  `findByNameContaining` read the same file directly in SQL, through the
+  backend's own read connection (WAL lets it see the engine's commits);
+  every write goes to the engine. The backend's tutorials still fail on this driver, because
+  two programs write the one file (*The Core Middleware*, "The backend
+  on the engine").
 
 **Why this matters for anything reading this chapter**: any raw SQL
 query that joins `current_entities` to another table in the same
@@ -817,6 +870,10 @@ own entity resolution was converted for exactly this reason — see
 `combination_ids` exception or any of the self-join sites just
 described.
 
+Tests:
+- "MemoryEntityDriver: create/children/rename/reparent/relate/descendants/revoke/getMany/findAll/findByNameContaining — one flowing scenario, matching entities.sld test-indexed-lookups.scm" (`backend/test/memory-entity-driver.test.ts`)
+- "MemoryEntityDriver: a fresh instance replays the shared kaappi_wal op log and sees every prior write — the real "process restart" proof" (`backend/test/memory-entity-driver.test.ts`)
+
 ## `backend/src/db.ts` — the data model, write primitives, and the Hierarchy/Product cartesian mechanism
 
 ### The data model in one place
@@ -835,37 +892,29 @@ deleted the moment posting succeeds.
 
 There are exactly three write paths into `journal`/`journal_line`/
 `account`, each for a distinct reason:
-1. **Ordinary financial postings** (the vast majority): a staging
-   table's `INSTEAD OF INSERT` trigger copies rows into
-   `journal_entry_staging`; inserting into `post_journal_entry` fires
-   `post_journal_entry_insert`, which validates the entry balances
-   (per currency), the period is open, then writes
-   `journal`/`journal_line`, updates `account.balance_minor`, and
-   clears staging.
+1. **Ordinary financial postings** (the vast majority): the lines are
+   staged in `journal_entry_staging` and `postJournalEntry` posts them
+   through `commitStagedEntry`, balance-checked per currency.
 2. **Quantity movements** (stock received/dispatched/transferred): the
-   same staging table, but `post_quantity_movement` instead of
-   `post_journal_entry` — a quantity movement is a single line against
-   one product's tracking account, not a balanced two-sided
-   transaction, so forcing it through the balance check would require
-   inventing a fake offsetting account.
+   same staging table, posted by `commitStagedQuantityMovement` through
+   `commitStagedEntry` without the balance check, since a quantity
+   movement can be a single line against one item's tracking account.
 3. **Recurring journals**: written directly by `createRecurringJournal`,
-   never staged — recurrence is a property of the journal itself, with
-   no single moment to balance-check against; each future occurrence
-   gets its own check at read time, via the `journal_occurrences` view.
+   balance-checked per currency once, at creation;
+   `journal_occurrences` expands the stored lines into each occurrence
+   at read time, with no check of its own.
 
-A fourth, much narrower case — `confirmPickedLine`/
-`confirmRestockPickedLine` (see "Picking, packing, and dispatch"
-below) — writes a bare `journal` row with deliberately no
-`journal_line` and no account at all, since a picking-list tick-off
-has no financial or quantity meaning; it exists purely as an auditable
-"who ticked this, and when" record.
+A picking-list tick-off (`confirmPickedLine`/`confirmRestockPickedLine`)
+is not a journal entry at all: it is an entity under the business's
+`Picked Lines` (see "Picking, packing, dispatch, and restocking" in the
+domain reference).
 
 ### Entities: append-only, branded types, and the generic creation/lookup primitives
 
 Every entity write goes through `entity_entry`/`entity_update`/
 `entity_revoke`, never a raw `UPDATE`/`DELETE` — `supersedeEntity`
-closes out the current row and appends its replacement; fields not
-given are carried forward from the current row.
+appends a new version of the row; fields not given are carried
+forward from the current version.
 
 `BusinessName`, `LedgerName`, `AccountName`, `UserId`, `EntityId`, etc.
 are all branded types (`string & { __brand }` / `number & { __brand }`)
@@ -899,6 +948,13 @@ side, so a name repeated per parent (a business's own "Hierarchies")
 could only be found via a mangled, business-prefixed name or resolved
 ambiguously to whichever row a global lookup happened to return first.
 
+Tests:
+- "the bootstrap tree loads with exactly one root" (`backend/test/db.test.ts`)
+- "creating an entity by name works and rejects duplicates" (`backend/test/db.test.ts`)
+- "creating an entity with a nonexistent parent is rejected" (`backend/test/db.test.ts`)
+- "supersedeEntity can rename, reparent, and assign an account number" (`backend/test/db.test.ts`)
+- "an entity cannot be made its own parent" (`backend/test/db.test.ts`)
+
 ### The business-scoping problem, and `knownRootId`/scoped-lookup fixes throughout
 
 A recurring bug class, found and fixed repeatedly through this file: a
@@ -920,8 +976,8 @@ entity id bypass the ambiguous name resolution entirely.
 `resolveBusinessCoaAccountId(businessName, accountName)` is the shared
 helper for this — it walks one specific business's own Chart of
 Accounts subtree for a known header name ("Sales Revenue", "Cost of
-Goods Sold", "Inventory"), the same business-scoped recursive walk
-`post_journal_entry_insert`'s own trigger uses, falling back to the
+Goods Sold", "Inventory"), the same business-scoped walk
+`resolveStagedAccountId` uses, falling back to the
 old bare global lookup only for `admin` (the one legacy,
 pre-multi-tenancy business, which never got its own Chart of Accounts
 copy at all — `schema/00-core.sql`'s seeded bootstrap business).
@@ -1033,6 +1089,9 @@ preconditions (no current structural children, no live entity still
 referencing it laterally); steps (2) and (4) are domain-specific
 guards with no counterpart in the general spec.
 
+Tests:
+- "setEntityLink/getEntityLink/deleteEntityLink: a real, pure link between two entities that never touches the source entity's own relation_id, unlike setRelationship" (`backend/test/db.test.ts`)
+
 ### Departments and the Org Chart: a real, worked `setEntityLink` example
 
 Departments (`ensureDepartmentsRoot`, `createDepartment`,
@@ -1126,6 +1185,15 @@ newer `setEntityLink` mechanism — a link record is a child of the
 are structurally different record shapes, not interchangeable despite
 both ending up as "one fact about an employee."
 
+Tests:
+- "createAndConfigureDepartment: real Chart of Accounts subtree, created once, idempotent on a second call" (`backend/test/db.test.ts`)
+- "deleteDepartment: a department that has been posted to stays undeletable, a clean one deletes (and its two placeholder leaves with it)" (`backend/test/db.test.ts`)
+- "deleteDepartment: refuses while a real Employee is still assigned to it, exactly like revokeEntity's own incoming-links guard elsewhere" (`backend/test/db.test.ts`)
+- "setEmployeeDepartment/setEmployeeManager coexist independently with the employee's existing Place of Employment — neither clobbers the other, because setEntityLink (unlike setRelationship) never touches the employee's own relation_id slot" (`backend/test/db.test.ts`)
+- "setEmployeeManager: rejects a self-report and rejects closing a reporting cycle" (`backend/test/db.test.ts`)
+- "getOrgChartStructure: one aggregate read groups employees by department, with location and manager alongside, including an Unassigned bucket" (`backend/test/db.test.ts`)
+- "getOrganizationChart: the real, complete chain — Business belongs-to Group belongs-to Location, employees placed at either a real location or the business itself" (`backend/test/db.test.ts`)
+
 ### The Hierarchy / Product cartesian mechanism
 
 Per `docs/cartesian-account-linking-plan.md`, two layers:
@@ -1164,10 +1232,19 @@ genuinely have been created by a completely different mechanism that
 never set `combination_ids` at all (e.g. a location's own plain
 capacity-tracking account).
 
+`getBusinessProductShapes(business)` returns every Definition a
+business has defined, each as its ordered `[dimension, grouping]`
+chain (read by the `getProductShapes` call, `call-dispatch/hierarchy.ts`).
+
 Barcode scanning (`climbInstanceTree`, `getCombinationByUpc`) resolves
 a scanned UPC directly to its exact combination's `combination_ids`
 array, in one lookup — never requiring a cashier to manually pick each
 dimension.
+
+Tests:
+- "The real Hierarchy/Product cartesian mechanism - the full, settled, flat combination_ids design, built and verified end to end" (`backend/test/db.test.ts`)
+- "getBusinessHierarchy/getBusinessProductShapes: real, business-scoped listing functions, for the frontend to actually use this mechanism through" (`backend/test/db.test.ts`)
+- "climbInstanceTree/getCombinationByUpc: a real, scanned barcode resolves directly to its own, exact combination, climbing back up to the real Product root, per direct instruction" (`backend/test/db.test.ts`)
 
 ### Tier and location as structural leaves, not tags
 
@@ -1189,6 +1266,10 @@ themselves, since that's what `journal_line.account_id` ever points
 at), replacing the retired `journal_line.division_id` tag entirely.
 `getLocationForAccount`/`getHierarchyGroupForAccount` are the read-side
 structural replacements for that same retired tag.
+
+Tests:
+- "ensureItemTier: the confirmed product/tier/leaf design (docs/multi-dimensional-reporting.md §10) — each real tier its own, distinct, sellable item, the base product name genuinely untouched, no shared-parent corruption across multiple tiers" (`backend/test/db.test.ts`)
+- "ensureItemTierLocationLeaf: location becomes structural, the same real pattern already proven for tier — a real, new, distinct leaf per (tier, location), never re-parenting the shared tier-level item, avoiding the exact bug that broke an earlier tier-restructuring attempt" (`backend/test/db.test.ts`)
 
 ### Profit Centers
 
@@ -1216,6 +1297,10 @@ Profit Center" link — deliberately *not* via the generic
 `getHierarchyParent`/`getEntityLink`, since those resolve by a bare
 link-record name with no parent disambiguation, which is ambiguous
 here for exactly the same three-times-recurring-name reason.
+
+Tests:
+- "Profit Centers (Phase A, docs/profit-centers-design.md): a business starts with none, creating one is real and rejects a duplicate, and getProfitCenters is scoped per business" (`backend/test/db.test.ts`)
+- "Profit Centers (Phase A): Sales Revenue/COGS/Inventory leaves nest under a real, named Profit Center grouping node, directly under the exact, same shared headers — zero change at all when no profitCenter is passed" (`backend/test/db.test.ts`)
 
 ### Chart of Accounts: template vs. per-business instance
 
@@ -1252,3 +1337,8 @@ real further work (prototype copying) beyond a bare root.
 "Budget is just another ledger" — since every business genuinely
 needs both from day one, and sets the fresh Actual ledger as the
 business's starting active ledger (`setActiveLedger`).
+
+Tests:
+- "createBusiness: a brand-new business gets both a real Actual ledger AND a real Budget ledger for the financial year, immediately postable to, using the already-shared Chart of Accounts — no separate CoA setup needed" (`backend/test/db.test.ts`)
+- "createBusiness: a real, forced failure partway through genuinely rolls back everything - never a partially-created business left behind" (`backend/test/db.test.ts`)
+

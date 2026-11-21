@@ -42,20 +42,11 @@ not silently a no-op".
 
 ## The three posting paths
 
-**Updated for Stage D of
-`/root/.claude/plans/stateful-snacking-adleman.md`**: the two posting
-triggers this section used to describe —
-`post_journal_entry`/`post_journal_entry_insert` and
-`post_quantity_movement`/`post_quantity_movement_insert` — no longer
-exist in `00-core.sql` at all. Both fused entity resolution into
-financial-posting SQL inside one atomic, untestable-in-TypeScript
-trigger body; the plan's own `EntityDriver` isolation effort (moving
-entity storage behind one driver interface, so SQL isn't the only thing
-that can ever back "entities") could not tolerate that fusion, since a
-driver call may need to call out to a non-SQL backend (Kaappi today),
-which must never happen inside an open SQLite transaction. Both
-triggers' bodies now live as ordinary TypeScript in this file, as
-`commitStagedEntry` — one shared function, called two ways:
+Every posting is TypeScript, not a trigger: `commitStagedEntry`
+(`db-journal.ts`) resolves the business, ledger and account ids first,
+then writes `journal`, `journal_line` and the stored balances in one
+`db.transaction(...)`. It is called two ways, and recurring journals are
+a third path:
 
 1. **Ordinary financial postings** (the vast majority): the screen's
    transaction is cooked into `journal_entry_staging` (see "Staging"
@@ -80,8 +71,7 @@ triggers' bodies now live as ordinary TypeScript in this file, as
    through the balance check, and its own `journal_line` insert never
    carried a `bank_reference` either. `Balance.post`
    (`primitives.ts`) and `db-stock.ts`'s `postStagedQuantityMovement`
-   both call this directly now, in place of the old
-   `INSERT INTO post_quantity_movement`.
+   both call it.
 3. **Recurring journals**: `createRecurringJournal` writes directly to
    `journal`/`journal_line`, never staged at all — deliberately, not a
    gap. A recurring entry's real "balance" was never the kind of thing
@@ -97,6 +87,13 @@ triggers' bodies now live as ordinary TypeScript in this file, as
    stricter version of the same one. See `RecurringJournalLine`/
    `Recurrence`/`createRecurringJournal` below for what *was* a real
    gap here (now fixed) and what's still open.
+
+Tests:
+- "staging + posting a balanced entry works end to end and clears staging" (`backend/test/db.test.ts`)
+- "posting an unbalanced entry is rejected and leaves staging untouched" (`backend/test/db.test.ts`)
+- "an account is vivified on first post and gets a real balance" (`backend/test/db.test.ts`)
+- "journal postings record who posted them — the other half of the audit trail, alongside entities own append-only history" (`backend/test/db.test.ts`)
+- "postJournalEntry: a real multi-currency entry must balance independently per currency — the exact danger this catches: an EUR imbalance masked by an offsetting USD imbalance must never pass" (`backend/test/db.test.ts`)
 
 ### `resolveStagingBusinessId` / `resolveStagingLedgerId` /
 ### `resolveStagedAccountId` / `commitStagedEntry`
@@ -173,21 +170,19 @@ what a screen shows before the person confirms the post.
 all, by design), but its own start-date balance check used to be a
 flat sum across every line with no currency grouping, so a recurring
 entry genuinely mixing currencies could have passed as "balanced"
-while not actually balancing in either currency on its own —
-`post_journal_entry_insert` closes exactly this hole for every
-ordinary posting (00-core.sql's per-currency `GROUP BY` before it ever
-writes `journal_line`), and `createRecurringJournal` now does the same
-grouping directly, in TypeScript, before writing anything: every
+while not actually balancing in either currency on its own.
+`commitStagedEntry` checks every ordinary posting per currency, and
+`createRecurringJournal` now does the same grouping directly, in TypeScript, before writing anything: every
 referenced account is resolved and vivified first (inside the same
 transaction), each line effective at the start date is bucketed by its
-own account's real `currency` (NULL/home-currency is its own bucket,
-matching the trigger's `COALESCE(currency, '')`), and the whole write
+own account's real `currency` (NULL/home-currency is its own bucket),
+and the whole write
 is rejected — nothing inserted — the moment any one bucket doesn't sum
 to zero. `journal_occurrences` itself still performs no currency or
 balance check of its own for later occurrences — it only ever expands
-rows that already passed this check at creation time, same as an
-ordinary journal's `journal_line` rows only ever contain what already
-passed `post_journal_entry_insert`.
+rows that already passed this check at creation time, as an ordinary
+journal's `journal_line` rows only ever contain what passed
+`commitStagedEntry`.
 
 **Planned fix, not yet implemented**: the recurrence *schedule*
 (recurrence type, count, start date, template lines) should be a
@@ -203,9 +198,8 @@ into the ordinary line-entry form, then posting through the ordinary
 once this lands.
 
 The current function does vivify every referenced account that
-doesn't exist yet, the same guarantee `post_journal_entry`'s own
-trigger gives ordinary entries — performed in TypeScript here, since
-this path doesn't go through that trigger. Vivifying uses
+doesn't exist yet, the same guarantee `commitStagedEntry` gives
+ordinary entries. Vivifying uses
 `resolveBusinessCoaAccountId`, not a bare, unscoped name lookup — a
 bare lookup is only safe while `line.account` names exactly one entity
 anywhere, true only for the very first business that ever used a given
@@ -217,15 +211,33 @@ resolution used throughout `db.ts`, with its own documented global
 fallback for an account genuinely outside this business's own CoA
 mirror (AR/AP, a counterparty name).
 
+Tests:
+- "createRecurringJournal rejects an entry that does not balance at its start date" (`backend/test/db.test.ts`)
+- "createRecurringJournal vivifies any account with no BALANCE yet, same guarantee as ordinary posting" (`backend/test/db.test.ts`)
+- "a recurring journal correctly affects Trial Balance for its ledger, across all its occurrences" (`backend/test/db.test.ts`)
+- "the exact wage-increase scenario: a mid-schedule amendment applies only from its effective date onward, via the same journal_line row set — no new table, no new journal" (`backend/test/db.test.ts`)
+- "createRecurringJournal has not touched the Budget ledger — Actual and Budget stay isolated even for recurring entries, same as ordinary ones" (`backend/test/db.test.ts`)
+- "a recurring journal records who created it — every occurrence it generates shows the same poster" (`backend/test/db.test.ts`)
+- "createRecurringJournal now rejects a start-date entry that is balanced in flat total but NOT balanced within either real currency — the exact gap docs/pm-journal-api.md used to document as open" (`backend/test/db.test.ts`)
+
 ## AR/AP entry screens — the shared shape
 
 AR Receipt and AP Payment are cooked into their two general journal lines
 when staged (see "Staging"), and posted by `postJournalEntry`.
 
-`stageARSale`/`postARSale` and `stageAPPurchase`/`postAPPurchase` no
-longer exist (see the canned-journal-to-frontend design): nothing called
-them. The canned journal logic for Cash Purchase, Cash Sale and POS Sale
-lives in `db.ts` (`completeCashPurchase`, `completePosSale`).
+An invoiced sale or purchase is an invoice (`createInvoice`, then
+`postInvoiceById`; *Core Domain Reference*, "Invoices"). The canned
+journal logic for Cash Purchase, Cash Sale and POS Sale lives in
+`db.ts` (`completeCashPurchase`, `completePosSale`).
+
+Tests:
+- "a realistic set of transactions — cash purchase, cash sale, AR sale, a receipt against it, AP purchase, a payment against it — all post correctly and the full chain (balances, trial balance, balance sheet, P&L) reflects every one of them" (`backend/test/db.test.ts`)
+- "AR Sale form: staging and posting creates the correct Debit AR / Credit Sales Revenue entry" (`backend/test/db.test.ts`)
+- "AR Receipt form: staging and posting creates the correct Debit Cash / Credit AR entry, reducing the customer balance" (`backend/test/db.test.ts`)
+- "AP Purchase form: staging and posting creates the correct Debit expense/asset / Credit AP entry" (`backend/test/db.test.ts`)
+- "AP Payment form: staging and posting creates the correct Debit AP / Credit Cash entry, reducing the vendor balance" (`backend/test/db.test.ts`)
+- "AR Sale with tax: customer owes amount+tax, tax posts to Sales Tax Payable, everything balances" (`backend/test/db.test.ts`)
+- "AP Purchase with tax: Purchases Tax Claimed is debited, vendor is owed amount+tax, everything balances" (`backend/test/db.test.ts`)
 
 ## `ensureLocationScopedAccount`
 
@@ -242,12 +254,21 @@ fulfils the order, moves the quantity, and posts the monetary side
 through `postJournalEntry`. Then it drops the form. A Purchase Order's
 `location` is delivery instructions, not a per-line detail.
 
+Tests:
+- "complete end-to-end lifecycle: purchase order -> receipt -> sales order -> dispatch/invoice -> cash collected -> vendor paid, every account balance verified at each step" (`backend/test/db.test.ts`)
+- "a partial receipt against a purchase order leaves a genuine, correctly-sized back order" (`backend/test/db.test.ts`)
+- "a real Purchase Order still knows its real vendor and item after posting — carried by its own real journal entry, no per-order entity of any kind" (`backend/test/db.test.ts`)
+- "the four real entry screens: PO -> receipt -> SO -> dispatch, using the actual staging/post functions a person would use, not just the underlying primitives" (`backend/test/db.test.ts`)
+
 ## Employee project-clock functions
 
 `clockInToProject` / `clockOutOfProject` /
 `getOpenProjectClockForEmployee` — which employee is clocked into
 which project, posting the running labor cost against that project's
 expense account as time passes.
+
+Tests:
+- "clockInToProject/clockOutOfProject and clockPlantIn/clockPlantOut: a real project expense account whose own name contains " — " (provisionProjectProfitCenter's own `${projectName} — Labour & Plant` naming) round-trips correctly — a real, found-and-fixed bug: the clock entity's own name encodes po_reference/account/clockedInAt positionally, separated by the same " — ", and a naive 4-way split silently misparsed clockedInAt as a fragment of the account's own name once the account name carried its own " — "" (`backend/test/db.test.ts`)
 
 ## Period-lock functions
 
@@ -263,11 +284,18 @@ level, the same way every other ledger-scoped query in this file does
 (`getLedgerDateRange`, `getJournalEntry`, `reverseJournalEntry`); a
 lookup that skips it will never find the ledger at all.
 
+Tests:
+- "closing a period rejects normal posting into it, and reopening lifts that immediately for a correction" (`backend/test/db.test.ts`)
+- "quantity movements and recurring journal start dates are also protected by a closed period, not just ordinary posting" (`backend/test/db.test.ts`)
+
 ## `removeStagedLine`
 
 Removes one staged line by reference/business/ledger/account — used
 when a person changes their mind about one line before posting the
 rest.
+
+Tests:
+- "removeStagedLine removes exactly one line" (`backend/test/db.test.ts`)
 
 ## `JournalSummary` / `listJournalEntries` / `countJournalEntries` / `JournalDetail` / `getJournalEntry`
 
@@ -282,6 +310,11 @@ dollar figure divided by 100 — this field (`null` meaning the
 business's home currency) tells the caller which formatting applies.
 One journal entry spanning more than one currency produces one row
 per currency here, never a single, blended total.
+
+Tests:
+- "getJournalEntry returns full line detail with account numbers" (`backend/test/db.test.ts`)
+- "a recurring journal expands into the correct number of occurrences, each showing in listJournalEntries" (`backend/test/db.test.ts`)
+- "getLedgerDateRange: reports the real, earliest and latest transdate of what has actually been posted" (`backend/test/db.test.ts`)
 
 ## `reverseJournalEntry`
 
@@ -302,14 +335,23 @@ Posts a balanced, opposite entry against the original, then marks it
    **new reversal row**, pointing back at the **original**'s
    `journal.id`.
 
+Tests:
+- "reversing a posted entry creates a new entry with every line negated, and the net effect on balances is exactly zero" (`backend/test/db.test.ts`)
+- "reversing a nonexistent occurrence is rejected clearly" (`backend/test/db.test.ts`)
+- "reversing the same occurrence twice is rejected clearly — the real bug this prevents silently corrupted journal_line by attaching a second reversals lines to the first one, since the reversal reference is deterministic" (`backend/test/db.test.ts`)
+- "reverseJournalEntry: a real year-end close, with activity spread across multiple real divisions rolling into one, single, combined Retained Earnings line, must reverse cleanly and balance to zero" (`backend/test/db.test.ts`)
+
 ## `recordInvoiceLine`
 
-Exported from `backend/src/db.ts` so `db-journal.ts`'s own
-`postARSale`/`postAPPurchase` can call it after a successful post —
-records one line of narrative detail (description, quantity, unit
-price, amount, tax) against the underlying invoice these two screens
-create, so it shows the same line detail as one built through the
-dedicated Invoices screen.
+Exported from `backend/src/db.ts`; `postOrderReceipt` and
+`postOrderDispatch` (`db-journal.ts`) call it after a successful post.
+It records one line of narrative detail (description, quantity, unit
+price, amount, tax) under `Invoice Lines`, keyed by business, ledger
+and reference, which `getInvoiceLine` reads back for printing.
+
+Tests:
+- "invoice_line records genuinely per-line tax, never assumed uniform — one line exempt, another at a different rate entirely" (`backend/test/db.test.ts`)
+- "an ordinary General Journal posting records no invoice_line at all — it has no invoice concept" (`backend/test/db.test.ts`)
 
 ## `stageLocation` / `postLocation`
 
@@ -335,6 +377,9 @@ targets itself is the already-supported case for exactly this (a
 business genuinely does not have to have any groups at all). Setting
 it here too keeps a location created through this screen just as
 reachable from Business Setup as one created directly through it.
+
+Tests:
+- "stageLocation/postLocation: the location form is held as a staged form - the location, and its own balanced capacity accounts, only appear once posted, never at stage time" (`backend/test/db.test.ts`)
 
 ## Quotations (AR) and RFQs (AP) — `backend/src/db-quotations.ts`
 
@@ -394,50 +439,37 @@ existing, generic `Entity.setAttr`/`getAttr` primitives
   `Status: 'rejected'`. Refuses an already-`accepted`/`rejected`/
   `expired` quote.
 
-Routes: `backend/src/routes/quotations.ts`, mounted at
-`/api/quotations` (`requireAuth` + `requireRole('Administrator',
-'Bookkeeper')`, same gate as `/api/arap` and `/api/stock`). Frontend:
-`frontend/src/routes/arap/quotations/+page.svelte` (AR) and
-`frontend/src/routes/arap/rfq/+page.svelte` (AP) — each a drafting form
-plus a list with Mark sent/Accept/Reject actions, replacing their
-former `NotImplemented` stubs.
+Calls: `quotationsFunctions` (`call-dispatch/quotations.ts`, through
+`POST /api/call`), each behind `requireRole(user, 'Administrator',
+'Bookkeeper')`. Screens: `/arap/quotations` (AR) and `/arap/rfq` (AP, a
+variant of it), generated from `application/application.entities` with
+the `transaction` template: a drafting form plus a list with Mark sent,
+Accept and Reject actions.
 
-## Express routers — the full current mount table
+Tests:
+- "a Quotation (AR) is, from the moment it is drafted, a real future-dated journal entry and a real On Order posting — accepting it is a pure status flip, nothing new gets posted" (`backend/test/db.test.ts`)
+- "an RFQ (AP) is the same real future-dated journal entry and On Order posting, and rejecting one reverses both — never leaving a half-posted trace" (`backend/test/db.test.ts`)
 
-Every `xxxRouter` constant (`backend/src/routes/*.ts`) is a plain
-Express `Router()` instance, mounted at its own path in
-`backend/src/server.ts`:
+## The HTTP mounts (`backend/src/server.ts`)
 
-| Router | File | Mounted at | Purpose |
-|---|---|---|---|
-| `authRouter` | `auth.ts` | `/api/auth` | Login, logout, session/business selection, own-user settings — public `/login`, everything else its own, per-route `requireAuth`. |
-| `entitiesRouter` | `entities.ts` | `/api/entities` | The Entity Tree Editor's own generic create/reorder/relationship endpoints. |
-| `reportsRouter` | `reports.ts` | `/api/reports` | Trial Balance, Balance Sheet, Profit and Loss, and the other general financial reports. |
-| `matrixReportsRouter` | `matrix-reports.ts` | `/api/reports/matrix` | Sales/COGS and Stock-on-Hand matrix reports, by division/location axis. |
-| `menuRouter` | `menu.ts` | `/api/menu` | A business's own configured menu tree, with any per-role overrides applied. |
-| `i18nRouter` | `i18n.ts` | `/api/i18n` | Languages, translations, and text direction — the one public (no login) router, since the login page itself needs translated text. |
-| `businessesRouter` | `businesses.ts` | `/api/businesses` | Create/list businesses, business types, bank accounts, the Business Configuration Report. |
-| `journalRouter` | `journal.ts` | `/api/journal` | Posted Journal Entries — listing and detail. |
-| `contactsRouter` | `contacts.ts` | `/api/contacts` | Named contacts and their typed views (Vendor/Customer/Employee). |
-| `itemsRouter` | `items.ts` | `/api/items` | Sellable/stockable items, categories, vendor sources. |
-| `productsRouter` | `products.ts` | `/api/products` | Product groupings above individual items, for reporting. |
-| `invoicesRouter` | `invoices.ts` | `/api/invoices` | AR/AP invoices — creation, listing, e-invoicing (UBL) export/import. |
-| `agedRouter` | `invoices.ts` | `/api/reports/aged` | Aged Payables/Receivables. |
-| `statementRouter` | `invoices.ts` | `/api/reports/statement` | A customer/vendor's own account statement. |
-| `historyRouter` | `invoices.ts` | `/api/reports/history` | A contact's own transaction history. |
-| `remindersRouter` | `invoices.ts` | `/api/reminders` | Scheduled payment-reminder tracking. |
-| `stockLotsRouter` | `stock-lots.ts` | `/api/stock-lots` | Lot-tracked stock detail. |
-| `locationsRouter` | `locations.ts` | `/api/locations` | Locations — creation, currencies, receiving/dispatch, transfer, restocking, open hours/schedule. |
-| `belowReorderRouter` | `locations.ts` | `/api/reports/below-reorder` | Items below their own reorder point. |
-| `stockOutRiskRouter` | `locations.ts` | `/api/reports/stock-out-risk` | Items at risk of a stock-out, by projected usage. |
-| `stockListingRouter` | `locations.ts` | `/api/stock-listing` | The full Inventory Listing report. |
-| `stockTakesRouter` | `locations.ts` | `/api/stock-takes` | Physical stock-take counts and their reconciliation. |
-| `posRouter` | `pos.ts` | `/api/pos` | Point-of-Sale terminals, sign-on/off, sales. |
-| `customerRegistrationRouter` | `customer-registration.ts` | `/api/customers` | Public, self-service customer registration — no staff login required. |
-| `customerVerificationRouter` | `customer-registration.ts` | `/api/customer-verification` | Verifying a pending customer registration. |
-| `arAPRouter` | `arap.ts` | `/api/arap` | Cash Purchase/Cash Sale — the direct, one-step AR/AP posting screens. |
-| `projectsRouter` | `projects.ts` | `/api/projects` | Projects and their tasks. |
-| `stockRouter` | `stock.ts` | `/api/stock` | Stock receipts, write-offs, expiration tracking. |
-| `invoiceRouter` | `invoice.ts` | `/api/invoice` | A single invoice's own outstanding balance. |
-| `periodRouter` | `period.ts` | `/api/period` | Financial-period/year-end configuration. |
-| `hierarchyRouter` | `hierarchy.ts` | `/api/hierarchy` | A business's own named Hierarchies (e.g. Division/Category) and their groups, plus Vocabulary. |
+The backend mounts four things, and nothing else:
+
+| Mount | Router | Purpose |
+|---|---|---|
+| `GET /api/health` | (inline in `server.ts`) | `{ ok, appVersion, dbVersion }`: the `VERSION` file and `db_version.version`. |
+| `POST /api/call` | `callRouter` (`routes/call.ts`) | The ASCII-CSV call protocol. The first body line is `name,value1,value2,...`; every further line is one line item. `callBackendFunction` (`call-dispatch.ts`) looks the name up in `BACKEND_FUNCTIONS`, which merges the per-domain tables in `call-dispatch/*.ts` (`arapFunctions`, `authFunctions`, `businessesFunctions`, `contactsFunctions`, `customerRegistrationFunctions`, `departmentsFunctions`, `entitiesFunctions`, `hierarchyFunctions`, `i18nFunctions`, `invoicesFunctions`, `itemsFunctions`, `journalFunctions`, `locationsFunctions`, `matrixReportsFunctions`, `menuFunctions`, `periodFunctions`, `plantFunctions`, `posFunctions`, `productsFunctions`, `projectsFunctions`, `prototypesFunctions`, `quotationsFunctions`, `reportsFunctions`, `stockFunctions`, `stockLotsFunctions`). An unknown name is a 404, never evaluated. The mount itself is public; each function that needs a user calls `requireAuth`, `requireRole` or `requireGlobalRole` itself. Started with `MIDDLEWARE=core`, this mount serves the core middleware's `coreCallRouter` instead. |
+| `POST /api/core/call` | `coreCallRouter` (`routes/core-call.ts`) | The core middleware's frontend API, always (*The Core Middleware*). |
+| `/api/recording` | `recordingRouter` (`routes/recording.ts`), behind `requireAuth` | `GET /api/recording` answers `{ recording: isRecording(user) }`; `POST /api/recording/start` calls `startRecording`; `POST /api/recording/stop` calls `stopRecording`, which writes the recorded calls out (*Testing*, "The Admin recording feature"). |
+
+A response is `ok,value1,...` (one line, a `row`) or `ok`, a header line and one line per record (a `table`); an error is `error,message` with the HTTP status (401, 403, 404, 409, 500). Values inside one field that are themselves lists, pairs or trees are packed with the `call-dispatch.ts` codecs, each the inverse of the other:
+
+- `encodeStringList`/`decodeStringList`: a list of strings as one CSV line.
+- `encodeShape`/`decodeShape`: a Hierarchy/Product shape, a list of `[name, relation]` pairs, flattened.
+- `encodeRecordList`/`decodeRecordList`: a list of records, each an encoded string list of the named fields.
+- `encodeCategoryTree`/`decodeCategoryTree`: a financial-statement tree (name, account number, leaf, debit, credit, contra, children), recursively.
+- `encodeGenericTree`/`decodeGenericTree`: a cube tree (name, account id, own and total amounts by key, children), recursively.
+- `encodeProfitAndLoss` (`call-dispatch/reports.ts`): a Profit and Loss report as one row, its income and expense trees encoded with `encodeCategoryTree`.
+
+Tests:
+- "callRouter: a call to an unknown function is a 404, never evaluated" (`backend/test/call-dispatch.test.ts`)
+- "the call-dispatch codecs: every decode is the exact inverse of its encode, including commas, quotes and empty values" (`backend/test/call-dispatch.test.ts`)

@@ -20,19 +20,9 @@ if (!fs.existsSync(manualPath)) {
 }
 let manual = fs.readFileSync(manualPath, 'utf-8');
 manual = manual.replace(/<!-- generated:start -->[\s\S]*?<!-- generated:end -->/g, '');
-// A real, honest fix: the baseline document itself lists every known-
-// undocumented name, by name - if searched as-is, every one of those
-// names would appear to "pass" simply by being listed as undocumented,
-// which is the opposite of real documentation. Excise that one real
-// section's own text (up to, but not including, whatever real chapter
-// heading comes next) from the search before checking anything.
-const baselineMarker = '# Documentation Coverage Baseline';
-const baselineStart = manual.indexOf(baselineMarker);
-if (baselineStart !== -1) {
-  const afterMarker = manual.indexOf('\n# ', baselineStart + baselineMarker.length);
-  const baselineEnd = afterMarker === -1 ? manual.length : afterMarker;
-  manual = manual.slice(0, baselineStart) + manual.slice(baselineEnd);
-}
+// A test title in a "Tests:" list is not an explanation: a name that is
+// mentioned only there is not documented.
+manual = manual.split('\n').filter((line) => !/^- "[^"]*" \(`[^`]+`\)\s*$/.test(line)).join('\n');
 
 function findFiles(dir: string, ext: string, out: string[] = []): string[] {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -69,53 +59,24 @@ for (const file of findFiles(routesDir, '.svelte')) {
   frontendRoutes.add(route);
 }
 
-function checkCoverage(label: string, names: Set<string>, baseline: Set<string>): { newlyMissing: string[]; stillBaselined: string[] } {
-  const newlyMissing: string[] = [];
-  const stillBaselined: string[] = [];
-  for (const name of names) {
-    if (!manual.includes(name)) {
-      if (baseline.has(name)) stillBaselined.push(name);
-      else newlyMissing.push(name);
-    }
+function checkCoverage(label: string, names: Set<string>): string[] {
+  const missing = [...names].filter((name) => !manual.includes(name)).sort();
+  if (missing.length > 0) {
+    console.error(`\n❌ ${label}: ${missing.length} name(s) the Programmer's Manual never mentions:`);
+    for (const m of missing) console.error(`   - ${m}`);
+  } else {
+    console.log(`✅ ${label}: all ${names.size} names are in the manual.`);
   }
-  if (newlyMissing.length > 0) {
-    console.error(`\n❌ ${label}: ${newlyMissing.length} real, NEW, undocumented names (not in the known baseline):`);
-    for (const m of newlyMissing) console.error(`   - ${m}`);
-  }
-  if (stillBaselined.length > 0) {
-    console.log(`⚠️  ${label}: ${stillBaselined.length} real, already-known gaps still open (see docs/documentation-coverage-baseline.md) - not blocking, but not forgotten.`);
-  }
-  if (newlyMissing.length === 0 && stillBaselined.length === 0) {
-    console.log(`✅ ${label}: all ${names.size} real names mentioned in the manual.`);
-  }
-  return { newlyMissing, stillBaselined };
+  return missing;
 }
 
-// A real, honest ratchet, per documentation-coverage-enforcement's own
-// stated scope: this project had 149 real, pre-existing gaps the
-// first time this check was run - fixing all of them before this
-// check could exist at all was not realistic. The baseline lists
-// those known gaps explicitly, by name, in a real, tracked file - this
-// check enforces zero NEW gaps from this point forward, and the
-// baseline is expected to shrink over time as real, separate
-// documentation work closes each one, never to grow.
-const baselinePath = path.join(root, 'docs', 'documentation-coverage-baseline.md');
-const baselineNames = new Set<string>();
-if (fs.existsSync(baselinePath)) {
-  for (const line of fs.readFileSync(baselinePath, 'utf-8').split('\n')) {
-    const m = line.match(/^- `([^`]+)`/);
-    if (m) baselineNames.add(m[1]);
-  }
-}
-
-const fnResult = checkCoverage('Backend exported functions/consts', backendFunctions, baselineNames);
-const targetResult = checkCoverage('Makefile targets', makefileTargets, baselineNames);
-const routeResult = checkCoverage('Frontend routes', frontendRoutes, baselineNames);
-
-const totalNew = fnResult.newlyMissing.length + targetResult.newlyMissing.length + routeResult.newlyMissing.length;
-if (totalNew > 0) {
-  console.error(`\n❌ ${totalNew} real, NEW, undocumented names found — document them, or add them to docs/documentation-coverage-baseline.md only if this is a real, deliberate, temporary gap.`);
+const missing = [
+  ...checkCoverage('Backend exported functions/consts', backendFunctions),
+  ...checkCoverage('Makefile targets', makefileTargets),
+  ...checkCoverage('Frontend routes', frontendRoutes),
+];
+if (missing.length > 0) {
+  console.error(`\n❌ ${missing.length} undocumented name(s): describe each in the chapter that covers it, or remove the code.`);
   process.exit(1);
 }
-const totalBaselined = fnResult.stillBaselined.length + targetResult.stillBaselined.length + routeResult.stillBaselined.length;
-console.log(`\n✅ Real documentation coverage check passed — zero new, undocumented names (${totalBaselined} real, pre-existing, tracked gaps remain open).`);
+console.log('\n✅ Documentation coverage check passed: every exported backend name, Makefile target and route is in the manual.');

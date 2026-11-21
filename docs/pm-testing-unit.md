@@ -57,8 +57,11 @@ double-entry design:
 make test
 ```
 
-Runs the backend (`cd backend && npm test`, Node's own built-in test
-runner) and frontend (`cd frontend && npm test`) suites. Fast (a few
+Runs the backend (`backend/test/*.test.ts` and the step runner's
+tests, Node's own built-in test runner) and frontend
+(`frontend/test/*.test.ts`) suites, then `make check-manual`, which
+fails when the Programmer's Manual and the code disagree (*Build, Run
+& Tooling*, "Gates"). Fast (a few
 seconds), exercises individual functions against small, synthetic
 scenarios constructed to prove one thing at a time — e.g. "a
 multi-currency entry must balance independently per currency," or

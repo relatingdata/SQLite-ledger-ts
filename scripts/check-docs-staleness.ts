@@ -27,6 +27,7 @@
 //    of a route that was deleted in the ASCII-CSV migration.
 //
 // Run via `make check-docs-staleness`.
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,9 +35,12 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const docsDir = path.join(root, 'docs');
 
+// Every hand-written chapter of the Programmer's Manual: the pm-*.md files
+// and the storage model specification (function-inventory.md and
+// screens-inventory.md are generated from the code).
 const chapters = fs
   .readdirSync(docsDir)
-  .filter((f) => f.startsWith('pm-') && f.endsWith('.md'));
+  .filter((f) => (f.startsWith('pm-') && f.endsWith('.md')) || f === 'storage-model-specification.md');
 
 let failures = 0;
 
@@ -64,26 +68,27 @@ function indexSourceFiles(dir: string): void {
     if (SKIP_DIRS.has(entry.name)) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) indexSourceFiles(full);
-    else if (SOURCE_EXTS.has(path.extname(entry.name))) basenameIndex.add(entry.name);
+    else if (SOURCE_EXTS.has(path.extname(entry.name))) {
+      basenameIndex.add(entry.name);
+      pathIndex.push(path.relative(root, full).split(path.sep).join('/'));
+    }
   }
 }
+const pathIndex: string[] = [];
 indexSourceFiles(root);
 
 const pathPattern = /`([\w./-]+\.(?:ts|svelte|sql|scm|sld))`/g;
-// Deliberate, confirmed exceptions — each is a path mentioned on
-// purpose because it USED to exist and was removed (prose like "a
-// prior `tui/test/smoke.test.ts` ... was removed"), not a stale claim
-// that it still exists. Grows only when a real case like this is found
-// and confirmed, never to silence a genuine dangling reference.
-const deliberateHistoricalRefs = new Set<string>(['tui/test/smoke.test.ts']);
+
 
 for (const chapter of chapters) {
   const content = fs.readFileSync(path.join(docsDir, chapter), 'utf-8');
   for (const m of content.matchAll(pathPattern)) {
     const ref = m[1];
-    if (deliberateHistoricalRefs.has(ref)) continue;
     const base = path.basename(ref);
-    if (basenameIndex.has(base)) continue; // exists somewhere real, under some path
+    // A path with a directory must name a real file: the whole path from the
+    // repository root, or its tail (`call-dispatch/pos.ts`); a bare file
+    // name must exist under some path.
+    if (ref.includes('/') ? pathIndex.some((p) => p === ref || p.endsWith('/' + ref)) : basenameIndex.has(base)) continue;
     console.error(`❌ ${chapter}: references \`${ref}\`, which does not exist anywhere in the real source tree (checked by basename, not just the exact path).`);
     failures++;
   }
@@ -115,8 +120,51 @@ for (const chapter of chapters) {
   }
 }
 
+// --- Check 3: code names that exist nowhere in the code ---------------
+// Every backtick-quoted span is split into words; every word shaped like a
+// code name (camelCase, PascalCase with two capitals, or snake_case) must
+// occur in some tracked source file, or be the name of one. So the manual
+// cannot describe a function, type, table, column or field that the code
+// does not have.
+const tracked = execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf-8' }).split('\n').filter(Boolean);
+const codeWords = new Set<string>();
+for (const file of tracked) {
+  if (file.startsWith('docs/') || !/\.(ts|svelte|gleam|lfe|sql|js|mjs|cjs|csv|entities|erl|sh|json|scm|sld|toml|yml|yaml)$|(^|\/)Makefile$/.test(file)) continue;
+  codeWords.add(path.basename(file).replace(/\.[^.]+$/, ''));
+  codeWords.add(path.basename(file).replace(/\..*$/, ''));
+  let text: string;
+  try { text = fs.readFileSync(path.join(root, file), 'utf-8'); } catch { continue; }
+  // Comments do not count: a name that survives only in a comment is not
+  // in the code.
+  const ext = path.extname(file);
+  if (['.ts', '.svelte', '.js', '.mjs', '.cjs', '.gleam', '.sql', '.erl', '.lfe'].includes(ext)) {
+    text = text.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/<!--[\s\S]*?-->/g, ' ');
+    text = text.replace(ext === '.sql' ? /--.*$/gm : ext === '.erl' || ext === '.lfe' ? /[%;].*$/gm : /(^|[^:'"`])\/\/.*$/gm, '$1');
+  } else if (file.endsWith('Makefile') || ext === '.sh' || ext === '.toml' || ext === '.yml' || ext === '.yaml') {
+    text = text.replace(/(^|\s)#.*$/gm, '$1');
+  }
+  for (const w of text.match(/[A-Za-z_][A-Za-z0-9_]*/g) ?? []) codeWords.add(w);
+}
+// Names of things outside this repository that the manual mentions.
+// DatabaseSync (node:sqlite), hooksPath (git config), NumberFormat (Intl),
+// state_referenced_locally (a Svelte compiler warning).
+const externalNames = new Set(['DatabaseSync', 'hooksPath', 'NumberFormat', 'state_referenced_locally']);
+const codeShaped = (w: string) => /^[a-z][a-z0-9]*[A-Z][A-Za-z0-9]*$/.test(w) || /^[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]*)+$/.test(w) || /^[a-z][a-z0-9]*(?:_[a-z0-9]+)+$/.test(w);
+for (const chapter of chapters) {
+  const lines = fs.readFileSync(path.join(docsDir, chapter), 'utf-8').split('\n');
+  lines.forEach((line, i) => {
+    for (const [, span] of line.matchAll(/`([^`\n]+)`/g)) {
+      for (const w of span.match(/[A-Za-z_][A-Za-z0-9_]*/g) ?? []) {
+        if (!codeShaped(w) || codeWords.has(w) || externalNames.has(w)) continue;
+        console.error(`❌ ${chapter}:${i + 1}: names \`${w}\`, which occurs in no tracked source file.`);
+        failures++;
+      }
+    }
+  });
+}
+
 if (failures > 0) {
   console.error(`\n❌ ${failures} real, stale reference(s) found in the Programmer's Manual's source chapters. Fix the doc, or if this is a deliberate historical reference (e.g. docs/old/historical-manual.md, which this check does not scan), leave it there instead.`);
   process.exit(1);
 }
-console.log(`✅ Real documentation staleness check passed — zero dangling file-path or dead-route references across ${chapters.length} pm-*.md chapters.`);
+console.log(`✅ Real documentation staleness check passed — zero dangling file-path, dead-route or unknown code-name references across ${chapters.length} pm-*.md chapters.`);

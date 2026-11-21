@@ -495,18 +495,6 @@ export function getLedgerBalancesByHierarchyStructural(
   return result;
 }
 
-const LOCATION_HIERARCHY_PATH = ['Location'];
-
-export function getLedgerBalancesByLocationStructural(
-  businessName: BusinessName,
-  ledgerName: LedgerName,
-  fromDate?: string,
-  toDate?: string,
-  excludeCloseEntries = false
-): Map<number, Map<string | null, number>> {
-  return getLedgerBalancesByHierarchyStructural(businessName, ledgerName, LOCATION_HIERARCHY_PATH, fromDate, toDate, excludeCloseEntries);
-}
-
 export function getLedgerBalances(businessName: BusinessName, ledgerName: LedgerName, fromDate?: string, toDate?: string, excludeCloseEntries = false): Map<number, number> {
   const ledgerId = resolveLedgerEntityId(businessName, ledgerName) ?? -1;
   const accountIds = [...allAccountIds()];

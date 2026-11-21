@@ -10,7 +10,7 @@
 | `make dev-no-demo` | The same, with `SEED_DEMO_BUSINESSES=false` — only the one, dummy "My Business," no Wine Retail/BMW/Peugeot/Ditta/Schweizer demo data |
 | `make web-frontend` | The real, browser (SvelteKit) frontend alone — `make frontend` stays as a working alias to it, for old muscle memory |
 | `make text-frontend` | The real, Ink-based terminal frontend (`tui/`) alone — a second, real client of the exact same backend API; needs its own real terminal, so never bundled into `dev`/`dev-verbose` the way backend+web are paired there. See `docs/tui-design.md`. |
-| `make test` | Backend unit tests (Node's built-in test runner) + frontend tests — see the Testing: Unit chapter |
+| `make test` | Backend unit tests (Node's built-in test runner) + frontend tests — see the Testing: Unit chapter — then `make check-manual` ("Gates", below) |
 | `make test-e2e` / `make demo-full-year` | Full/volume simulation and full-year data generation — see the Testing: E2E chapter |
 | `make test-e2e-tutorials` | The Retail, Manufacturing and Project Builder fixtures on the API path. `MIDDLEWARE=core` (the default) sends every step through the core middleware's frontend API in-process; `MIDDLEWARE=legacy` runs them on the original middleware. See "The Core Middleware" |
 | `make test-e2e-tutorials-http` | The same three fixtures on the core, over real HTTP: starts the backend with `MIDDLEWARE=core` on `CORE_HTTP_PORT` (default 3101), runs the step runner with `STEP_RUNNER_API_URL`, stops the server |
@@ -18,13 +18,40 @@
 | `make test-e2e-tutorial-text` | The real, CSV-driven tutorial fixture, driven through the terminal frontend via `@microsoft/tui-test` — see "Testing the terminal frontend" below |
 | `make check-db-consistency` | The consistency check alone, on whatever database currently exists — balanced entries, no orphaned references, referential integrity |
 | `make reset-db` | Deletes the SQLite database files, the core middleware's `backend/data/core.sqlite` included; the original reinitializes from `backend/schema/*.sql` on the next backend start, the core installs itself on first open |
-| `make verify-fresh` | Resets the database, confirms it loads cleanly, then runs the full backend test suite plus every mechanical gate (see "Gates," below) |
+| `make verify-fresh` | Resets the database, confirms it loads cleanly, then runs `make test` (the unit tests and every gate, see "Gates," below) |
 | `make manual` / `make programmer-manual` / `make historical-manual` | Builds the User Manual / this Programmer's Manual / the Historical Design & Decision Log, each from its own source chapters via pandoc + xelatex |
 | `make tutorial-section-user-manual` / `make tutorial-section-user-manual-tui` | The User Manual's Chapter 3 tutorial, standalone — the web edition (real browser screenshots, via `test-e2e-tutorial-browser`) and the TUI edition (real terminal-text transcripts, via `test-e2e-tutorial` + `backend/scripts/capture-tui-transcripts.ts`) — each built to its own PDF |
 | `make tutorial-section-user-manual-manufacturing-tui` | Chapter 4's own TUI sibling — the Manufacturing tutorial's own real terminal-text transcripts (via `test-e2e-manufacturing-tutorial` + `backend/scripts/capture-manufacturing-tui-transcripts.ts`), built to its own PDF |
 | `make screens-inventory` | Regenerates `docs/screens-inventory.md` from the live frontend route tree |
 | `make function-inventory` / `make check-function-inventory` | Regenerates / checks `docs/function-inventory.md` against the live backend source |
 | `make servers-status` / `make ensure-servers` / `make stop-servers` | Dev-server lifecycle management, see below |
+
+### Analysis, generation and one-off targets
+
+| Target | What it does |
+|---|---|
+| `make backend-verbose` | The backend alone, with `DB_VERBOSE=1`. |
+| `make test-one TEST=…` | Only the backend tests whose title contains `TEST`. The tests share one database, so a test that fails alone may need the whole file. |
+| `make sim-golden` / `make check-sim-unchanged` | Record the simulation's PASS/FAIL lines in `backend/test/golden/simulation-results.txt`, and compare a fresh run against them, before and after a rename. |
+| `make load-translations-api` / `make load-translations-ui` | Reset the database and load every translation in `shared-fixtures/translations-steps.csv` through the step runner, on the API path or through the browser. |
+| `make add-menu-translations`, `add-journal-translations`, `add-journal-remaining-translations`, `add-header-translations`, `add-brand-translation` | Run the `shared-fixtures/add-*.ts` scripts that add those translations to the current database. |
+| `make list-menu-labels` | Lists every menu label (`backend/scripts/list-menu-labels.ts`). |
+| `make entity-tree-svg` / `make entity-tree-sample-svg` | Draw the whole entity tree, or a sample of it (`SAMPLE`, `BUSINESS`, `MAXDEPTH`), as SVG with graphviz. |
+| `make manual-diagrams` | Render every `docs/diagrams/*.mmd` to SVG with `mmdc`. |
+| `make call-graph` | Every exported backend function and how often it is called (`scripts/call-graph.ts`). |
+| `make svelte-call-trace` | Which backend calls each screen makes, on load or on interaction (`scripts/svelte-call-trace.ts`). |
+| `make role-routes-matrix` | Writes `docs/role-routes-matrix.md` from every role check. |
+| `make find-symbols PATTERN=…` | Declarations, SQL objects, screens and manual headings whose name matches. |
+| `make find-uses NAMES=a,b` or `PATTERN=…` | How many lines and files reference those names, by area: the reach of a rename. |
+| `make explain-function NAME=…` | Every reference the compiler found for one function, behind its function-inventory entry. |
+| `make rename-identifiers MAP=renames/….txt` | Applies a rename map by whole-word replacement; refuses a new name that already exists; `DRY=1` previews. |
+| `make comment-out-functions FILE=… NAMES=…` | Comments out named unreferenced functions, with a marker pointing at `docs/unused-functions.md`; `DRY=1` previews. |
+| `make measure-comments` / `make show-comments FILE=…` | Count code comments per file and how many point at the manual; list one file's comment lines. |
+| `make strip-comments FILE=… DOC=…` | Removes a file's whole-line comments once its explanation is in the named chapter, checking the code is unchanged; `DRY=1` previews. |
+| `make analyze-classification` | Writes `docs/classification-neutrality-analysis.md`: where the code treats one suggested hierarchy specially. |
+| `make analyze-vocabulary` | Writes `docs/naming-vocabulary-analysis.md`: which words the code uses per concept. |
+| `make check-node-refs` | Lists every `node` in the Makefile, to catch a script run that ignores `RUNTIME`. |
+| `make check-test-docs` | Fails when a test's title is not in the manual (below). |
 
 ## Backend and frontend tests
 
@@ -55,9 +82,8 @@ live network traffic looked like at that moment.
 
 ## Testing the terminal frontend — `@microsoft/tui-test`
 
-There is no separate, hand-written test file for the terminal frontend
-any more (a prior `tui/test/smoke.test.ts`, with its own per-screen
-hardcoded sequences, was removed). `backend/scripts/step-runner.ts`'s
+There is no separate, hand-written test file for the terminal
+frontend. `backend/scripts/step-runner.ts`'s
 `--path text` drives the real Ink terminal frontend the same way
 `--path ui` drives the real browser one above — a genuine
 terminal-emulator engine (`@microsoft/tui-test`), not a mock — and,
@@ -157,49 +183,73 @@ the already-running backend's own environment
 can't be confirmed, stops and restarts the backend rather than risk
 running a no-demo test against a wrongly-seeded one.
 
-## Gates: `make verify-fresh` and the mechanical checks
+## Gates: the manual and the code may not differ
 
-`verify-fresh` runs its independent, mechanical gates in a loop,
-reporting each failure by name, rather than stopping at the first
-failing line — so one known-red gate never silently hides every gate
-wired in after it.
+`make check-manual` runs every gate below and reports each failure by
+name, so one failing gate never hides another. It runs in three places,
+so a difference between the Programmer's Manual and the code cannot be
+committed, pushed or merged unnoticed:
+
+- at the end of `make test` (and so of `make verify-fresh`);
+- before every commit, in `githooks/pre-commit`, which `make install`
+  enables (`git config core.hooksPath githooks`);
+- on every push and pull request, in `.github/workflows/check.yml`
+  (`make install`, `make test`, `make test-storage-engine`).
+
+None of them has a baseline or an exception list: each gate passes only
+when the manual and the code agree.
 
 | Gate | What it enforces |
 |---|---|
-| `check-backend-types` | `tsc --noEmit` against `backend/src` and `../shared-fixtures` only — does **not** cover `backend/test/` or `backend/scripts/`, which only ever run through `tsx` (types stripped, never checked) |
-| `check-unused` | `noUnusedLocals` (`TS6133` only) over `backend/src/`, `backend/test/`, and the step runner, via `backend/tsconfig.unused.json` — deliberately separate from `check-backend-types`, which is red from older, unrelated errors and can't gate anything while it stays red. A name prefixed `_` is exempt by TypeScript design and never reported by this gate. |
-| `check-e2e-types` | The same `tsc --noEmit` check, against the Playwright suite |
-| `check-frontend` | `svelte-check` across every `.svelte` file |
-| `check-schema-table-count` | A pure, mechanical count of every `CREATE TABLE` across every `.sql` file in the project — fails unless the permanent (non-staging) count is exactly 4, matching `entities`, `account`, `journal`, `journal_line` by name. Staging tables are counted and reported separately. Unbypassable, wired into `verify-fresh`. |
-| `check-no-python` | No `.py` file, and no build file that invokes python |
-| `check-docs-coverage` | Rebuilds the Programmer's Manual, then checks every tracked name is genuinely documented |
-| `check-docs-staleness` | The coverage check's counterpart — not "is everything mentioned" but "is everything mentioned still true." Flags any `docs/pm-*.md` reference to a file that doesn't exist anywhere in the real source tree (checked by basename), or to an HTTP route other than the app's real, current mounts (`/api/call`/`/api/core/call`/`/api/health`/`/api/recording`). Also wired into a tracked, project-local pre-commit hook (`githooks/pre-commit`, enabled via `git config core.hooksPath githooks` — see the README) so a commit touching `backend/src/` or `docs/pm-*.md` can't silently leave the manual pointing at something that no longer exists. |
-| `check-db-consistency` | See above |
+| `check-docs-coverage` | Every exported backend function and constant, Makefile target and frontend route is described in the manual. A name that occurs only in a generated section (the function inventory, the screens inventory) or only in a test title does not count. |
+| `check-docs-staleness` | Everything the manual names exists. A file path with a directory names a real file (the whole path, or its tail); an HTTP route is one of the backend's mounts or a storage engine route; every code-shaped name in backticks (camelCase, PascalCase, snake_case) occurs in some tracked source file outside its comments. |
+| `check-test-docs` | Every test is listed in the manual: the TypeScript unit tests, the Playwright specs, and the storage engine's Gleam tests (by function name). Every test the manual lists as `- "title" (`file`)` exists in that file. |
+| `check-function-inventory` | `docs/function-inventory.md` matches the code (`make function-inventory` regenerates it). |
+| `check-cycles` | The backend's import cycles are exactly the ones listed under "Import cycles" below. |
+| `check-schema-table-count` | No table but the four permanent ones and `journal_entry_staging` (see "The four permanent tables" below). |
+| `check-journal-staging-only` | Only `db-journal.ts` and `core/store.ts` write `journal` and `journal_line`. |
+| `check-unused` | `noUnusedLocals` (`TS6133` only) over `backend/src/`, `backend/test/` and the step runner, via `backend/tsconfig.unused.json`. A name prefixed `_` is exempt by TypeScript design. |
+| `check-no-python` | No `.py` file, and no build file that invokes python. |
 
-A fact worth holding onto precisely because it is not visible from any
-currently-green gate: `backend/test/` and `backend/scripts/` are not
-type-checked by anything in CI today. `scripts/` (other than the step
-runner) still carries a meaningful number of unused declarations and
-type errors, none currently gated.
+Other checks, not part of `check-manual`:
 
-## `mergeContactDetail` and the four-permanent-table rule
+| Check | What it does |
+|---|---|
+| `check-backend-types` | `tsc --noEmit` against `backend/src` and `../shared-fixtures`. |
+| `check-e2e-types` | The same, against the Playwright suite. |
+| `check-frontend` | `svelte-check` across every `.svelte` file. |
+| `check-db-consistency` | See above. |
 
-The `contact` table (a true 1:1 entity extension) was eliminated as
-its own table — every field now lives in the parent entity's own
-`detail_json` (the same pattern already proven for
-`item_source`/`stock_lot`). `mergeContactDetail`
-(`backend/src/db.ts`) is the one exported helper every write path
-(`setContact`, `recordReminderSent`, `resetReminderLevel`,
-`setPosPin`, `registerCustomer`, `verifyCustomer`, `setItem`,
-`setLocation`, and a UPC-backfill site in `db-seed.ts`) uses to
-read-merge-write into `detail_json`, replicating the removed table's
-own "partial upsert, only touch the given fields" semantics exactly. A
-read-compatibility view (`contact`, in `backend/schema/00-core.sql`)
-recomputes the exact same column shape via `json_extract`, so every
-existing read query against "contact" keeps working unchanged. This is
-what keeps the permanent-table count at exactly four — see
-`check-schema-table-count` above, and "no dedicated table" in the
-Entity Model chapter for the general principle this follows.
+⚠️ Not covered by any gate: `backend/scripts/` (other than the step
+runner) is not type-checked, and `tsc` reports type errors in 31 of its
+scripts (one, `tag-coa-prototypes.ts`, imports a function `db.ts` no
+longer exports). `backend/test/` is type-checked only for unused names.
+
+## The four permanent tables
+
+The database has four permanent tables, `entities`, `account`,
+`journal` and `journal_line`, and one staging table,
+`journal_entry_staging` (*The Journal API*, "Staging"). Everything else
+is an entity, an attribute fact or a relation, read through views:
+
+- Contact, location and item fields are attribute facts, one child
+  entity per field, written by `mergeContactDetail` (`db.ts`) and read
+  through the `contact` view (*Core Domain Reference*, "Contact field
+  storage").
+- The database version is the `Database Version` attribute of
+  `Application`: `DB_VERSION` (`db.ts`) is set the first time a
+  database starts without one, and `getDbVersion()` reads it for
+  `GET /api/health`.
+- The Kaappi and memory entity drivers keep their op log in
+  `kaappi_wal`, which each driver creates when it is selected
+  (`drivers/kaappi-worker.ts`, `drivers/memory-entity-driver.ts`); the
+  default `sql` driver never creates it.
+
+`make check-schema-table-count` reads every `CREATE TABLE` in the
+tracked SQL, Gleam and backend TypeScript (the backend schema, the core
+middleware's `core/store.ts`, and the storage engine's two schemas) and
+fails on any other table, or on `kaappi_wal` created anywhere but those
+two drivers.
 
 ## Multi-Runtime Support (bun / node / deno)
 
@@ -298,3 +348,19 @@ runtime-agnostic — no changes needed in `server.ts`, the frontend, or
 the e2e suite. `RUN_TEST` is defined for all three runtimes but used
 only by the top-level `test` target directly, for the `deno task`
 reason above.
+### Import cycles
+
+`make check-cycles` (`scripts/check-cycles.ts`) finds every group of
+backend files that import each other in a ring (`import type` is left
+out, since it is erased at run time). The groups below are the ones
+there are; the check fails on a group not listed here, and on a listed
+group that is no longer a cycle.
+
+The first group is the domain modules and the entity drivers: `db.ts`
+imports the domain modules it re-exports, and they import `db.ts` and
+`primitives.ts` back. The second is the call dispatcher:
+`call-dispatch.ts` merges every `call-dispatch/*.ts` table, and each
+table imports `row`, `table` and the role checks from it.
+
+- `backend/src/db-journal.ts`, `backend/src/db-projects.ts`, `backend/src/db-prototypes.ts`, `backend/src/db-quotations.ts`, `backend/src/db-reports.ts`, `backend/src/db-seed.ts`, `backend/src/db-stock.ts`, `backend/src/db.ts`, `backend/src/drivers/gleam-entity-driver.ts`, `backend/src/drivers/memory-entity-driver.ts`, `backend/src/drivers/sql-entity-driver.ts`, `backend/src/entity-driver-select.ts`, `backend/src/primitives.ts`
+- `backend/src/call-dispatch.ts`, `backend/src/call-dispatch/arap.ts`, `backend/src/call-dispatch/auth.ts`, `backend/src/call-dispatch/businesses.ts`, `backend/src/call-dispatch/contacts.ts`, `backend/src/call-dispatch/customer-registration.ts`, `backend/src/call-dispatch/departments.ts`, `backend/src/call-dispatch/entities.ts`, `backend/src/call-dispatch/hierarchy.ts`, `backend/src/call-dispatch/i18n.ts`, `backend/src/call-dispatch/invoices.ts`, `backend/src/call-dispatch/items.ts`, `backend/src/call-dispatch/journal.ts`, `backend/src/call-dispatch/locations.ts`, `backend/src/call-dispatch/matrix-reports.ts`, `backend/src/call-dispatch/menu.ts`, `backend/src/call-dispatch/period.ts`, `backend/src/call-dispatch/plant.ts`, `backend/src/call-dispatch/pos.ts`, `backend/src/call-dispatch/products.ts`, `backend/src/call-dispatch/projects.ts`, `backend/src/call-dispatch/prototypes.ts`, `backend/src/call-dispatch/quotations.ts`, `backend/src/call-dispatch/reports.ts`, `backend/src/call-dispatch/stock-lots.ts`, `backend/src/call-dispatch/stock.ts`
