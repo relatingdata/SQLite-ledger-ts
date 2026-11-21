@@ -1216,10 +1216,37 @@ backend/scripts/simulate-project-builder-cycles.ts`.
 
 `make e2e-spec-all` runs every spec in a real browser against the running
 servers, after `make reset-db`; `make e2e-spec-one TEST=<file>` runs one.
-No gate runs them. ⚠️ Their current results are being recorded (a full
-run of 21 November 2026); until then, a spec here is listed, not
-vouched for. The `debug_*` specs and `test-translation-bug.spec.ts` are
-one-off investigations, not checks of anything the manual specifies.
+No gate runs them.
+
+⚠️ **They are stale: 6 of their 61 tests pass.** Measured on 21
+November 2026 (`make e2e-spec-all`, then the files it had not reached
+before its 50-minute limit), from `make reset-db`:
+
+- **Passing (6):** `general-journal.spec.ts`,
+  `installation-check.spec.ts`, `screenshot-choosebusiness.spec.ts`,
+  `screenshot-login.spec.ts`, `screenshot-rtl-mechanism.spec.ts`,
+  `screenshot-rtl.spec.ts`.
+- **Failing at their first step (49):** after logging in they choose
+  the fixture business (`fixtures.business`, `shared-fixtures/wine-retail.ts`)
+  in the session screen's first `select`. A reset database holds no
+  such business (the backend no longer seeds demo businesses on start),
+  so the option never appears and the step times out. Each needs to
+  create its business first, or to run after a tutorial has built it.
+- **Failing later at a `select` (3):** `full-business-lifecycle.spec.ts`,
+  `training-wine-business.spec.ts` and `tutorial-walkthrough.spec.ts`
+  build a business from empty, then time out on a second `select`
+  whose option is missing.
+- **Other failures (3 files, 9 tests):** `language-parameterized.spec.ts`
+  (7 languages) finds screen text that no longer matches the
+  translation data; `location-type-extensibility.spec.ts` looks for a
+  `+ New Location` button the Locations screen no longer has;
+  `min-e2e-route-smoke.spec.ts` exceeds its 5-minute limit.
+
+The `debug_*` specs and `test-translation-bug.spec.ts` are one-off
+investigations, not checks of anything the manual specifies. The
+tutorials' step-runner fixtures (`make test-e2e-tutorials`, and with
+`--path ui` in the browser) are the browser checks that are kept
+current.
 
 **Screenshots for the manuals**
 
