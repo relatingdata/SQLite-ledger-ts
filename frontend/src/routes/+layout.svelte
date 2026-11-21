@@ -8,7 +8,7 @@
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { browser } from '$app/environment';
-  import { getLocalizedText, apiLogout, getMenuTree, getLanguageDirection, checkVersion, getRecordingStatus, startRecording, stopRecording, type MenuSectionRow } from '$lib/api';
+  import { getLocalizedText, apiLogout, getMenuTree, setSessionBusiness, getLanguageDirection, checkVersion, getRecordingStatus, startRecording, stopRecording, type MenuSectionRow } from '$lib/api';
   import { session } from '$lib/state.svelte';
   import { auth, hasRole } from '$lib/state.svelte';
   import { translations } from '$lib/state.svelte';
@@ -43,6 +43,9 @@
   }
   $effect(() => {
     if (session.current) loadMenu();
+    // A login from before the backend kept the chosen business (or one it
+    // has forgotten) is told it again.
+    if (session.current) setSessionBusiness(session.current.businessName).catch(() => undefined);
   });
   // Defaults the active section to General Ledger — see docs/pm-frontend-reference.md.
   $effect(() => {

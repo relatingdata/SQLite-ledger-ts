@@ -784,6 +784,10 @@ export const getActiveLedger = (businessName: string) =>
 export const getProfitCenters = (businessName: string) => callTable('getProfitCenters', [businessName], (f) => ({ id: Number(f.id), name: f.name }));
 export const createProfitCenter = (businessName: string, profitCenterName: string) =>
   callRow('createProfitCenter', [businessName, profitCenterName], (f) => ({ id: Number(f[0]), name: f[1] }));
+/** Tells the backend which business this login is working in: reports
+ * that read the session's business (Inventory and Storage, Below Reorder,
+ * the stock listings) need it. */
+export const setSessionBusiness = (businessName: string) => callRow('setSessionBusiness', [businessName], () => undefined);
 export const setSessionProfitCenter = (profitCenterName: string | null) => callRow('setSessionProfitCenter', [profitCenterName ?? undefined], () => undefined);
 export type ReportingFrequency = 'annual' | 'biannual' | 'quarterly' | 'monthly';
 // Converted off the old JSON '/businesses' route onto the new, direct,

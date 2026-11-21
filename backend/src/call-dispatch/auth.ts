@@ -58,8 +58,9 @@ export const authFunctions: Record<string, BackendCall> = {
     return row(String(u.id), u.username, encodeStringList(u.roles), String(u.page_size), u.number_format, u.date_format);
   },
 
-  // No live frontend caller anywhere (grep-confirmed) - built anyway for
-  // a complete backend surface.
+  // Called by the frontend when a business is chosen (/session) and again
+  // on load: Session.Business (auth-middleware.ts) comes from here, and
+  // the stock reports that read it failed without it.
   setSessionBusiness: (v, user, _lineItems, token) => {
     requireAuth(user);
     const [businessName] = v;

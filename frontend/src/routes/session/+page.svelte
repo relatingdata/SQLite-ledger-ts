@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
-  import { getBusinesses, getLedgers, getActiveLedger, getProfitCenters, getLanguages, getLocalizedText, getLanguageDirection, asBusinessName, asLedgerName, ApiError } from '$lib/api';
+  import { getBusinesses, getLedgers, getActiveLedger, getProfitCenters, getLanguages, getLocalizedText, getLanguageDirection, setSessionBusiness, asBusinessName, asLedgerName, ApiError } from '$lib/api';
   import { session } from '$lib/state.svelte';
   import { translations } from '$lib/state.svelte';
 
@@ -112,9 +112,12 @@
     }
   }
 
-  function continueToApp() {
+  async function continueToApp() {
     if (!selectedBusinessId || !selectedLedgerId || !selectedLanguageId) return;
     const business = businesses.find((b) => b.id === selectedBusinessId)!;
+    // The backend keeps the chosen business with the login, for the calls
+    // that read it from there.
+    await setSessionBusiness(business.name).catch(() => undefined);
     const ledger = ledgers.find((l) => l.id === selectedLedgerId)!;
     const language = languages.find((l) => l.id === selectedLanguageId)!;
     // Only included when actually chosen — see docs/pm-frontend-reference.md.
