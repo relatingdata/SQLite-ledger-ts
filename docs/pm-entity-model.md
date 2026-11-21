@@ -628,7 +628,6 @@ that does the real work — is still used throughout for everything
 | `account_entry` | Sets an account's account number/currency |
 | `contact_entry` | Sets an entity's address/phone/contact-person/payment-terms fields — and a location's city/capacity/timezone and a part's description/unit/UPC/retail price too, since neither is a separate table (below) |
 | `translation_entry` | Sets a vocabulary translation |
-| `ar_sale_post` / `ar_receipt_post` / `ap_purchase_post` / `ap_payment_post` | Purpose-built shortcuts — each stages its own lines internally; `ar_receipt_post_insert`/`ap_payment_post_insert` used to also chain straight into `post_journal_entry` themselves, but now only build the two-line `journal_entry_staging` entry — `postARReceipt`/`postAPPayment` call `postJournalEntry(...)` explicitly in TypeScript right after, the same stage-then-commit shape every other screen uses |
 
 ### Division, location, and part are genuinely just entities — no dedicated table
 

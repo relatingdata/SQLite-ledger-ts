@@ -1,5 +1,45 @@
 # The Journal API — `backend/src/db-journal.ts`
 
+## Staging
+
+Every transaction is a cooked general journal transaction. There is one
+staging table, `journal_entry_staging`: a screen's transaction is cooked
+into general journal lines there and posted as one entry by
+`postJournalEntry` (or, for a quantity movement,
+`commitStagedQuantityMovement`). No other staging table and no posting
+trigger exists. The unit test "journal_entry_staging is the only staging
+table" (`backend/test/db.test.ts`) fails if one is added, and the backend
+drops the old ones from an existing database when it starts (`db.ts`).
+
+A form is staged by one call and posted by another (`stage...`, then
+`post...`). The forms are of two kinds:
+
+- **Cooked when staged.** An AR receipt (`stageARReceipt`) and an AP
+  payment (`stageAPPayment`) stage their two general journal lines
+  straight away: Cash and Bank against the customer's or provider's own
+  account. Staging the same reference again replaces the lines.
+  `postARReceipt`/`postAPPayment` post them, and refuse with "nothing
+  staged" when there are none.
+- **Cooked when posted.** A form whose posting needs more than its
+  lines is held in the backend's memory until it is posted
+  (`backend/src/staged-forms.ts`: `stageForm`, `stagedForm`,
+  `dropStagedForm`, `stagedFormsOf`). These are a purchase or sales
+  order, a stock receipt or dispatch, a location and a recipe line.
+  - An order needs its quantity and value; a receipt or dispatch also
+    needs its order reference, and quantities for the invoice line.
+  - The post call cooks the form into general journal lines and posts
+    them, then drops the form. If the post fails, the form stays staged
+    so it can be tried again.
+  - Nothing is written to the database before the post. A backend
+    restart forgets forms staged but not posted.
+  - Posting a reference with nothing staged throws `NotFoundError`.
+
+Tests (`backend/test/db.test.ts`): "journal_entry_staging is the only
+staging table: every transaction is a cooked general journal entry", "an
+AR receipt and an AP payment are cooked into general journal lines when
+staged", and "posting a screen with nothing staged is rejected clearly,
+not silently a no-op".
+
 ## The three posting paths
 
 **Updated for Stage D of
@@ -17,11 +57,10 @@ which must never happen inside an open SQLite transaction. Both
 triggers' bodies now live as ordinary TypeScript in this file, as
 `commitStagedEntry` — one shared function, called two ways:
 
-1. **Ordinary financial postings** (the vast majority): a screen-
-   specific staging table's own `INSTEAD OF INSERT` trigger still
-   copies rows into `journal_entry_staging` exactly as before (that
-   part of the pipeline is untouched), but the commit step itself is
-   now `postJournalEntry(reference, business, ledger, userId)`, a plain
+1. **Ordinary financial postings** (the vast majority): the screen's
+   transaction is cooked into `journal_entry_staging` (see "Staging"
+   above), and the commit step is
+   `postJournalEntry(reference, business, ledger, userId)`, a plain
    TypeScript call into `commitStagedEntry(..., { requireBalance: true,
    includeBankReference: true })` — it validates the entry balances
    (per currency) and the period is open, then writes `journal` +
@@ -180,31 +219,13 @@ mirror (AR/AP, a counterparty name).
 
 ## AR/AP entry screens — the shared shape
 
-AR Sale, AR Receipt, AP Purchase, and AP Payment are each a
-purpose-built form with its own staging table (customer/vendor,
-amount, date), posting through the same `commitStagedEntry` mechanism
-every other ordinary posting uses (see "The three posting paths"
-above). Two functions per form: `stage...` (plain insert) and
-`post...` (fires the form's `INSTEAD OF INSERT` trigger, which builds
-the two-line `journal_entry_staging` entry).
+AR Receipt and AP Payment are cooked into their two general journal lines
+when staged (see "Staging"), and posted by `postJournalEntry`.
 
-**Stage D change**: that per-form trigger used to also directly
-`INSERT INTO post_journal_entry` itself, chaining straight into the
-now-removed posting trigger. With that trigger gone, `postARReceipt`/
-`postAPPayment` now call `postJournalEntry(...)` explicitly in
-TypeScript, right after their own trigger-insert step — the same
-stage-then-commit shape every other screen already uses, just made
-explicit instead of implicit in one trigger chaining into another.
-
-**`stageARSale`/`postARSale` and `stageAPPurchase`/`postAPPurchase` no
-longer exist** (see the canned-journal-to-frontend design) — confirmed
-directly that nothing live called either one (the frontend's own calls
-into their routes were already commented out). `stageARReceipt`/
-`postARReceipt` and `stageAPPayment`/`postAPPayment` stay exactly as
-they were — the Payment Receipt screen genuinely calls them. The real,
-live canned-journal logic for Cash Purchase/Cash Sale/POS Sale lives in
-`db.ts` (`completeCashPurchase` and similar), on the frontend side, not
-here.
+`stageARSale`/`postARSale` and `stageAPPurchase`/`postAPPurchase` no
+longer exist (see the canned-journal-to-frontend design): nothing called
+them. The canned journal logic for Cash Purchase, Cash Sale and POS Sale
+lives in `db.ts` (`completeCashPurchase`, `completePosSale`).
 
 ## `ensureLocationScopedAccount`
 
@@ -215,13 +236,11 @@ per-line.
 
 ## Stock/order entry screens — the shared shape
 
-Purchase Order, Sales Order, Stock Receipt, and Stock Dispatch each
-stage into their own table; `post...` reads the staged row, does the
-real work (placing/fulfilling an order, moving quantity, posting the
-monetary side through the ordinary balanced mechanism), then clears
-the staged row — the same shape as AR/AP, written as a TypeScript
-function instead of a SQL trigger. A Purchase Order's `location` is
-delivery instructions, not a per-line detail.
+Purchase Order, Sales Order, Stock Receipt and Stock Dispatch are held
+as staged forms (see "Staging"). `post...` cooks the form: it places or
+fulfils the order, moves the quantity, and posts the monetary side
+through `postJournalEntry`. Then it drops the form. A Purchase Order's
+`location` is delivery instructions, not a per-line detail.
 
 ## Employee project-clock functions
 
@@ -294,11 +313,8 @@ dedicated Invoices screen.
 
 ## `stageLocation` / `postLocation`
 
-Every user-facing data-entry form has a dedicated staging table behind
-it — `location_staging`, the same shape as `stock_receipt_staging`: a
-plain table, no trigger of its own, holding the screen's raw input.
-
-`stageLocation` inserts (or, on conflict, updates) the staged row.
+`stageLocation` holds the screen's input as a staged form (see
+"Staging"); staging the same reference again replaces it.
 `postLocation` reads it back and is the one place a new location is
 actually created, through the typed `createLocation`/`setLocation`/
 `ensureLocationCapacityAccount` functions — never a raw SQL insert
@@ -308,7 +324,7 @@ posting into the location's built-in `Storage Capacity` structure
 (`Remaining`, `Installed`, `Occupied`; see
 `docs/storage-space-as-currency-design.md`) happens atomically, inside
 the same transaction as the location's own creation, then the staged
-row is cleared.
+form is dropped.
 
 `postLocation` also sets a `Belongs To Group` relationship on the new
 location, unconditionally, pointing at itself. This screen has no
@@ -330,8 +346,8 @@ own range), `recurrence: 'once'` for an ordinary quote or `'weekly'`/
 `'monthly'`/`'yearly'` + a count for a standing one — plus a real
 `postQuantityMovement` against the item's own, existing `On Order`
 account (`ensureItemQuantityAccounts`), tagged by reference. There is
-no staging step: `so_staging`/`po_staging`/`journal_entry_staging` play
-no part in a Quotation/RFQ at all. Per direct instruction, this
+no staging step: neither a staged form nor `journal_entry_staging` plays
+any part in a Quotation/RFQ. Per direct instruction, this
 introduces no new SQL table, no new column, and no schema change of
 any kind — every moving part here (`createRecurringJournal`,
 `reverseJournalEntry`, `ensureItemQuantityAccounts`,
@@ -372,7 +388,7 @@ existing, generic `Entity.setAttr`/`getAttr` primitives
   only. Refuses an already-`accepted`/`rejected`/`expired` quote.
 - `rejectQuotation(reference, userId, asOfDate?)` — looks the real
   journal entry up by reference (`journal.reference` is unique per
-  business/ledger, the same guarantee `so_staging`'s old PK gave),
+  business/ledger, the same guarantee the old sales order staging key gave),
   calls `reverseJournalEntry` against it, posts an equal/opposite
   `postQuantityMovement` on the item's On Order account, then sets
   `Status: 'rejected'`. Refuses an already-`accepted`/`rejected`/

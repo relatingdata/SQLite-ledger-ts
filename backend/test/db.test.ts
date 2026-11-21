@@ -11,6 +11,7 @@ process.env.DB_PATH = tmpDbPath;
 process.env.SEED_DEMO_BUSINESSES = 'false';
 
 const db = await import('../src/db.ts');
+const stagedForms = await import('../src/staged-forms.ts');
 const { createUser } = await import('../src/auth.ts');
 const fx = makeFixtures(db);
 
@@ -792,7 +793,6 @@ test('createRecurringJournal rejects an entry that does not balance at its start
 
 test('createRecurringJournal vivifies any account with no BALANCE yet, same guarantee as ordinary posting', () => {
   const biz = fx.freshBusiness('RecurringRentTest Co');
-  const rentBefore = fx.getAccountBalance(fx.coaCategoryRoot(biz.business, 'Expense').id); // sanity probe below uses a real lookup instead
   const rentId = fx.findByName(db.getEntityTree(), 'Rent', fx.coaCategoryRoot(biz.business, 'Expense').id)!.id;
   assert.equal(fx.getAccountBalance(rentId)?.balance_minor ?? 0, 0, 'sanity check: this business\'s own Rent has never been posted to yet');
 
@@ -1181,10 +1181,9 @@ test('a real Purchase Order still knows its real vendor and item after posting �
   });
   db.postPurchaseOrder(ref, biz.business, biz.actualLedger, fx.userId);
 
-  // po_staging (vendor, item) is genuinely deleted after posting —
-  // the real, direct proof this doesn't come from staging still being
-  // there.
-  const stillStaged = db.db.prepare(`SELECT 1 FROM po_staging WHERE reference = ?`).get(ref);
+  // The staged form (vendor, item) is gone after posting — the proof
+  // that what follows comes from the posted journal entry itself.
+  const stillStaged = stagedForms.stagedForm('purchase order', biz.business, biz.actualLedger, ref);
   assert.equal(stillStaged, undefined, 'the real staging row is genuinely gone — what follows must come from the real, posted journal entry itself');
 
   // Direct instruction: "no separate entities should be created to track
@@ -1389,6 +1388,26 @@ test('the four real entry screens: PO -> receipt -> SO -> dispatch, using the ac
   const qtyAfterDispatch = (db.db.prepare(`SELECT balance_minor FROM account WHERE entity_id=(SELECT id FROM current_entities WHERE name=?)`).get(qtyName) as { balance_minor: number }).balance_minor;
   assert.equal(qtyAfterDispatch, 30, '50 received minus 20 dispatched');
   assert.equal(tbFinal.rows.find((r) => r.name === valueName)!.debit_minor, 36000, '60000 received minus 24000 cost of what shipped = 36000 remaining, at the same 1200/unit cost');
+});
+
+test('journal_entry_staging is the only staging table: every transaction is a cooked general journal entry', () => {
+  const tables = (db.db.prepare(`SELECT name FROM sqlite_master WHERE type IN ('table', 'view') AND (name LIKE '%staging%' OR name LIKE '%\\_post' ESCAPE '\\')`).all() as { name: string }[]).map((r) => r.name);
+  assert.deepEqual(tables, ['journal_entry_staging']);
+});
+
+test('an AR receipt and an AP payment are cooked into general journal lines when staged', () => {
+  const biz = fx.freshBusiness('Cooked Receipt Co');
+  db.stageARReceipt({ reference: 'COOK-AR-1', business: biz.business, ledger: biz.actualLedger, customer: db.asCustomerName('Cash'), amount_minor: 1200 });
+  assert.deepEqual(
+    db.getStagedLines('COOK-AR-1', biz.business, biz.actualLedger).map((l) => [l.account, l.amount_minor]).sort(),
+    [['Cash and Bank', 1200], ['Cash', -1200]]
+  );
+  // Staging again replaces, it does not add.
+  db.stageARReceipt({ reference: 'COOK-AR-1', business: biz.business, ledger: biz.actualLedger, customer: db.asCustomerName('Cash'), amount_minor: 1500 });
+  assert.equal(db.getStagedLines('COOK-AR-1', biz.business, biz.actualLedger).length, 2);
+  db.postARReceipt('COOK-AR-1', biz.business, biz.actualLedger, fx.userId);
+  assert.equal(db.getStagedLines('COOK-AR-1', biz.business, biz.actualLedger).length, 0);
+  assert.throws(() => db.postAPPayment('NEVER-STAGED-PAY', biz.business, biz.actualLedger, fx.userId), db.PostingError);
 });
 
 test('posting a screen with nothing staged is rejected clearly, not silently a no-op', () => {
@@ -3670,7 +3689,7 @@ test('getTrialBalance: has_quantity_postings correctly flags an account that has
   // A real, direct, single-sided quantity-tracking posting - genuinely, deliberately not part of a balanced journal entry at all.
   const qtyRef = `${reference}-QTY`;
   db.stageLine({ reference: qtyRef, business: biz.business, ledger: biz.actualLedger, transdate: '2027-02-01', account: db.asAccountName(accountName), amount_minor: 12 });
-  const businessId = db.requireEntity(biz.business, db.typeBusinessName, db.requireEntity('Businesses', db.typeRootName)).id;
+  db.requireEntity(biz.business, db.typeBusinessName, db.requireEntity("Businesses", db.typeRootName));
   db.commitStagedQuantityMovement(qtyRef, biz.business, biz.actualLedger, fx.userId);
 
   const tb = db.getTrialBalance(biz.business, biz.actualLedger);
@@ -4689,8 +4708,8 @@ test('createProjectTask/getProjectTasks/addTaskDependency/getTaskDependencies: r
   db.create(db.requireEntity('Projects', db.typeRootName), db.typeRootName, projectName, fx.userId);
   db.create(db.requireEntity(projectName, db.typeRootName), db.typeRootName, `${projectName} Tasks`, fx.userId);
 
-  const foundationTask = db.createProjectTask(projectName, 'Pour the foundation', '2026-09-01', '2026-09-05', fx.userId);
-  const framingTask = db.createProjectTask(projectName, 'Frame the walls', '2026-09-06', '2026-09-12', fx.userId);
+  db.createProjectTask(projectName, 'Pour the foundation', '2026-09-01', '2026-09-05', fx.userId);
+  db.createProjectTask(projectName, 'Frame the walls', '2026-09-06', '2026-09-12', fx.userId);
 
   const tasks = db.getProjectTasks(projectName);
   assert.equal(tasks.length, 2, 'both real tasks were created and parsed back out correctly');
@@ -6414,7 +6433,7 @@ test('createAndConfigureLocation: real, atomic, balanced Storage Capacity Remain
   assert.equal(installedBalance.currency, 'SPACE-CARTON');
 });
 
-test('stageLocation/postLocation: a real, dedicated staging table behind the location-creation form, matching the exact, established stage/post pattern - the real location, and its own real, balanced capacity accounts, only appear once genuinely posted, never at stage time', () => {
+test('stageLocation/postLocation: the location form is held as a staged form - the location, and its own balanced capacity accounts, only appear once posted, never at stage time', () => {
   const biz = fx.freshBusiness('LocationStagingTest Co');
   const ref = fx.uniqueName('LOC-STAGE-TEST-1');
   const warehouseName = fx.uniqueName('Staged Warehouse');
@@ -6449,8 +6468,8 @@ test('stageLocation/postLocation: a real, dedicated staging table behind the loc
   const remaining = locationStorageForStaging && entities.find((e) => e.name === 'Storage Capacity' && e.parent_id === locationStorageForStaging.id);
   assert.ok(remaining, 'the real, built-in Storage Capacity structure must exist too, created atomically as part of the real post, under Chart of Accounts > Storage > the location');
 
-  const stillStaged = db.db.prepare(`SELECT 1 FROM location_staging WHERE reference = ?`).get(ref);
-  assert.equal(stillStaged, undefined, 'the real, staged row must be cleared once genuinely posted, matching the established stock-receipt pattern');
+  const stillStaged = stagedForms.stagedForm('location', biz.business, '', ref);
+  assert.equal(stillStaged, undefined, 'the staged form is cleared once posted');
 });
 
 test('convertStorageSpace: a real, balanced conversion between storage combinations - never single-sided, and a real, undefined reverse direction genuinely refuses', () => {

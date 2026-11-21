@@ -1,6 +1,7 @@
 // The full documentation for every function in this file lives in
 // docs/pm-journal-api.md — this file carries no further multiline comments.
 
+import { stageForm, stagedForm, dropStagedForm } from './staged-forms.js';
 import { db } from './db.js';
 import { Entity } from './primitives.js';
 import {
@@ -208,26 +209,22 @@ export interface ARReceiptInput {
   description?: string;
 }
 
+/** Clears whatever is staged under a reference, so staging it again replaces it. */
+function clearStagedEntry(reference: string, business: string, ledger: string): void {
+  db.prepare(`DELETE FROM journal_entry_staging WHERE reference = ? AND business = ? AND ledger = ?`).run(reference, business, ledger);
+}
+
+/** An AR receipt, cooked when staged: Cash and Bank debited, the
+ * customer's own AR account credited. */
 export function stageARReceipt(input: ARReceiptInput): void {
-  db.prepare(
-    `INSERT INTO ar_receipt_staging (reference, business, ledger, customer, amount_minor, transdate, description)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT (reference, business, ledger) DO UPDATE SET
-       customer = excluded.customer, amount_minor = excluded.amount_minor,
-       transdate = excluded.transdate, description = excluded.description`
-  ).run(input.reference, input.business, input.ledger, input.customer, input.amount_minor, input.transdate ?? null, input.description ?? '');
+  clearStagedEntry(input.reference, input.business, input.ledger);
+  const common = { reference: input.reference, business: input.business, ledger: input.ledger, description: input.description ?? '', transdate: input.transdate };
+  stageLine({ ...common, account: asAccountName('Cash and Bank'), amount_minor: input.amount_minor });
+  stageLine({ ...common, account: asAccountName(input.customer), amount_minor: -input.amount_minor });
 }
 
 export function postARReceipt(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
-  try {
-    // ar_receipt_post_insert (00-core.sql) only builds the two-line
-    // journal_entry_staging entry now — it no longer chains into
-    // post_journal_entry (removed as part of Stage D), so the actual commit
-    // is this separate, explicit postJournalEntry call.
-    db.prepare(`INSERT INTO ar_receipt_post (reference, business, ledger, user_id) VALUES (?, ?, ?, ?)`).run(reference, business, ledger, userId);
-  } catch (err) {
-    throw new PostingError(err instanceof Error ? err.message : String(err));
-  }
+  if (getStagedLines(reference, business, ledger).length === 0) throw new PostingError('nothing staged for this receipt');
   postJournalEntry(reference, business, ledger, userId);
 }
 
@@ -241,25 +238,17 @@ export interface APPaymentInput {
   description?: string;
 }
 
+/** An AP payment, cooked when staged: the provider's own AP account
+ * debited, Cash and Bank credited. */
 export function stageAPPayment(input: APPaymentInput): void {
-  db.prepare(
-    `INSERT INTO ap_payment_staging (reference, business, ledger, vendor, amount_minor, transdate, description)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT (reference, business, ledger) DO UPDATE SET
-       vendor = excluded.vendor, amount_minor = excluded.amount_minor,
-       transdate = excluded.transdate, description = excluded.description`
-  ).run(input.reference, input.business, input.ledger, input.vendor, input.amount_minor, input.transdate ?? null, input.description ?? '');
+  clearStagedEntry(input.reference, input.business, input.ledger);
+  const common = { reference: input.reference, business: input.business, ledger: input.ledger, description: input.description ?? '', transdate: input.transdate };
+  stageLine({ ...common, account: asAccountName(input.vendor), amount_minor: input.amount_minor });
+  stageLine({ ...common, account: asAccountName('Cash and Bank'), amount_minor: -input.amount_minor });
 }
 
 export function postAPPayment(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
-  try {
-    // Same change as postARReceipt above: ap_payment_post_insert only stages
-    // the two journal_entry_staging lines now; this explicit postJournalEntry
-    // call is the actual commit.
-    db.prepare(`INSERT INTO ap_payment_post (reference, business, ledger, user_id) VALUES (?, ?, ?, ?)`).run(reference, business, ledger, userId);
-  } catch (err) {
-    throw new PostingError(err instanceof Error ? err.message : String(err));
-  }
+  if (getStagedLines(reference, business, ledger).length === 0) throw new PostingError('nothing staged for this payment');
   postJournalEntry(reference, business, ledger, userId);
 }
 
@@ -277,22 +266,14 @@ export interface PurchaseOrderInput {
 }
 
 export function stagePurchaseOrder(input: PurchaseOrderInput): void {
-  db.prepare(
-    `INSERT INTO po_staging (reference, business, ledger, vendor, item, quantity, price_minor, location, transdate, description)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT (reference, business, ledger) DO UPDATE SET
-       vendor = excluded.vendor, item = excluded.item, quantity = excluded.quantity,
-       price_minor = excluded.price_minor, location = excluded.location, transdate = excluded.transdate, description = excluded.description`
-  ).run(input.reference, input.business, input.ledger, input.vendor, input.item, input.quantity, input.price_minor, input.location ?? null, input.transdate ?? null, input.description ?? '');
+  stageForm('purchase order', input.business, input.ledger, input.reference, input);
 }
 
 export function postPurchaseOrder(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
-  const staged = db
-    .prepare(`SELECT * FROM po_staging WHERE reference = ? AND business = ? AND ledger = ?`)
-    .get(reference, business, ledger) as PurchaseOrderInput | undefined;
+  const staged = stagedForm<PurchaseOrderInput>('purchase order', business, ledger, reference);
   if (!staged) throw new NotFoundError(`Nothing staged for purchase order ${reference}.`);
   placeOrder(reference, business, ledger, staged.quantity, staged.quantity * staged.price_minor, userId, staged.transdate, asProviderName(staged.vendor), asItemName(staged.item), staged.location ? asLocationName(staged.location) : undefined);
-  db.prepare(`DELETE FROM po_staging WHERE reference = ? AND business = ? AND ledger = ?`).run(reference, business, ledger);
+  dropStagedForm('purchase order', business, ledger, reference);
 }
 
 export interface EmployeeClock {
@@ -499,24 +480,11 @@ export interface OrderReceiptInput {
 }
 
 export function stageOrderReceipt(input: OrderReceiptInput): void {
-  db.prepare(
-    `INSERT INTO stock_receipt_staging
-       (reference, business, ledger, po_reference, item, item_qty, vendor, quantity, value_minor, tax_minor, transdate, description)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT (reference, business, ledger) DO UPDATE SET
-       po_reference = excluded.po_reference, item = excluded.item, item_qty = excluded.item_qty,
-       vendor = excluded.vendor, quantity = excluded.quantity, value_minor = excluded.value_minor,
-       tax_minor = excluded.tax_minor, transdate = excluded.transdate, description = excluded.description`
-  ).run(
-    input.reference, input.business, input.ledger, input.po_reference, input.item, input.item_qty ?? null,
-    input.vendor, input.quantity, input.value_minor, input.tax_minor ?? 0, input.transdate ?? null, input.description ?? ''
-  );
+  stageForm('stock receipt', input.business, input.ledger, input.reference, { ...input, tax_minor: input.tax_minor ?? 0, description: input.description ?? '' });
 }
 
 export function postOrderReceipt(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
-  const staged = db
-    .prepare(`SELECT * FROM stock_receipt_staging WHERE reference = ? AND business = ? AND ledger = ?`)
-    .get(reference, business, ledger) as (OrderReceiptInput & { tax_minor: number }) | undefined;
+  const staged = stagedForm<OrderReceiptInput & { tax_minor: number }>('stock receipt', business, ledger, reference);
   if (!staged) throw new NotFoundError(`Nothing staged for stock receipt ${reference}.`);
 
   if (staged.item_qty) {
@@ -535,7 +503,7 @@ export function postOrderReceipt(reference: string, business: BusinessName, ledg
     staged.quantity > 0 ? Math.round(staged.value_minor / staged.quantity) : null, staged.value_minor, staged.tax_minor
   );
 
-  db.prepare(`DELETE FROM stock_receipt_staging WHERE reference = ? AND business = ? AND ledger = ?`).run(reference, business, ledger);
+  dropStagedForm('stock receipt', business, ledger, reference);
 }
 
 export interface LocationStagingInput {
@@ -550,21 +518,11 @@ export interface LocationStagingInput {
 }
 
 export function stageLocation(input: LocationStagingInput): void {
-  db.prepare(
-    `INSERT INTO location_staging
-       (reference, business, location_name, city, location_type, bottle_capacity, carton_capacity, timezone)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT (reference, business) DO UPDATE SET
-       location_name = excluded.location_name, city = excluded.city, location_type = excluded.location_type,
-       bottle_capacity = excluded.bottle_capacity, carton_capacity = excluded.carton_capacity, timezone = excluded.timezone`
-  ).run(
-    input.reference, input.business, input.location_name, input.city, input.location_type,
-    input.bottle_capacity ?? null, input.carton_capacity ?? null, input.timezone
-  );
+  stageForm('location', input.business, '', input.reference, input);
 }
 
 export function postLocation(reference: string, business: BusinessName, userId: UserId): TypedNode<'LocationEntityName'> {
-  const staged = db.prepare(`SELECT * FROM location_staging WHERE reference = ? AND business = ?`).get(reference, business) as LocationStagingInput | undefined;
+  const staged = stagedForm<LocationStagingInput>('location', business, '', reference);
   if (!staged) throw new NotFoundError(`Nothing staged for location ${reference}.`);
 
   return db.transaction((): TypedNode<'LocationEntityName'> => {
@@ -582,7 +540,7 @@ export function postLocation(reference: string, business: BusinessName, userId: 
     // genuinely active now, not forever "Actual".
     ensureLocationCapacityAccount(business, getActiveLedger(business) ?? asLedgerName('Actual'), asLocationName(staged.location_name), userId);
     setRelationship(staged.location_name, 'Belongs To Group', staged.location_name, userId);
-    db.prepare(`DELETE FROM location_staging WHERE reference = ? AND business = ?`).run(reference, business);
+    dropStagedForm('location', business, '', reference);
     return entity;
   })();
 }
@@ -601,22 +559,14 @@ export interface SalesOrderInput {
 }
 
 export function stageSalesOrder(input: SalesOrderInput): void {
-  db.prepare(
-    `INSERT INTO so_staging (reference, business, ledger, customer, item, quantity, price_minor, location, transdate, description)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT (reference, business, ledger) DO UPDATE SET
-       customer = excluded.customer, item = excluded.item, quantity = excluded.quantity,
-       price_minor = excluded.price_minor, location = excluded.location, transdate = excluded.transdate, description = excluded.description`
-  ).run(input.reference, input.business, input.ledger, input.customer, input.item, input.quantity, input.price_minor, input.location ?? null, input.transdate ?? null, input.description ?? '');
+  stageForm('sales order', input.business, input.ledger, input.reference, input);
 }
 
 export function postSalesOrder(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
-  const staged = db
-    .prepare(`SELECT * FROM so_staging WHERE reference = ? AND business = ? AND ledger = ?`)
-    .get(reference, business, ledger) as SalesOrderInput | undefined;
+  const staged = stagedForm<SalesOrderInput>('sales order', business, ledger, reference);
   if (!staged) throw new NotFoundError(`Nothing staged for sales order ${reference}.`);
   placeOrder(reference, business, ledger, staged.quantity, staged.quantity * staged.price_minor, userId, staged.transdate, undefined, asItemName(staged.item), staged.location ? asLocationName(staged.location) : undefined);
-  db.prepare(`DELETE FROM so_staging WHERE reference = ? AND business = ? AND ledger = ?`).run(reference, business, ledger);
+  dropStagedForm('sales order', business, ledger, reference);
 }
 
 export interface OrderDispatchInput {
@@ -636,26 +586,13 @@ export interface OrderDispatchInput {
 }
 
 export function stageOrderDispatch(input: OrderDispatchInput): void {
-  db.prepare(
-    `INSERT INTO stock_dispatch_staging
-       (reference, business, ledger, so_reference, item, item_qty, customer, quantity, unit_cost_minor, sale_price_minor, tax_minor, transdate, description)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT (reference, business, ledger) DO UPDATE SET
-       so_reference = excluded.so_reference, item = excluded.item, item_qty = excluded.item_qty,
-       customer = excluded.customer, quantity = excluded.quantity, unit_cost_minor = excluded.unit_cost_minor,
-       sale_price_minor = excluded.sale_price_minor, tax_minor = excluded.tax_minor,
-       transdate = excluded.transdate, description = excluded.description`
-  ).run(
-    input.reference, input.business, input.ledger, input.so_reference, input.item ?? null, input.item_qty ?? null,
-    input.customer, input.quantity, input.unit_cost_minor ?? null, input.sale_price_minor, input.tax_minor ?? 0,
-    input.transdate ?? null, input.description ?? ''
-  );
+  stageForm('stock dispatch', input.business, input.ledger, input.reference, {
+    ...input, item: input.item ?? null, item_qty: input.item_qty ?? null, unit_cost_minor: input.unit_cost_minor ?? null, tax_minor: input.tax_minor ?? 0, description: input.description ?? '',
+  });
 }
 
 export function postOrderDispatch(reference: string, business: BusinessName, ledger: LedgerName, userId: UserId): void {
-  const staged = db
-    .prepare(`SELECT * FROM stock_dispatch_staging WHERE reference = ? AND business = ? AND ledger = ?`)
-    .get(reference, business, ledger) as (OrderDispatchInput & { tax_minor: number }) | undefined;
+  const staged = stagedForm<OrderDispatchInput & { tax_minor: number }>('stock dispatch', business, ledger, reference);
   if (!staged) throw new NotFoundError(`Nothing staged for stock dispatch ${reference}.`);
 
   const saleAmount = staged.quantity * staged.sale_price_minor;
@@ -681,7 +618,7 @@ export function postOrderDispatch(reference: string, business: BusinessName, led
 
   recordInvoiceLine(reference, business, ledger, staged.description || 'Dispatch', staged.quantity, staged.sale_price_minor, saleAmount, staged.tax_minor);
 
-  db.prepare(`DELETE FROM stock_dispatch_staging WHERE reference = ? AND business = ? AND ledger = ?`).run(reference, business, ledger);
+  dropStagedForm('stock dispatch', business, ledger, reference);
 }
 
 export function removeStagedLine(reference: string, business: BusinessName, ledger: LedgerName, account: string): void {

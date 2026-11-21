@@ -1,7 +1,7 @@
 // Quotations (AR, to a customer) and RFQs (AP, to a provider) — per
 // direct instruction: NO new SQL table, NO detail_json/JSON of any
 // kind, NO raw SQL UPDATE statement anywhere in this file, and NO
-// so_staging/po_staging/journal_entry_staging involvement at all.
+// staged forms and no journal_entry_staging involvement at all.
 //
 // A Quotation/RFQ is, from the moment it is drafted, the exact same
 // real mechanism an ordinary recurring journal entry already is
@@ -115,7 +115,7 @@ function getQuotationEntityId(reference: string): number | undefined {
 }
 
 // The real journal entry a quote's commitment lives in. reference is
-// unique per business/ledger, same guarantee so_staging's PK used to
+// unique per business/ledger, same guarantee the sales order staging key used to
 // give — looked up directly rather than threading a journal id through
 // every function, since createRecurringJournal (deliberately
 // unmodified) doesn't hand one back. Business/ledger names are resolved

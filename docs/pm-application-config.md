@@ -147,6 +147,18 @@ as components:
   to its best, green: an item's under-performing and excellent locations,
   or the reverse after a swap. Clicking a measure's heading shades by it.
 
+Its tests (`backend/test/cube.test.ts`), on a business with two items
+bought at a cost and sold unevenly at two locations:
+
+- "getCube: sales by item and location, positive, each in its own cell"
+- "getCube: on-hand quantity is what was received less what was sold, per item and location"
+- "getCube: stock on hand at what it cost, as the books hold it"
+- "getCube: swapping the axes transposes the cells, and Consolidated totals them"
+- "getCube: a period counts only the postings in it"
+- "getCube: cost of goods sold per item and location, at what the units sold cost"
+- "getCube agrees with getStockOnHandMatrix, and corrects getSalesCogsMatrix"
+- "parseCubeMeasure: rejects what it cannot read"
+
 Stock measures count only the business's own locations. Cost of goods
 sold is posted per item and location when a POS sale is made, at what the
 units cost first in, first out (below), so margin shows per location.

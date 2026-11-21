@@ -3,6 +3,7 @@
 // mechanism") and docs/pm-domain-reference.md (the domain-level
 // sections below "A live, generated snapshot") - this file carries no
 // further multiline comments.
+import { stageForm, stagedFormsOf, dropStagedForm } from './staged-forms.js';
 import { Database } from './sqlite-runtime.js';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -68,6 +69,21 @@ if (!alreadyInitialized) {
     .join('\n');
   db.exec(filteredCoaLinksSql);
 }
+
+// journal_entry_staging is the only staging table (docs/pm-journal-api.md,
+// "Staging"); a database made before that loses the others here.
+db.exec(`
+  DROP VIEW IF EXISTS ar_receipt_post;
+  DROP VIEW IF EXISTS ap_payment_post;
+  DROP TABLE IF EXISTS ar_receipt_staging;
+  DROP TABLE IF EXISTS ap_payment_staging;
+  DROP TABLE IF EXISTS po_staging;
+  DROP TABLE IF EXISTS so_staging;
+  DROP TABLE IF EXISTS stock_receipt_staging;
+  DROP TABLE IF EXISTS stock_dispatch_staging;
+  DROP TABLE IF EXISTS location_staging;
+  DROP TABLE IF EXISTS assembly_bom_staging;
+`);
 
 export class ValidationError extends Error {}
 export class NotFoundError extends Error {}
@@ -3641,32 +3657,19 @@ export interface BomComponentLine {
   priceMinor?: number;
 }
 
+/** A recipe (bill of materials) line, staged until its recipe is posted;
+ * staging the same component again replaces it. */
 export function stageBomComponent(input: BomComponentInput): void {
-  const kind = input.kind ?? 'Material';
-  db.prepare(
-    `INSERT INTO assembly_bom_staging
-       (assembly_item, business, component_item, quantity, unit, kind, duration_hours, scheduled_start, scheduled_end, price_minor)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT (assembly_item, business, component_item) DO UPDATE SET
-       quantity = ?, unit = ?, kind = ?, duration_hours = ?, scheduled_start = ?, scheduled_end = ?, price_minor = ?`
-  ).run(
-    input.assemblyItem, input.business, input.componentItem, input.quantity, input.unit,
-    kind, input.durationHours ?? null, input.scheduledStart ?? null, input.scheduledEnd ?? null, input.priceMinor ?? null,
-    input.quantity, input.unit, kind, input.durationHours ?? null, input.scheduledStart ?? null, input.scheduledEnd ?? null, input.priceMinor ?? null
-  );
+  stageForm('recipe line', input.business, '', `${input.assemblyItem}\u0001${input.componentItem}`, { ...input, kind: input.kind ?? 'Material' });
 }
 
 export function postBomComponents(assemblyItem: string, business: string, userId: UserId): void {
-  const rows = db
-    .prepare(
-      `SELECT component_item, quantity, unit, kind, duration_hours, scheduled_start, scheduled_end, price_minor
-       FROM assembly_bom_staging WHERE assembly_item = ? AND business = ?`
-    )
-    .all(assemblyItem, business) as {
-      component_item: string; quantity: number; unit: string; kind: BomLineKind;
-      duration_hours: number | null; scheduled_start: string | null; scheduled_end: string | null; price_minor: number | null;
-    }[];
-  for (const row of rows) {
+  const lines = [...stagedFormsOf<BomComponentInput & { kind: BomLineKind }>('recipe line', business, '')].filter(([key]) => key.startsWith(`${assemblyItem}\u0001`));
+  for (const [key, line] of lines) {
+    const row = {
+      component_item: line.componentItem, quantity: line.quantity, unit: line.unit, kind: line.kind,
+      duration_hours: line.durationHours ?? null, scheduled_start: line.scheduledStart ?? null, scheduled_end: line.scheduledEnd ?? null, price_minor: line.priceMinor ?? null,
+    };
     const linkType = `BOM — ${row.component_item}`;
     setEntityLink(assemblyItem, linkType, row.component_item, userId);
     const record = Entity.get(`${assemblyItem} — ${linkType}`, assemblyItem);
@@ -3682,8 +3685,8 @@ export function postBomComponents(assemblyItem: string, business: string, userId
       if (row.scheduled_end) Entity.setAttr(record.id, 'Scheduled End', row.scheduled_end, userId);
       if (row.price_minor != null) Entity.setAttr(record.id, 'Price Minor', String(row.price_minor), userId);
     }
+    dropStagedForm('recipe line', business, '', key);
   }
-  db.prepare(`DELETE FROM assembly_bom_staging WHERE assembly_item = ? AND business = ?`).run(assemblyItem, business);
 }
 
 export function deleteBomComponent(assemblyItem: string, componentItem: string, userId: UserId): void {

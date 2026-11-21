@@ -92,12 +92,24 @@ for (const chapter of chapters) {
 // --- Check 2: dead HTTP route references -------------------------------
 const routePattern = /\b(GET|POST|PUT|PATCH|DELETE)\s+(\/[\w/:_-]*)/g;
 const liveMounts = ['/api/call', '/api/core/call', '/api/health', '/api/recording'];
+// The storage engine's own HTTP routes (storage_engine/src/http_api.gleam,
+// port 8090): `["journal", id, "reverse"], "POST"` is POST /journal/<id>/reverse.
+const engineRoutes = [...fs.readFileSync(path.join(root, "storage_engine/src/http_api.gleam"), 'utf-8').matchAll(/\[([^\]]*)\],\s*"(GET|POST|PUT|PATCH|DELETE)"/g)].map(
+  ([, segments, verb]) => ({ verb, segments: segments.split(',').map((seg) => seg.trim()).map((seg) => (seg.startsWith('"') ? seg.slice(1, -1) : null)) })
+);
+const isEngineRoute = (verb: string, routePath: string) => {
+  const parts = routePath.replace(/\/$/, '').split('/').slice(1);
+  return engineRoutes.some(
+    (r) => r.verb === verb && (r.segments.length === parts.length || (routePath.endsWith('/') && r.segments.length > parts.length)) && parts.every((p, i) => r.segments[i] === null || r.segments[i] === p)
+  );
+};
 
 for (const chapter of chapters) {
   const content = fs.readFileSync(path.join(docsDir, chapter), 'utf-8');
   for (const m of content.matchAll(routePattern)) {
     const [, verb, routePath] = m;
     if (liveMounts.some((mount) => routePath === mount || routePath.startsWith(mount + '/'))) continue;
+    if (isEngineRoute(verb, routePath)) continue;
     console.error(`❌ ${chapter}: references \`${verb} ${routePath}\`, which is not one of the app's three real, current HTTP mounts (/api/call, /api/health, /api/recording/...). Every other route was deleted in the ASCII-CSV migration — if this is describing real, current behavior, it should name a BACKEND_FUNCTIONS dispatch key via /api/call instead.`);
     failures++;
   }
