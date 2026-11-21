@@ -33,9 +33,13 @@ system is built on.
   (`backend/src/core/`), which the step runner and all three tutorials
   use through its frontend API, and which serves `/api/call` when the
   backend is started with `MIDDLEWARE=core`. See "The Core Middleware."
-- **Storage engine** — `storage_engine/`, a Gleam/BEAM service holding
-  the same two-store schema; the original middleware's entity driver uses
-  it (`ENTITY_DRIVER=gleam`).
+- **Storage engine** — `storage_engine/`, a Gleam service compiled to
+  Erlang and run on the BEAM (not compiled to TypeScript), serving HTTP
+  on port 8090. It holds the same schema and its rules. The original
+  middleware's entity driver can use it (`ENTITY_DRIVER=gleam`), but the
+  backend's default driver is still `sql`, in-process better-sqlite3:
+  under `gleam` the tutorials fail on database locks (see "The Core
+  Middleware", "The storage engine").
 - Both are real npm workspaces (`backend`, `frontend`, `e2e`) under one
   root `package.json`; `make install` installs all three with one
   command.

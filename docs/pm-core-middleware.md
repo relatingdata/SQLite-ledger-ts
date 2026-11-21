@@ -215,13 +215,83 @@ The core keeps its own database, `backend/data/core.sqlite`, removed by
 ## The storage engine
 
 The Gleam storage engine lives in the repository at `storage_engine/`
-(build output, its databases and `deps/` are ignored by git). Its Gleam
+(build output, its databases and `deps/` are ignored by git). It is Gleam
+compiled to Erlang and runs on the BEAM, as an HTTP service on port 8090
+(`make ensure-storage-engine`). It writes SQLite through the `sqlite3`
+command-line program (`sqlite_cli.gleam`, `sqlite_cli_ffi.erl`), and one
+actor per database file serialises every call (`ledger.gleam`). Its Gleam
 dependencies are cloned at pinned commits into `storage_engine/deps/` by
-`storage_engine/fetch_deps.sh`, which `make storage-engine-deps` runs before
-`test-storage-engine` and `ensure-storage-engine`. It holds the same
-two-store schema and the four calls (`storage_engine/src/core_schema.gleam`,
-`storage_engine/src/core.gleam`), and serves the original middleware's
-entity driver.
+`storage_engine/fetch_deps.sh`, which `make storage-engine-deps` runs
+before `test-storage-engine` and `ensure-storage-engine`.
+
+It holds two schemas:
+
+- **The original middleware's schema** (`priv/schema.sql`, embedded as
+  `schema_sql.gleam`). This has the same tables and the same guard
+  triggers as `backend/schema/00-core.sql`, on the same file,
+  `backend/data/entities.sqlite`. It serves the entity driver
+  (`/entities...`) and has its own posting calls (`POST /journal`,
+  `POST /journal/<id>/reverse`, `GET /accounts/<id>/balance`).
+- **The core's two-store schema and four calls**
+  (`storage_engine/src/core_schema.gleam`, `storage_engine/src/core.gleam`).
+
+### Its rules, and where each is enforced
+
+| Rule | Enforced by | So it holds for |
+|---|---|---|
+| `entities` is append-only: no UPDATE or DELETE; a rename or move is a new row for the same `entity_id`, and the old row stays | SQLite triggers `entities_no_update`, `entities_no_delete` | every writer of the file |
+| A live name is unique under its parent | trigger `entities_name_unique` | every writer |
+| `journal` and `journal_line` are append-only; a mistake is corrected by reversing the entry | triggers `journal_no_update`, `journal_no_delete`, `journal_line_no_update`, `journal_line_no_delete` | every writer |
+| The one permitted change to a posted entry: `journal.reversal_of`, set once | trigger `journal_reversal_of_write_once` | every writer |
+| A reference is posted once | `journal.reference UNIQUE` | every writer |
+| An entry has lines, and each currency in it adds up to zero (one currency never absorbs another's difference) | code, before any SQL is run: the engine's `accounting.validate_balanced` (and, in the core, per unit in `core.post`); the backend's `db-journal.ts` | posts through that code. SQLite cannot check a whole entry inside a trigger, so a raw INSERT bypassing both would not be refused |
+| An entry is written whole or not at all | one transaction per post (`storage.post_journal_entry`, `core.post`) | posts through that code |
+| The core: no posting in the Global Business, on or before `Locked Through`, or to an account outside the ledger | `core.post` | the core's posts |
+
+`account.balance_minor` is a running total kept beside the journal (it is
+updated on every post), not part of the append-only record; the journal
+lines are the record it is checked against.
+
+**Tests** (`make test-storage-engine`, 38 tests):
+- `accounting_test`: the per-currency balance rule.
+- `ledger_test`: posting, reversal and renaming through the actor.
+- `core_test`: the four calls and the core's refusals.
+- `constraints_test`: against the file itself. Raw UPDATE and DELETE of
+  entities, journal headers and journal lines are refused by the triggers
+  and change nothing, in both schemas. A rename keeps the old row. A
+  reference posts once. `reversal_of` is set once. An entry whose euro
+  lines do not balance writes nothing, even though its home-currency
+  lines do.
+
+### The backend on the engine (`ENTITY_DRIVER=gleam`)
+
+Under `ENTITY_DRIVER=gleam`, only the backend's **entity** reads and
+writes go to the engine. Its **accounting** (journal headers, lines and
+account balances) is still written by the backend's own better-sqlite3
+connection to the same file. That accounting is held by the triggers
+above and by `db-journal.ts`'s balance check, not by the engine's posting
+calls, which the backend does not use.
+
+The default is `sql` (`backend/src/entity-driver-select.ts`) because the
+two clients deadlock. Several backend functions write accounting rows
+inside one better-sqlite3 transaction and then write an entity through
+the engine. With the database in WAL mode, there is one writer at a
+time: the transaction holds the write lock while the engine waits for
+it, until SQLite's busy timeout gives up with "database is locked".
+
+Measured on 21 November 2026 (`ENTITY_DRIVER=gleam make
+test-e2e-tutorial MIDDLEWARE=legacy`):
+- 18 of the Retail tutorial's 75 steps fail.
+- 7 of them fail on the lock: Create Business, Create Location, Cash
+  Purchase (twice), Add Location and Delete Department through the
+  structure popup, and Receive Into Storage.
+- The other 11 follow from those: stock that was never received, so P&L
+  checks that cannot pass.
+- The commit before that day's work (`6cde7b4`) fails the same 18 steps.
+
+The way out is to restructure each such function so its entity writes
+happen before its transaction opens, or to route the backend's posting
+through the engine as well. Neither is done yet.
 
 ## What is not yet served by the core
 
