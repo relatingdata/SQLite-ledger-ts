@@ -34,74 +34,88 @@ kept: append-only, balance, unique references, locked periods.
 - **Balance is checked before anything is written.** Each unit
   (currency, or an item's quantity) must add up to zero.
 
-## What the engine does instead of the backend
+## The design this rests on
 
-The target is the design the backend is already moving onto: the core
-middleware's four calls (`create`, `relate`, `copy`, `post`) over two
-stores. These are already written twice: in TypeScript
-(`backend/src/core/store.ts`, in-process SQLite) and in Gleam
-(`storage_engine/src/core.gleam`). The engine becomes the core's only
-store, and the frontends move onto the core. The original middleware
-writes about 40 kinds of row (journal, account, eleven staging tables,
-the INSTEAD OF posting triggers), so routing it through the engine as it
-stands would only move the locking. It is retired instead.
+Every transaction is a cooked general journal transaction, and nothing
+else. A screen (cash purchase, sale, receipt, payment, order, transfer)
+cooks its business fact into the lines of a general journal entry. There
+is one staging table, for the general journal: `journal_entry_staging`
+(*CSS Styling and Data Entry*, "the one, real, shared staging table").
+There is one way to post: the staged entry, balanced, as one journal
+entry. Everything else about a transaction (the invoice, the order, its
+reference) is an entity or a relation.
+
+So the engine needs exactly one accounting call: post a balanced general
+journal entry. It already has that call (`POST /journal`,
+`storage.post_journal_entry`), and the backend's entities already go
+through it under `ENTITY_DRIVER=gleam`.
+
+## Where the code departs from the design
+
+These staging tables in `backend/schema/00-core.sql` should not exist:
+
+| Table | Used by |
+|---|---|
+| `po_staging`, `so_staging` | `db-journal.ts`, `db-quotations.ts` (orders and quotations) |
+| `stock_receipt_staging`, `stock_dispatch_staging` | `db-journal.ts` |
+| `location_staging` | `db-journal.ts` |
+| `ar_receipt_staging` (and its posting view `ar_receipt_post`) | `db-journal.ts` |
+| `ap_payment_staging` (and its posting view `ap_payment_post`) | `db-journal.ts` |
+| `assembly_bom_staging` | `db.ts` |
+
+Each holds one kind of transaction's fields before posting. The two
+posting views do the cooking inside SQLite triggers. Each must cook into
+general journal lines instead, in TypeScript, through
+`journal_entry_staging`, or for a pure configuration fact such as a new
+location or a recipe line, write entities directly.
 
 ## Steps
 
 Each step ends with its tests passing, and is committed on its own.
 
-1. **The engine's post becomes one transaction, with a stored balance.**
-   - Today `core.post` writes the new accounts, the entry and its
-     relations in separate statements before the transaction that writes
-     the lines. Build them all into the one script instead, with the
-     balance updates.
-   - Add the balance store: one row per account and unit, updated in the
-     same script.
-   - `core.balance` reads that row.
-   - Tests: a failed post leaves no entry, account or relation behind;
-     after every post the stored balance equals the sum of the lines; a
-     raw UPDATE of a balance row from outside the engine is refused
-     (trigger), while the engine's own post updates it.
-2. **Reversal without a mark.**
-   - Add `core.reverse(reference)`: it posts the negated lines with
-     `Reverses`, and refuses a second reversal of the same entry by
-     looking for an existing `Reverses` relation.
-   - In the original middleware, stop stamping `reversal_of`.
-   - Tests: reversing twice is refused; the original entry's rows are
-     unchanged.
-3. **The engine serves the core over HTTP.**
-   - Add the four calls, the reads the core uses (child, lookup, entry
-     lines, balance) and opening an instance (user, business, ledger) to
-     `http_api.gleam`.
-   - Tests: the engine's own suite, through HTTP.
-4. **The core's store on the engine.**
-   - Add a second implementation of `backend/src/core/store.ts`'s `Store`
-     that calls the engine, chosen by `CORE_STORE=engine`.
-   - Its in-memory index of entities is filled from the engine's replies.
-   - Tests: `core.test.ts`, `core-api.test.ts` and the three tutorials
-     (`make test-e2e-tutorials`) pass with both stores.
-5. **The frontends on the core.**
-   - The core serves about 90 calls; the web and terminal screens use
-     about 270 (`application/application.entities`, `Calls`). Add the
-     rest to `core/api.ts`, screen by screen.
-   - Tests: the browser tutorials (Retail, Manufacturing, Project
-     Builder) with `MIDDLEWARE=core`.
-6. **Switch and retire.**
-   - `MIDDLEWARE=core` with `CORE_STORE=engine` becomes the default.
-   - The original middleware (`db*.ts`, `call-dispatch/`), its schema and
-     the SQL, Kaappi and memory entity drivers are removed, with the
-     engine's original-middleware schema (`priv/schema.sql`) and routes.
+1. **One staging table.**
+   - Each flow above stages general journal lines in
+     `journal_entry_staging` and posts through `postJournalEntry`; its
+     non-accounting facts become entities or relations.
+   - Then the other staging tables and the two posting views are dropped.
+   - Tests: the backend suite and the three tutorials, on the API path
+     and in the browser.
+2. **One posting path, through the engine.**
+   - `postJournalEntry` (`db-journal.ts`) is the only place that writes
+     `journal`, `journal_line` and the stored balance; the three other
+     direct `INSERT INTO journal` sites (`db.ts`) move onto it.
+   - Under `ENTITY_DRIVER=gleam` it sends the staged entry to the
+     engine's `POST /journal`, which checks the balance and writes
+     header, lines and stored balances in one transaction.
+   - The staging table itself is per-request scratch, so it moves out of
+     the shared file into the backend's own memory or file. Then the
+     backend writes nothing to `entities.sqlite`, and nothing locks.
+3. **Reversal without a mark.**
+   - A reversal posts the negated lines with a `Reverses` relation.
+     `journal.reversal_of`, its write-once trigger and the `UPDATE` in
+     `db-journal.ts` go. The engine's reverse call stops stamping.
+   - A second reversal is refused because a `Reverses` relation already
+     exists.
+4. **Account attributes as relations.**
+   - `account.accountnumber`, `currency` and `overdraft_limit_minor` are
+     updated in place today (`db.ts`, `db-reports.ts`). They become
+     relations of the account entity, so the `account` table holds only
+     the stored balance, which only the engine's post updates.
+5. **The gleam driver as the default.**
+   - With 1 to 4 done, `ENTITY_DRIVER=gleam` becomes the default once the
+     backend suite, the three tutorials on both paths and the engine's
+     own suite pass with it.
    - The manuals are updated with each step.
 
 ## What stays the same for users
 
 The screens, the reports, first in, first out, and the storage space
-accounts work as they do now. Step 5 has to carry them across to the
-core, and the browser tutorials check that.
+accounts work as they do now; the browser tutorials check that after
+each step.
 
 ## Open question
 
 Reads: the backend may keep reading the file directly, through a
 read-only connection (WAL lets readers run beside the one writer), or
 ask the engine for everything. Direct reads keep reports fast. Asking the
-engine keeps one way in. Step 4 starts with direct reads.
+engine keeps one way in. Step 2 starts with direct reads.
