@@ -8,9 +8,8 @@ import { Entity } from './primitives.js';
 // individual call sites throughout this file.
 const SEED_USER_ID: UserId = asUserId(1);
 
-// No business is seeded here: businesses come from the step runner's
-// fixtures and `scripts/simulate-wine-retail-month.ts` (the one in
-// schema/00-core.sql, `admin`, is the exception). Everything below is
+// No business is seeded: businesses come from the step runner's
+// fixtures and `scripts/simulate-wine-retail-month.ts`. Everything below is
 // permanent, structural seed data: vocabulary and its translations, menu
 // and business-type scaffolding (docs/pm-domain-reference.md,
 // "Application vocabulary vs. sample business data").

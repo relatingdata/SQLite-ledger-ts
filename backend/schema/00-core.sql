@@ -547,15 +547,6 @@ INSERT INTO entity_set_relation (entity_id, relation_id) VALUES ((SELECT id FROM
 INSERT INTO entity_set_relation (entity_id, relation_id) VALUES ((SELECT id FROM current_entities WHERE name = 'Expense'), 33);
 
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (34, 34, 'Businesses', 0, '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (35, 35, 'admin', 34, '2026-01-01', 1);
--- Per the real, new structure createBusiness itself now builds: every
--- real ledger lives under its own business's own, real Ledgers node,
--- never directly under the business. admin is hand-seeded, raw
--- data (bypassing createBusiness entirely), so this must be built by
--- hand here too, to match.
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (999000, 999000, 'Ledgers', 35, '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (36, 36, 'Actual', 999000, '2026-01-01', 1);
-INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (37, 37, 'Proposed Growth Budget 2026-27', 999000, '2026-01-01', 1);
 
 -- Reusable UI vocabulary — each word exists exactly once. Wherever the
 -- application shows, say, a save action or a Debit column, anywhere at

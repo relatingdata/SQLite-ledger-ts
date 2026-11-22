@@ -214,34 +214,35 @@ test('setOwnNumberFormat/setOwnDateFormat: explicit, fixed-choice patterns — n
 
 test('the per-business role matrix is a real, genuine Cartesian Product — the same user can hold a different role in a different business, independent of their global role', () => {
   createUser('matrixtest1', 'testpass123', ['Bookkeeper']);
+  createBusiness(asBusinessName('MatrixTest First'), 'FY2027', asUserId(1));
 
-  const before = getUserRoleMatrix(asBusinessName('admin'));
+  const before = getUserRoleMatrix(asBusinessName('MatrixTest First'));
   assert.ok(before.users.includes('matrixtest1'), 'every real system user is a row');
   assert.ok(before.roles.includes('Administrator') && before.roles.includes('Read-Only'), 'every real system role is a column');
   assert.equal(before.assignments.some((a) => a.user === 'matrixtest1'), false, 'no cell is set yet — a global role assignment is a genuinely separate fact');
 
-  setUserRoleInBusiness(asBusinessName('admin'), 'matrixtest1', 'Read-Only', asUserId(1));
-  const afterSet = getUserRoleMatrix(asBusinessName('admin'));
+  setUserRoleInBusiness(asBusinessName('MatrixTest First'), 'matrixtest1', 'Read-Only', asUserId(1));
+  const afterSet = getUserRoleMatrix(asBusinessName('MatrixTest First'));
   assert.ok(afterSet.assignments.some((a) => a.user === 'matrixtest1' && a.role === 'Read-Only'), 'the real cell is now set');
 
   // Setting the identical cell twice is a real, harmless no-op — never a duplicate row.
-  setUserRoleInBusiness(asBusinessName('admin'), 'matrixtest1', 'Read-Only', asUserId(1));
-  assert.equal(getUserRoleMatrix(asBusinessName('admin')).assignments.filter((a) => a.user === 'matrixtest1' && a.role === 'Read-Only').length, 1, 'idempotent — never a duplicate cell');
+  setUserRoleInBusiness(asBusinessName('MatrixTest First'), 'matrixtest1', 'Read-Only', asUserId(1));
+  assert.equal(getUserRoleMatrix(asBusinessName('MatrixTest First')).assignments.filter((a) => a.user === 'matrixtest1' && a.role === 'Read-Only').length, 1, 'idempotent — never a duplicate cell');
 
-  // A genuinely different business gets its own, independent matrix — setting a cell in "admin" must not leak into it.
+  // A genuinely different business gets its own, independent matrix — setting a cell in the first must not leak into it.
   createBusiness(asBusinessName('MatrixTest Business'), 'FY2027', asUserId(1));
   const otherBusinessMatrix = getUserRoleMatrix(asBusinessName('MatrixTest Business'));
   assert.equal(otherBusinessMatrix.assignments.some((a) => a.user === 'matrixtest1'), false, 'a real, genuinely separate business starts with its own, empty matrix');
 
-  unsetUserRoleInBusiness(asBusinessName('admin'), 'matrixtest1', 'Read-Only', asUserId(1));
-  assert.equal(getUserRoleMatrix(asBusinessName('admin')).assignments.some((a) => a.user === 'matrixtest1'), false, 'unsetting the real cell clears it');
+  unsetUserRoleInBusiness(asBusinessName('MatrixTest First'), 'matrixtest1', 'Read-Only', asUserId(1));
+  assert.equal(getUserRoleMatrix(asBusinessName('MatrixTest First')).assignments.some((a) => a.user === 'matrixtest1'), false, 'unsetting the real cell clears it');
 
   // Clearing an already-clear cell, or one that never existed, is a real, harmless no-op.
-  unsetUserRoleInBusiness(asBusinessName('admin'), 'matrixtest1', 'Read-Only', asUserId(1));
-  unsetUserRoleInBusiness(asBusinessName('admin'), 'nonexistentuser', 'Administrator', asUserId(1));
+  unsetUserRoleInBusiness(asBusinessName('MatrixTest First'), 'matrixtest1', 'Read-Only', asUserId(1));
+  unsetUserRoleInBusiness(asBusinessName('MatrixTest First'), 'nonexistentuser', 'Administrator', asUserId(1));
 
-  assert.throws(() => setUserRoleInBusiness(asBusinessName('admin'), 'nonexistentuser', 'Read-Only', asUserId(1)), ValidationError, 'a real, unknown user must be rejected');
-  assert.throws(() => setUserRoleInBusiness(asBusinessName('admin'), 'matrixtest1', 'Nonexistent Role', asUserId(1)), ValidationError, 'a real, unknown role must be rejected');
+  assert.throws(() => setUserRoleInBusiness(asBusinessName('MatrixTest First'), 'nonexistentuser', 'Read-Only', asUserId(1)), ValidationError, 'a real, unknown user must be rejected');
+  assert.throws(() => setUserRoleInBusiness(asBusinessName('MatrixTest First'), 'matrixtest1', 'Nonexistent Role', asUserId(1)), ValidationError, 'a real, unknown role must be rejected');
 
   // The real, global role from setUserRoles is a genuinely separate fact, untouched by any of the above.
   const globalRoles = listUsers().find((u) => u.username === 'matrixtest1')!.roles;
@@ -268,7 +269,7 @@ test('provisionBusinessAdminUser gives a new business a real, dedicated admin us
   assert.deepEqual(user.roles, [], 'login reflects the real, global roles only — still none');
 
   assert.equal(userHasBusinessAdminRole(asBusinessName('Provision Test Business'), username), true);
-  assert.equal(userHasBusinessAdminRole(asBusinessName('admin'), username), false, 'Business Admin in one business must never leak into a genuinely different one');
+  assert.equal(userHasBusinessAdminRole(asBusinessName('Some Other Business'), username), false, 'Business Admin in one business must never leak into a genuinely different one');
   assert.equal(userHasBusinessAdminRole(asBusinessName('Provision Test Business'), 'nonexistentuser'), false);
   assert.equal(userHasBusinessAdminRole(asBusinessName('No Such Business At All'), username), false, 'a business that does not resolve is a real, honest "no", never a thrown error');
 });
@@ -296,7 +297,7 @@ test('requireRole accepts a real, global role as before, and ALSO accepts Busine
   assert.equal(run(requireRole('Bookkeeper'), fakeReq({ businessName: 'Enforcement Test Business' })).nextCalled, true);
 
   // A genuinely different business — Business Admin in one business must never satisfy a check scoped to another.
-  assert.equal(run(requireRole('Administrator'), fakeReq({ businessName: 'admin' })).nextCalled, false);
+  assert.equal(run(requireRole('Administrator'), fakeReq({ businessName: 'Some Other Business' })).nextCalled, false);
 
   // requireGlobalRole never consults the matrix at all, even for the right business — the one, real, deliberate carve-out (creating a business, managing the global user list).
   assert.equal(run(requireGlobalRole('Administrator'), fakeReq({ businessName: 'Enforcement Test Business' })).nextCalled, false);

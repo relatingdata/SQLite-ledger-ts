@@ -3,7 +3,7 @@
   import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
   import { getBusinesses, getLedgers, getActiveLedger, getProfitCenters, getLanguages, getLocalizedText, getLanguageDirection, setSessionBusiness, asBusinessName, asLedgerName, ApiError } from '$lib/api';
-  import { session } from '$lib/state.svelte';
+  import { session, auth, hasRole } from '$lib/state.svelte';
   import { translations } from '$lib/state.svelte';
 
   let businesses: { id: number; name: string }[] = $state([]);
@@ -148,6 +148,19 @@
 {:else}
   {#if error}<p class="error">{error}</p>{/if}
 
+  {#if businesses.length === 0}
+  <div class="wrap">
+  <fieldset class="card-legend form">
+    <legend>{translations.current['No business yet'] ?? 'No business yet'}</legend>
+    {#if hasRole(auth.current, 'Administrator')}
+      <p class="intro">{translations.current['Create the first business to start working.'] ?? 'Create the first business to start working.'}</p>
+      <button class="btn" onclick={() => goto('/setup/new-business')}>{translations.current['New Business'] ?? 'New Business'}</button>
+    {:else}
+      <p class="intro">{translations.current['Ask an Administrator to create a business.'] ?? 'Ask an Administrator to create a business.'}</p>
+    {/if}
+  </fieldset>
+  </div>
+  {:else}
   <div class="wrap">
     <!-- This fieldset only listens for Enter as a shortcut; the real interactive elements (the selects and button below) already have their own correct roles and keyboard behavior. -->
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -205,6 +218,7 @@
     </button>
   </fieldset>
   </div>
+  {/if}
 {/if}
 </div>
 

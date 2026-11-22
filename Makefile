@@ -1,4 +1,4 @@
-.PHONY: all install clean seed seed-pivot-demo print-screen dev dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-e2e test-e2e-tutorial test-e2e-tutorials test-e2e-tutorials-http test-storage-engine storage-engine-deps generator generate format-application-config test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs test-e2e-manufacturing-tutorial test-e2e-manufacturing-tutorial-browser test-e2e-manufacturing-full test-e2e-project-builder-tutorial test-e2e-project-builder-tutorial-browser test-e2e-project-builder-full reset-db manual programmer-manual historical-manual entity-tree-svg entity-tree-sample-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch proof-year-end check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles analyze-vocabulary strip-comments check-test-docs check-manual test-steps test-steps-browser test-one release check-manual-pictures check-step-tests
+.PHONY: all install clean seed seed-pivot-demo print-screen dev dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-unit test-unit-frontend test-unit-store test-unit-core test-unit-backend test-unit-calls check-unit-levels test-e2e test-e2e-tutorial test-e2e-tutorials test-e2e-tutorials-http test-storage-engine storage-engine-deps generator generate format-application-config test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs test-e2e-manufacturing-tutorial test-e2e-manufacturing-tutorial-browser test-e2e-manufacturing-full test-e2e-project-builder-tutorial test-e2e-project-builder-tutorial-browser test-e2e-project-builder-full reset-db manual programmer-manual historical-manual entity-tree-svg entity-tree-sample-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch proof-year-end check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles analyze-vocabulary strip-comments check-test-docs check-manual test-steps test-steps-browser test-one release check-manual-pictures check-step-tests
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -130,17 +130,40 @@ frontend: web-frontend
 text-frontend:
 	cd tui && $(RUN_NPM_SCRIPT) dev
 
-# ENTITY_DRIVER=sql here (overriding the real app's new `gleam` default
-# — see entity-driver-select.ts) because every one of these test files
-# gives itself its OWN fresh, isolated tmp sqlite file via DB_PATH before
-# importing db.ts; GleamEntityDriver talks to storage_engine's own single,
-# already-running, long-lived HTTP server, which can't follow a different
-# DB_PATH per test file the way an in-process SQL connection can. Testing
-# storage_engine itself is `gleam test` (its own suite) and the e2e
-# targets below, both against the one, real, shared database.
+# The unit tests in five levels, each building on the one before, so a
+# level runs only once everything beneath it passes (docs/pm-testing-unit.md,
+# "Levels"). check-unit-levels fails on a test file in no level or in two.
+UNIT_FRONTEND = frontend/test/format.test.ts frontend/test/journalGrid.test.ts frontend/test/entityTree.test.ts frontend/test/org-chart-layout.test.ts
+UNIT_STORE    = backend/test/application-config.test.ts
+UNIT_CORE     = backend/test/core.test.ts backend/test/core-api.test.ts
+UNIT_BACKEND  = backend/test/memory-entity-driver.test.ts backend/test/db.test.ts backend/test/cube.test.ts backend/test/auth.test.ts
+UNIT_CALLS    = backend/test/call-dispatch.test.ts backend/scripts/step-runner.test.ts
+
+# Each test file opens its own temporary database (DB_PATH), which the
+# in-process sql driver follows and the storage engine's one shared
+# server cannot, so the backend levels run with ENTITY_DRIVER=sql.
+test-unit-frontend:
+	cd frontend && $(RUN_TEST) $(UNIT_FRONTEND:frontend/%=%)
+
+test-unit-store: test-unit-frontend
+	cd backend && $(RUN_TEST) $(UNIT_STORE:backend/%=%)
+
+test-unit-core: test-unit-store
+	cd backend && $(RUN_TEST) $(UNIT_CORE:backend/%=%)
+
+test-unit-backend: test-unit-core
+	cd backend && ENTITY_DRIVER=sql $(RUN_TEST) $(UNIT_BACKEND:backend/%=%)
+
+test-unit-calls: test-unit-backend
+	cd backend && ENTITY_DRIVER=sql $(RUN_TEST) $(UNIT_CALLS:backend/%=%)
+
+test-unit: test-unit-calls
+
+check-unit-levels:
+	@$(RUN_SCRIPT) scripts/check-unit-levels.ts $(UNIT_FRONTEND) -- $(UNIT_STORE) -- $(UNIT_CORE) -- $(UNIT_BACKEND) -- $(UNIT_CALLS)
+
 test: generate
-	cd backend && ENTITY_DRIVER=sql $(RUN_TEST) test/*.test.ts scripts/*.test.ts
-	cd frontend && $(RUN_TEST) test/*.test.ts
+	$(MAKE) test-unit
 	$(MAKE) test-steps
 	$(MAKE) check-manual
 
@@ -148,7 +171,7 @@ test: generate
 # one failing gate never hides another; `make test`, the pre-commit hook
 # (githooks/pre-commit) and CI (.github/workflows/check.yml) all run this.
 # See docs/pm-build-and-tooling.md, "Gates".
-MANUAL_GATES = check-backend-types check-docs-coverage check-docs-staleness check-test-docs check-function-inventory check-cycles check-schema-table-count check-unused check-no-python check-journal-staging-only check-step-tests check-manual-pictures
+MANUAL_GATES = check-unit-levels check-backend-types check-docs-coverage check-docs-staleness check-test-docs check-function-inventory check-cycles check-schema-table-count check-unused check-no-python check-journal-staging-only check-step-tests check-manual-pictures
 check-manual:
 	@fail=0; for g in $(MANUAL_GATES); do \
 	  $(MAKE) -s $$g || { echo "GATE FAILED: $$g"; fail=1; }; \
@@ -174,7 +197,7 @@ test-e2e: reset-db
 # needed, since runStepViaApi calls the real backend functions directly.
 # This fixture creates its own, real "Tutorial Wine Retail Business"
 # from scratch and genuinely never wants any other demo business
-# pre-seeded alongside it (boot seeds only `admin`).
+# pre-seeded alongside it (boot seeds no business).
 # Which middleware serves the three API-path tutorial targets below:
 # `core` (the default) is the simplified middleware - two stores, three
 # instance globals, four calls (backend/src/core/, docs/pm-core-

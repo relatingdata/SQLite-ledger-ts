@@ -1,5 +1,5 @@
--- Relates the English chart's leaves, the Cash Sale customer and the
--- admin business to the English CoA prototype. Loaded after
+-- Relates the English chart's leaves and the Cash Sale customer to the
+-- English CoA prototype. Loaded after
 -- 00-core.sql, whose entities it names.
 INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES ((SELECT id FROM current_entities WHERE name = 'Bank Account (DKK)'), 'Bank Account (DKK)', 'Asset', 'English CoA', 1);
 INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES ((SELECT id FROM current_entities WHERE name = 'Bank Account (EUR)'), 'Bank Account (EUR)', 'Asset', 'English CoA', 1);
@@ -12,7 +12,6 @@ INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES
 INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES ((SELECT id FROM current_entities WHERE name = 'Lighting & General'), 'Lighting & General', 'Electricity', 'English CoA', 1);
 INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES ((SELECT id FROM current_entities WHERE name = 'Loans Payable'), 'Loans Payable', 'Liability', 'English CoA', 1);
 INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES ((SELECT id FROM current_entities WHERE name = 'Miscellaneous'), 'Miscellaneous', 'Expense', 'English CoA', 1);
-INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES ((SELECT id FROM current_entities WHERE name = 'admin'), 'admin', 'Businesses', 'English CoA', 1);
 INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES ((SELECT id FROM current_entities WHERE name = 'Office'), 'Office', 'Expense', 'English CoA', 1);
 INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES ((SELECT id FROM current_entities WHERE name = 'Other Income'), 'Other Income', 'Income', 'English CoA', 1);
 INSERT INTO entity_update (entity_id, name, parent, relation, updated_by) VALUES ((SELECT id FROM current_entities WHERE name = 'Owner''s Equity'), 'Owner''s Equity', 'Equity', 'English CoA', 1);

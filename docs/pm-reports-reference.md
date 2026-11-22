@@ -11,7 +11,7 @@ Tests (*Testing: Unit*, "Running the tests"):
 
 ## `getBusinessReports` / `getChartOfAccounts`
 
-Both walk the business's own Chart of Accounts (`resolveBusinessReportsCoaRootId`). The seeded `admin` business has no copy of its own and posts to the global chart under `Application`, so the walk falls back to the global root when the business's chart has no category child with a `relation_id`.
+Both walk the business's own Chart of Accounts (`resolveBusinessReportsCoaRootId`), and refuse a business without one.
 
 `getBusinessReports`'s category-to-report resolution has to handle two different join depths: a business-scoped category's `relation_id` normally points at its global counterpart, whose own `relation_id` finally points at the report (two hops) — except for `admin`, which falls back straight to the global category, so `relation_id` already points at the report directly (one hop). The query disambiguates by checking whether the first hop already lands on a report (a direct child of "Business Reports").
 

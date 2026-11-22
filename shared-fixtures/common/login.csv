@@ -1,5 +1,5 @@
-# Logs in as the administrator, the one user every fresh database has,
-# and continues past the session screen.
+# Logs in as the administrator, the one user every new database has. A
+# new database has no business, so the session is chosen after one is
+# created (business.csv).
 "Default","loginShot",""
 "Login","admin","changeme123"
-"Select Business","admin"

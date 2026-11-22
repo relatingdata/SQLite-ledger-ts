@@ -179,7 +179,8 @@
     }
   });
   $effect(() => {
-    if (browser && auth.current !== null && session.current === null && $page.url.pathname !== '/session' && $page.url.pathname !== '/login' && $page.url.pathname !== '/customer-terminal') {
+    // /setup/new-business is open with no session: the first business is made there.
+    if (browser && auth.current !== null && session.current === null && !['/session', '/login', '/customer-terminal', '/setup/new-business'].includes($page.url.pathname)) {
       goto('/session');
     }
   });

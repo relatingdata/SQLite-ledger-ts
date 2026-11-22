@@ -6,7 +6,7 @@ This tutorial's own business trades in a home currency (AUD) but, at creation, a
 
 ## Logging in and choosing a business
 
-Every session starts by logging in, then choosing which real business to work within --- the same account can genuinely work across more than one, real, separate business, each with its own, entirely independent books. Before this tutorial's own business exists, the current business is simply left at its default.
+Every session starts by logging in, then choosing which real business to work within --- the same account can genuinely work across more than one, real, separate business, each with its own, entirely independent books. A new installation has no business, so the tutorial starts by creating one: there is nothing to choose until it exists.
 
 ![The login screen.](manual-images-tutorial/login_landing.png)
 

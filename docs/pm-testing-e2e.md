@@ -572,7 +572,7 @@ a unit test checks an exact expected value.
 
 1. `make reset-db`: a new database from `backend/schema/00-core.sql`
    and `30-coa-links.sql` plus `seedRemainingData()` (`db-seed.ts`),
-   with no business but the seeded `admin`.
+   with no business.
 2. The simulation: it creates Wine Retail Business and trades for a
    month through the functions the frontend calls (never raw SQL). See `docs/simulation-prompt.md` for the full
    specification of what it models (realistic carton-based purchasing
@@ -806,8 +806,9 @@ steps are skipped, so a test still builds and checks its data there.
 
 ### The common steps (`shared-fixtures/common/`)
 
-- `login.csv` logs in as the administrator, the one user every fresh
-  database has, and continues past the session screen.
+- `login.csv` logs in as the administrator, the one user every new
+  database has. A new database has no business, so it chooses no
+  session; `business.csv` does, after creating one.
 - `business.csv` logs in, creates the business `${business}` ("Test
   Business", 2026-27, a sole trader in `${currency}`, AUD) and switches
   the session to it; its control file verifies it exists.

@@ -81,11 +81,6 @@ export function resetCore(remove = false, path = CORE_DB_PATH): void {
   if (remove) for (const suffix of ['', '-wal', '-shm']) rmSync(path + suffix, { force: true });
 }
 
-/** The legacy fixtures sign in to a business called "admin": the Global
- * Business under its former name. */
-function businessName(name: string): string {
-  return name === 'admin' ? GLOBAL_BUSINESS : name;
-}
 
 function instance(user: string, business: string, ledger: string): Instance {
   const key = `${user}\u0000${business}\u0000${ledger}`;
@@ -100,7 +95,7 @@ function instance(user: string, business: string, ledger: string): Instance {
 /** The instance a call is served by: the business and ledger its form
  * names, else the session's. The user is always the session's. */
 function inst(a: Args, s: Session): Instance {
-  const business = a.businessName ? businessName(a.businessName) : s.business;
+  const business = a.businessName ? a.businessName : s.business;
   const ledger = a.ledger || (business === s.business ? s.ledger : 'Actual');
   return instance(s.user, business, ledger);
 }
@@ -162,7 +157,7 @@ const KIND_BRANCHES: Record<string, string> = {
 function exists(a: Args, s: Session): boolean {
   if (a.kind === 'Business') {
     try {
-      return !!openCore().business(businessName(a.name));
+      return !!openCore().business(a.name);
     } catch (err) {
       if (err instanceof NotFound) return false;
       throw err;
@@ -202,7 +197,7 @@ export const CORE_CALLS: Record<string, CoreCall> = {
   selectBusiness: {
     params: ['businessName'],
     run: (a, s) => {
-      const business = businessName(a.businessName);
+      const business = a.businessName;
       instance(s.user, business, 'Actual');
       s.business = business;
       s.ledger = 'Actual';
@@ -211,7 +206,7 @@ export const CORE_CALLS: Record<string, CoreCall> = {
   switchSession: {
     params: ['businessName', 'ledger'],
     run: (a, s) => {
-      const business = businessName(a.businessName);
+      const business = a.businessName;
       const ledger = a.ledger || 'Actual';
       instance(s.user, business, ledger);
       s.business = business;
@@ -455,11 +450,11 @@ export const CORE_CALLS: Record<string, CoreCall> = {
   },
   createLedgerSimple: {
     params: ['businessName', 'ledger'],
-    run: (a, s) => void ops.createLedger(instance(s.user, businessName(a.businessName), 'Actual'), a.ledger),
+    run: (a, s) => void ops.createLedger(instance(s.user, a.businessName, 'Actual'), a.ledger),
   },
   rolloverToNewPeriodSimple: {
     params: ['businessName', 'oldLedger', 'newLedger', 'asOfDate'],
-    run: (a, s) => void ops.rollover(instance(s.user, businessName(a.businessName), a.oldLedger), a.newLedger, a.asOfDate),
+    run: (a, s) => void ops.rollover(instance(s.user, a.businessName, a.oldLedger), a.newLedger, a.asOfDate),
   },
 
   // --- the year-end stock take, from a terminal or a phone ----------------------

@@ -10,7 +10,8 @@
 | `make dev-verbose` | The same, with `DB_VERBOSE=1` — every SQL statement the backend executes is printed live |
 | `make web-frontend` / `make frontend` | The browser (SvelteKit) frontend alone |
 | `make text-frontend` | The terminal UI (`tui/`, on sveltui), built and run in the current terminal, so not part of `dev`. It currently stops at start-up (*Testing: The Test-Runner*, "`--path text` — driving the terminal UI"). |
-| `make test` | Backend unit tests (with `ENTITY_DRIVER=sql`) and the step runner's tests, the frontend tests (*Testing: Unit*), the standalone tests on the API path (`make test-steps`), then `make check-manual` ("Gates", below) |
+| `make test` | `make test-unit`, the standalone tests on the API path (`make test-steps`), then `make check-manual` ("Gates", below) |
+| `make test-unit` | The unit tests in five levels, `test-unit-frontend`, `test-unit-store`, `test-unit-core`, `test-unit-backend` and `test-unit-calls`, each depending on the one before (*Testing: Unit*, "Levels") |
 | `make test-steps` / `make test-steps-browser` | The standalone tests in `shared-fixtures/tests/`, on the API path or in the browser, each on a fresh database (`scripts/run-step-tests.ts`; `TEST=a,b` runs only those) — see the Testing: E2E chapter, "Standalone tests" |
 | `make test-e2e` / `make demo-full-year` | Full/volume simulation and full-year data generation — see the Testing: E2E chapter |
 | `make test-e2e-tutorials` | The Retail, Manufacturing and Project Builder fixtures on the API path. `MIDDLEWARE=core` (the default) sends every step through the core middleware's frontend API in-process; `MIDDLEWARE=legacy` runs them on the original middleware. See "The Core Middleware" |
@@ -120,15 +121,15 @@ one line on its own and is never expected to balance.
 
 Two files: `00-core.sql` (every table, view and trigger, and the
 structural entities) and `30-coa-links.sql`, which relates the English
-chart's leaves, the `Cash Sale` customer and the `admin` business to
-the `English CoA` prototype. `db.ts` runs both, in that order, when a
+chart's leaves and the `Cash Sale` customer to the `English CoA`
+prototype. `db.ts` runs both, in that order, when a
 database has no `entities` table.
 
 `seedRemainingData()` (`backend/src/db-seed.ts`, called from `db.ts`)
 then seeds the vocabulary and its translations, the menu and the
-business-type scaffolding. The only business a new database has is
-`admin`, from `00-core.sql`, with the ledgers `Actual` and `Proposed
-Growth Budget 2026-27`. It runs on every load, not only on a new database, so it can
+business-type scaffolding. A new database has no business: the
+administrator creates the first from the session screen (*Frontend
+Reference*, the session picker). It runs on every load, not only on a new database, so it can
 add an entity that was added to the seed since (a new vocabulary word)
 to an existing database.
 
@@ -187,6 +188,7 @@ when the manual and the code agree.
 | `check-no-python` | No `.py` file, and no build file that invokes python. |
 | `check-step-tests` | No Playwright spec (`*.spec.ts`) and no use of `@playwright/test`; every page of the app is opened by `shared-fixtures/tests/every-page-opens.csv`, and every page it opens exists (`scripts/check-step-tests.ts`; it runs `make generate` first, as some pages are generated). |
 | `check-manual-pictures` | Every picture a chapter shows is taken by a test or tutorial's screenshot column (`scripts/manual-pictures.ts check`). |
+| `check-unit-levels` | Every unit test file is in exactly one level of `make test-unit` (`scripts/check-unit-levels.ts`). |
 | `check-backend-types` | `backend/src`, `shared-fixtures` and every script in `backend/scripts` type-check (`tsc --noEmit`, then `tsc -p backend/tsconfig.scripts.json`, which also allows `.ts` import paths as tsx does). A script that imports or calls something `db.ts` no longer has fails here. |
 
 Other checks, not part of `check-manual`:

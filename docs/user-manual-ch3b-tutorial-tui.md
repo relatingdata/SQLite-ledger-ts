@@ -27,14 +27,13 @@ Purchase, Purchase Order, Payment, AR Sale, Cash Sale, Customers, POS Terminal)
 
 ## Choosing a business, then a ledger
 
-Every account can genuinely work across more than one real business, each with its own, entirely independent books --- the same real rule the web app follows. This account also happens to carry its own small, personal **admin** business (its own real ledgers, separate from this tutorial's), so choosing the right one by name actually matters here, not just for show:
+An account can work in more than one business, each with its own books, as in the web app; the screen lists every business the account can open:
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────╮
 │ Choose a business                                                            │
 │                                                                              │
-│ ❯ admin                                                                      │
-│   Tutorial Wine Retail Business                                              │
+│ ❯ Tutorial Wine Retail Business                                              │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ```
 

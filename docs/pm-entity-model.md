@@ -845,10 +845,8 @@ entity id bypass the ambiguous name resolution entirely.
 helper for this — it walks one specific business's own Chart of
 Accounts subtree for a known header name ("Sales Revenue", "Cost of
 Goods Sold", "Inventory"), the same business-scoped walk
-`resolveStagedAccountId` uses, falling back to the
-old bare global lookup only for `admin` (the one legacy,
-pre-multi-tenancy business, which never got its own Chart of Accounts
-copy at all — `schema/00-core.sql`'s seeded bootstrap business).
+`resolveStagedAccountId` uses, and refuses a name the business's
+chart does not have.
 `requireGlobalCoaCategory` is the equivalent for resolving a category
 under the one true *global* template specifically (never a business's
 own copy), via `Application` → the global `Chart of Accounts`.

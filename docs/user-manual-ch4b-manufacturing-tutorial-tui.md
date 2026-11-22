@@ -29,14 +29,13 @@ Cash Sale, Customers, POS Terminal)
 
 ## Choosing a business, then a ledger
 
-This account's own, real **Tutorial Window & Door Manufacturing** business sits alongside everything else it has access to --- its own small, personal **admin** business included, the same real rule Chapter 3b shows:
+**Tutorial Window & Door Manufacturing** is listed with every other business the account can open, as Chapter 3b shows:
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Choose a business                                                                                │
 │                                                                                                  │
-│ ❯ admin                                                                                          │
-│   Tutorial Window & Door Manufacturing                                                           │
+│ ❯ Tutorial Window & Door Manufacturing                                                           │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 

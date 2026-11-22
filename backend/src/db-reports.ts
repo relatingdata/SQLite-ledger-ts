@@ -150,27 +150,12 @@ function allAccountIds(): Set<number> {
   return new Set(realPosted.map((r) => r.id).filter((id) => !nonMoneyCurrency.has(id)));
 }
 
-// Resolves the Chart of Accounts root a business's reports should walk —
-// the business's own copy when it has at least one real category child
-// (relation_id IS NOT NULL: every real category's relation_id points at
-// its own global counterpart), else the GLOBAL Chart of Accounts under
-// "Application". 'admin' (schema/00-core.sql's own "the one legacy,
-// pre-multi-tenancy demo business" comment) never got its own, separate
-// Chart of Accounts copy via copyChartOfAccountsInto — it posts directly
-// against the GLOBAL one instead, and falls back here for exactly that
-// reason, the same, already-established fallback post_journal_entry_insert
-// documents and uses. Resolved once in TS instead of twice per query (the
-// original SQL took the business name as two positional params, once per
-// branch of its own CASE).
+// The Chart of Accounts root a business's reports walk: its own copy.
 function resolveBusinessReportsCoaRootId(business: string): number {
   const businessEntity = Entity.get(business, 'Businesses');
   const businessCoa = businessEntity ? Entity.getUnder('Chart of Accounts', businessEntity.id) : undefined;
-  const hasRealCategoryChild = businessCoa ? Entity.children(businessCoa.id).some((c) => c.relation_id !== null) : false;
-  if (businessCoa && hasRealCategoryChild) return businessCoa.id;
-  const applicationRoot = Entity.get('Application');
-  const globalCoa = applicationRoot ? Entity.getUnder('Chart of Accounts', applicationRoot.id) : undefined;
-  if (!globalCoa) throw new ValidationError('No global Chart of Accounts found.');
-  return globalCoa.id;
+  if (!businessCoa) throw new ValidationError(`"${business}" has no Chart of Accounts.`);
+  return businessCoa.id;
 }
 
 // Replaces a `WITH RECURSIVE coa_walk ... current_entities` CTE joined to

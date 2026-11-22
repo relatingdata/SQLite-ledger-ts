@@ -583,6 +583,12 @@ Tests (*Testing: Unit*, "Running the tests"):
 
 ## `frontend/src/routes/session/+page.svelte` — the Business/Ledger/Profit Center picker
 
+**No business yet**: a new database has none. The page then says so and,
+for an Administrator, offers **New Business** (`/setup/new-business`),
+the one page besides `/session`, `/login` and `/customer-terminal` that
+the layout opens without a session. Anyone else is asked to have an
+Administrator create one.
+
 **Default ledger**: the business's active ledger (set when the
 business is created, moved by a rollover; `docs/active-ledger-design.md`).
 

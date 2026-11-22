@@ -22,6 +22,8 @@ After logging in, before you reach any real screen, you choose three things: whi
 
 ![The business/ledger/language choice screen, immediately after logging in.](manual-images/m_choose_business.png)
 
+A new installation has no business yet. The same screen then says so, and offers the administrator **New Business**; once it is created, the screen offers it to choose.
+
 ## The main screen, once you're in
 
 Once a business, ledger, and language are chosen, you land on the main screen. The top bar shows every real, major section of the application --- General Ledger, Accounts Receivable, Accounts Payable, Cash, and more --- with a real, contextual sidebar on the left showing every screen within whichever section is currently selected.

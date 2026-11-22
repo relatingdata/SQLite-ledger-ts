@@ -687,13 +687,9 @@ function resolveStagingLedgerId(ledger: string, businessId: number | undefined):
   return Entity.getUnder(ledger, ledgersRoot.id)?.id;
 }
 
-// Same reasoning as above: the trigger's own per-line account fallback — a
-// business-scoped Chart-of-Accounts walk first, then a bare, unscoped name
-// lookup as a deliberate fallback for the one legacy business ('admin'/'My
-// Business') with no Chart of Accounts copy of its own. Most staged lines
-// never reach this at all — stageLine already resolves account_id itself via
-// the ledger-scoped lookup wherever it can; this is only the trigger's own
-// last-resort path for a line that arrived without one.
+// The trigger's per-line account fallback, for a line staged without an
+// account_id: the business's own chart first, then a counterparty or any
+// entity of that name (an item, as `postOrderReceipt` posts to one).
 function resolveStagedAccountId(business: string, accountName: string): number | undefined {
   const businessId = resolveStagingBusinessId(business);
   if (businessId !== undefined) {

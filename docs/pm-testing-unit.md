@@ -54,15 +54,34 @@ how to run it:
 
 | File | Kind | Run by |
 |---|---|---|
-| `backend/test/*.test.ts`, `backend/scripts/*.test.ts` | backend unit tests, Node's built-in test runner | `make test` |
-| `frontend/test/*.test.ts` | frontend unit tests (logic, not rendered components) | `make test` |
+| `backend/test/*.test.ts`, `backend/scripts/*.test.ts` | backend unit tests, Node's built-in test runner | `make test-unit` (in `make test`), by level (below) |
+| `frontend/test/*.test.ts` | frontend unit tests (logic, not rendered components) | `make test-unit-frontend` |
 | `storage_engine/test/*_test.gleam` | the storage engine's own Gleam tests | `make test-storage-engine` |
 | `shared-fixtures/tests/*.csv` | standalone step-runner tests, each on a fresh database | `make test-steps` (in `make test`), `make test-steps-browser`; see *Testing: The Test-Runner*, "Standalone tests" |
 
-`make test` runs the backend and frontend unit tests, then the
-standalone tests without a browser, then `make check-manual` (*Build,
-Run & Tooling*, "Gates"). It prints how many tests passed. `make test-one TEST="part of a
+`make test` runs `make test-unit`, then the standalone tests without a
+browser, then `make check-manual` (*Build, Run & Tooling*, "Gates").
+It prints how many tests passed. `make test-one TEST="part of a
 title"` runs only the backend tests whose titles hold it.
+
+### Levels
+
+`make test-unit` runs the unit tests in five levels, from the least
+code under test to the most. Each level's target depends on the one
+before, so `make test-unit-core` runs the first three, and a level
+runs only once everything beneath it passes:
+
+| Target | Files (`UNIT_*` in the Makefile) | What they exercise |
+|---|---|---|
+| `test-unit-frontend` | `frontend/test/format.test.ts`, `journalGrid.test.ts`, `entityTree.test.ts`, `org-chart-layout.test.ts` | pure functions; no database, no server |
+| `test-unit-store` | `backend/test/application-config.test.ts` | the entity store and its ASCII form, in memory |
+| `test-unit-core` | `backend/test/core.test.ts`, `core-api.test.ts` | the core middleware on its own store, then its call API |
+| `test-unit-backend` | `backend/test/memory-entity-driver.test.ts`, `db.test.ts`, `cube.test.ts`, `auth.test.ts` | the original middleware on SQLite: an entity driver, then the domain functions, the reports cube and authentication |
+| `test-unit-calls` | `backend/test/call-dispatch.test.ts`, `backend/scripts/step-runner.test.ts` | the `/api/call` dispatcher and the step runner, on top of everything above |
+
+`make check-unit-levels` (a manual gate) fails when a test file is in
+no level or in more than one, so a new test file must be given its
+level.
 
 Unit tests prove one mechanism at a time, against small scenarios built
 for it: "a multi-currency entry must balance independently per
@@ -79,8 +98,8 @@ of the backend), `cube.test.ts`, `call-dispatch.test.ts`, `auth.test.ts`,
 core middleware), and `memory-entity-driver.test.ts`; the step runner's
 own tests are `backend/scripts/step-runner.test.ts`. Each test makes
 its own uniquely named business with the fixtures below and reads or
-writes nothing it did not create. The one seeded business, `admin`
-(`schema/00-core.sql`), is used by no test.
+writes nothing it did not create. No business is seeded, so there is no
+shared business to touch.
 
 ### Why real fixtures, not fakes
 
