@@ -1,0 +1,11 @@
+graph TB
+    START["Each child of a template account<br/>(Application → Chart of Accounts),<br/>from the top down"] --> Q1{"A contact?<br/>(the Cash provider)"}
+    Q1 -- yes --> SKIP1["Not copied"]
+    Q1 -- no --> Q2{"Tagged with a prototype<br/>(English CoA, German CoA, …)?"}
+    Q2 -- yes --> Q3{"The business's<br/>chosen prototype?"}
+    Q3 -- yes --> COPYLEAF["Copied into the business's chart"]
+    Q3 -- no --> SKIP2["Not copied"]
+    Q2 -- no --> Q4{"Has accounts under it,<br/>or is Cost of Goods Sold?"}
+    Q4 -- no --> SHARED["Not copied: one leaf every<br/>business shares (Cash and Bank)"]
+    Q4 -- yes --> COPYGROUP["Copied, the copy related to the template account<br/>(Cost of Goods Sold: related to COGS),<br/>a word for it in the business's Vocabulary,<br/>then its children the same way"]
+    COPYGROUP -.-> START

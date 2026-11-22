@@ -90,9 +90,26 @@ entity driver (`Entity.get`, `getUnder`, `descendantsWithDepth`), not
 SQL on `current_entities`, so they work under every driver
 (`ENTITY_DRIVER=kaappi` writes no `current_entities` rows), and they
 run before `commitStagedEntry` opens its write transaction.
-`commitStagedEntry` then checks the period lock and the balance,
-vivifies accounts, writes `journal`/`journal_line`, updates the
-balances and clears the staged lines.
+`commitStagedEntry` then, inside one `db.transaction(...)`:
+
+1. Refuses to post nothing: no staged rows for this
+   reference/business/ledger.
+2. Refuses to post into a closed period: the staged date is on or
+   before the locked-through date (`getPeriodLockStatus`).
+3. With `requireBalance`, refuses an entry that does not balance in
+   each currency: lines are grouped by account currency (an account
+   with no currency, or not yet created, is its own group) and every
+   group must sum to zero. Buying EUR with USD is one entry with two
+   balanced groups.
+4. Creates any account that does not exist yet.
+5. Inserts the `journal` row.
+6. Inserts one `journal_line` per staged line.
+7. Updates each account's `balance_minor`, per line; the
+   `journal_line_unique_ordinary` index allows at most one line per
+   account per entry, so this equals a bulk sum.
+8. Deletes the posted staging rows.
+
+If any step fails nothing is written and the staged lines stay.
 
 ## `StagedLine` / `stageLine`
 

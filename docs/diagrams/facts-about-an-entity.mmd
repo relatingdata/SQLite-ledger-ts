@@ -1,0 +1,15 @@
+graph TB
+    N["Nadia Petrovska (an employee)"]
+    N --> A1["City<br/>(setAttr: the attribute's name)"]
+    A1 --> A2["Brisbane<br/>(its one value)"]
+    N --> T1["Contact<br/>(tag)"]
+    T1 -. relation_id .-> ACT["Active"]
+    N --> L1["Nadia Petrovska — Department<br/>(setEntityLink: a link record)"]
+    L1 --> L2["Department (its presence tag)"]
+    L1 -. relation_id .-> DEP["Payroll Office"]
+    N --> H1["Nadia Petrovska — Hierarchy: Division<br/>(setHierarchyParent: a link record too)"]
+    H1 -. relation_id .-> DIV["Head Office Division"]
+    POE["Place of Employment<br/>(a relationship type, a root)"] --> R1["Place of Employment — Nadia Petrovska → Riverside Cellars<br/>(setRelationship: a relationship record)"]
+    N -. relation_id .-> R1
+    R1 -. relation_id .-> LOC["Riverside Cellars"]
+    style N fill:#ffd

@@ -1,10 +1,12 @@
 graph TB
-    subgraph "Parent Link (structural — 'lives under')"
-        A["Wine Retail Business"] --> B["Wine Retail Business Locations"]
+    subgraph PARENT["parent_id: where a thing lives (one tree)"]
+        A["Wine Retail Business"] --> B["Locations"]
         B --> C["Riverside Cellars"]
-        C --> D["Riverside Cellars — On Hand: Merlot"]
+        A --> D["Items"]
+        D --> E["Merlot 2021"]
+        E --> F["Merlot 2021 — Riverside Cellars — Qty<br/>(its quantity account there)"]
     end
-    subgraph "Relation Link (lateral — 'refers to')"
-        E["Riverside Cellars<br/>(Location Type marker)"] -.relation_id.-> F["Retail<br/>(under Location Types)"]
-        G["Merlot 2021 — Sales"] -.relation_id.-> H["COGS<br/>(marks it as Cost of Goods Sold)"]
+    subgraph RELATION["relation_id: what a thing refers to (at most one)"]
+        G["Rotwein<br/>(child of the language German)"] -. relation_id .-> H["Red Wine<br/>(a Vocabulary word)"]
+        I["Cost of Goods Sold<br/>(a business's copy)"] -. relation_id .-> J["COGS<br/>(the report tag)"]
     end

@@ -1,0 +1,16 @@
+graph LR
+    W1["INSERT INTO entity_entry<br/>(create)"] --> T
+    W2["INSERT INTO entity_update<br/>(rename, move, relate)"] --> T
+    W3["INSERT INTO entity_revoke<br/>(revoke)"] --> T
+    W4["entity_set_relation, entity_set_detail,<br/>entity_merge_detail, entity_set_combination_ids"] --> T
+    T["INSTEAD OF INSERT triggers"] --> R
+    subgraph R["entities: append-only, one row per version"]
+        direction TB
+        V1["id 42, version 1<br/>'Cash and Bank' under Assets"]
+        V2["id 42, version 2<br/>'Cash and Bank' under Current Assets"]
+        V3["id 42, version 3<br/>'Cash & Bank' under Current Assets"]
+        V1 --- V2 --- V3
+    end
+    R --> CUR["current_entities (view):<br/>the newest version of each id"]
+    style V3 fill:#dfd
+    style CUR fill:#ffd

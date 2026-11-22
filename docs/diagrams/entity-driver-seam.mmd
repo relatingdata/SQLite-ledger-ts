@@ -1,0 +1,11 @@
+graph TB
+    CALLERS["db.ts, db-stock.ts, db-reports.ts, ...<br/>call Entity.* (primitives.ts)"] --> SEAM
+    SEAM["entityDriver<br/>(entity-driver-select.ts, ENTITY_DRIVER)"]
+    SEAM -->|"sql (default)"| SQL["SqlEntityDriver<br/>SQL on entities"]
+    SEAM -->|memory| MEM["MemoryEntityDriver<br/>Maps in the process"]
+    SEAM -->|kaappi| KAA["KaappiEntityDriver<br/>a Scheme subprocess"]
+    SEAM -->|gleam| GLE["GleamEntityDriver<br/>the storage engine over HTTP"]
+    SQL --> FILE[("entities.sqlite")]
+    MEM --> WAL[("kaappi_wal in entities.sqlite")]
+    KAA --> WAL
+    GLE --> ENG["storage_engine (BEAM)"] --> FILE
