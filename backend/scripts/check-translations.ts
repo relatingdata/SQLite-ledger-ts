@@ -63,6 +63,11 @@ for (const line of fs.readFileSync(path.join(root, 'application/application.enti
   }
 }
 
+// Form field definitions ({ name, label, placeholder }) carry labels too,
+// in a component's props here and in the frontend's own code.
+const formLabel = /\b(?:label|placeholder): '((?:[^'\\]|\\.)*)'/g;
+for (const m of fs.readFileSync(path.join(root, 'application/application.entities'), 'utf-8').matchAll(formLabel)) add(unquote(m[1]), 'field', 'a form (application.entities)');
+
 // --- 2. The frontend's own words: translations.current['…'] and t('…') ---
 function walk(dir: string, out: string[] = []): string[] {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -78,6 +83,7 @@ for (const file of walk(path.join(root, 'frontend/src'))) {
   for (const m of fs.readFileSync(file, 'utf-8').matchAll(literal)) {
     add(unquote(m[1] ?? m[2]), route ? 'screen text' : 'shared text', route ? `page ${route || '/'}` : rel);
   }
+  for (const m of fs.readFileSync(file, 'utf-8').matchAll(formLabel)) add(unquote(m[1]), 'field', route ? `page ${route || '/'}` : rel);
 }
 
 // --- 3. A database with every translation the project defines ---

@@ -474,7 +474,7 @@
           <div class="inline-add">
             <input
               bind:value={newGroupName}
-              placeholder={`${translations.current[locationHierarchyName] ?? locationHierarchyName} ${translations.current['name'] ?? 'name'}`}
+              placeholder={`${translations.current[locationHierarchyName] ?? locationHierarchyName} ${translations.current['Name'] ?? 'Name'}`}
               disabled={creatingGroup}
               onkeydown={(e) => {
                 if (e.key === 'Enter') { e.preventDefault(); addGroup(); }

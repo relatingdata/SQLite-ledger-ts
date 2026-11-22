@@ -292,6 +292,7 @@ Tests (*Testing: Unit*, "Running the tests"):
 - "create_with_free_name_is_ok_test" (`storage_engine/test/entities_test.gleam`)
 - "create_with_taken_name_under_same_parent_is_rejected_test" (`storage_engine/test/entities_test.gleam`)
 - "same_name_is_fine_under_a_different_parent_test" (`storage_engine/test/entities_test.gleam`)
+- "two_translations_may_share_a_word_under_a_language_test" (`storage_engine/test/entities_test.gleam`)
 - "renaming_an_entity_to_its_own_current_name_never_collides_with_itself_test" (`storage_engine/test/entities_test.gleam`)
 - "renaming_onto_a_different_entitys_live_name_is_rejected_test" (`storage_engine/test/entities_test.gleam`)
 - "create_and_list_entities_test" (`storage_engine/test/ledger_test.gleam`)

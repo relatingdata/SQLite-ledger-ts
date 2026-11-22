@@ -1,5 +1,7 @@
 path,verify,screenshot,skip
 ,,,false
+,,,false
+,,,false
 ,entity_named_exists,,false
 ,entity_named_exists,,false
 ,entity_named_exists,,false
@@ -3106,11 +3108,4 @@ path,verify,screenshot,skip
 ,translation_matches,,false
 ,translation_matches,,false
 ,translation_matches,,false
-,translation_matches,,false
-,translation_matches,,false
-,translation_matches,,false
-,translation_matches,,false
-,translation_matches,,false
-,translation_matches,,false
-,translation_matches,,false
-,translation_matches,,false
+,,,false

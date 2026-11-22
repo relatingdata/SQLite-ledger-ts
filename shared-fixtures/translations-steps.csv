@@ -2,6 +2,10 @@
 # translation screens need a session.
 "Set","business","Translations"
 "Include","common/business.csv"
+# New concepts and their translations, written by Claude, each ending in " (C)"
+# (docs/pm-translations.md). They come first, so a translation a person
+# wrote below replaces one of them.
+"Include","translations-claude-new.csv"
 # Every real concept below that is not already a real entity in a
 # fresh, 00-core.sql-only boot (several hundred of this file's own
 # concepts are already real, hardcoded English UI strings the
@@ -136,14 +140,6 @@
 # fieldset at all, so there is no real UI target. Per direct
 # instruction, the API and UI paths never load divergent data - this
 # is the one, real, same, filtered dataset either path runs against.
-# A small, real, further set of rows are expected to genuinely fail
-# their own translation_matches verify on BOTH paths alike - a real,
-# pre-existing ambiguity already anticipated and handled by
-# setTranslation itself (two different, real English concepts that
-# genuinely share one, real translated word, e.g. "Continue" and
-# "Next" both genuinely meaning "Weiter" in German) - logged to
-# docs/flagged-translation-collisions.log, never silently resolved,
-# and never a reason to halt every other, real, unrelated row.
 "Set Translation","Account","German","Konto"
 "Set Translation","Account","French","Compte"
 "Set Translation","Account Number","German","Kontonummer"
@@ -1483,10 +1479,6 @@
 "Set Translation","Total invoiced:","French","Total factur\u{e9} :"
 "Set Translation","Total invoiced:","Danish","Total faktureret:"
 "Set Translation","Total invoiced:","Italian","Totale fatturato:"
-"Set Translation","Total owed to vendor:","German","Gesamt an Lieferant geschuldet:"
-"Set Translation","Total owed to vendor:","French","Total d\u{fb} au fournisseur :"
-"Set Translation","Total owed to vendor:","Danish","Total skyldig til leverand\u{f8}r:"
-"Set Translation","Total owed to vendor:","Italian","Totale dovuto al fornitore:"
 "Set Translation","Total owed:","German","Gesamt geschuldet:"
 "Set Translation","Total owed:","French","Total d\u{fb} :"
 "Set Translation","Total owed:","Danish","Total skyldig:"
@@ -1504,10 +1496,6 @@
 "Set Translation","Variance account","French","Compte d'\u{e9}cart"
 "Set Translation","Variance account","Danish","Afvigelseskonto"
 "Set Translation","Variance account","Italian","Conto scostamenti"
-"Set Translation","Vendors / Suppliers","German","Lieferanten"
-"Set Translation","Vendors / Suppliers","French","Fournisseurs"
-"Set Translation","Vendors / Suppliers","Danish","Leverand\u{f8}rer"
-"Set Translation","Vendors / Suppliers","Italian","Fornitori"
 "Set Translation","Vocabulary","German","Vokabular"
 "Set Translation","Vocabulary","French","Vocabulaire"
 "Set Translation","Vocabulary","Danish","Ordforr\u{e5}d"
@@ -3149,3 +3137,5 @@
 "Set Translation","Configuration","Arabic","\u{627}\u{644}\u{625}\u{639}\u{62f}\u{627}\u{62f}\u{627}\u{62a}"
 "Set Translation","Better Brighter Multi-Ledger","Hebrew","\u{5d1}\u{5d8}\u{5e8} \u{5d1}\u{5e8}\u{5d9}\u{5d9}\u{5d8}\u{5e8} \u{5de}\u{5d0}\u{5dc}\u{5d8}\u{5d9}-\u{5dc}\u{5d3}\u{5d2}\u{5f3}\u{5e8}"
 "Set Translation","Better Brighter Multi-Ledger","Arabic","\u{628}\u{64a}\u{62a}\u{631} \u{628}\u{631}\u{627}\u{64a}\u{62a}\u{631} \u{645}\u{644}\u{62a}\u{64a} \u{644}\u{64a}\u{62f}\u{62c}\u{631}"
+# Languages these concepts were missing, written by Claude (" (C)").
+"Include","translations-claude-existing.csv"

@@ -1719,7 +1719,7 @@ Root
    "/order-entry/generate-po" :Screen Description="Automatically proposing purchase orders from real reorder levels and stock on hand, staged for a human to actually approve, not auto-posted. Discussed at length but not yet built." Template=not-implemented Title="Generate Purchase Orders"
    "/pos" :Screen "Calls completePosSale">/Root/Application/Calls/completePosSale "Calls createPosTerminal">/Root/Application/Calls/createPosTerminal "Calls getPosTerminals">/Root/Application/Calls/getPosTerminals "Calls listItems">/Root/Application/Calls/listItems "Calls listLocations">/Root/Application/Calls/listLocations "Calls listPendingCustomers">/Root/Application/Calls/listPendingCustomers "Calls lookupByUpc">/Root/Application/Calls/lookupByUpc "Calls verifyCustomer">/Root/Application/Calls/verifyCustomer Source="frontend/src/routes/pos/+page.svelte" Title="POS Terminal"
     - :Heading Text="POS Terminal"
-    - :Action Handler="() => (showPending = !showPending)" Label="customer registration"
+    - :Action Handler="() => (showPending = !showPending)" Label="Customer Registration"
     - :Column Label=Name
     - :Column Label=Email
     - :Column Label=Phone
@@ -1821,7 +1821,7 @@ Root
     - :Entry Label=Item Name=item
     - :Entry Label=Locations Name=location
     - :Entry Control=amount Label="On hand" Name=onHand
-    - :Entry Control=amount Label="Reorder Level" Name=reorder
+    - :Entry Control=amount Label="Reorder level" Name=reorder
     - :Entry Control=amount Label=Min Name=min
     - :Entry Control=amount Label=Max Name=max
    "/reports/business-configuration" :Screen "Empty Text"="None recorded." Intro="Everything this business's own setup actually captured - name, addresses, phones, owner(s)/partner(s), banking details, currencies, hierarchies (such as Division), locations, and categories. Never item details - see Inventory Catalog for those." Report=businessConfiguration Template=report Title="Business Configuration Report"
@@ -1987,7 +1987,7 @@ Root
     - :Field Bind=newLocationType Control=select Label="Business Setup"
     - :Field Bind=newLocationTimezone Control=select Label="Business Setup"
     - :Field Bind="newLocationDimensionValues[h.grouping]" Control=select Label="Business Setup"
-    - :Field Bind=newGroupName Control=input Label="Business Setup" Placeholder="{`${translations.current[locationHierarchyName] ?? locationHierarchyName} ${translations.current['name'] ?? 'name'}`}"
+    - :Field Bind=newGroupName Control=input Label="Business Setup" Placeholder="{`${translations.current[locationHierarchyName] ?? locationHierarchyName} ${translations.current['Name'] ?? 'Name'}`}"
     - :Heading Text=Details
     - :Heading Text=City
     - :Field Bind=locationRecord.city Control=input Label=City
@@ -2055,7 +2055,7 @@ Root
     - :Heading Text="Nominate each real bank account"
     - :Field Bind=newBankName Control=input Label="Nominate each real bank account" Placeholder="Bank name, e.g. Westpac Business Cheque"
     - :Field Bind=newRoutingDetail Control=input Label="Nominate each real bank account" Placeholder="BSB / routing detail"
-    - :Field Bind=newAccountNumber Control=input Label="Nominate each real bank account" Placeholder="Account number"
+    - :Field Bind=newAccountNumber Control=input Label="Nominate each real bank account" Placeholder="Account Number"
     - :Action Handler=nominateBank Label="+ Add bank account"
     - :Heading Text="Does the business trade in one currency, or more than one?"
     - :Field Bind=wizardTradesInOneOrMore Control=input Label="One currency" Type=radio
@@ -2143,7 +2143,7 @@ Root
     - :Column Label=Active
     - :Action Handler="(e) => { e.stopPropagation(); reactivate(u); }" Label=Reactivate
     - :Field Control=input Label=Users Type=checkbox
-    - :Field Bind=resetPassword Control=input Label=Users Placeholder="new password" Type=password
+    - :Field Bind=resetPassword Control=input Label=Users Placeholder="New password" Type=password
     - :Action Handler="(e) => { e.stopPropagation(); submitReset(u.id); }" Label=Save
     - :Action Handler="(e) => { e.stopPropagation(); resettingId = u.id; resetPassword = ''; }" Label="Reset password"
     - :Heading Text="Roles per business"
@@ -2159,8 +2159,8 @@ Root
     - :Action Handler="() => save(concept)" Label=Save
    "/setup/yearend" :Screen "Calls createLedger">/Root/Application/Calls/createLedger "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getHierarchy">/Root/Application/Calls/getHierarchy "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls getReportingPeriods">/Root/Application/Calls/getReportingPeriods "Calls postJournalEntry">/Root/Application/Calls/postJournalEntry "Calls previewCloseBooks">/Root/Application/Calls/previewCloseBooks "Calls resolveRolloverLines">/Root/Application/Calls/resolveRolloverLines "Calls stageLine">/Root/Application/Calls/stageLine Source="frontend/src/routes/setup/yearend/+page.svelte" Title="Year End Close"
     - :Heading Text="Year End Close"
-    - :Heading Text="Reporting period"
-    - :Field Bind=selectedPeriodLabel Control=select Label="Reporting period"
+    - :Heading Text="Reporting Period"
+    - :Field Bind=selectedPeriodLabel Control=select Label="Reporting Period"
     - :Heading Text="As of date"
     - :Field Bind=asOfDate Control=input Label="As of date" Type=date
     - :Heading Text="Retained earnings account"
@@ -2195,7 +2195,7 @@ Root
     - :Column Label="On hand"
     - :Column Label=Min
     - :Column Label=Max
-    - :Column Label="Reorder Level"
+    - :Column Label="Reorder level"
     - :Field Bind=row.min_level Control=input Label="Inventory Listing" Type=number
     - :Field Bind=row.max_level Control=input Label="Inventory Listing" Type=number
     - :Field Bind=row.reorder_level Control=input Label="Inventory Listing" Type=number

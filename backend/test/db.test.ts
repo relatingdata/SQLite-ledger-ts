@@ -365,6 +365,18 @@ test('getOrgChartStructure: one aggregate read groups employees by department, w
   assert.deepEqual(looseNode, { name: loose.name, location: loc.name, managerName: null });
 });
 
+test('setTranslation: two concepts may have the same word in one language, each translation relating to its own concept', () => {
+  const a = fx.uniqueName('Homonym A');
+  const b = fx.uniqueName('Homonym B');
+  db.createEntityRaw({ name: a, parent: 'Vocabulary' }, fx.userId);
+  db.createEntityRaw({ name: b, parent: 'Vocabulary' }, fx.userId);
+  const word = fx.uniqueName('Attivo');
+  db.setTranslation(a, 'Italian', word, fx.userId);
+  db.setTranslation(b, 'Italian', word, fx.userId);
+  assert.equal(db.getTranslation(a, 'Italian'), word);
+  assert.equal(db.getTranslation(b, 'Italian'), word);
+});
+
 test('getTranslationsReferencing/deleteTranslationConcept: a word still genuinely translated somewhere cannot be deleted, but can once every real translation of it is gone', () => {
   const word = fx.uniqueName('GuardTest Word');
   const globalVocabulary = db.requireEntity('Vocabulary', db.typeRootName, db.requireEntity('Application', db.typeRootName));

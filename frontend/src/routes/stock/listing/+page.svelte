@@ -139,7 +139,7 @@
                         <th class="num">{translations.current['On hand'] ?? 'On hand'}</th>
                         <th class="num">{translations.current['Min'] ?? 'Min'}</th>
                         <th class="num">{translations.current['Max'] ?? 'Max'}</th>
-                        <th class="num">{translations.current['Reorder Level'] ?? 'Reorder Level'}</th>
+                        <th class="num">{translations.current['Reorder level'] ?? 'Reorder level'}</th>
                       </tr>
                     </thead>
                     <tbody>

@@ -133,7 +133,7 @@
         </tbody>
         <tfoot>
           <tr>
-            <td><strong>{translations.current['Net Income'] ?? 'Net Income'}</strong></td>
+            <td><strong>{translations.current['Net income'] ?? 'Net income'}</strong></td>
             <td class="num mono" class:amount-debit={plCmp.a_net_income_minor < 0}><strong>{fmtNet(plCmp.a_net_income_minor)}</strong></td>
             <td class="num mono" class:amount-debit={plCmp.b_net_income_minor < 0}><strong>{fmtNet(plCmp.b_net_income_minor)}</strong></td>
             <td

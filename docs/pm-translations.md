@@ -8,7 +8,8 @@ included:
 - the menus: each section and link label (`getMenuTree`);
 - the screens: each title, heading, field label, placeholder and help
   text (`Title`, `Text`, `Label`, `Placeholder`, `Description`, `Intro`,
-  `Empty` and `Summary` in `application/application.entities`);
+  `Empty` and `Summary` in `application/application.entities`, and the
+  `label` and `placeholder` of each form field a screen defines);
 - the frontend's own words: every literal in `translations.current['…']`
   and `t('…')` in `frontend/src`, generated pages included.
 
@@ -16,9 +17,12 @@ Data that people name themselves (an account, an item, an employee) is
 not in this rule: it is shown as named, and translated only when someone
 adds a translation for it.
 
-`make check-translations` (`backend/scripts/check-translations.ts`)
-checks the rule. It is not yet a manual gate: it fails today ("Current
-state", below), and it joins `MANUAL_GATES` once it passes.
+`make check-translations` (`backend/scripts/check-translations.ts`), a
+manual gate, checks the rule.
+
+A text in the code is spelled exactly as its concept: the Vocabulary
+refuses two words that differ only in case (`createEntityRaw`), so
+`'Reorder level'` in a page must not be written `'Reorder Level'`.
 
 ## The model
 
@@ -27,7 +31,11 @@ named by its English text. A **translation** is an entity under the
 language (`Application` › `Languages` › `German`), named by the
 translated text, whose `relation_id` is the concept (*The Entity
 Model*, "What `relation_id` is used for"). `setTranslation(concept, language, text)` makes
-or renames it.
+or renames it. Two concepts may have the same word in one language
+(Italian `Attivo` for both `Asset` and `Active`): names under a
+language may repeat, the one exception to sibling uniqueness
+(`entities_name_unique`, `createEntityRaw`, and the Gleam engine's
+`validate_write`).
 
 English has three roles:
 
@@ -51,6 +59,27 @@ separate from this: its accounts are entities named in that language,
 which may or may not have translations, and may name the same thing
 differently for a business type.
 
+## Where the translations come from
+
+- `schema/00-core.sql`: the English entry of each of its concepts.
+  Creating a Vocabulary word creates its English entry too.
+- `db-seed.ts`: chart-of-accounts names, the days of the week and some
+  screen words.
+- `shared-fixtures/translations-steps.csv`, loaded by `make
+  load-translations-api` (or `-ui`): the translations people wrote, and
+  two included files written by Claude, in which every translation ends
+  in ` (C)` so a person can find and review it:
+  - `translations-claude-new.csv`, first: the concepts for texts that
+    had none, with their translations. A translation a person writes
+    later in `translations-steps.csv` replaces one of these.
+  - `translations-claude-existing.csv`, last: the languages that
+    existing concepts were missing.
+
+A text not yet translated with confidence has `To be Translated` in
+that language's words in place of a translation (`Zu übersetzen:
+home`, `À traduire: Every`, …); `To be Translated` is a concept with a
+translation in every language.
+
 ## The check
 
 `check-translations` builds a database in a temporary file, loads every
@@ -65,31 +94,18 @@ reason, where, text). It takes about 15 seconds.
 
 ## Current state
 
-From `make check-translations` (883 texts):
+`make check-translations` passes: 908 texts, each defined in every
+language. Two texts are marked To be Translated in every language,
+`home` and `Every`: each is a fragment whose sense depends on the words
+around it on its screen.
 
-| Language | menu | screen title | heading | field | help text | screen text | shared text | total |
-|---|---|---|---|---|---|---|---|---|
-| English | 2 | 16 | 38 | 133 | 47 | 115 | 37 | 388 |
-| German | 5 | 15 | 40 | 138 | 47 | 126 | 39 | 410 |
-| French | 5 | 15 | 38 | 134 | 47 | 128 | 38 | 405 |
-| Danish | 5 | 17 | 38 | 137 | 47 | 126 | 38 | 408 |
-| Italian | 6 | 18 | 39 | 134 | 47 | 126 | 38 | 408 |
-| Hebrew | 4 | 42 | 136 | 240 | 60 | 225 | 69 | 776 |
-| Arabic | 4 | 42 | 136 | 240 | 60 | 225 | 69 | 776 |
+About 230 of the translations people wrote, in German, French, Danish
+and Italian, carry over filler words from their English text ("A real
+employee can genuinely work a real, scheduled shift…" as "Ein realer
+Mitarbeiter kann tatsächlich eine reale, geplante Schicht…"). The cure
+is to rewrite the English texts first, since each translation is keyed
+by its English text, then their translations.
 
-- **388 texts are not concepts**, so they are missing in every language;
-  English's 388 are exactly these. Some are translated anyway:
-  `setTranslation` attaches a translation to any entity of that name
-  when no concept has it, so the reports (`Balance Sheet`, `Trial
-  Balance`), the English chart's accounts and the days of the week have
-  German, French and Danish text but no concept and no English entry.
-- **Hebrew and Arabic** have almost no translations.
-- **90 translations cannot be stored**: two concepts with the same word
-  in one language (Italian `Attivo` for `Asset` and `Active`) would be
-  two siblings of one name under the language, which entity names
-  forbid. `setTranslation` keeps the first and appends the clash to
-  `docs/flagged-translation-collisions.log`; 100 steps of the
-  translation fixture fail for this reason.
-- **Text direction** is stored under the language like a translation:
-  `Arabic — Text Direction` and `Hebrew — Text Direction` under each
-  language, related to `RTL`.
+Text direction is stored under the language like a translation:
+`Arabic — Text Direction` and `Hebrew — Text Direction` under each
+language, related to `RTL`. `check-translations` does not count them.

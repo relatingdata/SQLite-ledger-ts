@@ -39,3 +39,15 @@ pub fn renaming_onto_a_different_entitys_live_name_is_rejected_test() {
   entities.validate_write(current, 1, None, "Sales")
   |> should.equal(Error(NameTaken))
 }
+
+pub fn two_translations_may_share_a_word_under_a_language_test() {
+  // 2 Languages > 3 Italian > 4 "Attivo" (Asset); a second "Attivo" (Active).
+  let current = [
+    EntityRow(2, "Languages", Some(1), None),
+    EntityRow(3, "Italian", Some(2), None),
+    EntityRow(4, "Attivo", Some(3), Some(50)),
+  ]
+
+  entities.validate_write(current, 5, Some(3), "Attivo")
+  |> should.equal(Ok(Nil))
+}

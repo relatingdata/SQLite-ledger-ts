@@ -268,7 +268,7 @@
 
     {#if reportingPeriods.length > 0}
       <fieldset>
-        <legend>{translations.current['Reporting period'] ?? 'Reporting period'}</legend>
+        <legend>{translations.current['Reporting Period'] ?? 'Reporting Period'}</legend>
         <select bind:value={selectedPeriodLabel} onchange={applySelectedPeriod}>
           <option value="">{translations.current['Pick a period…'] ?? 'Pick a period…'}</option>
           {#each reportingPeriods as p}<option value={p.label}>{p.label} ({translations.current['ends'] ?? 'ends'} {p.endDate})</option>{/each}
@@ -322,13 +322,13 @@
             {/each}
           </tbody>
         </table>
-        <p class="preview-net">{translations.current['Net Income'] ?? 'Net Income'}: <strong>{fmt(preview.netIncomeMinor)}</strong></p>
+        <p class="preview-net">{translations.current['Net income'] ?? 'Net income'}: <strong>{fmt(preview.netIncomeMinor)}</strong></p>
 
         {#if preview.groupBreakdown.length > 0}
           <p class="group-heading">{translations.current['Summary by division/location (informational — every division rolls into the one, combined Retained Earnings line above)'] ?? 'Summary by division/location (informational — every division rolls into the one, combined Retained Earnings line above)'}:</p>
           <ul class="group-list">
             {#each preview.groupBreakdown as d}
-              <li>{d.group ?? (translations.current['(No division)'] ?? '(No division)')}: {fmt(d.netIncomeMinor)}</li>
+              <li>{d.group ?? (translations.current['(no division)'] ?? '(no division)')}: {fmt(d.netIncomeMinor)}</li>
             {/each}
           </ul>
         {/if}
@@ -346,13 +346,13 @@
     {#if result}
       <div class="close-result">
         <p><strong>{translations.current['Closed'] ?? 'Closed'}: {result.reference}</strong></p>
-        <p>{translations.current['Net Income'] ?? 'Net Income'}: {fmt(result.netIncomeMinor)}</p>
+        <p>{translations.current['Net income'] ?? 'Net income'}: {fmt(result.netIncomeMinor)}</p>
         <p>{translations.current['Accounts zeroed'] ?? 'Accounts zeroed'}: {result.accountsZeroed}</p>
         {#if result.groupBreakdown.length > 0}
           <p class="group-heading">{translations.current['By division/location profit center'] ?? 'By division/location profit center'}:</p>
           <ul class="group-list">
             {#each result.groupBreakdown as d}
-              <li>{d.group ?? (translations.current['(No division)'] ?? '(No division)')}: {fmt(d.netIncomeMinor)}</li>
+              <li>{d.group ?? (translations.current['(no division)'] ?? '(no division)')}: {fmt(d.netIncomeMinor)}</li>
             {/each}
           </ul>
         {/if}

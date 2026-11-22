@@ -107,8 +107,9 @@ JOIN current_entities type_category
   ON type_category.id = type_marker.parent_id AND type_category.name = 'Address Types';
 ```
 
-Names are unique only within their parent (*Core Domain Reference*,
-"Scoped uniqueness"). Type markers are looked up by bare name, so a
+Names are unique only within their parent, except under a language,
+where translations may share a word (*Core Domain Reference*, "Scoped
+uniqueness"). Type markers are looked up by bare name, so a
 type-marker name must not be reused by any other entity.
 
 Tests (*Testing: Unit*, "Running the tests"):
@@ -255,7 +256,6 @@ a copy here that could go stale), grouped by purpose:
 - **People and organisation**: `typeEmployeeName`, `typeDepartmentEntityName`, `typeBusinessTypeName`.
 - **Project Builder**: `typePlantItemName`, `typePrototypeName`, `typeLiveProjectName`, `typeMilestoneName`.
 - **Menu/UI configuration**: `typeMenuOverrideName`, `typeMenuSectionName`, `typeMenuLinkName`, `typeMenuLinkFlagName`, `typeHiddenMarkerName`.
-- **Translation/vocabulary infrastructure**: `typeTranslationConceptName`.
 - **Business-type setup**: `typeBusinessTypeQuestionsRootName`, `typeBusinessTypeQuestionName`.
 
 Two call sites deliberately still use generic `createEntity` directly

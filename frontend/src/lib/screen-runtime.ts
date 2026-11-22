@@ -638,12 +638,12 @@ export const reports: Record<string, (c: Context, v: Values) => Promise<Report>>
     const groups: ReportGroup[] = currencies.map((currency) => {
       const sub = tb.by_currency.find((s) => s.currency === currency);
       return {
-        title: currency ?? t('Home Currency'),
+        title: currency ?? t('Home currency'),
         warn: sub && !sub.balanced ? t('Out of balance') : undefined,
         rows: tb.rows.filter((r) => r.currency === currency).map((r) => ({
           key: String(r.id), depth: 0, ancestors: [], parent: false,
           cells: { number: r.accountnumber ?? '', name: t(r.name), debit: r.debit_minor ? shown(r.debit_minor, currency) : '', credit: r.credit_minor ? shown(r.credit_minor, currency) : '' },
-          badge: r.has_quantity_postings ? t('qty') : undefined,
+          badge: r.has_quantity_postings ? t('Qty') : undefined,
           badgeTitle: r.has_quantity_postings ? t('This account mixes a real quantity-tracking posting with an ordinary dollar posting - its balance may not be a plain dollar figure without a closer look.') : undefined,
         })),
         footer: { name: t('Subtotal'), debit: shown(sub?.total_debit_minor ?? 0, currency), credit: shown(sub?.total_credit_minor ?? 0, currency) },

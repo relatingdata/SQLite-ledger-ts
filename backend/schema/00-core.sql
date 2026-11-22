@@ -130,9 +130,15 @@ CREATE TABLE entities (
 -- real name. (A rename's own new row is checked the same way as any
 -- insert - it simply never collides with its own prior row, since
 -- that prior row's own name is, by definition, being superseded.)
+-- Except under a language: two concepts may have the same word in one
+-- language (Italian "Attivo" for both Asset and Active), each translation
+-- relating to its own concept (docs/pm-translations.md).
 CREATE TRIGGER entities_name_unique BEFORE INSERT ON entities
 WHEN EXISTS (
   SELECT 1 FROM current_entities WHERE parent_id IS NEW.parent_id AND name = NEW.name AND id != NEW.entity_id
+) AND NOT EXISTS (
+  SELECT 1 FROM current_entities lang JOIN current_entities langs ON langs.id = lang.parent_id
+  WHERE lang.id IS NEW.parent_id AND langs.name = 'Languages'
 )
 BEGIN
   SELECT RAISE(ABORT, 'entities: a different, live entity already has this name under this parent');

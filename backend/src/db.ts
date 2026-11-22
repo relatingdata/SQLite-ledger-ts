@@ -59,6 +59,14 @@ if (!alreadyInitialized) {
 
   db.exec(readSchema('30-coa-links.sql'));
 }
+// The sibling-name rule is replaced on every open, so a database made
+// before a change to it (translations may share a word under a language)
+// follows the current one.
+{
+  const rule = fs.readFileSync(path.join(__dirname, '..', 'schema', '00-core.sql'), 'utf8').match(/CREATE TRIGGER entities_name_unique[\s\S]*?END;/);
+  if (!rule) throw new Error('schema/00-core.sql has no entities_name_unique trigger.');
+  db.exec(`DROP TRIGGER IF EXISTS entities_name_unique;\n${rule[0]}`);
+}
 
 // journal_entry_staging is the only staging table (docs/pm-journal-api.md,
 // "Staging"); a database made before that loses the others here.
@@ -136,7 +144,6 @@ export const typeScheduleRecordName: TypeDescriptor<'ScheduleRecordName'> = { br
 export const typeEntityLinkRecordName: TypeDescriptor<'EntityLinkRecordName'> = { brand: 'EntityLinkRecordName' };
 export const typeMenuOverrideName: TypeDescriptor<'MenuOverrideName'> = { brand: 'MenuOverrideName' };
 export const typeHiddenMarkerName: TypeDescriptor<'HiddenMarkerName'> = { brand: 'HiddenMarkerName' };
-export const typeTranslationConceptName: TypeDescriptor<'TranslationConceptName'> = { brand: 'TranslationConceptName' };
 export const typeEquityAccountName: TypeDescriptor<'EquityAccountName'> = { brand: 'EquityAccountName' };
 export const typeAssetAccountName: TypeDescriptor<'AssetAccountName'> = { brand: 'AssetAccountName' };
 export const typeChartOfAccountsNodeName: TypeDescriptor<'ChartOfAccountsNodeName'> = { brand: 'ChartOfAccountsNodeName' };
@@ -467,7 +474,12 @@ export function createEntityRaw(input: NewEntity, userId: UserId): EntityNode {
   const existing = parentId
     ? db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(input.name, parentId)
     : db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id IS NULL`).get(input.name);
-  if (existing) throw new ValidationError(`"${input.name}" already exists under this real, same parent.`);
+  // Under a language, names repeat: two concepts may share a word
+  // (docs/pm-translations.md).
+  const underALanguage =
+    parentId != null &&
+    db.prepare(`SELECT 1 FROM current_entities lang JOIN current_entities langs ON langs.id = lang.parent_id WHERE lang.id = ? AND langs.name = 'Languages'`).get(parentId) !== undefined;
+  if (existing && !underALanguage) throw new ValidationError(`"${input.name}" already exists under this real, same parent.`);
   if (parentId && input.name) {
     const parentName = (db.prepare(`SELECT name FROM current_entities WHERE id = ?`).get(parentId) as { name: string } | undefined)?.name;
     if (parentName === 'Vocabulary') {
@@ -487,9 +499,10 @@ export function createEntityRaw(input: NewEntity, userId: UserId): EntityNode {
     input.relation ?? null,
     userId
   );
+  // The newest of that name: under a language there may be others.
   const idRow = (parentId
-    ? db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ?`).get(input.name, parentId)
-    : db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id IS NULL`).get(input.name)) as { id: number };
+    ? db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id = ? ORDER BY id DESC LIMIT 1`).get(input.name, parentId)
+    : db.prepare(`SELECT id FROM current_entities WHERE name = ? AND parent_id IS NULL ORDER BY id DESC LIMIT 1`).get(input.name)) as { id: number };
   const id = idRow.id;
   if (input.accountnumber) {
     db.prepare(`INSERT INTO account (entity_id, accountnumber) VALUES (?, ?)`).run(id, input.accountnumber);
@@ -5248,35 +5261,18 @@ export function setTranslation(conceptName: string, languageName: string, text: 
     .get(languageId, conceptId) as { id: number; name: string } | undefined;
   if (stale && stale.name === text) return; // already correct, nothing to do
 
+  // Two concepts may have the same word in one language (Italian "Attivo"
+  // for Asset and Active): each translation relates to its own concept,
+  // and names under a language need not be unique (schema/00-core.sql,
+  // entities_name_unique).
   let created;
-  try {
-    if (stale) {
-      Entity.rename(stale.id, text, userId);
-      created = { id: stale.id, name: text };
-    } else {
-      created = create(requireEntityById(languageId, typeRootName), typeTranslationConceptName, text, userId);
-    }
-  } catch (e) {
-    const existing = db.prepare(`SELECT c.name AS concept FROM current_entities e JOIN current_entities c ON c.id = e.relation_id WHERE e.parent_id = ? AND e.name = ?`).get(languageId, text) as { concept: string } | undefined;
-    fs.appendFileSync(
-      path.join(dataDir, '..', '..', 'docs', 'flagged-translation-collisions.log'),
-      `"${conceptName}" and "${existing?.concept ?? '(unknown)'}" both genuinely translate to "${text}" in ${languageName} — a real, human-language ambiguity, not silently resolved. Keeping the existing translation.\n`
-    );
-    return;
+  if (stale) {
+    Entity.rename(stale.id, text, userId);
+    created = { id: stale.id, name: text };
+  } else {
+    created = Entity.create(text, languageId, userId);
   }
-  // `created`'s parent is already languageId — either create() (above, now
-  // routed through Entity.create) just set it there directly, or the
-  // `stale` branch's own lookup query (`WHERE e.parent_id = ? [languageId]
-  // AND e.relation_id = ?`) already confirms it. The only field this still
-  // needs to set is the relation to its concept — Entity.relate's targetId
-  // overload does exactly that through the driver, in place of what used
-  // to be a raw `INSERT INTO entity_update` combining an (already-correct,
-  // redundant) reparent with the one real relate in a single versioned row.
-  // Confirmed directly (Stage E's first real ENTITY_DRIVER=kaappi run): this
-  // raw write was invisible to Kaappi the same way the generic create()
-  // helper's own raw insert was — the second of two Stage C sites this
-  // engagement's ~470-site survey missed, for the same reason (neither is a
-  // literal `current_entities` query).
+  // The translation relates to its concept.
   Entity.relate(created.id, conceptName, userId, conceptId);
 }
 

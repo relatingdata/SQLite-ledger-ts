@@ -42,8 +42,27 @@ pub fn validate_write(
       row.parent_id == parent_id && row.name == name && row.id != id
     })
 
-  case taken {
+  case taken && !is_language(current, parent_id) {
     True -> Error(NameTaken)
     False -> Ok(Nil)
+  }
+}
+
+/// Whether `parent_id` is a language (a child of `Languages`): its
+/// children are translations, and two concepts may share a word in one
+/// language, so names under it need not be unique.
+fn is_language(current: List(EntityRow), parent_id: Option(EntityId)) -> Bool {
+  case parent_id {
+    option.None -> False
+    option.Some(pid) ->
+      case list.find(current, fn(row) { row.id == pid }) {
+        Error(_) -> False
+        Ok(lang) ->
+          case lang.parent_id {
+            option.None -> False
+            option.Some(gid) ->
+              list.any(current, fn(row) { row.id == gid && row.name == "Languages" })
+          }
+      }
   }
 }

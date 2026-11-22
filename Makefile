@@ -160,7 +160,7 @@ test-unit-calls: test-unit-backend
 test-unit: test-unit-calls
 
 # Every menu, screen and frontend text in every language
-# (docs/pm-translations.md). Not yet in MANUAL_GATES: it fails today.
+# (docs/pm-translations.md).
 check-translations: generate
 	cd backend && $(RUN_SCRIPT) scripts/check-translations.ts
 
@@ -176,7 +176,7 @@ test: generate
 # one failing gate never hides another; `make test`, the pre-commit hook
 # (githooks/pre-commit) and CI (.github/workflows/check.yml) all run this.
 # See docs/pm-build-and-tooling.md, "Gates".
-MANUAL_GATES = check-unit-levels check-backend-types check-docs-coverage check-docs-staleness check-test-docs check-function-inventory check-cycles check-schema-table-count check-unused check-no-python check-journal-staging-only check-step-tests check-manual-pictures
+MANUAL_GATES = check-translations check-unit-levels check-backend-types check-docs-coverage check-docs-staleness check-test-docs check-function-inventory check-cycles check-schema-table-count check-unused check-no-python check-journal-staging-only check-step-tests check-manual-pictures
 check-manual:
 	@fail=0; for g in $(MANUAL_GATES); do \
 	  $(MAKE) -s $$g || { echo "GATE FAILED: $$g"; fail=1; }; \
@@ -406,12 +406,7 @@ test-e2e-tutorial-text: reset-db
 # .control.csv) is this fixture's own, real, positional data file,
 # read by the exact, same step-runner.ts every other real fixture
 # already uses. Fast (no browser) - calls db.ts's own setTranslation/
-# createEntityRaw directly, in-process. A handful of real, pre-
-# existing, genuine translation ambiguities (two different English
-# concepts that really do share one translated word, e.g. "Continue"
-# and "Next" both meaning "Weiter" in German) are expected to fail
-# their own translation_matches verify - logged, not silently
-# resolved, see docs/flagged-translation-collisions.log.
+# createEntityRaw directly, in-process.
 load-translations-api: reset-db
 	@echo "Loading every real translation via the API path..."
 	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/translations-steps.csv --path api --non-interactive

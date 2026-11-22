@@ -187,6 +187,10 @@ company, a division, a location and an employee can all be named
 `entities`, against the current rows only (`current_entities`), so a
 renamed entity's earlier row keeps its old name. A partial unique
 index cannot express "current row", which is why it is a trigger.
+The one exception is a language's children: two concepts may have the
+same word in one language, so translations under a language may share
+a name (`createEntityRaw` and the Gleam engine's `validate_write` make
+the same exception; *Translations*).
 
 Only **product** and **location** map to a real, physical, posted-to
 account. Division, category, and any other business-defined Hierarchy
@@ -963,11 +967,12 @@ of the menu item itself (`setEntityLink`), never a table or JSON.
 `setTranslation` looks the concept up under the global Vocabulary
 first, since other entities can share its name (every business's
 `Actual` ledger), and relates the translation to the concept by id
-(`Entity.relate` with `targetId`). When two concepts would have the
-same word in one language, it keeps the existing translation and
-writes the clash to `docs/flagged-translation-collisions.log`.
+(`Entity.relate` with `targetId`). Two concepts may have the same word
+in one language: each translation is its own entity, relating to its
+own concept (*Translations*).
 
 Tests (*Testing: Unit*, "Running the tests"):
+- "setTranslation: two concepts may have the same word in one language, each translation relating to its own concept" (`backend/test/db.test.ts`)
 - "the system default display language lives on Application, reachable before any session exists, and setting it preserves append-only history" (`backend/test/db.test.ts`)
 
 ## The "active" ledger

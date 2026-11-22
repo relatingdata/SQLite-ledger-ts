@@ -13,7 +13,7 @@ Create Business,data,/setup/new-business,,createBusiness,button:has-text('Create
 Nominate Bank Account,data,,,nominateBankAccountSimple,button:has-text('+ Add bank account'),1,businessName,,text
 Nominate Bank Account,data,,,nominateBankAccountSimple,button:has-text('+ Add bank account'),2,bankAccountName,"input[placeholder='Bank name, e.g. Westpac Business Cheque']",text
 Nominate Bank Account,data,,,nominateBankAccountSimple,button:has-text('+ Add bank account'),3,routingDetail,input[placeholder='BSB / routing detail'],text
-Nominate Bank Account,data,,,nominateBankAccountSimple,button:has-text('+ Add bank account'),4,accountNumber,input[placeholder='Account number'],text
+Nominate Bank Account,data,,,nominateBankAccountSimple,button:has-text('+ Add bank account'),4,accountNumber,input[placeholder='Account Number'],text
 Build Bank Currency Structure,data,,,buildBankCurrencyStructureSimple,button:has-text('Confirm and build Cash at Bank'),1,businessName,,text
 Build Bank Currency Structure,data,,,buildBankCurrencyStructureSimple,button:has-text('Confirm and build Cash at Bank'),2,bankAccountName,,text
 Build Bank Currency Structure,data,,,buildBankCurrencyStructureSimple,button:has-text('Confirm and build Cash at Bank'),3,currency,input[placeholder='e.g. AUD'],text

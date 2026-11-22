@@ -6137,7 +6137,7 @@ Called from: tests: 9 call(s) in 1 file(s)
 requireEntityById<TBrand extends string>(id: number, type: TypeDescriptor<TBrand>): TypedNode<TBrand>
 ```
 
-Called from: production: db-seed.ts (migrateForBusinessTypes ×1, migrateForMenuEntities ×3); db.ts (addFinancialStatementNote ×1, copyChildren ×2, createItem ×1, ensureSkill ×1, nominateBankAccount ×1, setEntityLink ×1, and 2 more) · tests: 18 call(s) in 1 file(s) · tooling: 3 call(s) in 2 file(s)
+Called from: production: db-seed.ts (migrateForBusinessTypes ×1, migrateForMenuEntities ×3); db.ts (addFinancialStatementNote ×1, copyChildren ×2, createItem ×1, ensureSkill ×1, nominateBankAccount ×1, setEntityLink ×1, and 1 more) · tests: 18 call(s) in 1 file(s) · tooling: 3 call(s) in 2 file(s)
 
 **`create`** *(exported)*
 
@@ -6145,7 +6145,7 @@ Called from: production: db-seed.ts (migrateForBusinessTypes ×1, migrateForMenu
 create<TParentBrand extends string, TChildBrand extends string>(parent: TypedNode<TParentBrand>, type: TypeDescriptor<TChildBrand>, name: string, userId: UserId): TypedNode<TChildBrand>
 ```
 
-Called from: production: db-projects.ts (createLiveProject ×1, createMilestone ×1); db-prototypes.ts (createPrototype ×1); db-seed.ts (ensureSection ×1, migrateForBusinessTypes ×7, migrateForCashCustomerAndProvider ×2, migrateForCogsTag ×1, migrateForContactTypesAndPerBusinessContacts ×4, migrateForEnglishStringAuditGap ×3, and 6 more); db-stock.ts (ensureUnitsTrackingBaseAccounts ×2, setLocation ×2); db.ts (addFinancialStatementNote ×2, addTyped ×1, copyChildren ×3, createBusiness ×5, createContact ×1, createItem ×2, and 21 more) · tests: 185 call(s) in 1 file(s) · tooling: 22 call(s) in 7 file(s)
+Called from: production: db-projects.ts (createLiveProject ×1, createMilestone ×1); db-prototypes.ts (createPrototype ×1); db-seed.ts (ensureSection ×1, migrateForBusinessTypes ×7, migrateForCashCustomerAndProvider ×2, migrateForCogsTag ×1, migrateForContactTypesAndPerBusinessContacts ×4, migrateForEnglishStringAuditGap ×3, and 6 more); db-stock.ts (ensureUnitsTrackingBaseAccounts ×2, setLocation ×2); db.ts (addFinancialStatementNote ×2, addTyped ×1, copyChildren ×3, createBusiness ×5, createContact ×1, createItem ×2, and 20 more) · tests: 185 call(s) in 1 file(s) · tooling: 22 call(s) in 7 file(s)
 
 **`isGenuineCategoryOrItemsRoot`** *(exported)*
 
@@ -6161,7 +6161,7 @@ Called from: production: db.ts (typeCategoryOrItemsRootName.validate ×1)
 createEntityRaw(input: NewEntity, userId: UserId): EntityNode
 ```
 
-Called from: production: call-dispatch/entities.ts (entitiesFunctions.createEntity ×1); drivers/sql-entity-driver.ts (SqlEntityDriver.create ×2) · tests: 9 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: call-dispatch/entities.ts (entitiesFunctions.createEntity ×1); drivers/sql-entity-driver.ts (SqlEntityDriver.create ×2) · tests: 11 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
 **`supersedeEntity`** *(exported)*
 
@@ -7969,7 +7969,7 @@ Called from: production: call-dispatch/i18n.ts (i18nFunctions.getLocalizedText �
 setTranslation(conceptName: string, languageName: string, text: string, userId?: UserId): void
 ```
 
-Called from: production: call-dispatch/i18n.ts (i18nFunctions.setTranslation ×1); db-seed.ts (migrateForCoaTranslations ×1, migrateForDayOfWeekTranslations ×1, migrateForEnglishStringAuditGap ×12, migrateForEnglishStringAuditTranslations ×4, migrateForInvoicePdfVocabulary ×1, migrateForLanguageNameTranslations ×1, and 3 more); db.ts (create ×1, createEntityRaw ×1) · tests: 10 call(s) in 1 file(s) · tooling: 4 call(s) in 4 file(s)
+Called from: production: call-dispatch/i18n.ts (i18nFunctions.setTranslation ×1); db-seed.ts (migrateForCoaTranslations ×1, migrateForDayOfWeekTranslations ×1, migrateForEnglishStringAuditGap ×12, migrateForEnglishStringAuditTranslations ×4, migrateForInvoicePdfVocabulary ×1, migrateForLanguageNameTranslations ×1, and 3 more); db.ts (create ×1, createEntityRaw ×1) · tests: 12 call(s) in 1 file(s) · tooling: 4 call(s) in 4 file(s)
 
 **`getTranslationsReferencing`** *(exported)*
 
@@ -7993,7 +7993,7 @@ Called from: production: call-dispatch/i18n.ts (i18nFunctions.deleteVocabularyWo
 getTranslation(conceptName: string, languageName: string): string | null
 ```
 
-Called from: production: db.ts (getVocabularyWords ×1) · tests: 2 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: db.ts (getVocabularyWords ×1) · tests: 4 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
 **`getBusinesses`** *(exported)*
 
@@ -9303,7 +9303,7 @@ Called from: production: auth.ts (changeOwnPassword ×1, login ×1); core/api.ts
 Entity.create(name: string, parent: string | number, userId: UserId): EntityNode
 ```
 
-Called from: production: auth.ts (createUser ×1, login ×1, setUserRoles ×1); db-journal.ts (clockInToProject ×1, clockPlantIn ×1, ensureLocationScopedAccount ×1, ensurePeriodLockEntity ×1); db-quotations.ts (draftQuotation ×1); db-reports.ts (ensureCurrencyAccount ×1, ensureProfitCenterRetainedEarningsAccount ×1, resolveCashAtBankAccount ×2, resolveRolloverLines ×1); db-stock.ts (createLocationType ×1, createPosTerminal ×2, createStockTake ×2, createSystemEntity ×1, ensureLocationCapacityAccount ×3, receiveLot ×1, and 2 more); db.ts (addOrUpdateItemSource ×1, allocatePayment ×1, confirmPicked ×1, create ×1, createInvoice ×2, createProfitCenter ×1, and 23 more); primitives.ts (Detail.set ×1, Entity.ensureUnder ×1, Link.mark ×1)
+Called from: production: auth.ts (createUser ×1, login ×1, setUserRoles ×1); db-journal.ts (clockInToProject ×1, clockPlantIn ×1, ensureLocationScopedAccount ×1, ensurePeriodLockEntity ×1); db-quotations.ts (draftQuotation ×1); db-reports.ts (ensureCurrencyAccount ×1, ensureProfitCenterRetainedEarningsAccount ×1, resolveCashAtBankAccount ×2, resolveRolloverLines ×1); db-stock.ts (createLocationType ×1, createPosTerminal ×2, createStockTake ×2, createSystemEntity ×1, ensureLocationCapacityAccount ×3, receiveLot ×1, and 2 more); db.ts (addOrUpdateItemSource ×1, allocatePayment ×1, confirmPicked ×1, create ×1, createInvoice ×2, createProfitCenter ×1, and 24 more); primitives.ts (Detail.set ×1, Entity.ensureUnder ×1, Link.mark ×1)
 
 **`Entity.get`** *(exported)*
 
