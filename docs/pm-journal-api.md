@@ -34,11 +34,10 @@ A form is staged by one call and posted by another (`stage...`, then
     restart forgets forms staged but not posted.
   - Posting a reference with nothing staged throws `NotFoundError`.
 
-Tests (`backend/test/db.test.ts`): "journal_entry_staging is the only
-staging table: every transaction is a cooked general journal entry", "an
-AR receipt and an AP payment are cooked into general journal lines when
-staged", and "posting a screen with nothing staged is rejected clearly,
-not silently a no-op".
+Tests (*Testing: Unit*, "Running the tests"):
+- "journal_entry_staging is the only staging table: every transaction is a cooked general journal entry" (`backend/test/db.test.ts`)
+- "an AR receipt and an AP payment are cooked into general journal lines when staged" (`backend/test/db.test.ts`)
+- "posting a screen with nothing staged is rejected clearly, not silently a no-op" (`backend/test/db.test.ts`)
 
 ## The three posting paths
 
@@ -48,45 +47,30 @@ then writes `journal`, `journal_line` and the stored balances in one
 `db.transaction(...)`. It is called two ways, and recurring journals are
 a third path:
 
-1. **Ordinary financial postings** (the vast majority): the screen's
-   transaction is cooked into `journal_entry_staging` (see "Staging"
-   above), and the commit step is
-   `postJournalEntry(reference, business, ledger, userId)`, a plain
-   TypeScript call into `commitStagedEntry(..., { requireBalance: true,
-   includeBankReference: true })` — it validates the entry balances
-   (per currency) and the period is open, then writes `journal` +
-   `journal_line`, updates `account.balance_minor`, then clears
-   staging, in that order, inside one `db.transaction(...)`. Entity
-   resolution (business/ledger/account ids, via
-   `resolveStagingBusinessId`/`resolveStagingLedgerId`/
-   `resolveStagedAccountId` below) happens first, before that
-   transaction ever opens.
-2. **Quantity movements** (stock received/dispatched/transferred): the
-   same staging pipeline, but the commit step is the new, separately
-   exported `commitStagedQuantityMovement(reference, business, ledger,
-   userId)`, calling the same shared `commitStagedEntry` with `{
-   requireBalance: false, includeBankReference: false }` — a quantity
-   movement is a single line against one product's own tracking
-   account, not a two-sided, balanced transaction, so it isn't forced
-   through the balance check, and its own `journal_line` insert never
-   carried a `bank_reference` either. `Balance.post`
-   (`primitives.ts`) and `db-stock.ts`'s `postStagedQuantityMovement`
-   both call it.
-3. **Recurring journals**: `createRecurringJournal` writes directly to
-   `journal`/`journal_line`, never staged at all — deliberately, not a
-   gap. A recurring entry's real "balance" was never the kind of thing
-   `journal_entry_staging`/`commitStagedEntry` exist to check once:
-   `journal_occurrences` (00-core.sql) expands the one stored line set
-   into every scheduled occurrence at read time, resolving each line to
-   whichever `effective_date` is current as of that occurrence — the
-   same mechanism every report, the journal list, and account balances
-   already read through for every ledger, recurring or not. Routing a
-   12-month schedule through the ordinary commit step would try to
-   apply its whole staged sum once, immediately, which is simply the
-   wrong operation for a template with its own expansion view — not a
-   stricter version of the same one. See `RecurringJournalLine`/
-   `Recurrence`/`createRecurringJournal` below for what *was* a real
-   gap here (now fixed) and what's still open.
+1. **Money**: the transaction is cooked into `journal_entry_staging`
+   ("Staging", above) and posted by `postJournalEntry(reference,
+   business, ledger, userId)`, which calls `commitStagedEntry` with
+   `{ requireBalance: true, includeBankReference: true }`. Inside one
+   `db.transaction` it checks that the entry balances in each currency
+   and that the period is open, writes `journal` and `journal_line`,
+   updates `account.balance_minor`, and clears the staged lines. The
+   business, ledger and account ids are resolved before the transaction
+   opens (below).
+2. **Quantity movements** (stock received, dispatched, transferred):
+   the same staging, posted by `commitStagedQuantityMovement(reference,
+   business, ledger, userId)`, which calls `commitStagedEntry` with
+   `{ requireBalance: false, includeBankReference: false }`: no balance
+   check (*Stock API*, "Two design decisions") and no bank reference.
+   `Balance.post` (`primitives.ts`) and `postStagedQuantityMovement`
+   (`db-stock.ts`) call it.
+3. **Recurring journals**: `createRecurringJournal` writes `journal` and
+   `journal_line` directly, without staging. One stored set of lines is
+   expanded into every scheduled occurrence when read, by the
+   `journal_occurrences` view (`00-core.sql`), each line as of its
+   `effective_date` then; every report, the journal list and the
+   balances read through that view. Posting the schedule through
+   `commitStagedEntry` would apply it once, at once, which is not what
+   a schedule is. Its own checks are below.
 
 Tests (*Testing: Unit*, "Running the tests"):
 - "staging + posting a balanced entry works end to end and clears staging" (`backend/test/db.test.ts`)
@@ -98,30 +82,17 @@ Tests (*Testing: Unit*, "Running the tests"):
 ### `resolveStagingBusinessId` / `resolveStagingLedgerId` /
 ### `resolveStagedAccountId` / `commitStagedEntry`
 
-Entity resolution for a staged entry, ported from the two removed
-triggers' own shared `COALESCE` chains: business/ledger id lookup, and
-the per-line account fallback (a business-scoped Chart-of-Accounts walk
-first, then a bare, unscoped name lookup as a last resort for the one
-legacy business with no CoA copy of its own — deliberately still
-unordered/undisambiguated, matching the original trigger's own
-`LIMIT 1` with no `ORDER BY`, a known, pre-existing weakness, not
-something this conversion tried to fix). Originally raw, read-only SQL
-directly against `current_entities` ("byte-for-byte identical to the
-replaced trigger"); converted to go through `Entity.get`/`getUnder`/
-`descendantsWithDepth` (Stage E) once it was confirmed none of the
-three actually joins `current_entities` against `account`/`journal` in
-the same statement (the real category-4 pattern the plan reserves for
-raw SQL) and all three already run before `commitStagedEntry`'s own
-write transaction opens — the exact ordering the plan calls for, so
-routing them through a driver that may call out to a non-SQL backend is
-safe here. This was also the fix that unblocked ordinary postings under
-`ENTITY_DRIVER=kaappi` — until converted, every business/account
-created live under that driver was invisible to these three functions,
-since Kaappi-mode entity writes never touch `current_entities` at all.
-`commitStagedEntry` itself (the lock check, balance validation, account
-vivification, `journal`/`journal_line` writes, balance updates, staging
-cleanup) stays exactly as Stage D wrote it — only the entity-resolution
-helpers above changed.
+They resolve a staged entry's business and ledger ids, and each line's
+account: first by walking the business's Chart of Accounts, then, as a
+last resort for a business with no chart of its own, by the bare name,
+taking whichever matches first (a known weakness). They go through the
+entity driver (`Entity.get`, `getUnder`, `descendantsWithDepth`), not
+SQL on `current_entities`, so they work under every driver
+(`ENTITY_DRIVER=kaappi` writes no `current_entities` rows), and they
+run before `commitStagedEntry` opens its write transaction.
+`commitStagedEntry` then checks the period lock and the balance,
+vivifies accounts, writes `journal`/`journal_line`, updates the
+balances and clears the staged lines.
 
 ## `StagedLine` / `stageLine`
 
@@ -129,34 +100,24 @@ Fields: `reference`, `business`, `ledger`, an optional
 `description`/`transdate`, `account` (and optional `accountId`, set
 directly by `findLedgerScopedAccount` when a ledger-scoped posting
 account already exists for this `(ledger, account)` pair),
-`amount_minor`, an optional `memo`/`bankReference`. No `division`
-field, and no Cost-Center/Profit-Center distinction, anywhere in this
-file — Division/Profit-Center scoping is the separate hierarchy-link
-mechanism (see "Hierarchies" in the Domain Reference chapter and
-`docs/profit-centers-design.md`), applied to *accounts*, never
-enforced inside `stageLine` against staged lines.
+`amount_minor`, an optional `memo`/`bankReference`. There is no
+`division` field: a division or Profit Center is a hierarchy link on
+the *account* (*Core Domain Reference*, "Hierarchies";
+`docs/profit-centers-design.md`), never on a staged line.
 
-`stageLine` inserts, or on conflict updates, one row in
-`journal_entry_staging`, keyed on `(reference, business, ledger,
-account, account_id, location)` — two lines against the same bare
-account name in one entry only collide if they also share the same
-resolved `account_id` and `location`.
+`stageLine` inserts one row in `journal_entry_staging`, or updates the
+row with the same `(reference, business, ledger, account, account_id)`:
+two lines on the same account name in one entry replace each other
+unless their `account_id` differs.
 
 ### `findLedgerScopedAccount`
 
-Resolves an already-existing, ledger-scoped posting-account node for
-`(accountName, ledger)` — never creates one. Only the explicit,
-structural rollover phase creates these nodes (see the ledger-scoped
-accounts and rollover design); an ordinary posting must never create
-one lazily, the same way it must never silently acquire its own,
-separate Balance Sheet carried forward. The node is a child of the CoA
-leaf itself (`parent_id`) — a genuine descendant of Chart of Accounts,
-so every existing report's tree walk already finds it with no changes
-elsewhere — named after, and pointing via `relation_id` at, the ledger
-it belongs to. Returns `undefined` when no such node exists yet, so
-the caller falls back to the ordinary, bare CoA-leaf resolution
-unchanged — the normal, correct behavior for a business with only ever
-one ledger in use, exactly like the tutorial.
+Finds the ledger-scoped posting account for `(accountName, ledger)`,
+and never creates one: only the rollover does. It is a child of the
+chart's leaf, named after the ledger and related to it (`relation_id`),
+so every report's walk of the chart finds it. With none, the caller
+posts to the chart's leaf itself, as a business with one ledger always
+does.
 
 ## `getStagedLines`
 
@@ -165,24 +126,13 @@ what a screen shows before the person confirms the post.
 
 ## `RecurringJournalLine` / `Recurrence` / `createRecurringJournal`
 
-**Fixed, previously a real gap**: this function deliberately bypasses
-`journal_entry_staging` (see above — a recurring entry isn't staged at
-all, by design), but its own start-date balance check used to be a
-flat sum across every line with no currency grouping, so a recurring
-entry genuinely mixing currencies could have passed as "balanced"
-while not actually balancing in either currency on its own.
-`commitStagedEntry` checks every ordinary posting per currency, and
-`createRecurringJournal` now does the same grouping directly, in TypeScript, before writing anything: every
-referenced account is resolved and vivified first (inside the same
-transaction), each line effective at the start date is bucketed by its
-own account's real `currency` (NULL/home-currency is its own bucket),
-and the whole write
-is rejected — nothing inserted — the moment any one bucket doesn't sum
-to zero. `journal_occurrences` itself still performs no currency or
-balance check of its own for later occurrences — it only ever expands
-rows that already passed this check at creation time, as an ordinary
-journal's `journal_line` rows only ever contain what passed
-`commitStagedEntry`.
+`createRecurringJournal` checks the entry balances at its start date,
+in each currency, as `commitStagedEntry` does: it resolves and vivifies
+every account first (inside the same transaction), sums the lines in
+effect at the start date by their account's `currency` (the home
+currency is one bucket), and writes nothing if any currency does not
+come to zero. `journal_occurrences` checks nothing: it only expands
+lines that passed this check.
 
 **Planned fix, not yet implemented**: the recurrence *schedule*
 (recurrence type, count, start date, template lines) should be a
@@ -197,19 +147,10 @@ into the ordinary line-entry form, then posting through the ordinary
 `recurrence_count` and the `journal_occurrences` view would retire
 once this lands.
 
-The current function does vivify every referenced account that
-doesn't exist yet, the same guarantee `commitStagedEntry` gives
-ordinary entries. Vivifying uses
-`resolveBusinessCoaAccountId`, not a bare, unscoped name lookup — a
-bare lookup is only safe while `line.account` names exactly one entity
-anywhere, true only for the very first business that ever used a given
-account name (e.g. "Rent"). Every other business gets its own mirror
-of the same name, so an unscoped lookup could silently vivify an
-`account` row for some *other* business's own account, never this
-one's. `resolveBusinessCoaAccountId` is the same business-scoped
-resolution used throughout `db.ts`, with its own documented global
-fallback for an account genuinely outside this business's own CoA
-mirror (AR/AP, a counterparty name).
+Accounts are found with `resolveBusinessCoaAccountId`, within the
+business's own chart (every business has its own "Rent"), falling back
+to a global name only for an account outside any chart (AR/AP, a
+counterparty).
 
 Tests (*Testing: Unit*, "Running the tests"):
 - "createRecurringJournal rejects an entry that does not balance at its start date" (`backend/test/db.test.ts`)
@@ -277,12 +218,10 @@ Tests (*Testing: Unit*, "Running the tests"):
 to ordinary posting after a given date (month-end/year-end lock);
 `assertPeriodOpen` is the shared guard every posting path calls first.
 
-A ledger is a structural child of `Ledgers`, never of the business
-entity directly — `getPeriodLockStatus` and `ensurePeriodLockEntity`
-both resolve the ledger entity through that intermediate `Ledgers`
-level, the same way every other ledger-scoped query in this file does
-(`getLedgerDateRange`, `getJournalEntry`, `reverseJournalEntry`); a
-lookup that skips it will never find the ledger at all.
+A ledger is a child of the business's `Ledgers`, not of the business
+itself, so `getPeriodLockStatus`, `ensurePeriodLockEntity` and every
+other ledger query here (`getLedgerDateRange`, `getJournalEntry`,
+`reverseJournalEntry`) look it up there.
 
 Tests (*Testing: Unit*, "Running the tests"):
 - "closing a period rejects normal posting into it, and reopening lifts that immediately for a correction" (`backend/test/db.test.ts`)
@@ -299,17 +238,14 @@ Tests (*Testing: Unit*, "Running the tests"):
 
 ## `JournalSummary` / `listJournalEntries` / `countJournalEntries` / `JournalDetail` / `getJournalEntry`
 
-Listing and detail views over posted journal entries — one row per
-occurrence (a recurring journal's own multiple, computed dates each
-get their own row), with total debit/credit, description, reference,
-and who posted it.
+The posted entries, a row per occurrence (each date of a recurring
+journal is a row), with total debit and credit, description, reference
+and who posted it, and one entry in detail.
 
-`JournalSummary.currency` matches the Trial Balance's own approach: a
-quantity or storage-space posting is a plain, whole count, never a
-dollar figure divided by 100 — this field (`null` meaning the
-business's home currency) tells the caller which formatting applies.
-One journal entry spanning more than one currency produces one row
-per currency here, never a single, blended total.
+`JournalSummary.currency` (`null`: the home currency) says how to show
+the amounts, as on the Trial Balance: a quantity or storage-space
+posting is a whole count, not cents. An entry in several currencies is
+a row per currency, never one blended total.
 
 Tests (*Testing: Unit*, "Running the tests"):
 - "getJournalEntry returns full line detail with account numbers" (`backend/test/db.test.ts`)
@@ -318,19 +254,17 @@ Tests (*Testing: Unit*, "Running the tests"):
 
 ## `reverseJournalEntry`
 
-Posts a balanced, opposite entry against the original, then marks it
-— a correction, never a silent edit or delete of the original record.
+Posts the opposite of an entry and links the two: a correction, never
+an edit or a delete of the original.
 
 1. The reversal's reference is deterministic, never caller-supplied:
    `` `${original.reference}-REV-${occurrenceDate}` ``.
 2. If a journal with that exact reversal reference already exists,
    the function refuses — an entry can only be reversed once; reverse
    the reversal itself to undo it again.
-3. Every original line is staged again with its sign flipped
-   (`-line.amount_minor`) under the new reversal reference, then
-   posted through the ordinary `stageLine`/`postJournalEntry` path — a
-   reversal is an ordinary balanced entry whose lines are computed
-   from another one, not a special internal mechanism.
+3. Every line is staged again with its sign flipped under the reversal
+   reference and posted by `stageLine`/`postJournalEntry`, like any
+   other entry.
 4. Only after that post succeeds does `reversal_of` get set, on the
    **new reversal row**, pointing back at the **original**'s
    `journal.id`.
@@ -355,66 +289,42 @@ Tests (*Testing: Unit*, "Running the tests"):
 
 ## `stageLocation` / `postLocation`
 
-`stageLocation` holds the screen's input as a staged form (see
-"Staging"); staging the same reference again replaces it.
-`postLocation` reads it back and is the one place a new location is
-actually created, through the typed `createLocation`/`setLocation`/
-`ensureLocationCapacityAccount` functions — never a raw SQL insert
-into `entities` (append-only and self-auditing by design; there is no
-"create entity" SQL statement at all). The balanced opening-capacity
-posting into the location's built-in `Storage Capacity` structure
-(`Remaining`, `Installed`, `Occupied`; see
-`docs/storage-space-as-currency-design.md`) happens atomically, inside
-the same transaction as the location's own creation, then the staged
-form is dropped.
+`stageLocation` holds the screen's input as a staged form ("Staging");
+staging the same reference again replaces it. `postLocation` creates
+the location with `createLocation`/`setLocation`/
+`ensureLocationCapacityAccount`, and posts its opening capacity into
+its `Storage Capacity` accounts (`Remaining`, `Installed`, `Occupied`;
+`docs/storage-space-as-currency-design.md`), in one transaction, then
+drops the form.
 
-`postLocation` also sets a `Belongs To Group` relationship on the new
-location, unconditionally, pointing at itself. This screen has no
-group concept of its own, but `getOrganizationChart` (Business Setup's
-"+ Insert employee" tree) only recognizes a location once it carries a
-`Belongs To Group` relationship — a single-location group that simply
-targets itself is the already-supported case for exactly this (a
-business genuinely does not have to have any groups at all). Setting
-it here too keeps a location created through this screen just as
-reachable from Business Setup as one created directly through it.
+It also gives the location a `Belongs To Group` relationship to
+itself: `getOrganizationChart` (Business Setup) shows only locations
+that have one, and a location that is its own group is how a business
+with no groups has one.
 
 Tests (*Testing: Unit*, "Running the tests"):
 - "stageLocation/postLocation: the location form is held as a staged form - the location, and its own balanced capacity accounts, only appear once posted, never at stage time" (`backend/test/db.test.ts`)
 
 ## Quotations (AR) and RFQs (AP) — `backend/src/db-quotations.ts`
 
-A Quotation (to a customer) or RFQ (to a provider) is, from the moment
-it is drafted, a real journal entry — `createRecurringJournal`
-(unmodified), dated at its `transdate` (which may be in the future,
-with zero effect on any report until that date falls inside a query's
-own range), `recurrence: 'once'` for an ordinary quote or `'weekly'`/
-`'monthly'`/`'yearly'` + a count for a standing one — plus a real
-`postQuantityMovement` against the item's own, existing `On Order`
-account (`ensureItemQuantityAccounts`), tagged by reference. There is
-no staging step: neither a staged form nor `journal_entry_staging` plays
-any part in a Quotation/RFQ. Per direct instruction, this
-introduces no new SQL table, no new column, and no schema change of
-any kind — every moving part here (`createRecurringJournal`,
-`reverseJournalEntry`, `ensureItemQuantityAccounts`,
-`postQuantityMovement`) already existed before this file did.
+A Quotation (to a customer) or an RFQ (to a provider) is, from the
+draft, a journal entry made by `createRecurringJournal`, dated at its
+`transdate` (a future date affects no report until a report's range
+reaches it), `recurrence: 'once'`, or `'weekly'`/`'monthly'`/`'yearly'`
+with a count for a standing quote; and a `postQuantityMovement` on the
+item's `On Order` account (`ensureItemQuantityAccounts`), by its
+reference. Nothing is staged, and nothing in the schema is its own.
 
-"Accepting" a quote changes nothing about what's already posted — the
-real commitment (the journal entry and the On Order posting) exists
-from draft time, so accepting is a pure `Status` flip. "Rejecting"/
-"expiring" reverses both real postings: the journal entry via the
-existing `reverseJournalEntry`, and the On Order posting via an equal,
-opposite `postQuantityMovement` — no new logic, both pre-existing
-mechanisms used exactly as they already are everywhere else. A
-quotation whose circumstances change (different date/quantity/price)
-is handled the same way: reject (reverse), then draft a fresh one.
+Accepting a quote only sets its `Status`: what it commits was posted
+when it was drafted. Rejecting or expiring it reverses both postings
+(`reverseJournalEntry`, and the opposite `postQuantityMovement`). A
+quote whose date, quantity or price changes is rejected and drafted
+again.
 
-Every fact a quote needs beyond the real journal entry itself —
-direction, status, business/ledger, counterparty, item, quantity,
-price, location, an optional expiry — is a scalar child entity via the
-existing, generic `Entity.setAttr`/`getAttr` primitives
-(`primitives.ts`). Per direct instruction, none of this uses
-`detail_json`/JSON of any kind or a raw SQL `UPDATE` (an upsert's own
-`ON CONFLICT DO UPDATE` included) anywhere in `db-quotations.ts`.
+The rest of a quote (direction, status, business, ledger,
+counterparty, item, quantity, price, location, expiry) is attributes
+of its entity (`Entity.setAttr`/`getAttr`, `primitives.ts`): no
+`detail_json` and no SQL `UPDATE` in `db-quotations.ts`.
 
 - `createQuotation(input: QuotationInput, userId, expiryDate?,
   recurrence?, recurrenceCount?)` / `createRfq(...)` — post the real
@@ -431,12 +341,10 @@ existing, generic `Entity.setAttr`/`getAttr` primitives
   posts nothing further.
 - `acceptQuotation(reference, userId)` — sets `Status: 'accepted'`
   only. Refuses an already-`accepted`/`rejected`/`expired` quote.
-- `rejectQuotation(reference, userId, asOfDate?)` — looks the real
-  journal entry up by reference (`journal.reference` is unique per
-  business/ledger, the same guarantee the old sales order staging key gave),
-  calls `reverseJournalEntry` against it, posts an equal/opposite
-  `postQuantityMovement` on the item's On Order account, then sets
-  `Status: 'rejected'`. Refuses an already-`accepted`/`rejected`/
+- `rejectQuotation(reference, userId, asOfDate?)` — finds the journal
+  entry by reference (`journal.reference` is unique per business and
+  ledger), reverses it, posts the opposite On Order movement, then
+  sets `Status: 'rejected'`. Refuses an already-`accepted`/`rejected`/
   `expired` quote.
 
 Calls: `quotationsFunctions` (`call-dispatch/quotations.ts`, through
@@ -456,7 +364,7 @@ The backend mounts four things, and nothing else:
 
 | Mount | Router | Purpose |
 |---|---|---|
-| `GET /api/health` | (inline in `server.ts`) | `{ ok, appVersion, dbVersion }`: the `VERSION` file and `db_version.version`. |
+| `GET /api/health` | (inline in `server.ts`) | `{ ok, appVersion, dbVersion }`: the `VERSION` file and the Application entity's `Database Version` attribute (`getDbVersion`). |
 | `POST /api/call` | `callRouter` (`routes/call.ts`) | The ASCII-CSV call protocol. The first body line is `name,value1,value2,...`; every further line is one line item. `callBackendFunction` (`call-dispatch.ts`) looks the name up in `BACKEND_FUNCTIONS`, which merges the per-domain tables in `call-dispatch/*.ts` (`arapFunctions`, `authFunctions`, `businessesFunctions`, `contactsFunctions`, `customerRegistrationFunctions`, `departmentsFunctions`, `entitiesFunctions`, `hierarchyFunctions`, `i18nFunctions`, `invoicesFunctions`, `itemsFunctions`, `journalFunctions`, `locationsFunctions`, `matrixReportsFunctions`, `menuFunctions`, `periodFunctions`, `plantFunctions`, `posFunctions`, `productsFunctions`, `projectsFunctions`, `prototypesFunctions`, `quotationsFunctions`, `reportsFunctions`, `stockFunctions`, `stockLotsFunctions`). An unknown name is a 404, never evaluated. The mount itself is public; each function that needs a user calls `requireAuth`, `requireRole` or `requireGlobalRole` itself. Started with `MIDDLEWARE=core`, this mount serves the core middleware's `coreCallRouter` instead. |
 | `POST /api/core/call` | `coreCallRouter` (`routes/core-call.ts`) | The core middleware's frontend API, always (*The Core Middleware*). |
 | `/api/recording` | `recordingRouter` (`routes/recording.ts`), behind `requireAuth` | `GET /api/recording` answers `{ recording: isRecording(user) }`; `POST /api/recording/start` calls `startRecording`; `POST /api/recording/stop` calls `stopRecording`, which writes the recorded calls out (*Testing*, "The Admin recording feature"). |
