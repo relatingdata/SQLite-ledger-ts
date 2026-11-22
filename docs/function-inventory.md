@@ -7857,7 +7857,7 @@ Called from: production: call-dispatch/items.ts (itemsFunctions.deleteItemSource
 getLanguages(): { id: number; name: string; }[]
 ```
 
-Called from: production: call-dispatch/i18n.ts (i18nFunctions.getLanguages ×1); db.ts (getVocabularyWords ×1) · tests: 2 call(s) in 1 file(s)
+Called from: production: call-dispatch/i18n.ts (i18nFunctions.getLanguages ×1); db.ts (getVocabularyWords ×1) · tests: 2 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
 **`getDefaultLanguage`** *(exported)*
 
@@ -7881,7 +7881,7 @@ Called from: production: call-dispatch/i18n.ts (i18nFunctions.setDefaultLanguage
 getMenuTree(opts?: { businessName?: string; userId?: number; }): MenuSectionRow[]
 ```
 
-Called from: production: call-dispatch/menu.ts (menuFunctions.getMenuTree ×1) · tooling: 1 call(s) in 1 file(s)
+Called from: production: call-dispatch/menu.ts (menuFunctions.getMenuTree ×1) · tooling: 2 call(s) in 2 file(s)
 
 **`setMenuOverride`** *(exported)*
 

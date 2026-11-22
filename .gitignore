@@ -93,3 +93,4 @@ frontend/src/routes/reports/+page.svelte
 frontend/src/routes/arap/ap-payment/+page.svelte
 frontend/src/routes/arap/ar-receipt/+page.svelte
 docs/screens-inventory.md
+backend/data/missing-translations.csv

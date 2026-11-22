@@ -42,6 +42,7 @@ const PARTS: Parts = [
   ]],
   ['Part 5 --- Frontend Reference', [
     'pm-frontend-reference.md',
+    'pm-translations.md',
     'screens-inventory.md',
   ]],
   ['Part 6 --- Testing: Unit, Sanity, and Compile-Level', [
