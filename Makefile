@@ -165,7 +165,7 @@ test: generate
 # one failing gate never hides another; `make test`, the pre-commit hook
 # (githooks/pre-commit) and CI (.github/workflows/check.yml) all run this.
 # See docs/pm-build-and-tooling.md, "Gates".
-MANUAL_GATES = check-docs-coverage check-docs-staleness check-test-docs check-function-inventory check-cycles check-schema-table-count check-unused check-no-python check-journal-staging-only check-step-tests check-manual-pictures
+MANUAL_GATES = check-backend-types check-docs-coverage check-docs-staleness check-test-docs check-function-inventory check-cycles check-schema-table-count check-unused check-no-python check-journal-staging-only check-step-tests check-manual-pictures
 check-manual:
 	@fail=0; for g in $(MANUAL_GATES); do \
 	  $(MAKE) -s $$g || { echo "GATE FAILED: $$g"; fail=1; }; \
@@ -695,7 +695,7 @@ check-frontend: generate
 	cd frontend && $(RUN_NPM_SCRIPT) check
 
 check-backend-types:
-	cd backend && $(RUN_BINARY) tsc --noEmit
+	cd backend && $(RUN_BINARY) tsc --noEmit && $(RUN_BINARY) tsc -p tsconfig.scripts.json
 
 # Fails on any unused import, function or local variable in src/, test/
 # or the step-runner. Deliberately separate from check-backend-types,

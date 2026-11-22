@@ -15,10 +15,7 @@ import {
   getEntityTree,
   listItems,
   listLocations,
-  createInvoice,
-  postInvoiceById,
-  receiveStock,
-  dispatchStock,
+  postOnAccountInvoice,
   completeCashPurchase,
   completePosSale,
   transferItems,
@@ -228,17 +225,17 @@ async function stockLines(business: string, lines: Line[]): Promise<Line[]> {
   return lines.filter((l) => items.has(l.itemName));
 }
 
-/** An on-account invoice (AP or AR), its stock movement, then posting it. */
+/** An on-account invoice (AP or AR) with its stock movement, posted in one
+ * backend transaction (postOnAccountInvoice). */
 async function onAccount(kind: 'AP' | 'AR', c: Context, v: Values, lines: Line[], counterparty: string, location: string, account: string, taxAccount: string): Promise<void> {
   if (!v.reference?.trim() || !counterparty || (kind === 'AP' && !account) || lines.length === 0) {
     throw new Invalid(kind === 'AP' ? 'Reference, provider, account, and at least one item line are all required.' : 'Reference, customer, and at least one item line are all required.');
   }
-  const moving = await stockLines(c.business, lines);
-  if (moving.length > 0 && !location) {
+  if ((await stockLines(c.business, lines)).length > 0 && !location) {
     throw new Invalid(kind === 'AP' ? 'Select a location — these items will be received into stock.' : 'Select a location — these items will be dispatched from stock.');
   }
   const taxOf = lineTaxAt(v);
-  const { id } = await createInvoice({
+  await postOnAccountInvoice({
     invoiceType: kind,
     business: asBusinessName(c.business),
     ledger: asLedgerName(c.ledger),
@@ -254,19 +251,10 @@ async function onAccount(kind: 'AP' | 'AR', c: Context, v: Values, lines: Line[]
       taxMinor: taxOf(l),
       itemName: l.itemName,
     })),
+    locationName: location ? asLocationName(location) : undefined,
+    revenueOrExpenseAccount: account,
+    taxAccount,
   });
-  if (moving.length > 0) {
-    const movement = {
-      business: asBusinessName(c.business),
-      ledger: asLedgerName(c.ledger),
-      reference: v.reference,
-      locationName: asLocationName(location),
-      lines: moving.map((l) => ({ itemName: l.itemName, quantity: l.quantity })),
-      transdate: v.transdate,
-    };
-    await (kind === 'AP' ? receiveStock(movement) : dispatchStock(movement));
-  }
-  await postInvoiceById(id, account, taxAccount);
 }
 
 const itemLines = (lines: Line[]) => lines.map((l) => ({ ...l, itemName: asItemName(l.itemName), taxMinor: l.taxMinor ?? 0 }));

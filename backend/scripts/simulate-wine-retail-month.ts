@@ -28,11 +28,9 @@ import {
   stageLine,
   postJournalEntry,
   receiveItems,
-  transferItems,
   getRestockPickingList,
   confirmRestockPickedLine,
   dispatchRestockFromPickingList,
-  dispatchItems,
   writeOffItems,
   completePosSale,
   createStockTake,
@@ -67,6 +65,11 @@ import {
   setCurrencyExchangeRate,
   nominateLocationCurrency,
   asBusinessName,
+  asCustomerName,
+  asAccountName,
+  asUserId,
+  asProviderName,
+  asLedgerName,
 } from '../src/db.js';
 import { Entity } from '../src/primitives.js';
 import { getItemLocation, createPosTerminal, setTerminalCurrency, setItemLocationLevels } from '../src/db-stock.js';
@@ -87,9 +90,10 @@ function getAccountsPostedTo(reference: string): string[] {
 }
 const pricingRows = readCsv(fs.readFileSync(path.join(__simDir, '../../shared-fixtures/pricing.csv'), 'utf-8'));
 const wholesaleCostBySubcategory = new Map(pricingRows.map((r) => [r.subcategory, Number(r.wholesaleCostMinor)]));
-const BUSINESS = process.env.SIM_BUSINESS ?? fixtures.business;
-const LEDGER = fixtures.ledger;
-const VENDOR = fixtures.vendor;
+const BUSINESS = asBusinessName(process.env.SIM_BUSINESS ?? fixtures.business);
+const LEDGER = asLedgerName(fixtures.ledger);
+const VENDOR = asProviderName(fixtures.vendor);
+const USER = asUserId(1);
 
 function listLocations() {
   const entities = getEntityTree();
@@ -127,14 +131,14 @@ function pick<T>(arr: T[]): T {
 async function main() {
   console.log(`=== Setup: ${BUSINESS} itself, if it doesn't already exist ===`);
   if (!getEntityTree().some((e) => e.name === BUSINESS)) {
-    const created = createBusiness(BUSINESS, '2026-27', 1, 'English CoA');
+    const created = createBusiness(BUSINESS, '2026-27', USER, 'English CoA');
     console.log(`Created ${created.business}, with ${created.actualLedger} and ${created.budgetLedger}.`);
   } else {
     console.log(`${BUSINESS} already exists — using it as-is.`);
   }
 
   console.log('=== Setup: vendor, customer, CoA accounts this simulation needs ===');
-  create(requireEntity('Accounts Payable', typeRootName), typeProviderName, VENDOR, 1);
+  create(requireEntity('Accounts Payable', typeRootName), typeProviderName, VENDOR, USER);
   setContact(VENDOR, { payment_terms_days: 30 });
   // The real, named customer every completePosSale call below attributes
   // walk-in retail/POS/wine-bar sales to — also real, permanent, missing
@@ -143,7 +147,7 @@ async function main() {
   // failed with "No customer/vendor named 'Cash Sale'" on a fresh
   // database, confirmed live, until this was added.
   try {
-    create(requireEntity('Customers', typeRootName), typeCustomerName, 'Cash Sale', 1);
+    create(requireEntity('Customers', typeRootName), typeCustomerName, 'Cash Sale', USER);
   } catch {
     // already exists from a prior run
   }
@@ -170,7 +174,7 @@ async function main() {
     ['Wine Returns', 'Expense'],
   ] as const) {
     try {
-      create(requireEntity(category, typeRootName, businessCoaRoot), typeRootName, name, 1);
+      create(requireEntity(category, typeRootName, businessCoaRoot), typeRootName, name, USER);
     } catch {
       // already exists from a prior run — fine, this script is safe to re-run
     }
@@ -223,7 +227,7 @@ async function main() {
         carton_capacity: loc.cartonCap,
         timezone: loc.timezone,
       },
-      1,
+      USER,
       loc.city,
       'Division'
     );
@@ -255,17 +259,17 @@ async function main() {
   // generic tag mechanism Division already uses for locations, never the
   // structural tree position. Without this, every product has no
   // Category tag at all and genuinely, correctly falls back to 'Other'.
-  ensureHierarchyGrouping(BUSINESS, 'Category', 1);
+  ensureHierarchyGrouping(BUSINESS, 'Category', USER);
   for (const cat of loadDemoCategories()) {
     categoryOfSubcategory.set(cat.subcategory, cat.category);
     if (!existingNames.has(cat.category)) {
-      create(itemsRoot, typeCategoryOrItemsRootName, cat.category, 1);
+      create(itemsRoot, typeCategoryOrItemsRootName, cat.category, USER);
       existingNames.add(cat.category);
       categoriesCreated++;
     }
-    ensureHierarchyValue(BUSINESS, 'Category', cat.category, 1);
+    ensureHierarchyValue(BUSINESS, 'Category', cat.category, USER);
     if (!existingNames.has(cat.subcategory)) {
-      create(requireEntity(cat.category, typeCategoryOrItemsRootName, itemsRoot), typeCategoryOrItemsRootName, cat.subcategory, 1);
+      create(requireEntity(cat.category, typeCategoryOrItemsRootName, itemsRoot), typeCategoryOrItemsRootName, cat.subcategory, USER);
       existingNames.add(cat.subcategory);
       categoriesCreated++;
     }
@@ -278,9 +282,9 @@ async function main() {
     if (!category) throw new Error(`No real category found for subcategory "${prod.subcategory}" (product "${prod.name}") in shared-fixtures/categories.csv.`);
     if (existingNames.has(prod.name)) continue;
     const subcategoryNode = requireEntity(prod.subcategory, typeCategoryOrItemsRootName, requireEntity(category, typeCategoryOrItemsRootName, itemsRoot));
-    create(subcategoryNode, typeItemName, prod.name, 1);
+    create(subcategoryNode, typeItemName, prod.name, USER);
     setItem(prod.name, { description: null, unit_of_measure: null, upc: null, retail_price_minor: null });
-    setHierarchyParent(prod.name, 'Category', category, 1);
+    setHierarchyParent(prod.name, 'Category', category, USER);
     existingNames.add(prod.name);
     productsCreated++;
   }
@@ -305,7 +309,7 @@ async function main() {
       // No real quantity account for this item/location pair yet — genuinely zero.
     }
     if (onHand <= 0 && row.qty > 0) {
-      receiveItems(BUSINESS, LEDGER, `OPENING-STOCK-${row.itemName}-${row.locationName}`, asItemName(row.itemName), asLocationName(row.locationName), row.qty, 1, today(0));
+      receiveItems(BUSINESS, LEDGER, `OPENING-STOCK-${row.itemName}-${row.locationName}`, asItemName(row.itemName), asLocationName(row.locationName), row.qty, USER, today(0));
       stockRowsLoaded++;
     }
     setItemLocationLevels(
@@ -314,7 +318,7 @@ async function main() {
       { minLevel: row.minLevel, maxLevel: row.maxLevel, reorderLevel: row.reorderLevel, shelfSide: row.shelfSide, rack: row.rack, level: row.level },
       BUSINESS,
       LEDGER,
-      1
+      USER
     );
   }
   console.log(`Opening stock: ${stockRowsLoaded} real receipts posted (quantity movement only — no dollar value until a unit cost is registered below).`);
@@ -335,7 +339,7 @@ async function main() {
     const fridgeCartonCapacity = Math.round(fridgeBottleCapacity / 10); // roughly one carton per 10 bottles of fridge space
     const name = `${outlet.name} — Refrigerated`;
     try {
-      create(locationsRoot, typeLocationEntityName, name, 1);
+      create(locationsRoot, typeLocationEntityName, name, USER);
     } catch {
       // already exists from a prior run
     }
@@ -345,7 +349,7 @@ async function main() {
     setLocation(name, { city: fineGrainedDivision, location_type: 'Retail', is_billing_address: false, bottle_capacity: fridgeBottleCapacity, carton_capacity: fridgeCartonCapacity, timezone: getLocation(outlet.name)?.timezone ?? 'UTC' });
     // Relation to the parent outlet lets completePosSale route a cold product to the
     // fridge automatically — the POS "store" dropdown only shows the logical outlet.
-    supersedeEntity(getEntityTree().find((e) => e.name === name)!.id, { relation: outlet.name }, 1);
+    supersedeEntity(getEntityTree().find((e) => e.name === name)!.id, { relation: outlet.name }, USER);
     refrigeratedOutlets.push({ name, city: outlet.city, location_type: 'Retail' });
   }
   console.log(`Refrigerated displays set up at all ${refrigeratedOutlets.length} retail outlets, each sized proportionally to its own shop.`);
@@ -358,7 +362,7 @@ async function main() {
   let employeesCreated = 0;
   for (const emp of loadDemoEmployees()) {
     if (!getEntityTree().some((e) => e.name === emp.name)) {
-      create(requireEntity('Employees', typeRootName), typeEmployeeName, emp.name, 1);
+      create(requireEntity('Employees', typeRootName), typeEmployeeName, emp.name, USER);
       employeesCreated++;
     }
     setContact(emp.name, {
@@ -375,7 +379,7 @@ async function main() {
     // the business itself for a genuinely company-wide role (office staff,
     // both managers) — never a reparenting of the employee's own parent_id,
     // which stays under Employees, exactly as every existing lookup assumes.
-    setRelationship(emp.name, 'Place of Employment', emp.employedAt ?? BUSINESS, 1);
+    setRelationship(emp.name, 'Place of Employment', emp.employedAt ?? BUSINESS, USER);
   }
   console.log(`Staff: ${employeesCreated} created, ${loadDemoEmployees().length - employeesCreated} already real and present.`);
 
@@ -405,9 +409,9 @@ async function main() {
 
   // ---------------------------------------------------------------
   console.log('\n=== 1. Owner puts in $100,000 ===');
-  stageLine({ reference: 'CAPITAL-1', business: BUSINESS, ledger: LEDGER, transdate: today(0), account: 'Cash and Bank', amount_minor: 10000000 });
-  stageLine({ reference: 'CAPITAL-1', business: BUSINESS, ledger: LEDGER, transdate: today(0), account: "Owner's Equity", amount_minor: -10000000 });
-  postJournalEntry('CAPITAL-1', BUSINESS, LEDGER, 1);
+  stageLine({ reference: 'CAPITAL-1', business: BUSINESS, ledger: LEDGER, transdate: today(0), account: asAccountName('Cash and Bank'), amount_minor: 10000000 });
+  stageLine({ reference: 'CAPITAL-1', business: BUSINESS, ledger: LEDGER, transdate: today(0), account: asAccountName("Owner's Equity"), amount_minor: -10000000 });
+  postJournalEntry('CAPITAL-1', BUSINESS, LEDGER, USER);
   console.log('$100,000.00 capital injection posted.');
 
   // ---------------------------------------------------------------
@@ -468,7 +472,7 @@ async function main() {
 
       // A Purchase Order first — a commitment with no GL effect of its own.
       stagePurchaseOrder({ reference: `${ref}-PO`, business: BUSINESS, ledger: LEDGER, vendor: VENDOR, item: item.name, quantity: qty, price_minor: unitCost, transdate: today(day) });
-      postPurchaseOrder(`${ref}-PO`, BUSINESS, LEDGER, 1);
+      postPurchaseOrder(`${ref}-PO`, BUSINESS, LEDGER, USER);
 
       // Debit the real, per-location Inventory account — the SAME account
       // transferItems/dispatchItems/completeStockTake already read and
@@ -486,10 +490,10 @@ async function main() {
       // (filtered out of every report as a zero-balance row) and the real
       // inventory value lives in exactly one place per product/location,
       // matching every other function that already reads/writes it.
-      { const inv = ensureItemLocationInventoryAccount(item.name, warehouse.name, 1, undefined, BUSINESS); stageLine({ reference: ref, business: BUSINESS, ledger: LEDGER, transdate: today(day), account: inv.inventoryAccount, accountId: inv.inventoryAccountId, amount_minor: totalCost, division: warehouse.city }); }
-      stageLine({ reference: ref, business: BUSINESS, ledger: LEDGER, transdate: today(day), account: VENDOR, amount_minor: -totalCost, division: warehouse.city });
-      postJournalEntry(ref, BUSINESS, LEDGER, 1);
-      receiveItems(BUSINESS, LEDGER, `${ref}-RECV`, item.name, warehouse.name, qty, 1, today(day));
+      { const inv = ensureItemLocationInventoryAccount(asItemName(item.name), asLocationName(warehouse.name), USER, undefined, BUSINESS); stageLine({ reference: ref, business: BUSINESS, ledger: LEDGER, transdate: today(day), account: asAccountName(inv.inventoryAccount), accountId: inv.inventoryAccountId, amount_minor: totalCost }); }
+      stageLine({ reference: ref, business: BUSINESS, ledger: LEDGER, transdate: today(day), account: asAccountName(VENDOR), amount_minor: -totalCost });
+      postJournalEntry(ref, BUSINESS, LEDGER, USER);
+      receiveItems(BUSINESS, LEDGER, `${ref}-RECV`, asItemName(item.name), asLocationName(warehouse.name), qty, USER, today(day));
       purchaseCount++;
 
       // Vendor terms: paid 7-21 days after receipt; a late-month purchase stays
@@ -509,9 +513,9 @@ async function main() {
               // Routed through the picking-list/dispatch mechanism (not a direct transferItems call).
               const runRef = `${ref}-RESTOCK`;
               const restockLines = [{ item: item.name, quantity: toSend }];
-              getRestockPickingList(runRef, warehouse.name, restockLines);
-              confirmRestockPickedLine(runRef, item.name, BUSINESS, LEDGER, 1);
-              dispatchRestockFromPickingList(runRef, BUSINESS, LEDGER, warehouse.name, destination.name, restockLines, 1, today(day));
+              getRestockPickingList(runRef, asLocationName(warehouse.name), restockLines);
+              confirmRestockPickedLine(runRef, item.name, BUSINESS, LEDGER, USER);
+              dispatchRestockFromPickingList(runRef, BUSINESS, LEDGER, asLocationName(warehouse.name), asLocationName(destination.name), restockLines, USER, today(day));
             } catch {
               // insufficient stock at this exact moment (a prior transfer already took it) — skip, not fatal to the simulation
             }
@@ -527,7 +531,7 @@ async function main() {
   scheduledPayments.sort((a, b) => a.payDay - b.payDay);
   for (const p of scheduledPayments) {
     stageAPPayment({ reference: p.ref, business: BUSINESS, ledger: LEDGER, vendor: VENDOR, amount_minor: p.amount, transdate: today(p.payDay), description: 'Vendor payment' });
-    postAPPayment(p.ref, BUSINESS, LEDGER, 1);
+    postAPPayment(p.ref, BUSINESS, LEDGER, USER);
     paymentsPosted++;
     totalPaidMinor += p.amount;
   }
@@ -540,30 +544,30 @@ async function main() {
   // encounters it, not just posting a receipt/payment in isolation.
   const allocationCustomer = 'Riverside Wine Merchants Pty Ltd';
   const allocationVendor2 = 'Alpine Cellar Imports GmbH';
-  create(requireEntity('Accounts Receivable', typeRootName), typeCustomerName, allocationCustomer, 1);
-  create(requireEntity('Accounts Payable', typeRootName), typeProviderName, allocationVendor2, 1);
+  create(requireEntity('Accounts Receivable', typeRootName), typeCustomerName, allocationCustomer, USER);
+  create(requireEntity('Accounts Payable', typeRootName), typeProviderName, allocationVendor2, USER);
 
   // (1) Full payment.
   const fullPayInvoiceId = createInvoice(
     { invoiceType: 'AR', business: BUSINESS, ledger: LEDGER, reference: 'ALLOC-AR-FULL', counterpartyName: allocationCustomer, invoiceDate: today(3),
       lines: [{ description: 'Case order — full payment example', amountMinor: 84000, taxMinor: 0 }] },
-    1
+    USER
   );
-  postInvoice(fullPayInvoiceId, 'Sales Revenue', 'Sales Tax Payable', 1, false);
-  stageARReceipt({ reference: 'ALLOC-AR-FULL-RCPT', business: BUSINESS, ledger: LEDGER, customer: allocationCustomer, amount_minor: 84000, transdate: today(10), description: 'Full payment of ALLOC-AR-FULL' });
-  postARReceipt('ALLOC-AR-FULL-RCPT', BUSINESS, LEDGER, 1);
-  allocatePayment(fullPayInvoiceId, 'ALLOC-AR-FULL-RCPT-alloc', 84000, today(10), 'Cash and Bank', 1);
+  postInvoice(fullPayInvoiceId, 'Sales Revenue', 'Sales Tax Payable', USER, false);
+  stageARReceipt({ reference: 'ALLOC-AR-FULL-RCPT', business: BUSINESS, ledger: LEDGER, customer: asCustomerName(allocationCustomer), amount_minor: 84000, transdate: today(10), description: 'Full payment of ALLOC-AR-FULL' });
+  postARReceipt('ALLOC-AR-FULL-RCPT', BUSINESS, LEDGER, USER);
+  allocatePayment(fullPayInvoiceId, 'ALLOC-AR-FULL-RCPT-alloc', 84000, today(10), 'Cash and Bank', USER);
 
   // (2) Partial payment — balance left outstanding at month-end.
   const partialPayInvoiceId = createInvoice(
     { invoiceType: 'AR', business: BUSINESS, ledger: LEDGER, reference: 'ALLOC-AR-PARTIAL', counterpartyName: allocationCustomer, invoiceDate: today(5),
       lines: [{ description: 'Case order — partial payment example', amountMinor: 120000, taxMinor: 0 }] },
-    1
+    USER
   );
-  postInvoice(partialPayInvoiceId, 'Sales Revenue', 'Sales Tax Payable', 1, false);
-  stageARReceipt({ reference: 'ALLOC-AR-PARTIAL-RCPT', business: BUSINESS, ledger: LEDGER, customer: allocationCustomer, amount_minor: 50000, transdate: today(14), description: 'Partial payment of ALLOC-AR-PARTIAL' });
-  postARReceipt('ALLOC-AR-PARTIAL-RCPT', BUSINESS, LEDGER, 1);
-  allocatePayment(partialPayInvoiceId, 'ALLOC-AR-PARTIAL-RCPT-alloc', 50000, today(14), 'Cash and Bank', 1);
+  postInvoice(partialPayInvoiceId, 'Sales Revenue', 'Sales Tax Payable', USER, false);
+  stageARReceipt({ reference: 'ALLOC-AR-PARTIAL-RCPT', business: BUSINESS, ledger: LEDGER, customer: asCustomerName(allocationCustomer), amount_minor: 50000, transdate: today(14), description: 'Partial payment of ALLOC-AR-PARTIAL' });
+  postARReceipt('ALLOC-AR-PARTIAL-RCPT', BUSINESS, LEDGER, USER);
+  allocatePayment(partialPayInvoiceId, 'ALLOC-AR-PARTIAL-RCPT-alloc', 50000, today(14), 'Cash and Bank', USER);
 
   // (3) Overpayment — only the invoice's own outstanding amount is allocated;
   // the excess is left unallocated as a customer credit balance (allocatePayment
@@ -571,36 +575,36 @@ async function main() {
   const overpayInvoiceId = createInvoice(
     { invoiceType: 'AR', business: BUSINESS, ledger: LEDGER, reference: 'ALLOC-AR-OVERPAID', counterpartyName: allocationCustomer, invoiceDate: today(7),
       lines: [{ description: 'Case order — overpayment example', amountMinor: 60000, taxMinor: 0 }] },
-    1
+    USER
   );
-  postInvoice(overpayInvoiceId, 'Sales Revenue', 'Sales Tax Payable', 1, false);
+  postInvoice(overpayInvoiceId, 'Sales Revenue', 'Sales Tax Payable', USER, false);
   const overpayReceiptMinor = 75000; // genuinely more than the invoice's own $600.00
-  stageARReceipt({ reference: 'ALLOC-AR-OVERPAID-RCPT', business: BUSINESS, ledger: LEDGER, customer: allocationCustomer, amount_minor: overpayReceiptMinor, transdate: today(16), description: 'Overpayment of ALLOC-AR-OVERPAID — real, remaining excess deliberately left unallocated' });
-  postARReceipt('ALLOC-AR-OVERPAID-RCPT', BUSINESS, LEDGER, 1);
+  stageARReceipt({ reference: 'ALLOC-AR-OVERPAID-RCPT', business: BUSINESS, ledger: LEDGER, customer: asCustomerName(allocationCustomer), amount_minor: overpayReceiptMinor, transdate: today(16), description: 'Overpayment of ALLOC-AR-OVERPAID — real, remaining excess deliberately left unallocated' });
+  postARReceipt('ALLOC-AR-OVERPAID-RCPT', BUSINESS, LEDGER, USER);
   const overpayOutstanding = getInvoiceOutstandingMinor(overpayInvoiceId);
-  allocatePayment(overpayInvoiceId, 'ALLOC-AR-OVERPAID-RCPT-alloc', overpayOutstanding, today(16), 'Cash and Bank', 1);
+  allocatePayment(overpayInvoiceId, 'ALLOC-AR-OVERPAID-RCPT-alloc', overpayOutstanding, today(16), 'Cash and Bank', USER);
   const overpayUnallocatedMinor = overpayReceiptMinor - overpayOutstanding;
 
   // Same three scenarios, mirrored on the AP side with a second, distinct vendor.
   const fullPayAPInvoiceId = createInvoice(
     { invoiceType: 'AP', business: BUSINESS, ledger: LEDGER, reference: 'ALLOC-AP-FULL', counterpartyName: allocationVendor2, invoiceDate: today(4),
       lines: [{ description: 'Case order — full payment example', amountMinor: 45000, taxMinor: 0 }] },
-    1
+    USER
   );
-  postInvoice(fullPayAPInvoiceId, 'Cost of Goods Sold', 'Sales Tax Payable', 1, false);
-  stageAPPayment({ reference: 'ALLOC-AP-FULL-PMT', business: BUSINESS, ledger: LEDGER, vendor: allocationVendor2, amount_minor: 45000, transdate: today(11), description: 'Full payment of ALLOC-AP-FULL' });
-  postAPPayment('ALLOC-AP-FULL-PMT', BUSINESS, LEDGER, 1);
-  allocatePayment(fullPayAPInvoiceId, 'ALLOC-AP-FULL-PMT-alloc', 45000, today(11), 'Cash and Bank', 1);
+  postInvoice(fullPayAPInvoiceId, 'Cost of Goods Sold', 'Sales Tax Payable', USER, false);
+  stageAPPayment({ reference: 'ALLOC-AP-FULL-PMT', business: BUSINESS, ledger: LEDGER, vendor: asProviderName(allocationVendor2), amount_minor: 45000, transdate: today(11), description: 'Full payment of ALLOC-AP-FULL' });
+  postAPPayment('ALLOC-AP-FULL-PMT', BUSINESS, LEDGER, USER);
+  allocatePayment(fullPayAPInvoiceId, 'ALLOC-AP-FULL-PMT-alloc', 45000, today(11), 'Cash and Bank', USER);
 
   const partialPayAPInvoiceId = createInvoice(
     { invoiceType: 'AP', business: BUSINESS, ledger: LEDGER, reference: 'ALLOC-AP-PARTIAL', counterpartyName: allocationVendor2, invoiceDate: today(6),
       lines: [{ description: 'Case order — partial payment example', amountMinor: 90000, taxMinor: 0 }] },
-    1
+    USER
   );
-  postInvoice(partialPayAPInvoiceId, 'Cost of Goods Sold', 'Sales Tax Payable', 1, false);
-  stageAPPayment({ reference: 'ALLOC-AP-PARTIAL-PMT', business: BUSINESS, ledger: LEDGER, vendor: allocationVendor2, amount_minor: 30000, transdate: today(15), description: 'Partial payment of ALLOC-AP-PARTIAL' });
-  postAPPayment('ALLOC-AP-PARTIAL-PMT', BUSINESS, LEDGER, 1);
-  allocatePayment(partialPayAPInvoiceId, 'ALLOC-AP-PARTIAL-PMT-alloc', 30000, today(15), 'Cash and Bank', 1);
+  postInvoice(partialPayAPInvoiceId, 'Cost of Goods Sold', 'Sales Tax Payable', USER, false);
+  stageAPPayment({ reference: 'ALLOC-AP-PARTIAL-PMT', business: BUSINESS, ledger: LEDGER, vendor: asProviderName(allocationVendor2), amount_minor: 30000, transdate: today(15), description: 'Partial payment of ALLOC-AP-PARTIAL' });
+  postAPPayment('ALLOC-AP-PARTIAL-PMT', BUSINESS, LEDGER, USER);
+  allocatePayment(partialPayAPInvoiceId, 'ALLOC-AP-PARTIAL-PMT-alloc', 30000, today(15), 'Cash and Bank', USER);
 
   console.log(
     `Real invoice allocation exercised: 2 full payments, 2 partial payments, and 1 real, direct overpayment ` +
@@ -630,12 +634,12 @@ async function main() {
   for (let i = 0; i < 7; i++) {
     const item = pick(dozen);
     const location = pick(retailOutlets);
-    const onHand = getItemLocation(item.name, location.name).quantity_on_hand;
+    const onHand = getItemLocation(asItemName(item.name), asLocationName(location.name)).quantity_on_hand;
     if (onHand < 2) continue;
     const qty = rand(1, Math.min(3, onHand));
     const reasons = ['Bottle broke during shelf restocking', 'Cork failure, wine spoiled', 'Damaged in transit from warehouse', 'Dropped by staff, bottle shattered'];
     try {
-      writeOffItems(BUSINESS, LEDGER, `BREAK-${i}`, item.name, qty, unitCostMinor[item.name], 'Breakage & Spoilage', 'Inventory', pick(reasons), 1, today(rand(2, 26)));
+      writeOffItems(BUSINESS, LEDGER, `BREAK-${i}`, asItemName(item.name), qty, unitCostMinor[item.name], asAccountName('Breakage & Spoilage'), 'Inventory', pick(reasons), USER, today(rand(2, 26)));
       breakageCount++;
     } catch {
       // fine, skip
@@ -705,7 +709,7 @@ async function main() {
           tier = 'Carton';
         }
 
-        const onHand = getItemLocation(item.name, sellLocation).quantity_on_hand;
+        const onHand = getItemLocation(asItemName(item.name), asLocationName(sellLocation)).quantity_on_hand;
         if (onHand < qty) {
           feasible = false;
           continue;
@@ -727,17 +731,17 @@ async function main() {
           {
             business: BUSINESS,
             ledger: LEDGER,
-            locationName: lines[0].locationOverride,
-            customerName: 'Cash Sale',
+            locationName: asLocationName(lines[0].locationOverride),
+            customerName: asCustomerName('Cash Sale'),
             lines: lines.map(({ locationOverride, ...l }) => l),
             // No revenueAccount — each line posts to its own real,
             // per-product Sales account, not one shared aggregate.
-            taxAccount: 'Sales Tax Payable',
+            taxAccount: asAccountName('Sales Tax Payable'),
             paymentMethod: seededRandom() < 0.6 ? 'card' : 'cash',
             cashTenderedMinor: undefined,
             transdate: today(day),
           },
-          1
+          USER
         );
         saleInvoiceIds.push(result.invoiceId);
         saleCount++;
@@ -760,11 +764,11 @@ async function main() {
     ['USD', 'EUR', 92000, 92500],
     ['EUR', 'USD', 107500, 108000],
   ];
-  for (const [from, to, buy, sell] of CCY_PAIRS) setCurrencyExchangeRate(BUSINESS, from, to, 1, buy, sell);
+  for (const [from, to, buy, sell] of CCY_PAIRS) setCurrencyExchangeRate(BUSINESS, from, to, USER, buy, sell);
 
   const usdTerminalLocation = retailOutlets[0].name;
-  nominateLocationCurrency(usdTerminalLocation, 'USD', 1);
-  createPosTerminal('Border Store USD Till', usdTerminalLocation, 1);
+  nominateLocationCurrency(usdTerminalLocation, 'USD', USER);
+  createPosTerminal('Border Store USD Till', asLocationName(usdTerminalLocation), USER);
   setTerminalCurrency('Border Store USD Till', 'USD');
   const usdCandidateProducts = ['Barossa Shiraz 2021', 'Margaret River Chardonnay 2022'];
   for (const productName of usdCandidateProducts) {
@@ -778,16 +782,16 @@ async function main() {
         {
           business: BUSINESS,
           ledger: LEDGER,
-          locationName: usdTerminalLocation,
+          locationName: asLocationName(usdTerminalLocation),
           terminalName: 'Border Store USD Till',
-          customerName: 'Cash Sale',
-          lines: [{ itemName: product, quantity: 1 }],
-          taxAccount: 'Sales Tax Payable',
+          customerName: asCustomerName('Cash Sale'),
+          lines: [{ itemName: product, quantity: 1, taxMinor: 0 }],
+          taxAccount: asAccountName('Sales Tax Payable'),
           paymentMethod: 'card',
           cashTenderedMinor: undefined,
           transdate: today(10 + i),
         },
-        1
+        USER
       );
       usdSaleCount++;
     } catch {
@@ -809,10 +813,10 @@ async function main() {
 
   stageBomComponent({ assemblyItem: 'Classic Gin & Tonic', business: BUSINESS, componentItem: 'London Dry Gin 700ml', quantity: 0.05, unit: 'bottle' });
   stageBomComponent({ assemblyItem: 'Classic Gin & Tonic', business: BUSINESS, componentItem: 'Tonic Water 375ml', quantity: 1, unit: 'bottle' });
-  postBomComponents('Classic Gin & Tonic', BUSINESS, 1);
+  postBomComponents('Classic Gin & Tonic', BUSINESS, USER);
   stageBomComponent({ assemblyItem: 'Rum & Cola', business: BUSINESS, componentItem: 'Spiced Rum 700ml', quantity: 0.05, unit: 'bottle' });
   stageBomComponent({ assemblyItem: 'Rum & Cola', business: BUSINESS, componentItem: 'Cola 375ml', quantity: 1, unit: 'bottle' });
-  postBomComponents('Rum & Cola', BUSINESS, 1);
+  postBomComponents('Rum & Cola', BUSINESS, USER);
 
   let wineBarSaleCount = 0;
   for (const bar of wineBars) {
@@ -826,10 +830,10 @@ async function main() {
     // resolved tier item name) — so stock is received here once per base
     // item, not once per tier.
     for (const base of [...wineByGlass, ...beerByGlass, ...softDrinksByGlass]) {
-      receiveItems(BUSINESS, LEDGER, `WINEBAR-REC-${bar.name}-${base}`, base, bar.name, 80, 1, today(1));
+      receiveItems(BUSINESS, LEDGER, `WINEBAR-REC-${bar.name}-${base}`, asItemName(base), asLocationName(bar.name), 80, USER, today(1));
     }
     for (const item of [...cocktails, ...snacks]) {
-      receiveItems(BUSINESS, LEDGER, `WINEBAR-REC-${bar.name}-${item}`, item, bar.name, 30, 1, today(1));
+      receiveItems(BUSINESS, LEDGER, `WINEBAR-REC-${bar.name}-${item}`, asItemName(item), asLocationName(bar.name), 30, USER, today(1));
     }
 
     for (let day = 2; day <= 26; day++) {
@@ -856,14 +860,14 @@ async function main() {
           {
             business: BUSINESS,
             ledger: LEDGER,
-            locationName: bar.name,
-            customerName: 'Cash Sale',
+            locationName: asLocationName(bar.name),
+            customerName: asCustomerName('Cash Sale'),
             lines,
-            taxAccount: 'Sales Tax Payable',
+            taxAccount: asAccountName('Sales Tax Payable'),
             paymentMethod: seededRandom() < 0.6 ? 'card' : 'cash',
             transdate: today(day),
           },
-          1
+          USER
         );
         wineBarSaleCount++;
       } catch {
@@ -894,13 +898,13 @@ async function main() {
           description: 'Customer return — wine had turned/corked',
           lines: [{ description: line.description, quantity: 1, unitPriceMinor: line.unitPriceMinor, amountMinor: line.unitPriceMinor ?? 0, taxMinor: 0, itemName: line.itemName }],
         },
-        1
+        USER
       );
       // The original sale posts to a tier-specific Sales account (e.g. "Sales - X
       // (Bottle)"); ensureItemSalesCogsAccounts without a tier would fall back to a
       // different, tier-less "ghost" account, so look up the account the sale actually used.
       const originalSalesAccounts = getAccountsPostedTo(original.reference).filter((n) => n.startsWith('Sales - '));
-      const salesAccount = originalSalesAccounts[0] ?? ensureItemSalesCogsAccounts(line.itemName!, 1).salesAccount;
+      const salesAccount = originalSalesAccounts[0] ?? ensureItemSalesCogsAccounts(asItemName(line.itemName!), USER).salesAccount;
       // A spoiled return is never restocked — the financial reversal (crediting the
       // customer) happens, but the bottle doesn't become sellable stock again.
       //
@@ -924,7 +928,7 @@ async function main() {
       // today (that's a separate, real gap, not something to paper over
       // here) — so there's nothing to pass instead; the credit note's
       // counterparty is simply left as the invoice's own real customer.
-      postInvoice(creditId, salesAccount, 'Sales Tax Payable', 1, false);
+      postInvoice(creditId, salesAccount, 'Sales Tax Payable', USER, false);
       returnCount++;
     } catch {
       // fine, skip
@@ -936,25 +940,25 @@ async function main() {
   console.log('\n=== 5. Month-end stocktake ===');
   let stocktakeCount = 0;
   for (const location of [...warehouses, ...retailOutlets]) {
-    const takeId = createStockTake(location.name, today(28), 1, BUSINESS);
+    const takeId = createStockTake(asLocationName(location.name), today(28), USER, BUSINESS);
     const take = (await import('../src/db.js')).getStockTake(takeId)!;
     for (const line of take.lines) {
       // Only products actually traded here have a defined unit cost; others get no variance.
       const variance = unitCostMinor[line.item] != null && seededRandom() < 0.15 ? rand(-2, 2) : 0;
-      recordStockTakeCount(takeId, line.item, Math.max(0, line.expected_quantity + variance));
+      recordStockTakeCount(takeId, asItemName(line.item), Math.max(0, line.expected_quantity + variance));
     }
     const costs: Record<string, number> = {};
     for (const line of take.lines) {
       if (unitCostMinor[line.item] != null) costs[line.item] = unitCostMinor[line.item];
     }
-    completeStockTake(takeId, BUSINESS, LEDGER, 'Breakage & Spoilage', 'Inventory', costs, 1);
+    completeStockTake(takeId, BUSINESS, LEDGER, asAccountName('Breakage & Spoilage'), 'Inventory', costs, USER);
     stocktakeCount++;
   }
   console.log(`${stocktakeCount} stock takes completed (one per location).`);
 
   // ---------------------------------------------------------------
   console.log('\n=== 6. Year-end (month-end) close ===');
-  const closeResult = closeBooks(BUSINESS, LEDGER, today(28), "Owner's Equity", 1);
+  const closeResult = closeBooks(BUSINESS, LEDGER, today(28), "Owner's Equity", USER);
   console.log(`Books closed. Net income for the month: $${(closeResult.netIncomeMinor / 100).toFixed(2)}, ${closeResult.accountsZeroed} accounts zeroed.`);
 
   console.log('\n=== SIMULATION COMPLETE ===');

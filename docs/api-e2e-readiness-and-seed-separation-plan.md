@@ -167,8 +167,8 @@ zero historical data.
   only row, rather than inserting once and then "updating" it via a second,
   superseding row during seed authorship. A few entity_ids (999006, 999008, ...)
   suggest some of this came from a one-off script run against a live dev
-  database and baked back in — worth checking `tag-coa-prototypes.ts`/
-  `tag-coa-prototypes-remaining.ts` for exactly this pattern first.
+  database and baked back in — worth checking `tag-coa-prototypes-remaining.ts` for exactly this
+  pattern first.
 
 ### 2.4 Wire up `db_version` to actually drive re-initialization
 

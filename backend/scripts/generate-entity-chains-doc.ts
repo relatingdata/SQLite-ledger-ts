@@ -8,9 +8,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const tree = getEntityTree();
-const byId = new Map(tree.map((e) => [e.id, e]));
 const byParent = new Map<number, typeof tree>();
 for (const e of tree) {
+  if (e.parent_id == null) continue;
   if (!byParent.get(e.parent_id)) byParent.set(e.parent_id, []);
   byParent.get(e.parent_id)!.push(e);
 }
@@ -21,12 +21,6 @@ function childrenOfName(name: string) {
   const node = tree.find((e) => e.name === name);
   if (!node) return [];
   return childrenOfId(node.id);
-}
-function sampleNames(name: string, n = 6): string[] {
-  const c = childrenOfName(name);
-  const shown = c.slice(0, n).map((e) => e.name);
-  if (c.length > n) shown.push(`… ${c.length - n} more`);
-  return shown;
 }
 function esc(s: string) {
   return s.replace(/\|/g, '\\|');

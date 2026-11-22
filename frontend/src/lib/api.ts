@@ -1662,6 +1662,18 @@ export const createInvoice = (input: InvoiceInput) =>
   );
 export const postInvoiceById = (id: number, revenueOrExpenseAccount: string, taxAccount: string, restockInventory = false) =>
   callRow('postInvoiceById', [String(id), revenueOrExpenseAccount, taxAccount, String(restockInventory)], () => undefined);
+/** An on-account sale (AR) or purchase (AP): the invoice, the stock
+ * movement of its catalog-item lines, and the posting, in one backend
+ * transaction. `locationName` is needed when any line is a catalog item. */
+export const postOnAccountInvoice = (
+  input: InvoiceInput & { locationName?: LocationName; revenueOrExpenseAccount: string; taxAccount: string }
+) =>
+  callRowWithLines(
+    'postOnAccountInvoice',
+    [input.invoiceType, input.business, input.ledger, input.reference, input.counterpartyName, input.invoiceDate, input.description, input.locationName, input.revenueOrExpenseAccount, input.taxAccount],
+    input.lines.map((l) => [l.description, l.quantity != null ? String(l.quantity) : undefined, l.unitPriceMinor != null ? String(l.unitPriceMinor) : undefined, String(l.amountMinor), l.taxMinor != null ? String(l.taxMinor) : undefined, l.itemName ?? undefined]),
+    (f): { id: number } => ({ id: Number(f[0]) })
+  );
 export const getInvoiceOutstanding = (id: number) => callRow('getInvoiceOutstanding', [String(id)], (f): { outstanding_minor: number } => ({ outstanding_minor: Number(f[0]) }));
 export const allocatePaymentToInvoice = (id: number, paymentReference: string, allocatedMinor: number, allocationDate: string, paymentAccount: string) =>
   callRow('allocatePaymentToInvoice', [String(id), paymentReference, String(allocatedMinor), allocationDate, paymentAccount], () => undefined);
@@ -2455,36 +2467,6 @@ export const completeCashPurchase = (input: {
     [input.business, input.ledger, input.locationName, input.vendorName, input.taxAccount, input.paymentMethod, input.transdate],
     input.lines.map((l) => [l.itemName, String(l.quantity), String(l.unitPriceMinor), String(l.taxMinor)]),
     (f): CashPurchaseResult => ({ invoiceId: Number(f[0]), reference: f[1], totalMinor: Number(f[2]) })
-  );
-
-export const receiveStock = (input: {
-  business: BusinessName;
-  ledger: LedgerName;
-  reference: string;
-  locationName: LocationName;
-  lines: { itemName: string; quantity: number }[];
-  transdate?: string;
-}) =>
-  callRowWithLines(
-    'receiveStock',
-    [input.business, input.ledger, input.reference, input.locationName, input.transdate],
-    input.lines.map((l) => [l.itemName, String(l.quantity)]),
-    () => undefined
-  );
-
-export const dispatchStock = (input: {
-  business: BusinessName;
-  ledger: LedgerName;
-  reference: string;
-  locationName: LocationName;
-  lines: { itemName: string; quantity: number }[];
-  transdate?: string;
-}) =>
-  callRowWithLines(
-    'dispatchStock',
-    [input.business, input.ledger, input.reference, input.locationName, input.transdate],
-    input.lines.map((l) => [l.itemName, String(l.quantity)]),
-    () => undefined
   );
 
 export interface PayWagesResult {

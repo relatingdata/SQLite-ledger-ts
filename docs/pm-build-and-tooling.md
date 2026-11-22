@@ -214,19 +214,16 @@ when the manual and the code agree.
 | `check-no-python` | No `.py` file, and no build file that invokes python. |
 | `check-step-tests` | No Playwright spec (`*.spec.ts`) and no use of `@playwright/test`; every page of the app is opened by `shared-fixtures/tests/every-page-opens.csv`, and every page it opens exists (`scripts/check-step-tests.ts`; it runs `make generate` first, as some pages are generated). |
 | `check-manual-pictures` | Every picture a chapter shows is taken by a test or tutorial's screenshot column (`scripts/manual-pictures.ts check`). |
+| `check-backend-types` | `backend/src`, `shared-fixtures` and every script in `backend/scripts` type-check (`tsc --noEmit`, then `tsc -p backend/tsconfig.scripts.json`, which also allows `.ts` import paths as tsx does). A script that imports or calls something `db.ts` no longer has fails here. |
 
 Other checks, not part of `check-manual`:
 
 | Check | What it does |
 |---|---|
-| `check-backend-types` | `tsc --noEmit` against `backend/src` and `../shared-fixtures`. |
 | `check-frontend` | `svelte-check` across every `.svelte` file. |
 | `check-db-consistency` | See above. |
 
-⚠️ Not covered by any gate: `backend/scripts/` (other than the step
-runner) is not type-checked, and `tsc` reports type errors in 31 of its
-scripts (one, `tag-coa-prototypes.ts`, imports a function `db.ts` no
-longer exports). `backend/test/` is type-checked only for unused names.
+`backend/test/` is type-checked only for unused names (`check-unused`).
 
 ## The four permanent tables
 

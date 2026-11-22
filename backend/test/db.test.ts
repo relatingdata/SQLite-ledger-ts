@@ -3323,6 +3323,97 @@ test('completePosSale: a real, immediate cash sale posts a genuine invoice to th
   assert.equal(cashLine.amount_minor, result.totalMinor, "Cash and Bank must be debited the real, full sale amount in the payment posting that immediately follows the invoice");
 });
 
+test('postOnAccountInvoice: an on-account purchase receives its catalog items at the location and posts the invoice to the provider, in one call', () => {
+  const biz = fx.freshBusiness('OnAccountTest Co');
+  const store = fx.freshLocation(biz.business, 'OnAccountTest Store');
+  const providerName = fx.uniqueName('OnAccountTest Provider');
+  db.create(db.requireEntity('Vendors', db.typeRootName), db.typeRootName, providerName, fx.userId);
+  const wineName = fx.uniqueName('OnAccountTest Wine');
+  db.createItem(wineName, 'Items', fx.userId, biz.business);
+
+  const id = db.postOnAccountInvoice(
+    {
+      invoiceType: 'AP',
+      business: biz.business,
+      ledger: biz.actualLedger,
+      reference: fx.uniqueName('ONACC-AP'),
+      counterpartyName: providerName,
+      invoiceDate: '2026-03-01',
+      lines: [
+        { description: wineName, quantity: 12, unitPriceMinor: 1000, amountMinor: 12000, taxMinor: 0, itemName: wineName },
+        { description: 'Freight', quantity: 1, unitPriceMinor: 500, amountMinor: 500, taxMinor: 0, itemName: null },
+      ],
+      locationName: store.name,
+      revenueOrExpenseAccount: 'Inventory',
+      taxAccount: 'Purchases Tax Claimed',
+    },
+    fx.userId
+  );
+
+  assert.equal(db.getInvoice(id)!.status, 'posted');
+  assert.equal(db.getItemLocation(db.asItemName(wineName), store.name).quantity_on_hand, 12, 'the catalog item is received; the freight line moves no stock');
+});
+
+test('postOnAccountInvoice: a sale that cannot be dispatched leaves nothing behind — no invoice and no stock movement', () => {
+  const biz = fx.freshBusiness('OnAccountFailTest Co');
+  const store = fx.freshLocation(biz.business, 'OnAccountFailTest Store');
+  const customerName = fx.uniqueName('OnAccountFailTest Customer');
+  db.create(db.requireEntity('Customers', db.typeRootName), db.typeRootName, customerName, fx.userId);
+  const wineName = fx.uniqueName('OnAccountFailTest Wine');
+  db.createItem(wineName, 'Items', fx.userId, biz.business);
+  const invoicesBefore = db.countInvoices(biz.business, biz.actualLedger, 'AR');
+
+  assert.throws(
+    () =>
+      db.postOnAccountInvoice(
+        {
+          invoiceType: 'AR',
+          business: biz.business,
+          ledger: biz.actualLedger,
+          reference: fx.uniqueName('ONACC-AR'),
+          counterpartyName: customerName,
+          invoiceDate: '2026-03-01',
+          lines: [{ description: wineName, quantity: 5, unitPriceMinor: 2000, amountMinor: 10000, taxMinor: 0, itemName: wineName }],
+          locationName: store.name,
+          revenueOrExpenseAccount: 'Sales Revenue',
+          taxAccount: 'Sales Tax Payable',
+        },
+        fx.userId
+      ),
+    db.ValidationError
+  );
+
+  assert.equal(db.countInvoices(biz.business, biz.actualLedger, 'AR'), invoicesBefore, 'the invoice was rolled back with the failed dispatch');
+  assert.equal(db.getItemLocation(db.asItemName(wineName), store.name).quantity_on_hand, 0);
+});
+
+test('postOnAccountInvoice: a catalog item with no location is refused before anything is written', () => {
+  const biz = fx.freshBusiness('OnAccountNoLocTest Co');
+  const providerName = fx.uniqueName('OnAccountNoLocTest Provider');
+  db.create(db.requireEntity('Vendors', db.typeRootName), db.typeRootName, providerName, fx.userId);
+  const wineName = fx.uniqueName('OnAccountNoLocTest Wine');
+  db.createItem(wineName, 'Items', fx.userId, biz.business);
+  assert.throws(
+    () =>
+      db.postOnAccountInvoice(
+        {
+          invoiceType: 'AP',
+          business: biz.business,
+          ledger: biz.actualLedger,
+          reference: fx.uniqueName('ONACC-NOLOC'),
+          counterpartyName: providerName,
+          invoiceDate: '2026-03-01',
+          lines: [{ description: wineName, quantity: 1, unitPriceMinor: 1000, amountMinor: 1000, taxMinor: 0, itemName: wineName }],
+          revenueOrExpenseAccount: 'Inventory',
+          taxAccount: 'Purchases Tax Claimed',
+        },
+        fx.userId
+      ),
+    /Select a location/
+  );
+  assert.equal(db.countInvoices(biz.business, biz.actualLedger, 'AP'), 0);
+});
+
 test('completeCashPurchase: a real, immediate cash purchase posts a genuine invoice to the vendor\'s own AP account, then a genuine payment that nets it straight back to zero', () => {
   const biz = fx.freshBusiness('CashPurTest Co');
   const warehouse = fx.freshLocation(biz.business, 'CashPurTest Warehouse', { location_type: 'Warehouse', bottle_capacity: 0, carton_capacity: 5000 });

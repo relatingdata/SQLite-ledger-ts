@@ -35,3 +35,5 @@ shops.forEach((shop, s) => {
   db.completePosSale({ business, ledger, locationName: shop, customerName: db.asCustomerName('Cash'), lines: wines.map((itemName, w) => ({ itemName, quantity: sold[s][w], unitPriceMinor: price[w] + s * 150, taxMinor: 0 })), taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', transdate: '2026-10-15' } as never, userId);
 });
 console.log(`Added ${business}: ${wines.join(', ')} at ${shops.join(', ')}.`);
+
+export {};

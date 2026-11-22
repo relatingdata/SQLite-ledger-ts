@@ -10,6 +10,7 @@ import {
   listInvoices,
   countInvoices,
   postInvoice,
+  postOnAccountInvoice,
   allocatePayment,
   getInvoiceOutstandingMinor,
   getAgedInvoices,
@@ -147,6 +148,50 @@ export const invoicesFunctions: Record<string, BackendCall> = {
       if (err instanceof ValidationError) throw new CallError(409, err.message);
       console.error(err);
       throw new CallError(500, 'Could not post invoice.');
+    }
+  },
+
+  // Positional args: [0] invoiceType (AR|AP), [1] business, [2] ledger,
+  // [3] reference, [4] counterpartyName, [5] invoiceDate, [6] description,
+  // [7] locationName, [8] revenueOrExpenseAccount, [9] taxAccount.
+  // Line-items: description,quantity,unitPriceMinor,amountMinor,taxMinor,itemName.
+  postOnAccountInvoice: (v, user, lineItems) => {
+    const admin = requireRole(user, 'Administrator', 'Bookkeeper');
+    const [invoiceType, business, ledger, reference, counterpartyName, invoiceDate, description, locationName, account, taxAccount] = v;
+    if ((invoiceType !== 'AR' && invoiceType !== 'AP') || !business || !ledger || !reference || !counterpartyName || !invoiceDate || !account || !taxAccount) {
+      throw new CallError(400, 'invoiceType (AR or AP), business, ledger, reference, counterpartyName, invoiceDate, revenueOrExpenseAccount and taxAccount are all required.');
+    }
+    if (lineItems.length === 0) throw new CallError(400, 'At least one invoice line is required.');
+    const lines = lineItems.map(([desc, quantity, unitPriceMinor, amountMinor, taxMinor, itemName]) => ({
+      description: desc,
+      quantity: quantity ? Number(quantity) : null,
+      unitPriceMinor: unitPriceMinor ? Number(unitPriceMinor) : null,
+      amountMinor: Number(amountMinor),
+      taxMinor: taxMinor ? Number(taxMinor) : 0,
+      itemName: itemName || null,
+    }));
+    try {
+      const id = postOnAccountInvoice(
+        {
+          invoiceType,
+          business: asBusinessName(business),
+          ledger: asLedgerName(ledger),
+          reference,
+          counterpartyName,
+          invoiceDate,
+          description: description || undefined,
+          lines,
+          locationName: locationName ? asLocationName(locationName) : undefined,
+          revenueOrExpenseAccount: account,
+          taxAccount,
+        },
+        asUserId(admin.id)
+      );
+      return row(String(id));
+    } catch (err) {
+      if (err instanceof ValidationError) throw new CallError(409, err.message);
+      if (err instanceof NotFoundError) throw new CallError(404, err.message);
+      throw err;
     }
   },
 

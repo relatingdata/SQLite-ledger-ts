@@ -745,19 +745,25 @@ export const createInvoice = (input: InvoiceInput) =>
   );
 export const postInvoiceById = (id: number, revenueOrExpenseAccount: string, taxAccount: string, restockInventory = false) =>
   callRow('postInvoiceById', [String(id), revenueOrExpenseAccount, taxAccount, String(restockInventory)], () => undefined);
+/** An on-account sale (AR) or purchase (AP) with its stock movement, in
+ * one backend transaction — the same call the web screens make. */
+export const postOnAccountInvoice = (input: InvoiceInput & { locationName?: string; revenueOrExpenseAccount: string; taxAccount: string }) =>
+  callRowWithLines(
+    'postOnAccountInvoice',
+    [input.invoiceType, input.business, input.ledger, input.reference, input.counterpartyName, input.invoiceDate, input.description, input.locationName, input.revenueOrExpenseAccount, input.taxAccount],
+    input.lines.map((l) => [
+      l.description,
+      l.quantity != null ? String(l.quantity) : undefined,
+      l.unitPriceMinor != null ? String(l.unitPriceMinor) : undefined,
+      String(l.amountMinor),
+      l.taxMinor != null ? String(l.taxMinor) : undefined,
+      l.itemName ?? undefined,
+    ]),
+    (f): { id: number } => ({ id: Number(f[0]) })
+  );
 export const getInvoiceOutstanding = (id: number) => callRow('getInvoiceOutstanding', [String(id)], (f): { outstanding_minor: number } => ({ outstanding_minor: Number(f[0]) }));
 export const allocatePaymentToInvoice = (id: number, paymentReference: string, allocatedMinor: number, allocationDate: string, paymentAccount: string) =>
   callRow('allocatePaymentToInvoice', [String(id), paymentReference, String(allocatedMinor), allocationDate, paymentAccount], () => undefined);
-
-// --- Stock receive (alongside an on-account Purchase) ---------------------
-
-export const receiveStock = (input: { business: BusinessName; ledger: LedgerName; reference: string; locationName: string; lines: { itemName: string; quantity: number }[]; transdate?: string }) =>
-  callRowWithLines(
-    'receiveStock',
-    [input.business, input.ledger, input.reference, input.locationName, input.transdate],
-    input.lines.map((l) => [l.itemName, String(l.quantity)]),
-    () => undefined
-  );
 
 // --- Cash Purchase ---------------------------------------------------------
 // Mirrors frontend/src/lib/api.ts's own completeCashPurchase — one real,
@@ -834,18 +840,6 @@ export interface ARAPBaseInput {
 export const stageAPPayment = (input: ARAPBaseInput & { vendor: string }) =>
   callRow('stageAPPayment', [input.reference, input.business, input.ledger, input.vendor, String(input.amount_minor), input.transdate, input.description], () => undefined);
 export const postAPPayment = (reference: string, business: BusinessName, ledger: LedgerName) => callRow('postAPPayment', [reference, business, ledger], () => undefined);
-
-// --- Stock dispatch (alongside an on-account AR Sale) -----------------------
-// Mirrors frontend/src/lib/api.ts's own dispatchStock — the Sale-side
-// counterpart to receiveStock above.
-
-export const dispatchStock = (input: { business: BusinessName; ledger: LedgerName; reference: string; locationName: string; lines: { itemName: string; quantity: number }[]; transdate?: string }) =>
-  callRowWithLines(
-    'dispatchStock',
-    [input.business, input.ledger, input.reference, input.locationName, input.transdate],
-    input.lines.map((l) => [l.itemName, String(l.quantity)]),
-    () => undefined
-  );
 
 // --- Transfer Items -----------------------------------------------------
 // The same one call the web screen makes: transferItems moves the stock

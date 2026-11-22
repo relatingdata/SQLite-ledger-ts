@@ -7,4 +7,10 @@
 // real fallback path covers both.
 const isBun = typeof (globalThis as unknown as { Bun?: unknown }).Bun !== 'undefined';
 
-export const { test, before, after } = isBun ? await import('bun:test').then((m) => ({ test: m.test, before: m.beforeAll, after: m.afterAll })) : await import('node:test');
+// Typed as node:test's shape; a variable specifier keeps tsc from
+// depending on whether bun's types are installed.
+type TestRuntime = Pick<typeof import('node:test'), 'test' | 'before' | 'after'>;
+const bunTest = 'bun:test';
+export const { test, before, after }: TestRuntime = isBun
+  ? await import(bunTest).then((m) => ({ test: m.test, before: m.beforeAll, after: m.afterAll }))
+  : await import('node:test');

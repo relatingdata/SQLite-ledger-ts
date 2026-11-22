@@ -28,3 +28,5 @@ process.env.ENTITY_DRIVER = 'sql';
 
 await import('../src/db.js');
 console.log('bootstrap-schema: real schema + seed data initialized.');
+
+export {};

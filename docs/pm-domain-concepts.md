@@ -16,8 +16,8 @@ Receipt or Stock Dispatch line with its quantity tracking turned off.
   and Stock Dispatch (`frontend/src/routes/stock/stock-dispatch/`) pages
   each have an `isService` checkbox ("This is a service — no physical
   stock quantity to track"). Toggling it on sends `item_qty: undefined`
-  to the backend (`receiveStock`/`dispatchStock`, `call-dispatch/pos.ts`)
-  instead of a real count.
+  to the backend (`stageOrderReceipt`/`stageOrderDispatch`) instead of a
+  count.
 - **What actually changes**: nothing about the account posting — the
   real money/value leg still posts normally against whatever account
   the line names. Only the *quantity* leg is skipped: no `-QTY`-suffixed

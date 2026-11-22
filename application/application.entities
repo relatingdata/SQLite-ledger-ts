@@ -398,12 +398,6 @@ Root
     - :Parameter Name=warehouseName
     - :Parameter Name=retailOutletName
     - :Parameter Name=transdate
-   dispatchStock :Call Client=dispatchStock
-    - :Parameter Name=input.business
-    - :Parameter Name=input.ledger
-    - :Parameter Name=input.reference
-    - :Parameter Name=input.locationName
-    - :Parameter Name=input.transdate
    dispatchStockQuantitySimple :Call
     - :Parameter Name=reference Type=text
     - :Parameter Name=businessName Type=text
@@ -749,6 +743,17 @@ Root
     - :Parameter Name=reference Type=text
     - :Parameter Name=businessName Type=text
     - :Parameter Name=ledger Type=text
+   postOnAccountInvoice :Call Client=postOnAccountInvoice
+    - :Parameter Name=input.invoiceType
+    - :Parameter Name=input.business
+    - :Parameter Name=input.ledger
+    - :Parameter Name=input.reference
+    - :Parameter Name=input.counterpartyName
+    - :Parameter Name=input.invoiceDate
+    - :Parameter Name=input.description
+    - :Parameter Name=input.locationName
+    - :Parameter Name=input.revenueOrExpenseAccount
+    - :Parameter Name=input.taxAccount
    postOrderDispatch :Call Client=postOrderDispatch
     - :Parameter Name=reference
     - :Parameter Name=business
@@ -807,12 +812,6 @@ Root
     - :Parameter Name=input.receivedDate
     - :Parameter Name="input.expirationDate ?? undefined"
     - :Parameter Name="String(input.quantity)"
-   receiveStock :Call Client=receiveStock
-    - :Parameter Name=input.business
-    - :Parameter Name=input.ledger
-    - :Parameter Name=input.reference
-    - :Parameter Name=input.locationName
-    - :Parameter Name=input.transdate
    receiveStockQuantitySimple :Call
     - :Parameter Name=reference Type=text
     - :Parameter Name=businessName Type=text

@@ -144,9 +144,9 @@ down.
 
 | Screen (route) | Backend calls | Posts via |
 |---|---|---|
-| Invoiced Sale (`/arap/ar-sale`) | `createInvoice`, `dispatchStock`, `postInvoiceById` | `postJournalEntry` |
+| Invoiced Sale (`/arap/ar-sale`) | `postOnAccountInvoice` | `postJournalEntry` |
 | AR Receipt (`/arap/ar-receipt`) | `stageARReceipt`, `postARReceipt` | `postJournalEntry` |
-| Invoiced Purchase (`/arap/ap-purchase`) | `createInvoice`, `receiveStock`, `postInvoiceById` | `postJournalEntry` |
+| Invoiced Purchase (`/arap/ap-purchase`) | `postOnAccountInvoice` | `postJournalEntry` |
 | AP Payment (`/arap/ap-payment`) | `stageAPPayment`, `postAPPayment` | `postJournalEntry` |
 | Cash Sale (`/arap/cash-sale`) | `completePosSale` | `postJournalEntry` |
 | Cash Purchase (`/arap/cash-purchase`) | `completeCashPurchase` | `postJournalEntry` |
@@ -233,8 +233,8 @@ narrower kinds of endpoint instead of one wide one:
   or creates whichever accounts the frontend will need to stage lines
   against (including each item's own known per-unit cost), but posts
   nothing itself.
-- **A narrow, physical-only endpoint** (`receiveIntoStorageStock`,
-  `receiveStock`, `dispatchStock`) — does only the
+- **A narrow, physical-only endpoint** (`receiveIntoStorageStock`) —
+  does only the
   real, physical side effect (a quantity movement, a location-capacity
   change), with no journal entry of its own; the frontend posts the
   dollar-value entry itself, separately, using the resolved accounts.
@@ -596,12 +596,12 @@ behaviour in `frontend/src/lib/screen-runtime.ts` it calls:
 - **Invoiced Purchase and Sale** (`actions.purchase`, `actions.sale`).
   To the `Cash` party, the purchase or sale is completed and paid at
   once (`completeCashPurchase`, `completePosSale`); a location is
-  required. Otherwise `onAccount` creates the invoice; the lines whose
-  item is in the business's catalogue are received into stock
-  (`receiveStock`) or dispatched from it (`dispatchStock`) at the chosen
-  location, which is then required; and only after that is the invoice
-  posted (`postInvoiceById`), so a failed dispatch leaves no posted
-  invoice. Tax comes from the tax-rate field (`totals.taxRate`).
+  required. Otherwise `onAccount` calls `postOnAccountInvoice`, which
+  creates the invoice, receives or dispatches the lines whose item is in
+  the business's catalogue at the chosen location (then required), and
+  posts it, in one transaction (*Core Domain Reference*, "Cash Sale
+  and Cash Purchase"). Tax comes from the tax-rate field
+  (`totals.taxRate`).
 - **Purchase Order** (`actions.purchaseOrder`). Choosing an item fetches
   its sources (`reactions.itemSources`): the provider list becomes the
   item's known providers, preferred first, with the preferred price
@@ -924,8 +924,7 @@ account in the system, mixing every CoA prototype together
 (German/French/Italian accounts alongside English ones) regardless of
 which business was selected — fixed by filtering to the current
 business's own prototype specifically, using the relation tag each
-account and each business carries (see
-`backend/scripts/tag-coa-prototypes.ts`). Accounts with no prototype
+account and each business carries (`backend/schema/00-core.sql`). Accounts with no prototype
 relation at all are always shown: product-specific Sales/COGS accounts
 (named `"Sales - ..."`/`"COGS - ..."`, already tagged COGS for a
 different purpose) and customer/provider contact accounts are universal,
@@ -1503,26 +1502,16 @@ Tests (*Testing: Unit*, "Running the tests"):
 
 ## `frontend/src/routes/items/+page.svelte` — the Items catalog tree
 
-**Category is a real, optional Hierarchy tag here, exactly like
-Division** — the same, generic `setHierarchyParent`/
-`getHierarchyAssignments` mechanism any business-defined grouping
-uses, never a real position in the Items catalog tree. Every item is
-created flat, directly under the business's `Items` root
-(`createEntity` + `setItem`, the same path every item has always
-used); a category is then a separate, optional tag
-(`setHierarchyTag`/`deleteHierarchyTag`), and a category *value* is
-itself a lightweight entity registered once under the business's
-Hierarchy registry (`createHierarchyValue`/`ensureHierarchyValue`),
-never nested in the Items tree. This is the single biggest
-architectural change from this page's earlier design, in which a
-category was a real `parent_id` position under `Items` and an item's
-own Sales/COGS accounts mirrored that position into real Chart-of-
-Accounts structure (`ensureCategoryChain`, since removed — see
-`docs/pm-domain-reference.md`'s "Hierarchies and multi-dimensional
-reporting"). Per the explicit requirement that the application work
-fine with a single item in a single location and no category
-structure at all, every category-related control here is optional and
-skippable.
+**Category is an optional hierarchy tag**, like Division
+(`setHierarchyParent`, `getHierarchyAssignments`), never a position in
+the Items tree. Every item is created directly under the business's
+`Items` root (`createEntity`, then `setItem`); a category is a tag
+added or removed with `setHierarchyTag`/`deleteHierarchyTag`, and a
+category value is an entity in the business's Hierarchy registry
+(`createHierarchyValue`/`ensureHierarchyValue`). Every category control
+is optional: a business with one item and no categories works the
+same way (*Core Domain Reference*, "Hierarchies and multi-dimensional
+reporting").
 
 - **`categoryValues`** is this business's own registered `Category`
   grouping values (`getHierarchy(business)`, filtered to the

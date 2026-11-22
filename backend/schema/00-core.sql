@@ -2095,8 +2095,8 @@ UPDATE account SET currency = 'EUR' WHERE entity_id = (SELECT id FROM current_en
 -- mixed together (English/German/French/Italian/Swiss), regardless of
 -- which business was actually selected. Every real, bootstrap-level
 -- account in each prototype, and each real business itself, tagged with
--- a real relation marking its own prototype (backend/scripts/
--- tag-coa-prototypes.ts, tag-coa-prototypes-remaining.ts) — deliberately
+-- a real relation marking its own prototype (the rows below; the last
+-- few came from backend/scripts/tag-coa-prototypes-remaining.ts) — deliberately
 -- excludes simulation-generated, product-specific Sales/COGS accounts,
 -- since those are already handled separately by name prefix
 -- (frontend filters "Sales - "/"COGS - " as always business-specific,

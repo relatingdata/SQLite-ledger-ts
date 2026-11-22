@@ -1,14 +1,11 @@
 <!--
   A TUI port of the web app's "AP Purchase" screen
   (frontend/src/routes/arap/ap-purchase/+page.svelte) - a purchase from
-  a provider on credit, using the real, shared AR/AP invoice mechanism
-  (createInvoice -> postInvoiceById). A line naming a real catalog item
-  is received into stock automatically, alongside the invoice, exactly
-  like the web screen (receiveStock, called only when at least one
-  line matches a real item). Provider and Account are free-text fields
-  here, same stated v1 simplification the General Journal's own
-  Account field already makes - Location uses a real picker instead,
-  since it's a small, bounded, per-business list.
+  a provider on credit, posted with postOnAccountInvoice, the same call
+  the web screen makes: the invoice, the receipt of every line that is a
+  catalog item, and the posting, in one transaction. Provider and
+  Account are free text, as in the General Journal; Location is a
+  picker, since it is a short per-business list.
 -->
 <script lang="ts">
   import { Box, Text } from 'sveltui';
@@ -18,11 +15,9 @@
     ApiError,
     asBusinessName,
     asLedgerName,
-    createInvoice,
     listItems,
+    postOnAccountInvoice,
     listLocations,
-    postInvoiceById,
-    receiveStock,
     type ItemSummary,
     type LocationRecord,
   } from '../api.ts';
@@ -164,7 +159,7 @@
     busy = true; error = null;
     try {
       const transdate = todayIso();
-      const { id } = await createInvoice({
+      await postOnAccountInvoice({
         invoiceType: 'AP',
         business: asBusinessName(businessName),
         ledger: asLedgerName(ledgerName),
@@ -180,18 +175,10 @@
           taxMinor: taxRate ? Math.round(l.quantity * l.unitPriceMinor * (taxRateNumber / 100)) : 0,
           itemName: l.itemName,
         })),
+        locationName: locationName || undefined,
+        revenueOrExpenseAccount: account.trim(),
+        taxAccount: 'Purchases Tax Claimed',
       });
-      if (stockLines.length > 0) {
-        await receiveStock({
-          business: asBusinessName(businessName),
-          ledger: asLedgerName(ledgerName),
-          reference,
-          locationName,
-          lines: stockLines.map((l) => ({ itemName: l.itemName, quantity: l.quantity })),
-          transdate,
-        });
-      }
-      await postInvoiceById(id, account.trim(), 'Purchases Tax Claimed');
       saved = { reference, totalMinor };
       step = 'saved';
     } catch (err) {

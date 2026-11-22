@@ -5,7 +5,7 @@
 // per the backend-first-testing skill - no browser, no Playwright,
 // direct function calls, checking every real balance/quantity along
 // the way, not just the final result.
-import { createBusiness, createEntityRaw, create, requireEntity, typeRootName, getTrialBalance, stageBomComponent, postBomComponents, getBomComponents, addOrUpdateItemSource, createItem, completePosSale, ensureProductInstance, ensureCombinationAccountLeaf, getItemPriceForCurrency, db, asBusinessName, asLedgerName, asAccountName, asLocationName, asProviderName, asItemName } from '../src/db.ts';
+import { createBusiness, create, requireEntity, typeRootName, getTrialBalance, stageBomComponent, postBomComponents, getBomComponents, addOrUpdateItemSource, createItem, completePosSale, ensureProductInstance, ensureCombinationAccountLeaf, getItemPriceForCurrency, db, asBusinessName, asLedgerName, asAccountName, asLocationName, asProviderName, asItemName } from '../src/db.ts';
 import {
   setLocation,
   placeOrder,
@@ -140,7 +140,7 @@ check(`Combination-tagged transfer correctly increased the real retail Inventory
 console.log(`\n=== 8. Month/year-end stock take, with a real, deliberate variance ===`);
 const takeId = createStockTake(asLocationName('Proof Retail Outlet'), '2027-06-30', USER as any);
 recordStockTakeCount(takeId, asItemName('Proof Component A'), 13); // real, deliberate shortage of 1 (14 on hand -> 13 counted)
-const capBefore = ensureLocationCapacityAccount(asBusinessName(BIZ), asLedgerName(LEDGER), asLocationName('Proof Retail Outlet'), USER as any);
+ensureLocationCapacityAccount(asBusinessName(BIZ), asLedgerName(LEDGER), asLocationName('Proof Retail Outlet'), USER as any);
 completeStockTake(takeId, BIZ as any, LEDGER as any, asAccountName('Miscellaneous'), 'Inventory', { 'Proof Component A': 500 }, USER as any);
 check('Stock take completed', true);
 

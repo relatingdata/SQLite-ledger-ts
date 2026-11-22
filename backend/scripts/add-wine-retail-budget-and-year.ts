@@ -11,7 +11,7 @@
  * designed to be run immediately after that script, against the same
  * database.
  */
-import { createEntityRaw, create, requireEntity, typeRootName, stageLine, postJournalEntry, asUserId, asBusinessName, asLedgerName, asAccountName } from '../src/db.ts';
+import { create, requireEntity, typeRootName, stageLine, postJournalEntry, asUserId, asBusinessName, asLedgerName, asAccountName } from '../src/db.ts';
 
 const BUSINESS = 'Wine Retail Business';
 const ACTUAL_LEDGER = 'Actual';

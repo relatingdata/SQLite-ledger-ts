@@ -183,8 +183,9 @@ Tests (*Testing: Unit*, "Running the tests"):
 AR Receipt and AP Payment are cooked into their two general journal lines
 when staged (see "Staging"), and posted by `postJournalEntry`.
 
-An invoiced sale or purchase is an invoice (`createInvoice`, then
-`postInvoiceById`; *Core Domain Reference*, "Invoices"). The canned
+An invoiced sale or purchase is an invoice posted with its stock
+movement by `postOnAccountInvoice` (*Core Domain Reference*,
+"Cash Sale and Cash Purchase"). The canned
 journal logic for Cash Purchase, Cash Sale and POS Sale lives in
 `db.ts` (`completeCashPurchase`, `completePosSale`).
 

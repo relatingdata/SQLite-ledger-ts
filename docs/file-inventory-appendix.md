@@ -147,15 +147,13 @@ script for one specific, real task:
 - **`simulate-wine-retail-month.ts`** / **`verify-simulation.ts`** — the
   real, deterministic month-long simulation `make test-e2e` runs, and
   its own real, exact-value verification.
-- **`setup-wine-bar-location.ts`** / **`setup-wine-bar-cocktails.ts`** —
-  the real wine-bar/assembly demo (a second business scenario).
 - **`generate-entity-tree-svg.ts`** / **`generate-entity-chains-doc.ts`**
   — real, generated developer documentation.
 - **`verify-db-consistency.ts`** — a real, direct sanity check of live
   data.
-- The remaining `add-*`/`set-*`/`tag-*`/`prototype-*` scripts are real,
-  one-off, already-applied migrations and experiments, kept for
-  historical reference.
+- The remaining `add-*`, `set-*` and `tag-*` scripts are one-off,
+  already-applied data migrations that the schema's comments name as
+  the source of their rows.
 
 ## Frontend (`frontend/src/`)
 

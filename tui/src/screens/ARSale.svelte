@@ -1,23 +1,20 @@
 <!--
   A TUI port of the web app's "AR Sale" screen
   (frontend/src/routes/arap/ar-sale/+page.svelte) - a sale to a
-  customer on credit, using the real, shared AR/AP invoice mechanism
-  (createInvoice -> postInvoiceById). A line naming a real catalog item
-  is dispatched from stock automatically, alongside the invoice, exactly
-  like the web screen (dispatchStock, called only when at least one
-  line matches a real item). Customer is a free-text field here, same
-  stated v1 simplification the General Journal's own Account field
-  already makes - Location uses a real picker instead, since it's a
-  small, bounded, per-business list.
+  customer on credit, posted with postOnAccountInvoice, the same call
+  the web screen makes: the invoice, the dispatch of every line that is
+  a catalog item, and the posting, in one transaction. Customer is free
+  text, as in the General Journal; Location is a picker, since it is a
+  short per-business list.
 
   Deliberately out of scope for this v1 screen, same, real reasons as
   Payment.svelte's own omissions: the web screen's non-blocking
   over-credit-limit warning and its customer picker drawn from the real
   entity tree (here, free-text, matching every other counterparty
   field in this TUI) - the sale itself still posts exactly the same
-  either way. The named customer must already exist - createInvoice
+  either way. The named customer must already exist: the invoice
   resolves counterpartyName against an exact, existing entity name and
-  does not create one on the fly.
+  does not create one.
 -->
 <script lang="ts">
   import { Box, Text } from 'sveltui';
@@ -27,11 +24,9 @@
     ApiError,
     asBusinessName,
     asLedgerName,
-    createInvoice,
-    dispatchStock,
     listItems,
+    postOnAccountInvoice,
     listLocations,
-    postInvoiceById,
     type ItemSummary,
     type LocationRecord,
   } from '../api.ts';
@@ -170,7 +165,7 @@
     busy = true; error = null;
     try {
       const transdate = todayIso();
-      const { id } = await createInvoice({
+      await postOnAccountInvoice({
         invoiceType: 'AR',
         business: asBusinessName(businessName),
         ledger: asLedgerName(ledgerName),
@@ -186,22 +181,10 @@
           taxMinor: taxRate ? Math.round(l.quantity * l.unitPriceMinor * (taxRateNumber / 100)) : 0,
           itemName: l.itemName,
         })),
+        locationName: locationName || undefined,
+        revenueOrExpenseAccount: 'Sales Revenue',
+        taxAccount: 'Sales Tax Payable',
       });
-      // Dispatch first, deliberately, same as the web screen and Cash
-      // Sale - it's the step most likely to fail (not enough stock on
-      // hand), and a failed dispatch must never leave a posted invoice
-      // behind for stock that was never actually sent out.
-      if (stockLines.length > 0) {
-        await dispatchStock({
-          business: asBusinessName(businessName),
-          ledger: asLedgerName(ledgerName),
-          reference,
-          locationName,
-          lines: stockLines.map((l) => ({ itemName: l.itemName, quantity: l.quantity })),
-          transdate,
-        });
-      }
-      await postInvoiceById(id, 'Sales Revenue', 'Sales Tax Payable');
       saved = { reference, totalMinor };
       step = 'saved';
     } catch (err) {

@@ -749,8 +749,8 @@ Tests (*Testing: Unit*, "Running the tests"):
 
 Procure-to-pay and order-to-cash: orders fulfilled over time, plain
 on-account purchases and sales, and the Cash shortcut for each. Every
-path moves the stock and posts the money; all but the plain
-on-account one do it in one backend call.
+path moves the stock and posts the money in one backend call, so a
+failure leaves nothing half done.
 
 ![Procure-to-pay and order-to-cash, including the Cash shortcut for each; every path ends in the same General Journal.](diagrams/cash-and-order-workflow.svg)
 
@@ -768,12 +768,22 @@ both directions, deriving its posting sign from `invoice.invoice_type`
 rather than needing an AR and an AP variant.
 
 **Plain on-account Purchase/Sale** (AP Purchase, AR Sale, with no order
-behind it) also moves stock: the screen's `onAccount` action
-(`frontend/src/lib/screen-runtime.ts`) makes three calls in turn —
-`createInvoice`, then `receiveStock` (AP) or `dispatchStock` (AR) for
-the lines that are catalog items, then `postInvoiceById`. They are
-separate calls: if a later one fails, the earlier ones stand (a draft
-invoice, or a stock movement with its invoice still a draft).
+behind it) moves stock with the invoice. `postOnAccountInvoice`
+(`db.ts`) takes an `OnAccountInvoiceInput` and, in one transaction,
+creates the invoice, receives (AP) or dispatches (AR) every line whose
+item is one of the business's catalog items at `locationName`, and
+posts the invoice to `revenueOrExpenseAccount` and `taxAccount`. A
+catalog item with no location is refused before anything is written;
+a failed receipt or dispatch rolls the invoice back. The web screens
+(`onAccount`, `frontend/src/lib/screen-runtime.ts`) and the terminal
+screens (`tui/src/screens/Purchase.svelte`, `ARSale.svelte`) call it
+through the `postOnAccountInvoice` dispatch entry
+(`call-dispatch/invoices.ts`).
+
+Tests (*Testing: Unit*, "Running the tests"):
+- "postOnAccountInvoice: an on-account purchase receives its catalog items at the location and posts the invoice to the provider, in one call" (`backend/test/db.test.ts`)
+- "postOnAccountInvoice: a sale that cannot be dispatched leaves nothing behind — no invoice and no stock movement" (`backend/test/db.test.ts`)
+- "postOnAccountInvoice: a catalog item with no location is refused before anything is written" (`backend/test/db.test.ts`)
 
 **Cash Sale and Cash Purchase** are the same thing in one instant:
 `completePosSale`/`completeCashPurchase` post an invoice to the `Cash`

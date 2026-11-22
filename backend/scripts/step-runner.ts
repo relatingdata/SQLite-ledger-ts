@@ -164,19 +164,10 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     });
     db.postBomComponents(a.assemblyItem, a.businessName as any, userId);
   },
-  // Manufacturing tutorial (Stage 6): pure, real location-quantity
-  // movement — db-stock.ts's own receiveItems/dispatchItems, the same
-  // real functions pos.ts's own receiveStock/dispatchStock dispatch
-  // entries call (one line at a time here, matching this fixture's own
-  // "one row, one real call" convention rather than that dispatch
-  // entry's batched lineItems protocol). Deliberately posts NO dollar
-  // value (that's its own, separate "Stage/Post Journal Line" step in
-  // this fixture) — models raw materials arriving, raw materials
-  // consumed by an assembly, the finished assembly arriving, and a
-  // finished assembly leaving to a customer, all with this one, same
-  // real pair of functions, per the plan's own "simulate assembly as a
-  // stock dispatch + stock receive using EXISTING dispatch/receive
-  // functions" instruction.
+  // Quantity only, one movement per row (db-stock.ts's receiveItems/
+  // dispatchItems); the value is its own Stage/Post Journal Line step in
+  // the manufacturing tutorial, which models assembly as a dispatch of
+  // the components plus a receipt of the finished item.
   receiveStockQuantitySimple: (a) => {
     const userId = db.asUserId(1);
     db.receiveItems(a.businessName as any, a.ledger as any, a.reference, a.itemName as any, a.locationName as any, Number(a.quantity), userId, a.transdate || undefined);

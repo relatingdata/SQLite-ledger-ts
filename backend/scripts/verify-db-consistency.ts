@@ -72,7 +72,7 @@ for (const biz of businesses) {
       .get(ledger.id);
     if (!hasActivity) continue;
     ledgersChecked += 1;
-    const tb = getTrialBalance(ledger.name);
+    const tb = getTrialBalance(biz.name, ledger.name);
     check(`Trial Balance zero-sums for "${ledger.name}"`, tb.total_debit_minor === tb.total_credit_minor, `debit ${tb.total_debit_minor} vs credit ${tb.total_credit_minor}`);
   }
 }
@@ -84,7 +84,7 @@ for (const biz of businesses) {
   for (const ledger of ledgers) {
     const hasActivity = db.prepare(`SELECT 1 FROM journal WHERE ledger_id = ? LIMIT 1`).get(ledger.id);
     if (!hasActivity) continue;
-    const bs = getBalanceSheet(ledger.name);
+    const bs = getBalanceSheet(biz.name, ledger.name);
     check(`Balance Sheet balances for "${ledger.name}"`, bs.balanced, `assets ${bs.total_assets_minor}, liabilities+equity ${bs.total_liabilities_minor + bs.total_equity_minor}`);
   }
 }

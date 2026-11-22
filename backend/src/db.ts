@@ -2923,6 +2923,59 @@ export function completeCashPurchase(input: CashPurchaseInput, userId: UserId): 
   })();
 }
 
+export interface OnAccountInvoiceInput {
+  invoiceType: 'AR' | 'AP';
+  business: BusinessName;
+  ledger: LedgerName;
+  reference: string;
+  counterpartyName: string;
+  invoiceDate: string;
+  description?: string;
+  lines: InvoiceLineInput[];
+  // Required when any line names one of the business's catalog items.
+  locationName?: LocationName;
+  revenueOrExpenseAccount: string;
+  taxAccount: string;
+}
+
+// An on-account sale (AR) or purchase (AP): the invoice, the stock movement
+// of the lines that are catalog items, and the posting, in one transaction.
+// See docs/pm-domain-reference.md, "Cash Sale and Cash Purchase".
+export function postOnAccountInvoice(input: OnAccountInvoiceInput, userId: UserId): number {
+  if (input.lines.length === 0) throw new ValidationError('At least one invoice line is required.');
+  const catalog = new Set(listItems(input.business).map((i) => i.name));
+  const moving = input.lines.filter((l) => l.itemName && catalog.has(l.itemName) && (l.quantity ?? 0) > 0);
+  if (moving.length > 0 && !input.locationName) {
+    throw new ValidationError(input.invoiceType === 'AP' ? 'Select a location — these items will be received into stock.' : 'Select a location — these items will be dispatched from stock.');
+  }
+  return db.transaction((): number => {
+    const invoiceId = createInvoice(
+      {
+        invoiceType: input.invoiceType,
+        business: input.business,
+        ledger: input.ledger,
+        reference: input.reference,
+        counterpartyName: input.counterpartyName,
+        invoiceDate: input.invoiceDate,
+        description: input.description,
+        lines: input.lines,
+      },
+      userId
+    );
+    for (const line of moving) {
+      const itemName = asItemName(line.itemName!);
+      const quantity = line.quantity!;
+      if (input.invoiceType === 'AP') {
+        receiveItems(input.business, input.ledger, `${input.reference}-RECV-${itemName}`, itemName, input.locationName!, quantity, userId, input.invoiceDate);
+      } else {
+        dispatchItems(input.business, input.ledger, `${input.reference}-DISPATCH-${itemName}`, itemName, resolveDispatchLocation(itemName, input.locationName!), quantity, userId, input.invoiceDate);
+      }
+    }
+    postInvoice(invoiceId, input.revenueOrExpenseAccount, input.taxAccount, userId, false);
+    return invoiceId;
+  })();
+}
+
 export interface PayEmployeeWagesInput {
   business: string;
   ledger: string;

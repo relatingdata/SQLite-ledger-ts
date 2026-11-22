@@ -19,8 +19,10 @@ export interface RuntimeStatement {
 let DatabaseClass: new (path: string) => RuntimeDatabase;
 
 if (isBun) {
-  // @ts-expect-error - bun:sqlite resolves only under bun; tsc can't see its types.
-  const { Database } = await import('bun:sqlite');
+  // A variable specifier: bun:sqlite exists only under bun, and tsc must not
+  // depend on whether bun's types happen to be installed.
+  const bunSqlite = 'bun:sqlite';
+  const { Database } = (await import(bunSqlite)) as { Database: unknown };
   DatabaseClass = Database as unknown as new (path: string) => RuntimeDatabase;
 } else {
   const { default: BetterSqlite3 } = await import('better-sqlite3');

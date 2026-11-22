@@ -57,8 +57,8 @@ async function returnToMenu(terminal: TuiTest) {
 }
 
 async function main() {
-  const terminal = await TuiTest.ephemeral('tui-capture', { rows: 32, cols: 100 });
-  await terminal.run('npx', ['tsx', 'src/cli.tsx'], { cwd: '../tui' });
+  const terminal = await TuiTest.ephemeral('tui-capture');
+  await terminal.run('npx', ['tsx', 'src/cli.tsx'], { cwd: '../tui', rows: 32, cols: 100 });
   await sleep(1000);
 
   await terminal.getByText('Log in').expect({ timeout: 15_000 });

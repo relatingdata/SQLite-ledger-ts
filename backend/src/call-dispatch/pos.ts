@@ -1,6 +1,5 @@
-// Converted from routes/pos.ts. completePosSale/completeCashPurchase/
-// receiveStock/dispatchStock all take a real, caller-variable-length
-// array of lines (a shopping cart) - carried via the lineItems protocol
+// completePosSale and completeCashPurchase take a variable-length list of
+// lines (a shopping cart), carried by the lineItems protocol
 // extension (call-dispatch.ts's BackendCall 3rd param / routes/call.ts),
 // one CSV line per item after the call's own first line, in the column
 // order documented at each entry below.
@@ -17,13 +16,9 @@ import {
   asCustomerName,
   asProviderName,
   asAccountName,
-  asItemName,
   ValidationError,
   NotFoundError,
   asUserId,
-  receiveItems,
-  dispatchItems,
-  resolveDispatchLocation,
   type PosSaleLineInput,
   type CashPurchaseLineInput,
 } from '../db.js';
@@ -132,45 +127,6 @@ export const posFunctions: Record<string, BackendCall> = {
         asUserId(admin.id)
       );
       return row(result.invoiceId, result.reference, result.totalMinor);
-    } catch (err) {
-      if (err instanceof ValidationError) throw new CallError(409, err.message);
-      if (err instanceof NotFoundError) throw new CallError(404, err.message);
-      throw err;
-    }
-  },
-  // First line's positional args: [0] business, [1] ledger,
-  // [2] reference, [3] locationName, [4] transdate. Line-items:
-  // itemName,quantity. Matches the old route's own per-line loop over
-  // receiveItems exactly (same derived per-line reference suffix).
-  receiveStock: (v, user, lineItems) => {
-    const admin = requireRole(user, 'Administrator', 'Bookkeeper');
-    const [business, ledger, reference, locationName, transdate] = v;
-    if (!business || !ledger || !reference || !locationName) throw new CallError(400, 'business, ledger, reference and locationName are all required.');
-    if (lineItems.length === 0) throw new CallError(400, 'At least one line is required.');
-    try {
-      for (const [itemName, quantityRaw] of lineItems) {
-        receiveItems(asBusinessName(business), asLedgerName(ledger), `${reference}-RECV-${itemName}`, asItemName(itemName), asLocationName(locationName), Number(quantityRaw), asUserId(admin.id), transdate || undefined);
-      }
-      return row();
-    } catch (err) {
-      if (err instanceof ValidationError) throw new CallError(409, err.message);
-      if (err instanceof NotFoundError) throw new CallError(404, err.message);
-      throw err;
-    }
-  },
-  // Same shape as receiveStock, calling dispatchItems (via
-  // resolveDispatchLocation, exactly as the old route did).
-  dispatchStock: (v, user, lineItems) => {
-    const admin = requireRole(user, 'Administrator', 'Bookkeeper');
-    const [business, ledger, reference, locationName, transdate] = v;
-    if (!business || !ledger || !reference || !locationName) throw new CallError(400, 'business, ledger, reference and locationName are all required.');
-    if (lineItems.length === 0) throw new CallError(400, 'At least one line is required.');
-    try {
-      for (const [itemNameRaw, quantityRaw] of lineItems) {
-        const itemName = asItemName(itemNameRaw);
-        dispatchItems(asBusinessName(business), asLedgerName(ledger), `${reference}-DISPATCH-${itemNameRaw}`, itemName, resolveDispatchLocation(itemName, asLocationName(locationName)), Number(quantityRaw), asUserId(admin.id), transdate || undefined);
-      }
-      return row();
     } catch (err) {
       if (err instanceof ValidationError) throw new CallError(409, err.message);
       if (err instanceof NotFoundError) throw new CallError(404, err.message);
