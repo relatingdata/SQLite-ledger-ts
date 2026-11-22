@@ -845,8 +845,8 @@ entity id bypass the ambiguous name resolution entirely.
 helper for this — it walks one specific business's own Chart of
 Accounts subtree for a known header name ("Sales Revenue", "Cost of
 Goods Sold", "Inventory"), the same business-scoped walk
-`resolveStagedAccountId` uses, and refuses a name the business's
-chart does not have.
+`resolveStagedAccountId` uses; a name the business's chart does not
+have (a customer, an item, a shared leaf) is then looked up by name.
 `requireGlobalCoaCategory` is the equivalent for resolving a category
 under the one true *global* template specifically (never a business's
 own copy), via `Application` → the global `Chart of Accounts`.

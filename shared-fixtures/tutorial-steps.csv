@@ -68,7 +68,7 @@
 # with zero hierarchy configured at all (no Category, no Division -
 # see "the application should work fine with a single item in a
 # single location" in docs/pm-domain-reference.md). Reached on the
-# real New New P&L screen by setting Inner to Consolidated first - the
+# real Profit and Loss screen by setting Inner to Consolidated first - the
 # one, real, always-selectable value on either side, per the
 # "Hierarchy redundancy guard" (docs/pm-frontend-reference.md) - which
 # is what actually lets Item itself become a real Outer choice; it
@@ -311,7 +311,7 @@
 # with a real, positive Profit and Loss.
 "Check Trial Balance Balanced","${business}","Actual 2027-28",""
 "Check Profit And Loss Positive","${business}","Actual 2027-28","",""
-# The real, live New New P&L screen, grouped by Location (left at its
+# The real, live Profit and Loss screen, grouped by Location (left at its
 # own default outer grouping) and then by Category - Beer's own real
 # row appears, carrying Amber Ale's real Sales/COGS activity at Main
 # Street Cellar. A genuine Category-outer/Item-inner crossing (Beer

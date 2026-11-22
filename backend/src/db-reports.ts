@@ -174,7 +174,6 @@ function resolveBusinessReportsCoaRootId(business: string): number {
 // category-4 join.
 export function getBusinessReports(business: string): ReportRow[] {
   const rootId = resolveBusinessReportsCoaRootId(business);
-  const businessReportsRoot = Entity.get('Business Reports');
   const categories = Entity.children(rootId);
   const categoryById = new Map(categories.map((c) => [c.id, c]));
 
@@ -197,8 +196,8 @@ export function getBusinessReports(business: string): ReportRow[] {
     if (category.relation_id === null) continue;
     const catRelation = Entity.get(category.relation_id);
     if (!catRelation) continue;
-    const isOneHop = businessReportsRoot !== undefined && catRelation.parent_id === businessReportsRoot.id;
-    const rpt = isOneHop ? catRelation : catRelation.relation_id !== null ? Entity.get(catRelation.relation_id) : undefined;
+    // business category -> global category -> report
+    const rpt = catRelation.relation_id !== null ? Entity.get(catRelation.relation_id) : undefined;
     if (rpt) reportByCategoryId.set(category.id, rpt);
   }
 

@@ -13,7 +13,7 @@ Tests (*Testing: Unit*, "Running the tests"):
 
 Both walk the business's own Chart of Accounts (`resolveBusinessReportsCoaRootId`), and refuse a business without one.
 
-`getBusinessReports`'s category-to-report resolution has to handle two different join depths: a business-scoped category's `relation_id` normally points at its global counterpart, whose own `relation_id` finally points at the report (two hops) — except for `admin`, which falls back straight to the global category, so `relation_id` already points at the report directly (one hop). The query disambiguates by checking whether the first hop already lands on a report (a direct child of "Business Reports").
+`getBusinessReports` finds a category's report in two hops: the business's category relates to its global counterpart, whose `relation_id` is the report.
 
 `getChartOfAccounts` additionally merges in accounts that live structurally outside the Chart of Accounts but have set a CoA leaf as their "Header Account" hierarchy parent — generically, for any entity, not hardcoded to `Customers`/`Vendors` — so a vivified customer/vendor account with a real balance still shows up under the right heading. Structural plumbing entities (`% — Hierarchy: %`, `% — Contact Type: %`) are excluded from that merged subtree.
 
