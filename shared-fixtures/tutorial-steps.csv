@@ -25,7 +25,7 @@
 # Cellar is created alone here, with real street/shelf/carton capacity
 # but no division at all yet (the division field is left blank) -
 # this business genuinely has zero structure beyond one shop, for now.
-"Create Location","${business}","Main Street Cellar","Adelaide","Retail","","120","10"
+"Create Location","${business}","Main Street Cellar","Adelaide","Retail","120","10"
 # The simplest possible item: a block of Ice, with NO category at all
 # - not even a "General" one. Per direct instruction, the system must
 # be able to operate with zero hierarchy (no categories, divisions, or
@@ -152,26 +152,26 @@
 # dedicated Locations screen, has no capacity fields of its own -
 # capacity can still be set afterwards on the Locations page itself).
 "Add Location Via Structure Popup","${business}","Head Office","Adelaide","Warehouse"
-# A division this business didn't have a moment ago: "Adelaide Metro",
-# created via the popup's "+ New Division" action - one click, which
-# itself ensures the Division grouping (not yet created at all, until
-# now) and then its first value, together.
-"Add Division Via Structure Popup","${business}","Adelaide Metro"
+# The business names its grouping of locations, Division, in the
+# popup's "+ New grouping", and gives it its first value, "Adelaide
+# Metro", with "+ Division" (docs/user-manual-ch2-configuration.md).
+"Create Location Grouping Via Structure Popup","${business}","Division","Locations"
+"Add Location Group Value Via Structure Popup","${business}","Division","Adelaide Metro"
 # Repositioning, not structural reparenting: Main Street Cellar
 # already existed with no division at all, and is now tagged into
 # Adelaide Metro via the popup's "Move…" action on its own tree node -
 # proving the popup can genuinely move something that predates the
 # division it's moving into, not just place a brand-new location
 # straight into one.
-"Move Location To Division","${business}","Main Street Cellar","Adelaide Metro"
+"Move Location To Group","${business}","Main Street Cellar","Division","Adelaide Metro"
 # Head Office joins the same division, the same way.
-"Move Location To Division","${business}","Head Office","Adelaide Metro"
-# One more growth step through the popup: a "Whiskey" category,
-# created ahead of time on the Item Categories tab, so that Highland
-# Single Malt's own creation below can select it directly instead of
-# using "+ New category…" - the popup's category-adding capability,
-# with a concrete, later-used result.
-"Add Category Via Structure Popup","${business}","Whiskey"
+"Move Location To Group","${business}","Head Office","Division","Adelaide Metro"
+# One more growth step through the popup: on its Item Groupings step,
+# the business names its grouping of items, Category, and adds the
+# value "Whiskey", so that Highland Single Malt's creation below can
+# select it directly.
+"Create Item Grouping Via Structure Popup","${business}","Category","Items"
+"Add Item Group Value Via Structure Popup","${business}","Category","Whiskey"
 # Chapter 3's Business Setup: the business's first employee, at the
 # warehouse, to receive and later staff the retail counter.
 "Create Employee","${business}","Jordan Lee","Head Office"
@@ -206,12 +206,12 @@
 # Amber Ale can be added under it. No cost/price field exists on the
 # item screen either way - set separately below, once a Provider
 # exists.
-"Create Category","${business}","Beer"
-"Create Item Under Category","${business}","Amber Ale 330ml","Beer"
+"Create Item Group Value","${business}","Category","Beer"
+"Create Item In Group","${business}","Amber Ale 330ml","Category","Beer"
 # "Whiskey" already exists (the Business Structure popup created it
 # above), so this item selects it directly rather than creating a new
 # category.
-"Create Item Under Category","${business}","Highland Single Malt 700ml","Whiskey"
+"Create Item In Group","${business}","Highland Single Malt 700ml","Category","Whiskey"
 # "330ml"/"700ml" and "Glass Bottle" are not just name suffixes - Size
 # and Packaging are two further, real, generic Hierarchy groupings
 # (the exact, same ensureHierarchyGrouping/ensureHierarchyValue/
@@ -232,6 +232,8 @@
 # has - a genuinely different case). Values are supplied in OSASCOMP
 # order (Size before Material) so a combined display name, were one
 # built by joining them, would already read in natural English order.
+"Create Hierarchy Grouping","${business}","Size","Items"
+"Create Hierarchy Grouping","${business}","Packaging","Items"
 "Tag Item Hierarchy","${business}","Amber Ale 330ml","Size","330ml"
 "Tag Item Hierarchy","${business}","Amber Ale 330ml","Packaging","Glass Bottle"
 "Tag Item Hierarchy","${business}","Highland Single Malt 700ml","Size","700ml"
@@ -298,13 +300,13 @@
 # honest precondition, done through the real Hierarchies screen
 # itself, exactly as a real person would before ever reaching for
 # either screen below.
-"Create Hierarchy Grouping","${business}","Storage"
-"Create Hierarchy Value","${business}","Storage","Secure"
-"Receive Into Storage","${business}","Highland Single Malt 700ml","Main Street Cellar","24","Storage","Secure","Actual 2027-28"
-"Create Hierarchy Grouping","${business}","Container"
+"Create Hierarchy Grouping","${business}","Storage Area","Items"
+"Create Hierarchy Value","${business}","Storage Area","Secure"
+"Receive Into Storage","${business}","Highland Single Malt 700ml","Main Street Cellar","24","Storage Area","Secure","Actual 2027-28"
+"Create Hierarchy Grouping","${business}","Container","Items"
 "Create Hierarchy Value","${business}","Container","Carton"
 "Create Hierarchy Value","${business}","Container","Bottle"
-"Open Container","${business}","Main Street Cellar","Highland Single Malt 700ml","Carton","1","Bottle","24","Actual 2027-28"
+"Open Container","${business}","Main Street Cellar","Highland Single Malt 700ml","Carton","1","Bottle","24","Actual 2027-28","Container"
 
 # Post year-end reports, NEW ledger, now at the end of the wine
 # retailer's own first real stretch of full trading: still balanced,
@@ -324,7 +326,7 @@
 # proven - just at the API layer below, by this same step's own
 # verify, via getHierarchyParent's own generic lookup, never any
 # structural, Category-specific walk.
-"Check P&L By Category","${business}","Actual 2027-28","","","Location","Category","Beer","Amber Ale 330ml"
+"Check P&L Group Has Item","${business}","Actual 2027-28","","","Location","Category","Beer","Amber Ale 330ml"
 # Full, summary/consolidated: a real Division-outer/Consolidated-inner
 # breakdown across the whole, by-now multi-location wine retailer -
 # reached by first setting Inner to Consolidated (always a real,
@@ -337,7 +339,7 @@
 # ends up tagged into the one real "Adelaide Metro" division, so this
 # also confirms that division's own outer node alone accounts for the
 # business's entire real net income.
-"Check P&L By Division","${business}","Actual 2027-28","","","Consolidated","Division","Adelaide Metro"
+"Check P&L Group Is Whole","${business}","Actual 2027-28","","","Consolidated","Division","Adelaide Metro"
 
 # The real, final proof that none of the real wine-retail build-out
 # above ever touched the Ice business's own, already-closed first

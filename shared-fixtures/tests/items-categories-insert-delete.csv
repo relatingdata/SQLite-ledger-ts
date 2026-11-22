@@ -1,9 +1,11 @@
-# The Items page is a tree of categories and items. Insert adds an item
-# within the selected category; "+ Subcategory" nests a new category;
-# Delete removes an item, then its now-empty category.
+# The Items page is a tree of the values of one item grouping, and the
+# items in them. Insert adds an item within the selected value;
+# "+ Subgroup" nests a new value; Delete removes an item, then its
+# now-empty value.
 "Include","../common/business.csv"
-"Create Category","${business}","Vodka"
-"Create Category","${business}","Red Wine"
+"Create Hierarchy Grouping","${business}","Category","Items"
+"Create Item Group Value","${business}","Category","Vodka"
+"Create Item Group Value","${business}","Category","Red Wine"
 "Open Page","/items"
 "Set","under","Vodka"
 "Set","name","Test Vodka Product"

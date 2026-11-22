@@ -436,14 +436,16 @@ the API path, rather than calling a backend function 1:1:
   `createAndConfigureLocation` design calls
   `ensureLocationCapacityAccount` immediately so the opening balance
   is known and posted at creation, never lazily.
-- **`createItemAndCategory`** creates the item flat, directly under
-  the business's own `Items` root (`createItem`), then tags it into
-  the named category (`setHierarchyParent(itemName, 'Category',
-  categoryName, userId)`) — a `"+ New category…"` value is resolved to
-  the newly-typed name before tagging; any other value names an
-  already-existing category directly. Category is a real, optional
-  Hierarchy tag here, exactly like Division — never a real position in
-  the Items catalog tree. See `docs/pm-frontend-reference.md`.
+- **`createItemInGroup`** creates the item flat, directly under the
+  business's own `Items` root (`createItem`), then tags it with a
+  value of the item grouping the step names
+  (`setHierarchyParent(itemName, groupingName, valueName, userId)`).
+  No step names a grouping itself: each fixture creates the groupings
+  it uses ("Create Hierarchy Grouping", or the Business Structure
+  popup's "Create Location Grouping Via Structure Popup" / "Create Item
+  Grouping Via Structure Popup"), saying what each groups, and passes
+  the grouping's name to every step that uses it (*Core Domain
+  Reference*, "No grouping name is in the code").
 
 ### Current limits
 

@@ -20,14 +20,19 @@ Root
    addDepartmentViaStructurePopup :Call
     - :Parameter Name=businessName Type=text
     - :Parameter Name=departmentName Type=text
-   addDivisionViaStructurePopup :Call
+   addItemGroupValueViaStructurePopup :Call
     - :Parameter Name=businessName Type=text
+    - :Parameter Name=groupingName Type=select
     - :Parameter Name=valueName Type=text
    addItemSourceSimple :Call
     - :Parameter Name=itemName Type=text
     - :Parameter Name=providerName Type=text
     - :Parameter Name=priceMinor Type=text
     - :Parameter Name=preferred Type=text
+   addLocationGroupValueViaStructurePopup :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=groupingName Type=select
+    - :Parameter Name=valueName Type=text
    addOrUpdateItemSource :Call Client=addOrUpdateItemSource
     - :Parameter Name=itemName
     - :Parameter Name="source.manufacturerName ?? undefined"
@@ -49,9 +54,6 @@ Root
     - :Parameter Name=priceMinor Type=text
     - :Parameter Name=durationHours Type=text
     - :Parameter Name=scheduledStart Type=text
-   addTopLevelCategoryViaStructurePopup :Call
-    - :Parameter Name=businessName Type=text
-    - :Parameter Name=categoryName Type=text
    allocatePaymentToInvoice :Call Client=allocatePaymentToInvoice
     - :Parameter Name="String(id)"
     - :Parameter Name=paymentReference
@@ -180,7 +182,6 @@ Root
     - :Parameter Name=locationName Type=text
     - :Parameter Name=city Type=text
     - :Parameter Name=locationType Type=select
-    - :Parameter Name=division Type=text
     - :Parameter Name=bottleCapacity Type=text
     - :Parameter Name=cartonCapacity Type=text
    createBusiness :Call
@@ -190,9 +191,6 @@ Root
     - :Parameter Name=homeCurrency Type=text
     - :Parameter Name=coaPrototype Type=select
     - :Parameter Name=secondaryCurrencies Type=text
-   createCategorySimple :Call
-    - :Parameter Name=businessName Type=text
-    - :Parameter Name=categoryName Type=text
    createCustomer :Call Client=createCustomer
     - :Parameter Name=name
    createCustomerSimple :Call
@@ -221,9 +219,11 @@ Root
    createHierarchyGrouping :Call Client=createHierarchyGrouping
     - :Parameter Name=business
     - :Parameter Name=groupingName
+    - :Parameter Name=groups
    createHierarchyGroupingSimple :Call
     - :Parameter Name=businessName Type=text
     - :Parameter Name=groupingName Type=text
+    - :Parameter Name=groups Type=text
    createHierarchyValue :Call Client=createHierarchyValue
     - :Parameter Name=business
     - :Parameter Name=groupingName
@@ -241,10 +241,15 @@ Root
     - :Parameter Name=input.counterpartyName
     - :Parameter Name=input.invoiceDate
     - :Parameter Name=input.description
-   createItemUnderCategory :Call
+   createItemGroupValue :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=groupingName Type=select
+    - :Parameter Name=valueName Type=text
+   createItemInGroup :Call
     - :Parameter Name=businessName Type=text
     - :Parameter Name=itemName Type=text
-    - :Parameter Name=category Type=text
+    - :Parameter Name=groupingName Type=select
+    - :Parameter Name=valueName Type=text
    createLedger :Call Client=createLedger
     - :Parameter Name=business
     - :Parameter Name=ledger
@@ -588,7 +593,6 @@ Root
     - :Parameter Name=ledger
     - :Parameter Name=fromDate
     - :Parameter Name=toDate
-    - :Parameter Name=hierarchyName
    getStockOutRiskReport :Call Client=getStockOutRiskReport
     - :Parameter Name="String(windowDays)"
    getStockTake :Call Client=getStockTake
@@ -687,6 +691,7 @@ Root
     - :Parameter Name=unitValue Type=select
     - :Parameter Name=unitsProduced Type=text
     - :Parameter Name=ledger Type=text
+    - :Parameter Name=groupingName Type=text
    openStorageContainer :Call Client=openStorageContainer
     - :Parameter Name=input.business
     - :Parameter Name=input.ledger
@@ -947,10 +952,6 @@ Root
     - :Parameter Name=entityName
     - :Parameter Name=hierarchyName
     - :Parameter Name=parentName
-   setHierarchyTagSimple :Call
-    - :Parameter Name=businessName Type=text
-    - :Parameter Name=locationName Type=text
-    - :Parameter Name=division Type=select
    setItem :Call Client=setItem
     - :Parameter Name=name
     - :Parameter Name="item.description ?? undefined"
@@ -986,6 +987,11 @@ Root
    setLanguageDirection :Call Client=setLanguageDirection
     - :Parameter Name=language
     - :Parameter Name="direction ?? ''"
+   setLocationGroup :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=locationName Type=text
+    - :Parameter Name=groupingName Type=select
+    - :Parameter Name=valueName Type=select
    setLocationOpenHours :Call Client=setLocationOpenHours
     - :Parameter Name=locationName
    setOwnDateFormat :Call Client=setOwnDateFormat
@@ -1879,11 +1885,12 @@ Root
     - :Entry Label=Next Name=next
     - :Command Command=sendReminder Label="Send reminder" Name=send
     - :Command Command=resetReminder Label=Reset Name=reset Style=link-button When=sent
-   "/reports/sales" :Screen "Empty Text"="No sales in this period." Intro="Every real posted sale for {NAME} in the selected period \u2014 a category summary rolled up from each product's own real place in the catalog, and the full line-by-line detail underneath it." "Intro Name"=business Report=sales Template=report Title="Sales Report"
+   "/reports/sales" :Screen "Empty Text"="No sales in this period." Intro="Every posted sale for {NAME} in the selected period, summed by a grouping of the items, and line by line." "Intro Name"=business Report=sales Template=report Title="Sales Report"
     - :Field Control=date Default=today Label=From Name=fromDate
     - :Field Control=date Default=today Label=To Name=toDate
-    - :Field Control=toggle Default=summary Label=View Name=view Options="summary=Category_Summary detailed=Detailed"
-    - :Entry Label=Category Name=category
+    - :Field Choices=itemGroupings Control=choose Default=first Label=Grouping Name=grouping
+    - :Field Control=toggle Default=summary Label=View Name=view Options="summary=Summary detailed=Detailed"
+    - :Entry Label=Group Name=group
     - :Entry Control=amount Label=Quantity Name=quantity
     - :Entry Control=amount Label=Amount Name=amount
     - :Entry Control=amount Label="% of Total" Name=share

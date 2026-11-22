@@ -51,6 +51,6 @@
 "Select Option",".controls fieldset >> nth=0 >> select","Location"
 "Page Shows",".axis-head","Warehouse B"
 "Open Page","/items"
-"Focus","fieldset:has(legend:text-is('Categories and items')) [role='toolbar']"
+"Focus","fieldset:has(legend:text-is('Category')) [role='toolbar']"
 "Press Key","Insert"
-"Fill","input[placeholder='Category name']","Example New Category"
+"Fill","input[placeholder='New value']","Example New Category"

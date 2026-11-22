@@ -25,6 +25,10 @@ import { hashPassword } from '../password.js';
 export class Refused extends Error {}
 export class NotFound extends Error {}
 
+/** What a grouping of the business groups (docs/pm-domain-reference.md). */
+export type GroupingKind = 'Items' | 'Locations';
+export const GROUPING_KINDS: readonly GroupingKind[] = ['Items', 'Locations'];
+
 /** What a relation relates a thing to: text is a value, a number is another
  * entity's id, true is yes, and false or null clears the relation. */
 export type Target = string | number | boolean | null;
@@ -472,12 +476,35 @@ export class Instance {
 
   // --- hierarchy -------------------------------------------------------------
 
-  grouping(name: string): Node {
-    return this.thingIn('Hierarchy', name, 'Grouping');
+  /** A grouping of the business; one of its own records what it groups,
+   * its Items or its Locations (docs/pm-domain-reference.md). */
+  grouping(name: string, groups?: GroupingKind): Node {
+    const grouping = this.thingIn('Hierarchy', name, 'Grouping');
+    if (groups) {
+      const recorded = this.groupingKind(name);
+      if (recorded && recorded !== groups) throw new Refused(`"${name}" groups ${recorded.toLowerCase()}, not ${groups.toLowerCase()}.`);
+      if (!recorded) this.core.relate(grouping.id, 'Groups', this.branch(groups).id, this.id);
+    }
+    return grouping;
+  }
+
+  /** What a grouping groups, if it records it. */
+  groupingKind(name: string): GroupingKind | undefined {
+    const grouping = this.existing('Hierarchy', name);
+    const target = grouping && this.core.related(grouping.id, 'Groups');
+    return target && (GROUPING_KINDS as readonly string[]).includes(target.name) ? (target.name as GroupingKind) : undefined;
   }
 
   groupValue(grouping: string, value: string): Node {
     return this.core.thing(value, this.grouping(grouping).id, 'Value', this.id);
+  }
+
+  /** A value of an existing grouping: the business creates its groupings
+   * itself, saying what each groups. */
+  valueOf(grouping: string, value: string): Node {
+    const node = this.existing('Hierarchy', grouping);
+    if (!node) throw new NotFound(`No grouping named "${grouping}".`);
+    return this.core.thing(value, node.id, 'Value', this.id);
   }
 
   // --- accounts --------------------------------------------------------------

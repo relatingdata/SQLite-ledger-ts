@@ -470,31 +470,31 @@ export const createLocation = (name: string, business: string, input: LocationIn
 // journal_line postings, a Division tag) do the real safety work.
 export const deleteLocation = (name: string, business: string) => callRow('deleteLocation', [name, business], () => undefined);
 
-// --- Hierarchy / Division ------------------------------------------------
-// Mirrors frontend/src/lib/api.ts's own Hierarchy section — generic
-// primitives; Division is just a Hierarchy literally named "Division", a
-// pure reporting tag with no account of its own (unlike Location/Department).
+// --- Hierarchy -------------------------------------------------------------
+// Mirrors frontend/src/lib/api.ts's own Hierarchy section: the business's
+// own groupings, each of its items or of its locations, none named in the
+// code (docs/pm-domain-reference.md).
 
+export type GroupingKind = 'Items' | 'Locations';
 export interface HierarchyGroupingWithValues {
   grouping: string;
+  groups?: GroupingKind;
   values: string[];
 }
 export const getHierarchy = async (business: string): Promise<HierarchyGroupingWithValues[]> => {
-  const rows = await callTable('getHierarchy', [business], (f) => ({ grouping: f.grouping, value: f.value }));
-  const byGrouping = new Map<string, string[]>();
-  const order: string[] = [];
+  const rows = await callTable('getHierarchy', [business], (f) => ({ grouping: f.grouping, groups: f.groups, value: f.value }));
+  const byGrouping = new Map<string, HierarchyGroupingWithValues>();
   for (const r of rows) {
-    if (!byGrouping.has(r.grouping)) {
-      byGrouping.set(r.grouping, []);
-      order.push(r.grouping);
-    }
-    if (r.value !== '') byGrouping.get(r.grouping)!.push(r.value);
+    if (!byGrouping.has(r.grouping)) byGrouping.set(r.grouping, { grouping: r.grouping, groups: (r.groups || undefined) as GroupingKind | undefined, values: [] });
+    if (r.value !== '') byGrouping.get(r.grouping)!.values.push(r.value);
   }
-  return order.map((grouping) => ({ grouping, values: byGrouping.get(grouping)! }));
+  return [...byGrouping.values()];
 };
+/** The first grouping of the business's items, or of its locations. */
+export const firstGroupingOf = (h: HierarchyGroupingWithValues[], kind: GroupingKind): string => h.find((g) => g.groups === kind)?.grouping ?? '';
 
-export const createHierarchyGrouping = (business: string, groupingName: string) =>
-  callRow('createHierarchyGrouping', [business, groupingName], (f): { name: string } => ({ name: f[0] }));
+export const createHierarchyGrouping = (business: string, groupingName: string, groups: GroupingKind) =>
+  callRow('createHierarchyGrouping', [business, groupingName, groups], (f): { name: string } => ({ name: f[0] }));
 export const createHierarchyValue = (business: string, groupingName: string, valueName: string, parentValueName?: string | null) =>
   callRow('createHierarchyValue', [business, groupingName, valueName, parentValueName ?? undefined], (f): { name: string } => ({ name: f[0] }));
 

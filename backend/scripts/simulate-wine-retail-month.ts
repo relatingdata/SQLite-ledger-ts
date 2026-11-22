@@ -265,7 +265,7 @@ async function main() {
   // generic tag mechanism Division already uses for locations, never the
   // structural tree position. Without this, every product has no
   // Category tag at all and genuinely, correctly falls back to 'Other'.
-  ensureHierarchyGrouping(BUSINESS, 'Category', USER);
+  ensureHierarchyGrouping(BUSINESS, 'Category', USER, 'Items');
   for (const cat of loadDemoCategories()) {
     categoryOfSubcategory.set(cat.subcategory, cat.category);
     if (!existingNames.has(cat.category)) {

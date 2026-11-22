@@ -14,6 +14,7 @@ import {
   assertPeriodOpen,
   getHierarchyGroupForLocation,
   getHierarchyAssignments,
+  getBusinessHierarchy,
   ensureItemQuantityAccounts,
   setAccountCurrency,
   ensureItemInventoryAccount,
@@ -681,13 +682,14 @@ export function getInventoryListingByLocation(business?: BusinessName, hierarchy
 
 export interface StockMovementRow {
   item: string;
-  category: string | null;
+  /** The row's value in each of the business's item groupings and, for a
+   * receipt or a sale, location groupings; null where it has none. */
+  groups: Record<string, string | null>;
   quantity: number;
   date: string;
 }
 export interface OrderReceiptRow extends StockMovementRow {
   location: string;
-  group: string | null;
   vendor: string | null;
 }
 export interface StockTransferRow extends StockMovementRow {
@@ -696,7 +698,6 @@ export interface StockTransferRow extends StockMovementRow {
 }
 export interface StockSaleRow extends StockMovementRow {
   location: string;
-  group: string | null;
   vendor: string | null;
   amount_minor: number;
 }
@@ -706,14 +707,17 @@ export interface StockMovementReport {
   sales: StockSaleRow[];
 }
 
-// Category is a genuinely optional, generic Hierarchy tag — the exact
-// same getHierarchyAssignments/getHierarchyParent mechanism Division or
-// any other business-defined grouping already uses, never a real
-// tree-position lookup. An item with no Category tag at all is
-// correctly absent from this map, rather than reporting whatever real
-// entity happens to sit above it.
-function allItemCategories(): Map<string, string | null> {
-  return new Map(Object.entries(getHierarchyAssignments('Category')));
+/** A row's value in each of the business's item groupings and, given a
+ * location, its location groupings (docs/pm-domain-reference.md). */
+function rowGroupsOf(business: string): (item: string, location?: string) => Record<string, string | null> {
+  const groupings = getBusinessHierarchy(asBusinessName(business)).filter((g) => g.groups);
+  const assignments = new Map(groupings.filter((g) => g.groups === 'Items').map((g) => [g.grouping, getHierarchyAssignments(g.grouping)]));
+  return (item, location) =>
+    Object.fromEntries(
+      groupings
+        .filter((g) => g.groups === 'Items' || location !== undefined)
+        .map((g) => [g.grouping, g.groups === 'Items' ? (assignments.get(g.grouping)![item] ?? null) : (getHierarchyGroupForLocation(location!, g.grouping) ?? null)])
+    );
 }
 
 function allPreferredProviders(): Map<string, string> {
@@ -734,7 +738,7 @@ function allPreferredProviders(): Map<string, string> {
 }
 
 // See docs/pm-stock-api.md § "Stock listing and the movement report"
-export function getStockMovementReport(business: string, ledgerName: string, fromDate?: string, toDate?: string, hierarchyName?: string): StockMovementReport {
+export function getStockMovementReport(business: string, ledgerName: string, fromDate?: string, toDate?: string): StockMovementReport {
   const businessEntity = Entity.get(business, 'Businesses');
   const ledgersRoot = businessEntity ? Entity.getUnder('Ledgers', businessEntity.id) : undefined;
   const ledgerId = ledgersRoot ? Entity.getUnder(ledgerName, ledgersRoot.id)?.id : undefined;
@@ -742,7 +746,7 @@ export function getStockMovementReport(business: string, ledgerName: string, fro
 
   const dateFilter = `AND (? IS NULL OR j.transdate >= ?) AND (? IS NULL OR j.transdate <= ?)`;
   const dateParams = [fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null];
-  const categories = allItemCategories();
+  const groupsOf = rowGroupsOf(business);
   const vendors = allPreferredProviders();
 
   // Each quantity-movement line hits a real, provisioned per-location
@@ -788,7 +792,7 @@ export function getStockMovementReport(business: string, ledgerName: string, fro
       if (!outLeg || !inLeg) continue;
       transfers.push({
         item: inLeg.item,
-        category: categories.get(inLeg.item) ?? null,
+        groups: groupsOf(inLeg.item),
         quantity: inLeg.quantity,
         date: inLeg.date,
         from_location: outLeg.location,
@@ -799,11 +803,10 @@ export function getStockMovementReport(business: string, ledgerName: string, fro
         if (r.quantity > 0) {
           receipts.push({
             item: r.item,
-            category: categories.get(r.item) ?? null,
+            groups: groupsOf(r.item, r.location),
             quantity: r.quantity,
             date: r.date,
             location: r.location,
-            group: hierarchyName ? (getHierarchyGroupForLocation(r.location, hierarchyName) ?? null) : null,
             vendor: vendors.get(r.item) ?? null,
           });
         } else if (r.quantity < 0) {
@@ -842,11 +845,10 @@ export function getStockMovementReport(business: string, ledgerName: string, fro
 
   const sales: StockSaleRow[] = saleRows.map((r) => ({
     item: r.item,
-    category: categories.get(r.item) ?? null,
+    groups: groupsOf(r.item, r.location),
     quantity: -r.quantity,
     date: r.date,
     location: r.location,
-    group: hierarchyName ? (getHierarchyGroupForLocation(r.location, hierarchyName) ?? null) : null,
     vendor: vendors.get(r.item) ?? null,
     amount_minor: saleAmountFor(r.reference.replace(/-DISPATCH-.+$/, ''), r.item),
   }));

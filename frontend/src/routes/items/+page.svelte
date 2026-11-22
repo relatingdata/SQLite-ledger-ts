@@ -25,6 +25,8 @@
     ApiError,
     listLocations,
     getHierarchy,
+    groupingsOf,
+    createHierarchyGrouping,
     createHierarchyValue,
     deleteHierarchyValue,
     setHierarchyTag,
@@ -144,16 +146,14 @@
   let sourceNotes = $state('');
   let savingSource = $state(false);
 
-  // Category is a real, optional Hierarchy tag here — the exact same
-  // generic setHierarchyParent/getHierarchyAssignments mechanism
-  // Division or any other business-defined grouping already uses, never
-  // a real position in the Items catalog tree. categoryValues is this
-  // business's own registered "Category" grouping values (so an empty
-  // category still shows); categoryAssignments is every real tag for
-  // that hierarchy in one call — entity name -> the value it's tagged
-  // with, covering both an item tagged into a category and a category
-  // value itself tagged with a further parent value. See
+  // The catalog is organised by one of the business's item groupings,
+  // chosen on the page (the first created comes first): its values
+  // (so an empty value still shows), and in one call every tag of that
+  // grouping, entity name -> value, covering an item in a value and a
+  // value nested under another. No grouping is named in the code — see
   // docs/pm-frontend-reference.md.
+  let itemGrouping = $state('');
+  let itemGroupings = $derived(groupingsOf(hierarchyGroupings, 'Items'));
   let categoryValues: string[] = $state([]);
   let categoryAssignments: Record<string, string> = $state({});
 
@@ -163,10 +163,36 @@
       categoryAssignments = {};
       return;
     }
-    const [groupings, assignments] = await Promise.all([getHierarchy(session.current.businessName), getHierarchyAssignments('Category')]);
+    const groupings = await getHierarchy(session.current.businessName);
     hierarchyGroupings = groupings;
-    categoryValues = groupings.find((g) => g.grouping === 'Category')?.values ?? [];
-    categoryAssignments = assignments;
+    const ofItems = groupingsOf(groupings, 'Items');
+    if (!ofItems.some((g) => g.grouping === itemGrouping)) itemGrouping = ofItems[0]?.grouping ?? '';
+    categoryValues = ofItems.find((g) => g.grouping === itemGrouping)?.values ?? [];
+    categoryAssignments = itemGrouping ? await getHierarchyAssignments(itemGrouping) : {};
+  }
+
+  async function chooseGrouping(name: string) {
+    itemGrouping = name;
+    selection = null;
+    await loadCategoryData();
+  }
+
+  // A new item grouping, named by the business.
+  let addingGrouping = $state(false);
+  let newGroupingName = $state('');
+  let groupingError = $state('');
+  async function addGrouping() {
+    if (!newGroupingName.trim() || !session.current?.businessName) return;
+    groupingError = '';
+    try {
+      await createHierarchyGrouping(session.current.businessName, newGroupingName.trim(), 'Items');
+      const created = newGroupingName.trim();
+      newGroupingName = '';
+      addingGrouping = false;
+      await chooseGrouping(created);
+    } catch (e) {
+      groupingError = e instanceof ApiError ? e.message : 'Could not create the grouping.';
+    }
   }
 
   async function loadAll() {
@@ -271,12 +297,12 @@
     if (!newCategoryNameRoot.trim() || !session.current?.businessName) return;
     categoryError = '';
     try {
-      await createHierarchyValue(session.current.businessName, 'Category', newCategoryNameRoot.trim());
+      await createHierarchyValue(session.current.businessName, itemGrouping, newCategoryNameRoot.trim());
       newCategoryNameRoot = '';
       addingCategory = false;
       await loadCategoryData();
     } catch (e) {
-      categoryError = e instanceof ApiError ? e.message : 'Could not create category.';
+      categoryError = e instanceof ApiError ? e.message : 'Could not create the group.';
     }
   }
 
@@ -293,16 +319,13 @@
     if (!newSubcategoryName.trim() || !session.current?.businessName) return;
     subcategoryError = '';
     try {
-      // Nesting is the same, generic value-to-value chaining
-      // (createHierarchyValue's own parentValueName) Division already
-      // supports — a Category value can itself carry a further parent
-      // value, arbitrarily deep, with zero dedicated Category code.
-      await createHierarchyValue(session.current.businessName, 'Category', newSubcategoryName.trim(), parentCategoryName);
+      // Nesting: a value tagged under another value of the same grouping.
+      await createHierarchyValue(session.current.businessName, itemGrouping, newSubcategoryName.trim(), parentCategoryName);
       newSubcategoryName = '';
       addingSubcategoryUnder = null;
       await loadCategoryData();
     } catch (e) {
-      subcategoryError = e instanceof ApiError ? e.message : 'Could not create subcategory.';
+      subcategoryError = e instanceof ApiError ? e.message : 'Could not create the subgroup.';
     }
   }
 
@@ -324,7 +347,7 @@
       await createEntity({ name: newItemNameField, parentId: root.id });
       // setItem ensures the item row exists immediately — see docs/pm-frontend-reference.md.
       await setItem(newItemNameField, { description: null, unit_of_measure: null, upc: null });
-      await setHierarchyTag(newItemNameField, 'Category', categoryName);
+      await setHierarchyTag(newItemNameField, itemGrouping, categoryName);
       const created = newItemNameField;
       newItemNameField = '';
       addingItemUnder = null;
@@ -375,26 +398,28 @@
       addingItemUnder = NO_CATEGORY;
       newItemNameField = '';
       itemAddError = '';
-    } else {
+    } else if (itemGrouping) {
       addingCategory = true;
       newCategoryNameRoot = '';
       categoryError = '';
+    } else {
+      // No item grouping yet: Insert adds an item, ungrouped.
+      addingItemUnder = NO_CATEGORY;
+      newItemNameField = '';
+      itemAddError = '';
     }
   }
 
   async function deleteSelected() {
     if (!selection) return;
-    const label = selection.type === 'category' ? 'category' : 'item';
+    const label = selection.type === 'category' ? 'group' : 'item';
     if (!confirm(`Delete ${label} "${translations.current[selection.name] ?? selection.name}"? This cannot be undone.`)) return;
     try {
       if (selection.type === 'category') {
         if (!session.current?.businessName) throw new Error('No business selected.');
-        // Deletes the real, registered Hierarchy value itself (never a
-        // real position in the Items catalog) — the same guard every
-        // other hierarchy value's delete already has: refuses while a
-        // real item or a further, nested category value is still
-        // tagged into it.
-        await deleteHierarchyValue(session.current.businessName, 'Category', selection.name);
+        // Deletes the value itself, refused while an item or a nested
+        // value is still tagged with it.
+        await deleteHierarchyValue(session.current.businessName, itemGrouping, selection.name);
       } else {
         const target = entities.find((e) => e.name === selection!.name);
         if (!target) throw new Error(`${translations.current['No real entity named'] ?? 'No real entity named'} "${selection!.name}".`);
@@ -414,14 +439,14 @@
   // Dynamic keyboard-hint text — see docs/pm-frontend-reference.md.
   let hintText = $derived.by(() => {
     if (selection?.type === 'category') {
-      return translations.current['Press Insert to add an item in this category, or Delete to remove it. Use "+ Subcategory" to nest a category within it instead.'] ??
-        'Press Insert to add an item in this category, or Delete to remove it. Use "+ Subcategory" to nest a category within it instead.';
+      return translations.current['Press Insert to add an item in this group, or Delete to remove it. Use "+ Subgroup" to nest a group within it instead.'] ??
+        'Press Insert to add an item in this group, or Delete to remove it. Use "+ Subgroup" to nest a group within it instead.';
     } else if (selection?.type === 'item') {
-      return translations.current['Press Delete to remove this item. Select a category to add something within it.'] ??
-        'Press Delete to remove this item. Select a category to add something within it.';
+      return translations.current['Press Delete to remove this item. Select a group to add something within it.'] ??
+        'Press Delete to remove this item. Select a group to add something within it.';
     }
-    return translations.current['Select a category, then press Insert to add an item within it — or press Insert here to add a new top-level category.'] ??
-      'Select a category, then press Insert to add an item within it — or press Insert here to add a new top-level category.';
+    return translations.current['Select a group, then press Insert to add an item within it — or press Insert here to add a new top-level group.'] ??
+      'Select a group, then press Insert to add an item within it — or press Insert here to add a new top-level group.';
   });
 
   async function saveItem() {
@@ -555,7 +580,7 @@
         <div class="inline-add">
           <input
             bind:value={newSubcategoryName}
-            placeholder={translations.current['Subcategory name'] ?? 'Subcategory name'}
+            placeholder={translations.current['New value'] ?? 'New value'}
             onkeydown={(e) => {
               if (e.key === 'Enter') { e.preventDefault(); addSubcategory(node.name); }
               else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); addingSubcategoryUnder = null; subcategoryError = ''; }
@@ -564,7 +589,7 @@
         </div>
         {#if subcategoryError}<p class="error small">{subcategoryError}</p>{/if}
       {:else if selection?.type === 'category' && selection.name === node.name}
-        <button type="button" class="link-button" onclick={() => startAddingSubcategory(node.name)}>+ {translations.current['Subcategory'] ?? 'Subcategory'}</button>
+        <button type="button" class="link-button" onclick={() => startAddingSubcategory(node.name)}>+ {translations.current['Subgroup'] ?? 'Subgroup'}</button>
       {/if}
     </div>
   </div>
@@ -579,16 +604,38 @@
   {:else}
     {#if error}<p class="error">{error}</p>{/if}
 
+    <div class="grouping-bar">
+      {#if itemGroupings.length > 0}
+        <span>{translations.current['Grouping'] ?? 'Grouping'}:</span>
+        {#each itemGroupings as g (g.grouping)}
+          <button type="button" class="btn secondary small grouping-choice" class:active={g.grouping === itemGrouping} onclick={() => chooseGrouping(g.grouping)}>{translations.current[g.grouping] ?? g.grouping}</button>
+        {/each}
+      {/if}
+      {#if addingGrouping}
+        <input
+          bind:value={newGroupingName}
+          placeholder={translations.current['Name of the grouping, e.g. Category'] ?? 'Name of the grouping, e.g. Category'}
+          onkeydown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); addGrouping(); }
+            else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); addingGrouping = false; groupingError = ''; }
+          }}
+        />
+      {:else}
+        <button type="button" class="link-button" onclick={() => { addingGrouping = true; newGroupingName = ''; groupingError = ''; }}>+ {translations.current['New grouping'] ?? 'New grouping'}</button>
+      {/if}
+      {#if groupingError}<p class="error small">{groupingError}</p>{/if}
+    </div>
+
     <div class="layout">
       <TreeEditor
-        legend={translations.current['Categories and items'] ?? 'Categories and items'}
+        legend={itemGrouping ? (translations.current[itemGrouping] ?? itemGrouping) : (translations.current['Items'] ?? 'Items')}
         {hintText}
         onInsert={handleInsert}
         onDelete={handleDelete}
       >
         {#if uncategorizedItems.length > 0 || addingItemUnder === NO_CATEGORY}
           <div class="tree-section">
-            <p class="tree-heading">{translations.current['Uncategorized'] ?? 'Uncategorized'}</p>
+            <p class="tree-heading">{translations.current['Ungrouped'] ?? 'Ungrouped'}</p>
             {#each uncategorizedItems as it (it.name)}
               <button type="button" class="tree-item item" class:active={selection?.type === 'item' && selection.name === it.name} onclick={() => selectItem(it.name, itemsRoot()?.name ?? 'Items')}>
                 <span>{translations.current[it.name] ?? it.name}</span>
@@ -625,7 +672,7 @@
             <div class="inline-add">
               <input
                 bind:value={newCategoryNameRoot}
-                placeholder={translations.current['Category name'] ?? 'Category name'}
+                placeholder={translations.current['New value'] ?? 'New value'}
                 onkeydown={(e) => {
                   if (e.key === 'Enter') { e.preventDefault(); addTopLevelCategory(); }
                   else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); addingCategory = false; categoryError = ''; }
@@ -638,7 +685,7 @@
                business with no hierarchy at all still needs a direct way to add its first item. -->
           {#if addingItemUnder !== NO_CATEGORY}
             <button type="button" class="link-button" onclick={() => { addingItemUnder = NO_CATEGORY; newItemNameField = ''; itemAddError = ''; }}>
-              + {translations.current['Item (no category)'] ?? 'Item (no category)'}
+              + {translations.current['Item (ungrouped)'] ?? 'Item (ungrouped)'}
             </button>
           {/if}
         </div>
@@ -646,15 +693,15 @@
 
       <div class="detail-panel">
         {#if !selection}
-          <p class="hint">{translations.current['Select a category or item on the left — Insert adds within whatever\'s selected, Delete removes it.'] ?? 'Select a category or item on the left — Insert adds within whatever\'s selected, Delete removes it.'}</p>
+          <p class="hint">{translations.current['Select a group or item on the left — Insert adds within whatever\'s selected, Delete removes it.'] ?? 'Select a group or item on the left — Insert adds within whatever\'s selected, Delete removes it.'}</p>
         {:else if selection.type === 'category'}
-          <p class="hint">{translations.current['A category is purely an organizing grouping — press Insert to add a real item within it, "+ Subcategory" to nest a further category, or Delete to remove this category.'] ?? 'A category is purely an organizing grouping — press Insert to add a real item within it, "+ Subcategory" to nest a further category, or Delete to remove this category.'}</p>
+          <p class="hint">{translations.current['A group is only for organising and reporting — press Insert to add an item within it, "+ Subgroup" to nest a further group, or Delete to remove it.'] ?? 'A group is only for organising and reporting — press Insert to add an item within it, "+ Subgroup" to nest a further group, or Delete to remove it.'}</p>
         {:else if selection.type === 'item'}
           <div class="detail">
             {#if message}<p class="success">{message}</p>{/if}
             <div class="card form-card">
               <h3>{selectedName}</h3>
-              <p class="category-line">{translations.current['Category:'] ?? 'Category:'} <strong>{translations.current[selection.category] ?? selection.category}</strong></p>
+              {#if itemGrouping}<p class="category-line">{translations.current[itemGrouping] ?? itemGrouping}: <strong>{selection.category === (itemsRoot()?.name ?? 'Items') ? (translations.current['Ungrouped'] ?? 'Ungrouped') : (translations.current[selection.category] ?? selection.category)}</strong></p>{/if}
               <fieldset>
                 <legend>{translations.current['Description'] ?? 'Description'}</legend>
                 <input bind:value={item.description} placeholder="optional" />
@@ -850,6 +897,17 @@
 </fieldset>
 
 <style>
+  .grouping-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.8rem;
+  }
+  .grouping-choice.active {
+    background: var(--brass-dark, #7a5c2e);
+    color: white;
+  }
   .center-text {
     text-align: center;
   }

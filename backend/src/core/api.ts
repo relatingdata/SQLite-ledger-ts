@@ -24,7 +24,7 @@ import { fileURLToPath } from 'url';
 import { mkdirSync, rmSync } from 'fs';
 import { randomBytes } from 'crypto';
 import { splitCsvLine, csvField, unescapeAscii, writeCsv } from '../../../shared-fixtures/csv.js';
-import { Core, Instance, Refused, NotFound, GLOBAL_BUSINESS } from './core.js';
+import { Core, Instance, Refused, NotFound, GLOBAL_BUSINESS, GROUPING_KINDS, type GroupingKind } from './core.js';
 import * as ops from './ops.js';
 import * as reports from './reports.js';
 import { verifyPassword } from '../password.js';
@@ -132,7 +132,7 @@ function list(text: string | undefined): string[] {
 }
 
 function ensureValue(i: Instance, grouping: string, value: string): void {
-  i.store.tx(() => i.groupValue(grouping, value));
+  i.store.tx(() => i.valueOf(grouping, value));
 }
 
 function sale(a: Args, s: Session): void {
@@ -240,7 +240,7 @@ export const CORE_CALLS: Record<string, CoreCall> = {
 
   // --- things and their relations ------------------------------------------------
   createAndConfigureLocation: {
-    params: ['businessName', 'locationName', 'city', 'locationType', 'division', 'bottleCapacity', 'cartonCapacity'],
+    params: ['businessName', 'locationName', 'city', 'locationType', 'bottleCapacity', 'cartonCapacity'],
     run: (a, s) =>
       void ops.createLocation(inst(a, s), {
         name: a.locationName,
@@ -249,7 +249,6 @@ export const CORE_CALLS: Record<string, CoreCall> = {
         bottleCapacity: a.bottleCapacity,
         cartonCapacity: a.cartonCapacity,
         timezone: 'Australia/Adelaide',
-        division: a.division,
       }),
   },
   createEmployeeAt: { params: ['businessName', 'employeeName', 'locationName'], run: (a, s) => void ops.createEmployee(inst(a, s), a.employeeName, a.locationName) },
@@ -269,29 +268,30 @@ export const CORE_CALLS: Record<string, CoreCall> = {
   ensureSkillSimple: { params: ['skillName'], run: (a, s) => void ops.ensureSkill(inst(a, s), a.skillName) },
   tagSkillSimple: { params: ['contactName', 'skillName', 'rateMinorPerHour'], run: (a, s) => ops.tagSkill(inst(a, s), a.contactName, a.skillName, Number(a.rateMinorPerHour)) },
   createUncategorizedItem: { params: ['businessName', 'itemName'], run: (a, s) => void ops.createItem(inst(a, s), a.itemName) },
-  createItemUnderCategory: {
-    params: ['businessName', 'itemName', 'category'],
+  createItemInGroup: {
+    params: ['businessName', 'itemName', 'groupingName', 'valueName'],
     run: (a, s) => {
       const i = inst(a, s);
       i.store.tx(() => {
         ops.createItem(i, a.itemName);
-        ops.setGroup(i, a.itemName, 'Category', a.category);
+        ops.setGroup(i, a.itemName, a.groupingName, a.valueName);
       });
     },
   },
-  createCategorySimple: { params: ['businessName', 'categoryName'], run: (a, s) => ensureValue(inst(a, s), 'Category', a.categoryName) },
-  addTopLevelCategoryViaStructurePopup: { params: ['businessName', 'categoryName'], run: (a, s) => ensureValue(inst(a, s), 'Category', a.categoryName) },
-  addDivisionViaStructurePopup: { params: ['businessName', 'valueName'], run: (a, s) => ensureValue(inst(a, s), 'Division', a.valueName) },
+  createItemGroupValue: { params: ['businessName', 'groupingName', 'valueName'], run: (a, s) => ensureValue(inst(a, s), a.groupingName, a.valueName) },
+  addItemGroupValueViaStructurePopup: { params: ['businessName', 'groupingName', 'valueName'], run: (a, s) => ensureValue(inst(a, s), a.groupingName, a.valueName) },
+  addLocationGroupValueViaStructurePopup: { params: ['businessName', 'groupingName', 'valueName'], run: (a, s) => ensureValue(inst(a, s), a.groupingName, a.valueName) },
   createHierarchyGroupingSimple: {
-    params: ['businessName', 'groupingName'],
+    params: ['businessName', 'groupingName', 'groups'],
     run: (a, s) => {
       const i = inst(a, s);
-      i.store.tx(() => i.grouping(a.groupingName));
+      if (!(GROUPING_KINDS as readonly string[]).includes(a.groups)) throw new Refused(`groups must be one of ${GROUPING_KINDS.join(', ')}.`);
+      i.store.tx(() => i.grouping(a.groupingName, a.groups as GroupingKind));
     },
   },
   createHierarchyValueSimple: { params: ['businessName', 'groupingName', 'valueName'], run: (a, s) => ensureValue(inst(a, s), a.groupingName, a.valueName) },
   tagItemHierarchy: { params: ['businessName', 'itemName', 'groupingName', 'valueName'], run: (a, s) => ops.setGroup(inst(a, s), a.itemName, a.groupingName, a.valueName) },
-  setHierarchyTagSimple: { params: ['businessName', 'locationName', 'division'], run: (a, s) => ops.setGroup(inst(a, s), a.locationName, 'Division', a.division) },
+  setLocationGroup: { params: ['businessName', 'locationName', 'groupingName', 'valueName'], run: (a, s) => ops.setGroup(inst(a, s), a.locationName, a.groupingName, a.valueName) },
   addDepartmentViaStructurePopup: { params: ['businessName', 'departmentName'], run: (a, s) => void ops.createDepartment(inst(a, s), a.departmentName) },
   deleteDepartmentViaStructurePopup: { params: ['businessName', 'departmentName'], run: (a, s) => ops.deleteDepartment(inst(a, s), a.departmentName) },
   assignEmployeeDepartmentViaStructurePopup: {
@@ -427,19 +427,19 @@ export const CORE_CALLS: Record<string, CoreCall> = {
     run: (a, s) => {
       const i = inst(a, s);
       i.store.tx(() => {
-        const value = i.groupValue(a.groupingName, a.storageValue);
+        const value = i.valueOf(a.groupingName, a.storageValue);
         const reference = i.freeReference(`RECEIVE-${a.itemName}-${a.storageValue}`);
         ops.receiveStock(i, reference, a.itemName, a.locationName, Number(a.quantity), undefined, { [a.groupingName]: value });
       });
     },
   },
   openContainer: {
-    params: ['businessName', 'locationName', 'itemName', 'containerValue', 'cartonsOpened', 'unitValue', 'unitsProduced', 'ledger'],
+    params: ['businessName', 'locationName', 'itemName', 'containerValue', 'cartonsOpened', 'unitValue', 'unitsProduced', 'ledger', 'groupingName'],
     run: (a, s) => {
       const i = inst(a, s);
       i.store.tx(() => {
-        i.groupValue('Container', a.containerValue);
-        i.groupValue('Container', a.unitValue);
+        i.valueOf(a.groupingName, a.containerValue);
+        i.valueOf(a.groupingName, a.unitValue);
         ops.openContainer(i, a.locationName, a.itemName, Number(a.cartonsOpened), Number(a.unitsProduced));
       });
     },

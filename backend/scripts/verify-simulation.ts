@@ -83,10 +83,10 @@ async function main() {
   console.log('\n--- Sales Report, 2027-03-01 to 2027-03-28 ---');
   const sales = getSalesReport(WINE_RETAIL, ACTUAL, '2027-03-01', '2027-03-28');
   check('detailed line count', sales.detailed.length, 1385);
-  check('real category count (every product category actually sold)', sales.category_summary.length, 9);
+  check('real category count (every product category actually sold)', sales.group_summary.length, 9);
   check('total_quantity', sales.total_quantity, 4986);
   check('total_amount_minor', sales.total_amount_minor, 13121926);
-  const summedFromCategories = sales.category_summary.reduce((s, c) => s + c.amount_minor, 0);
+  const summedFromCategories = sales.group_summary.reduce((s, c) => s + c.amount_minor, 0);
   check('category summary sums to the same total as the detailed lines', summedFromCategories, sales.total_amount_minor);
 
   console.log(`\n${'='.repeat(70)}`);

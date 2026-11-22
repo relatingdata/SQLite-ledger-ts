@@ -39,9 +39,11 @@ api,,,false
 ,,second_capital_line_2_staged,false
 ,,second_capital_investment_posted,false
 ,location_exists,structure_popup_location_added,false
+,,,false
 ,,structure_popup_division_added,false
 ,location_in_hierarchy_group,structure_popup_move_msc,false
 ,location_in_hierarchy_group,structure_popup_move_ho,false
+,,,false
 ,,structure_popup_category_added,false
 ,,employee_created,false
 ,,employee_sam_created,false
@@ -53,6 +55,8 @@ api,,,false
 ,,category_beer_created,false
 ,,item_amber_ale_created,false
 ,,item_highland_single_malt_created,false
+,,,false
+,,,false
 ,,,false
 ,,,false
 ,,,false
@@ -75,8 +79,8 @@ api,,,false
 ,,,false
 ,trial_balance_balanced,,false
 ,profit_and_loss_positive,,false
-,profit_and_loss_by_category_detailed,pl_by_category_detailed,false
-,profit_and_loss_by_division_consolidated,pl_by_division_consolidated,false
+,profit_and_loss_group_has_item,pl_by_category_detailed,false
+,profit_and_loss_group_is_whole,pl_by_division_consolidated,false
 ,trial_balance_total_matches_recorded,,false
 ,,,false
 api,user_has_exact_roles,,false

@@ -105,7 +105,6 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
       a.currency
     );
   },
-  // Division is a Hierarchy value (see Naming Glossary), ensured the same way "Storage"/"Container" are.
   createAndConfigureLocation: (a) => {
     const userId = db.asUserId(1);
     return db.createAndConfigureLocation(a.businessName as any, a.locationName, {
@@ -115,7 +114,7 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
       bottle_capacity: a.bottleCapacity ? Number(a.bottleCapacity) : null,
       carton_capacity: a.cartonCapacity ? Number(a.cartonCapacity) : null,
       timezone: 'Australia/Adelaide',
-    } as any, userId, a.division || undefined, a.division ? 'Division' : undefined);
+    } as any, userId);
   },
   createEmployeeAt: (a) => db.createEmployee(a.employeeName, a.locationName, db.asUserId(1)),
   createProviderSimple: (a) => db.createProvider(a.providerName, db.asUserId(1)),
@@ -405,95 +404,58 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
       paymentMethod: 'cash',
     }, userId);
   },
-  createItemAndCategory: (a) => {
-    const userId = db.asUserId(1);
-    const categoryName = a.category === '+ New category…' ? a.newCategoryName : a.category;
-    db.createItem(a.itemName, 'Items', userId, a.businessName as any);
-    db.setHierarchyParent(a.itemName, 'Category', categoryName, userId);
-  },
   // Mirrors items/+page.svelte's addUncategorizedItem — an item directly under the business's
   // Items root, with no category at all. Uses the real, canonical db.createItem (which also
-  // creates the item table row via setItem, unlike createItemAndCategory above, a pre-existing,
-  // separate function this one deliberately does not touch). See docs/pm-frontend-reference.md.
+  // creates the item table row via setItem). See docs/pm-frontend-reference.md.
   createUncategorizedItem: (a) => {
     const userId = db.asUserId(1);
     db.createItem(a.itemName, 'Items', userId, a.businessName as any);
   },
-  // A real, top-level category on its own - items/+page.svelte's current tree UI has no combined
-  // "new category + item in it" action any more (that belonged to the old dropdown form); creating
-  // a brand-new category is now its own real, separate step (the "+ Category" / Insert-with-
-  // nothing-selected path), done before an item can be added under it. See
-  // docs/pm-frontend-reference.md.
-  createCategorySimple: (a) => {
+  // The Items catalog: a value added to the item grouping the page shows,
+  // and an item created in a value of it (docs/pm-domain-reference.md,
+  // "Screens choose among the business's groupings").
+  createItemGroupValue: (a) => {
     const userId = db.asUserId(1);
-    db.ensureHierarchyGrouping(a.businessName as any, 'Category', userId);
-    db.ensureHierarchyValue(a.businessName as any, 'Category', a.categoryName, userId);
+    db.ensureHierarchyValue(a.businessName as any, a.groupingName, a.valueName, userId);
   },
-  // An item tagged into an EXISTING category (created via createCategorySimple above, or already
-  // present) - the real browser path selects that category's own tree node by name (the category
-  // argument only drives the browser's open_selector per screen, hardcoded per fixture screen
-  // name, since open_selector itself can't be templated - see docs/pm-testing-e2e.md), then
-  // presses Insert. Category is a real, optional Hierarchy tag here - the same, generic
-  // setHierarchyParent mechanism Division already uses - never a real tree position.
-  createItemUnderCategory: (a) => {
+  createItemInGroup: (a) => {
     const userId = db.asUserId(1);
+    db.checkGroupingTag(a.businessName, a.groupingName, a.itemName);
     db.createItem(a.itemName, 'Items', userId, a.businessName as any);
-    db.setHierarchyParent(a.itemName, 'Category', a.category, userId);
+    db.setHierarchyParent(a.itemName, a.groupingName, a.valueName, userId);
   },
-  // An already-existing item tagged into a hierarchy grouping that isn't
-  // Category/Division - the exact, same, generic setHierarchyParent
-  // mechanism those two already use, just under whatever groupingName
-  // this call names (e.g. "Size", "Packaging" - not "Container", which
-  // already names a different, real, existing grouping, Open
-  // Container's own Carton/Bottle unit-of-measure form, below). This
-  // fixture's own Create Hierarchy Grouping/Create Hierarchy Value steps already run
-  // through the real /setup/hierarchy screen on both paths; this one
-  // tagging action, API-path only for now (data-kind in screens.csv,
-  // the same, documented exception the ledger-creation-at-rollover step
-  // already uses) - no dedicated UI control exists yet for tagging an
-  // existing item into an arbitrary hierarchy value after creation
-  // (Category is only ever set inline at item-creation time; Division
-  // tagging has its own, Location-specific "Move..." action in the
-  // Business Structure popup). See docs/sales-item-cartesian-product.md.
+  // An existing item tagged with a value of an item grouping (API path
+  // only: no screen tags an existing item yet).
   tagItemHierarchy: (a) => {
     const userId = db.asUserId(1);
-    db.ensureHierarchyGrouping(a.businessName as any, a.groupingName, userId);
+    db.checkGroupingTag(a.businessName, a.groupingName, a.itemName);
     db.ensureHierarchyValue(a.businessName as any, a.groupingName, a.valueName, userId);
     db.setHierarchyParent(a.itemName, a.groupingName, a.valueName, userId);
   },
-  // Idempotent precondition for receiveStockWithCombination/openContainer below, which otherwise create these lazily.
+  // A grouping of the business's own: groups says what it groups.
   createHierarchyGroupingSimple: (a) => {
     const userId = db.asUserId(1);
-    db.ensureHierarchyGrouping(a.businessName as any, a.groupingName, userId);
+    db.ensureHierarchyGrouping(a.businessName as any, a.groupingName, userId, a.groups as db.GroupingKind);
   },
   createHierarchyValueSimple: (a) => {
     const userId = db.asUserId(1);
     db.ensureHierarchyValue(a.businessName as any, a.groupingName, a.valueName, userId);
   },
-  // Business Structure popup (frontend/src/lib/components/BusinessStructurePopup.svelte)
-  // "+ New Division" — one click, two backend calls: the Division
-  // grouping itself is ensured idempotently (it may not exist yet, as
-  // in the reshaped tutorial's first expansion), then the new value.
-  addDivisionViaStructurePopup: (a) => {
+  // Business Structure popup (frontend/src/lib/components/BusinessStructurePopup.svelte):
+  // a value added to the location or item grouping a step shows, and a
+  // location moved to a value of a location grouping ("Move…").
+  addLocationGroupValueViaStructurePopup: (a) => {
     const userId = db.asUserId(1);
-    db.ensureHierarchyGrouping(a.businessName as any, 'Division', userId);
-    db.ensureHierarchyValue(a.businessName as any, 'Division', a.valueName, userId);
+    db.ensureHierarchyValue(a.businessName as any, a.groupingName, a.valueName, userId);
   },
-  // Business Structure popup's "Move…" action on a Location node —
-  // always against the Division grouping (the only hierarchy the
-  // Locations & Divisions tab tags), matching the popup's own
-  // hardcoded DIVISION constant.
-  setHierarchyTagSimple: (a) => {
+  addItemGroupValueViaStructurePopup: (a) => {
     const userId = db.asUserId(1);
-    db.setHierarchyParent(a.locationName, 'Division', a.division, userId);
+    db.ensureHierarchyValue(a.businessName as any, a.groupingName, a.valueName, userId);
   },
-  // Business Structure popup's Hierarchies tab, "+ New top-level category" -
-  // registers the Category grouping/value exactly like any other
-  // business-defined Hierarchy (Division included), never a real tree position.
-  addTopLevelCategoryViaStructurePopup: (a) => {
+  setLocationGroup: (a) => {
     const userId = db.asUserId(1);
-    db.ensureHierarchyGrouping(a.businessName as any, 'Category', userId);
-    db.ensureHierarchyValue(a.businessName as any, 'Category', a.categoryName, userId);
+    db.checkGroupingTag(a.businessName, a.groupingName, a.locationName);
+    db.setHierarchyParent(a.locationName, a.groupingName, a.valueName, userId);
   },
   // Business Structure popup's Org Chart tab, "+ New Department" — one
   // click, the same db.createAndConfigureDepartment the dedicated route
@@ -534,7 +496,6 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
   },
   receiveStockWithCombination: (a) => {
     const userId = db.asUserId(1);
-    db.ensureHierarchyGrouping(a.businessName as any, a.groupingName, userId);
     db.ensureHierarchyValue(a.businessName as any, a.groupingName, a.storageValue, userId);
     db.defineProductShape(a.businessName as any, [[a.groupingName, a.groupingName]], userId);
     db.receiveItems(
@@ -546,12 +507,12 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
   // Opening a carton is two independent space movements, not a "conversion"; scoped to one location.
   openContainer: (a) => {
     const userId = db.asUserId(1);
-    db.ensureHierarchyGrouping(a.businessName as any, 'Container', userId);
-    db.ensureHierarchyValue(a.businessName as any, 'Container', a.containerValue, userId);
-    db.ensureHierarchyValue(a.businessName as any, 'Container', a.unitValue, userId);
-    db.defineProductShape(a.businessName as any, [['Container', 'Container']], userId);
+    const shape: [string, string][] = [[a.groupingName, a.groupingName]];
+    db.ensureHierarchyValue(a.businessName as any, a.groupingName, a.containerValue, userId);
+    db.ensureHierarchyValue(a.businessName as any, a.groupingName, a.unitValue, userId);
+    db.defineProductShape(a.businessName as any, shape, userId);
     db.openStorageContainer(
-      a.businessName as any, db.asLedgerName(a.ledger || 'Actual'), a.locationName as any, a.itemName as any, [['Container', 'Container']],
+      a.businessName as any, db.asLedgerName(a.ledger || 'Actual'), a.locationName as any, a.itemName as any, shape,
       [a.containerValue], Number(a.cartonsOpened), [a.unitValue], Number(a.unitsProduced), userId,
       `STORAGE-OPEN-${a.locationName}`
     );
@@ -762,10 +723,11 @@ export const VERIFY_REGISTRY: Record<string, (args: Record<string, string>) => b
   // - Highland Single Malt (tagged Whiskey) is only ever received into
   // storage in this tutorial, never sold, so it posts no real
   // Sales/COGS leaf for any axis to resolve at all.
-  profit_and_loss_by_category_detailed: (a) => {
-    const nodes = getProfitAndLossByAxis(a.businessName as any, db.asLedgerName(a.ledger), a.fromDate || undefined, a.toDate || undefined, 'Category', 'Item');
-    const categoryNode = nodes.find((n) => n.key === a.categoryName);
-    return !!categoryNode && categoryNode.children.some((c) => c.key === a.itemName);
+  // The value valueName of the inner grouping holds the item itemName.
+  profit_and_loss_group_has_item: (a) => {
+    const nodes = getProfitAndLossByAxis(a.businessName as any, db.asLedgerName(a.ledger), a.fromDate || undefined, a.toDate || undefined, a.innerAxis, 'Item');
+    const group = nodes.find((n) => n.key === a.valueName);
+    return !!group && group.children.some((c) => c.key === a.itemName);
   },
   // Full, summary/consolidated: a Division-outer/Consolidated-inner
   // breakdown across the whole, by-now multi-location wine retailer
@@ -776,12 +738,12 @@ export const VERIFY_REGISTRY: Record<string, (args: Record<string, string>) => b
   // tutorial creates ends up tagged into the one real "Adelaide Metro"
   // division, so this also confirms that division's own outer node
   // alone accounts for the business's entire real net income.
-  profit_and_loss_by_division_consolidated: (a) => {
-    const nodes = getProfitAndLossByAxis(a.businessName as any, db.asLedgerName(a.ledger), a.fromDate || undefined, a.toDate || undefined, 'Division', 'Consolidated');
+  profit_and_loss_group_is_whole: (a) => {
+    const nodes = getProfitAndLossByAxis(a.businessName as any, db.asLedgerName(a.ledger), a.fromDate || undefined, a.toDate || undefined, a.outerAxis, a.innerAxis);
     const pl = db.getProfitAndLoss(a.businessName as any, db.asLedgerName(a.ledger), a.fromDate || undefined, a.toDate || undefined);
-    const divisionNode = nodes.find((n) => n.key === a.divisionName);
+    const group = nodes.find((n) => n.key === a.valueName);
     const summed = nodes.reduce((sum, n) => sum + n.profitAndLoss.net_income_minor, 0);
-    return !!divisionNode && divisionNode.profitAndLoss.net_income_minor === pl.net_income_minor && summed === pl.net_income_minor;
+    return !!group && group.profitAndLoss.net_income_minor === pl.net_income_minor && summed === pl.net_income_minor;
   },
   user_has_exact_roles: (a) => {
     const user = auth.listUsers().find((u) => u.username === a.username);
@@ -792,10 +754,9 @@ export const VERIFY_REGISTRY: Record<string, (args: Record<string, string>) => b
   },
   translation_matches: (a) => db.getTranslation(a.concept, a.language) === a.translationText,
   entity_named_exists: (a) => db.getEntityTree().some((e) => e.name === a.name),
-  // Confirms a Business Structure popup "Move…" action genuinely
-  // re-tagged the location's Division membership - the same
-  // getHierarchyParent read the popup itself uses to render its tree.
-  location_in_hierarchy_group: (a) => db.getHierarchyParent(a.locationName, 'Division') === a.division,
+  // Confirms a Business Structure popup "Move…" re-tagged the location:
+  // the same getHierarchyParent read the popup renders its tree from.
+  location_in_hierarchy_group: (a) => db.getHierarchyParent(a.locationName, a.groupingName) === a.valueName,
 };
 
 /** A minimal, real CSV field parser handling real, quoted fields with

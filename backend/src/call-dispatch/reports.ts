@@ -165,17 +165,18 @@ export const reportsFunctions: Record<string, BackendCall> = {
     }
   },
   // Positional args: [0] business, [1] ledger, [2] fromDate (optional),
-  // [3] toDate (optional).
+  // [3] toDate (optional), [4] itemGrouping (optional).
   getSalesReport: (v, user) => {
     requireAuth(user);
-    const [business, ledger, fromDate, toDate] = v;
+    const [business, ledger, fromDate, toDate, itemGrouping] = v;
     if (!business || !ledger) throw new CallError(400, 'business and ledger query parameters are both required.');
-    const report = getSalesReport(asBusinessName(business), asLedgerName(ledger), fromDate || undefined, toDate || undefined);
+    const report = getSalesReport(asBusinessName(business), asLedgerName(ledger), fromDate || undefined, toDate || undefined, itemGrouping || undefined);
     return row(
       encodeRecordList(['invoice_date', 'reference', 'item_name', 'description', 'quantity', 'unit_price_minor', 'amount_minor'], report.detailed),
-      encodeRecordList(['category', 'quantity', 'amount_minor'], report.category_summary),
+      encodeRecordList(['group', 'quantity', 'amount_minor'], report.group_summary),
       report.total_quantity,
-      report.total_amount_minor
+      report.total_amount_minor,
+      report.grouping ?? ''
     );
   },
   // Positional args: [0] business, [1] ledger, [2] asOfDate (optional).

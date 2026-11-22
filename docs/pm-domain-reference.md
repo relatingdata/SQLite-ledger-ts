@@ -449,19 +449,71 @@ The term is **hierarchy link**; **dimension** means something else:
 `definitionDimensions` (a product's variant axes) and the drag-and-drop
 hierarchy editor.
 
-**Division and Category are not special in the code.** They are two
-suggested hierarchy names; a business can rename or drop either, or
-add others (region, bottle size, storage area). Everything takes the
-hierarchy name as a parameter:
+**No grouping name is in the code.** A business names its own
+groupings; "Division" and "Category" are only suggestions in the User
+Manual and words in the Vocabulary. A business can have none, or
+several of each kind (Region and Store Format for its locations,
+Category and Bottle Size for its items). `make check-grouping-names`
+(`scripts/check-grouping-names.ts`) collects every grouping name the
+fixtures create and fails if one appears as a string literal in
+`backend/src`, `frontend/src`, `tui/src`, the step runner and its
+frontend API client, or the code of `application/application.entities`.
+Comments, the Vocabulary seed (`db-seed.ts`) and a word shown through a
+translation lookup are not code that names a grouping. The groupings
+the application defines for itself (Department, Profit Center, Storage
+Tier, and the role matrix's User and Role) record nothing in `Groups`
+and are described where they are used.
+
+**A grouping records what it groups.** Each grouping under
+`{business} › Hierarchy` has a `Groups` relation to the business's
+`Items` or `Locations` branch, set when it is created and never
+changed: `ensureHierarchyGrouping(business, name, userId, groups)` (`groups`
+is `'Items'` or `'Locations'`), the `createHierarchyGrouping` call (whose
+`groups` argument is required), and `inst.grouping(name, groups)` in
+the core. `groupingKind(groupingId)` reads it back (undefined for an
+application grouping); `GROUPING_KINDS` lists the two kinds. An
+existing grouping asked for with the other kind is refused. A value is added only to a grouping that exists
+(`ensureHierarchyValue`, `inst.valueOf`).
+`getBusinessHierarchy` returns `{ grouping, groups, values }`, values
+excluding the relation records. An item is tagged only with item
+groupings and a location only with location groupings (`setGroup`,
+`setHierarchyTag` and `checkGroupingTag` refuse otherwise); a value may be tagged under
+another value of its own grouping, to nest. A hierarchy link only
+classifies, so it never blocks deleting the item or location it is
+on: `revokeEntity` untags it.
+
+**Screens choose among the business's groupings**, each shown by its
+own name:
+
+- The Items catalog is organised by one item grouping, chosen from the
+  business's item groupings (the first created comes first); items in
+  none of its values are listed ungrouped. With no item grouping the
+  items are listed ungrouped and "+ New grouping" names one.
+- Business Setup and the Business Structure popup do the same with the
+  location groupings; the popup's items step with the item groupings.
+- The P&L and the pivots offer Item and each item grouping on one
+  side, Location and each location grouping on the other (the
+  redundancy guard goes by what each grouping groups,
+  `getAxisValues`'s `groups`).
+- The Stock Movement report groups by any location grouping, location,
+  provider or any item grouping; each row carries `groups`, the value
+  of every grouping for its item and location.
+- The Sales report's summary is by one item grouping, chosen on the
+  screen (the first created by default), or by item when the business
+  has none; `getSalesReport(..., itemGrouping?)` returns
+  `group_summary` and the `grouping` it used.
+- The Business Configuration Report lists each grouping with what it
+  groups and its values; the products are listed as Products.
+
+Everything takes the grouping name as a parameter:
 
 - `getHierarchyGroups(business, hierarchyName)` (the business's own values of the grouping, each with the value it is tagged under), `getHierarchyGroupForAccount(accountName, hierarchyName)`, `getHierarchyGroupForLocation(locationName, hierarchyName)`
 - `getProfitAndLossByHierarchy(business, ledger, hierarchyPath, ...)`, `getProfitAndLossForHierarchyGroup(business, ledger, hierarchyPath, groups, groupName, ...)`, `getProfitAndLossByHierarchyTree(business, ledger, hierarchyPath, hierarchyName, ...)`
-- `getLedgerBalancesByHierarchyStructural(business, ledger, hierarchyPath, fromDate?, toDate?, excludeCloseEntries?)` — resolves each account to its group by walking `hierarchyPath` (an ordered list of hierarchy names) one `getHierarchyParent` hop at a time; `['Location']` for a one-hop breakdown, `['Location', 'Division']` for a two-hop one.
+- `getLedgerBalancesByHierarchyStructural(business, ledger, hierarchyPath, fromDate?, toDate?, excludeCloseEntries?)` — resolves each account to its group by walking `hierarchyPath` (an ordered list of hierarchy names) one `getHierarchyParent` hop at a time; `['Location']` for a one-hop breakdown, `['Location', 'Region']` for a two-hop one through a location grouping the business called Region.
 - `closeBooks`/`previewCloseBooks`/`computeCloseLines` take an explicit `hierarchyPath: string[] = []`; their result's informational summary field is `groupBreakdown`.
-- `MatrixAxis` is `'Item' | 'Location' | 'Consolidated' | (string & {})`, with no `'Division'` or `'Category'` member; for any other axis name `resolveKey` tries a hierarchy-parent lookup on the product, then on its location. `resolvePostingRoot` posts every product's Sales/COGS leaves flat, whatever its category.
-- The frontend's generic `HierarchyGroupTreePicker.svelte`/`HierarchyGroupPLNode.svelte`/`HierarchyGroupTreeNode.svelte` each take a `hierarchyName` prop; the matrix-report pages read a business's configured hierarchies live (`getHierarchy`/`getAxisValues`) rather than hardcoding `'Division'` or `'Category'` in an axis list.
-- `BusinessStructurePopup.svelte`'s "Org Chart" and "Item Categories" steps tag Locations and Items with `Division` and `Category` (*Frontend Reference*, `BusinessStructurePopup.svelte`).
-- A business with no hierarchy at all (one item, one location) works the same way.
+- `MatrixAxis` is `'Item' | 'Location' | 'Consolidated' | (string & {})`; any other axis name is a grouping, which `resolveKey` looks up on the item for an item grouping and on the location for a location grouping. `resolvePostingRoot` posts every product's Sales/COGS leaves flat, whatever its groupings.
+- The frontend's generic `HierarchyGroupTreePicker.svelte`/`HierarchyGroupPLNode.svelte`/`HierarchyGroupTreeNode.svelte` each take a `hierarchyName` prop; every screen reads the business's groupings live (`getHierarchy`/`getAxisValues`).
+- A business with no grouping at all (one item, one location) works the same way.
 
 `getOrganizationChart` uses relationship records instead (`Belongs To
 Group`, `Belongs To Business`): a location belongs to a group, or to
@@ -471,6 +523,7 @@ itself when it has none, and a group belongs to the business.
 hierarchy: by `parent_id`, by a named relationship, or both.
 
 Tests (*Testing: Unit*, "Running the tests"):
+- "a grouping records what it groups: its items or its locations; it is never asked for as the other kind, a value is added only to one that exists, and an item and a location are tagged only with their own kind" (`backend/test/db.test.ts`)
 - "setHierarchyParent/getHierarchyParent/getHierarchyChildren/getHierarchyAncestorChain: the generic, reusable hierarchy-link mechanism (docs/multi-dimensional-reporting.md) — a real, reversible up/down index per named hierarchy, never touching an entity's own relation_id, and never a "dimension" in the matrix-stock-report/drag-and-drop sense" (`backend/test/db.test.ts`)
 - "getLocationForAccount/getHierarchyGroupForAccount: the real, structural replacement for journal_line.division_id — walking a real account to its own, real, structural location and hierarchy group, not reading a separate tag" (`backend/test/db.test.ts`)
 
@@ -1167,7 +1220,7 @@ Tests (*Testing: Unit*, "Running the tests"):
 - "getEntityLinksPointingAt/revokeEntity: a Hierarchy value still assigned to a live entity cannot be revoked, but can once nothing points at it any more" (`backend/test/db.test.ts`)
 - "getEntityLinksPointingAt/revokeEntity: a Location still referenced by a real per-location quantity account cannot be revoked, but can once that account is retagged elsewhere" (`backend/test/db.test.ts`)
 - "deleteHierarchyGrouping/deleteHierarchyValue: name-based wrappers resolve the real entity and reuse revokeEntity's own guards — a grouping with a live value still refuses, exactly like revokeEntity itself already does" (`backend/test/db.test.ts`)
-- "deleteLocation: name-based wrapper resolves the real entity and reuses revokeEntity's own guards — a Division tag still pointing at it refuses, exactly like revokeEntity itself already does" (`backend/test/db.test.ts`)
+- "deleteLocation: name-based wrapper resolves the real entity and reuses revokeEntity's own guards — a grouping tag on it only classifies it, so it is untagged, never a reason to refuse" (`backend/test/db.test.ts`)
 - "getTranslationsReferencing/deleteTranslationConcept: a word still genuinely translated somewhere cannot be deleted, but can once every real translation of it is gone" (`backend/test/db.test.ts`)
 - "revokeEntity closes the entity out but deliberately keeps its contact record — a historical fact about a now-closed entity, not something that disappears" (`backend/test/db.test.ts`)
 - "revokeEntity records who revoked it, and moves it permanently out of its old structural position" (`backend/test/db.test.ts`)

@@ -21,13 +21,16 @@
     createHierarchyValue,
     deleteHierarchyValue,
     getHierarchy,
+    firstGroupingOf,
     getHierarchyAssignments,
   } from '../api.ts';
   import Panel from '../components/Panel.svelte';
   import TextInput from '../components/TextInput.svelte';
   import { brass, ink, inkSoft } from '../theme.ts';
 
-  const CATEGORY = 'Category';
+  // The business's first item grouping; until it has one, the first
+  // value added names the grouping instead.
+  let CATEGORY = $state('');
   const ROOT = '__root__';
 
   type View = 'list' | 'new';
@@ -47,7 +50,9 @@
 
   async function refresh(): Promise<void> {
     try {
-      const [h, assignments] = await Promise.all([getHierarchy(businessName), getHierarchyAssignments(CATEGORY)]);
+      const h = await getHierarchy(businessName);
+      CATEGORY = firstGroupingOf(h, 'Items');
+      const assignments = CATEGORY ? await getHierarchyAssignments(CATEGORY) : {};
       categoryValues = h.find((g) => g.grouping === CATEGORY)?.values ?? [];
       categoryParents = assignments;
       error = null;
@@ -122,8 +127,8 @@
     if (!name) { view = 'list'; return; }
     busy = true; error = null;
     try {
-      await createHierarchyGrouping(businessName, CATEGORY);
-      await createHierarchyValue(businessName, CATEGORY, name, path.length > 0 ? path[path.length - 1] : undefined);
+      if (CATEGORY) await createHierarchyValue(businessName, CATEGORY, name, path.length > 0 ? path[path.length - 1] : undefined);
+      else await createHierarchyGrouping(businessName, name, 'Items');
       await refresh();
       view = 'list';
     } catch (err) {

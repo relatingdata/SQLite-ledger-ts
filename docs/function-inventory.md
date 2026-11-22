@@ -20,8 +20,8 @@ It uses the TypeScript compiler, not a text search. A prototype is printed by th
 
 ## Summary
 
-- **Backend:** 1194 functions (1015 exported); 832 are called from production code; 47 only from tests or tooling; 315 from nowhere the compiler could find.
-- **Frontend library:** 384 functions (312 exported); 297 are called from production code; 2 only from tests or tooling; 85 from nowhere the compiler could find.
+- **Backend:** 1199 functions (1019 exported); 837 are called from production code; 47 only from tests or tooling; 315 from nowhere the compiler could find.
+- **Frontend library:** 387 functions (314 exported); 299 are called from production code; 2 only from tests or tooling; 86 from nowhere the compiler could find.
 
 ### Backend: functions with no callers found
 
@@ -65,8 +65,8 @@ Candidates to review, not proof of dead code: a function may be reached in a way
 Candidates to review, not proof of dead code: a function may be reached in a way the limits above cannot see.
 
 - `frontend/src/lib/api.ts`: `getCashFlowForecast`, `getTrialBalance`, `getSalesReport`, `getBalanceSheet`, `getProfitAndLoss`, `getProfitAndLossByHierarchy`, `getProfitAndLossByHierarchyTree`, `getLedgerDateRange`, `createProfitCenter`, `setSessionProfitCenter`, `getBusinessConfigurationReport`, `stagePurchaseOrder`, `postPurchaseOrder`, `stageOrderReceipt`, `postOrderReceipt`, `stageSalesOrder`, `postSalesOrder`, `listQuotations`, `getQuotation`, `createQuotation`, `createRfq`, `markQuotationSent`, `acceptQuotation`, `rejectQuotation`, `postOnAccountInvoice`, `getAgedInvoices`, `getAgedSummary`, `getCustomerStatement`, `getReminderCandidates`, `sendReminder`, `resetReminder`, `openStorageContainer`, `getItemLocation`, `receiveItems`, `transferItems`, `closeBooks`, `getStorageSpaceReport`
-- `frontend/src/lib/matrix-api.ts`: `getStockOnHandMatrix`, `getCube`, `getAxes`
-- `frontend/src/lib/screen-runtime.ts`: `sources.locations`, `sources.items`, `sources.providers`, `sources.customers`, `sources.postableAccounts`, `filters.sameCityAsFrom`, `reactions.orderStatus`, `reactions.onHand`, `reactions.fromLocationChanged`, `reactions.itemSources`, `reactions.providerPrice`, `totals.lineTax`, `totals.quantityTimesPrice`, `totals.valueTaxRate`, `totals.taxRate`, `actions.purchase`, `actions.sale`, `actions.transfer`, `actions.orderReceipt`, `actions.salesOrder`, `actions.quotation`, `actions.purchaseOrder`, `records.quotations`, `commands.sendReminder`, `commands.resetReminder`, `commands.markSent`, `commands.accept`, `commands.reject`, `reports.aged`, `reports.businessConfiguration`, `reports.cashFlow`, `reports.sales`, `reports.statement`, `reports.reminders`, `reports.belowReorder`, `reports.storageSpace`, `reports.trialBalance`, `reports.balanceSheet`
+- `frontend/src/lib/matrix-api.ts`: `getStockOnHandMatrix`, `getCube`, `getAxisValues`
+- `frontend/src/lib/screen-runtime.ts`: `sources.itemGroupings`, `sources.locations`, `sources.items`, `sources.providers`, `sources.customers`, `sources.postableAccounts`, `filters.sameCityAsFrom`, `reactions.orderStatus`, `reactions.onHand`, `reactions.fromLocationChanged`, `reactions.itemSources`, `reactions.providerPrice`, `totals.lineTax`, `totals.quantityTimesPrice`, `totals.valueTaxRate`, `totals.taxRate`, `actions.purchase`, `actions.sale`, `actions.transfer`, `actions.orderReceipt`, `actions.salesOrder`, `actions.quotation`, `actions.purchaseOrder`, `records.quotations`, `commands.sendReminder`, `commands.resetReminder`, `commands.markSent`, `commands.accept`, `commands.reject`, `reports.aged`, `reports.businessConfiguration`, `reports.cashFlow`, `reports.sales`, `reports.statement`, `reports.reminders`, `reports.belowReorder`, `reports.storageSpace`, `reports.trialBalance`, `reports.balanceSheet`
 - `frontend/src/lib/state.svelte.ts`: `auth.set`, `hasUnsavedEdit.set`, `menuTree.set`, `screenTitle`, `session.set`, `session.clear`, `translations.set`
 
 ## Backend
@@ -411,7 +411,7 @@ Called from: production: call-dispatch.ts (decodeCategoryTree ×2, decodeGeneric
 encodeShape(shape: [string, string][] | undefined): string
 ```
 
-Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.defineProductShape ×1, hierarchyFunctions.getProductShapes ×1); call-dispatch/pos.ts (posFunctions.lookupByUpc ×1) · tests: 1 call(s) in 1 file(s)
+Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.defineProductShape ×1, hierarchyFunctions.getProductShapes ×1); call-dispatch/locations.ts (groups ×1); call-dispatch/pos.ts (posFunctions.lookupByUpc ×1) · tests: 1 call(s) in 1 file(s)
 
 **`decodeShape`** *(exported)*
 
@@ -2921,7 +2921,7 @@ Called from: production: core/core.ts (Core.business ×1, Instance.chartRoot ×1
 Core.relate(thing: number, relation: string, target: Target, by: number): void
 ```
 
-Called from: production: core/core.ts (Core.install ×4, Core.thing ×1, Instance.contactAccount ×1, Instance.instantiate ×1, Instance.localise ×1, Instance.post ×1, and 3 more); core/ops.ts (acceptProposal ×12, buildBankCurrencyStructure ×2, clockOff ×1, clockOn ×1, createBusiness ×2, createContact ×1, and 19 more)
+Called from: production: core/core.ts (Core.install ×4, Core.thing ×1, Instance.contactAccount ×1, Instance.grouping ×1, Instance.instantiate ×1, Instance.localise ×1, and 4 more); core/ops.ts (acceptProposal ×12, buildBankCurrencyStructure ×2, clockOff ×1, clockOn ×1, createBusiness ×2, createContact ×1, and 19 more)
 
 **`Core.related`** *(exported)*
 
@@ -2929,7 +2929,7 @@ Called from: production: core/core.ts (Core.install ×4, Core.thing ×1, Instanc
 Core.related(thing: number, relation: string): Node | undefined
 ```
 
-Called from: production: core/api.ts (run ×1); core/core.ts (Core.instanceOf ×1, Core.is ×1, Core.kindOf ×1, Core.value ×1, Instance.contactAccount ×3, Instance.prototypeOf ×1, and 1 more); core/ops.ts (acceptProposal ×2, carryForward ×1, clockOff ×2, clockOn ×1, confirmedCount ×2, deleteDepartment ×2, and 7 more); core/reports.ts (axisValue ×3, inventoryListing ×2) · tests: 2 call(s) in 1 file(s)
+Called from: production: core/api.ts (run ×1); core/core.ts (Core.instanceOf ×1, Core.is ×1, Core.kindOf ×1, Core.value ×1, Instance.contactAccount ×3, Instance.groupingKind ×1, and 2 more); core/ops.ts (acceptProposal ×2, carryForward ×1, clockOff ×2, clockOn ×1, confirmedCount ×2, deleteDepartment ×2, and 7 more); core/reports.ts (axisValue ×3, inventoryListing ×2) · tests: 2 call(s) in 1 file(s)
 
 **`Core.value`** *(exported)*
 
@@ -2977,7 +2977,7 @@ Called from: production: core/core.ts (Core.findNamed ×1, Core.things ×1, Inst
 Core.thing(name: string, parent: number, kind: string, by: number): Node
 ```
 
-Called from: production: core/api.ts (run ×1); core/core.ts (Core.install ×8, Instance.contactAccount ×1, Instance.folder ×1, Instance.groupValue ×1, Instance.instantiate ×1, Instance.localise ×1, and 4 more); core/ops.ts (acceptProposal ×2, buildBankCurrencyStructure ×2, createBusiness ×3, createDepartment ×2, createLedger ×1, createUser ×1, and 2 more)
+Called from: production: core/api.ts (run ×1); core/core.ts (Core.install ×8, Instance.contactAccount ×1, Instance.folder ×1, Instance.groupValue ×1, Instance.instantiate ×1, Instance.localise ×1, and 5 more); core/ops.ts (acceptProposal ×2, buildBankCurrencyStructure ×2, createBusiness ×3, createDepartment ×2, createLedger ×1, createUser ×1, and 2 more)
 
 **`Core.things`** *(exported)*
 
@@ -3121,7 +3121,7 @@ Called from: production: core/api.ts (run ×1); core/ops.ts (carryForward ×1, c
 Instance.branch(name: string): Node
 ```
 
-Called from: production: core/api.ts (run ×1); core/core.ts (Instance.localise ×1, Instance.thingIn ×1); core/ops.ts (createLedger ×1, deleteDepartment ×1, projects ×1, usersFolder ×1)
+Called from: production: core/api.ts (run ×1); core/core.ts (Instance.grouping ×1, Instance.localise ×1, Instance.thingIn ×1); core/ops.ts (createLedger ×1, deleteDepartment ×1, projects ×1, usersFolder ×1)
 
 **`Instance.existingBranch`** *(exported)*
 
@@ -3177,7 +3177,7 @@ Called from: production: core/core.ts (Instance.grouping ×1); core/ops.ts (acce
 Instance.existing(branch: string, name: string): Node | undefined
 ```
 
-Called from: production: core/api.ts (exists ×1); core/core.ts (Instance.accountNamed ×2, Instance.anything ×1, Instance.require ×1); core/ops.ts (acceptProposal ×1, createPlant ×1, deleteDepartment ×1, recipeOwner ×3, serviceItem ×1, setEmployeeDepartment ×1)
+Called from: production: core/api.ts (exists ×1); core/core.ts (Instance.accountNamed ×2, Instance.anything ×1, Instance.groupingKind ×1, Instance.require ×1, Instance.valueOf ×1); core/ops.ts (acceptProposal ×1, createPlant ×1, deleteDepartment ×1, recipeOwner ×3, serviceItem ×1, setEmployeeDepartment ×1, and 1 more)
 
 **`Instance.require`** *(exported)*
 
@@ -3222,10 +3222,18 @@ Called from: production: core/api.ts (exists ×1); core/ops.ts (groupOf ×1, set
 **`Instance.grouping`** *(exported)*
 
 ```
-Instance.grouping(name: string): Node
+Instance.grouping(name: string, groups?: GroupingKind): Node
 ```
 
 Called from: production: core/api.ts (run ×1); core/core.ts (Instance.groupValue ×1)
+
+**`Instance.groupingKind`** *(exported)*
+
+```
+Instance.groupingKind(name: string): GroupingKind | undefined
+```
+
+Called from: production: core/core.ts (Instance.grouping ×1); core/ops.ts (setGroup ×1)
 
 **`Instance.groupValue`** *(exported)*
 
@@ -3233,7 +3241,15 @@ Called from: production: core/api.ts (run ×1); core/core.ts (Instance.groupValu
 Instance.groupValue(grouping: string, value: string): Node
 ```
 
-Called from: production: core/api.ts (ensureValue ×1, run ×3); core/ops.ts (acceptProposal ×1, capacityAccount ×1, createDepartment ×1, setGroup ×1)
+Called from: production: core/ops.ts (acceptProposal ×1, capacityAccount ×1, createDepartment ×1)
+
+**`Instance.valueOf`** *(exported)*
+
+```
+Instance.valueOf(grouping: string, value: string): Node
+```
+
+Called from: production: core/api.ts (ensureValue ×1, run ×3); core/ops.ts (setGroup ×1)
 
 **`Instance.accountsRoot`** *(exported)*
 
@@ -3443,7 +3459,7 @@ Called from: production: core/ops.ts (clockOn ×1, openContainer ×1, payment ×
 optional(text: string | undefined): string | undefined
 ```
 
-Called from: production: core/ops.ts (acceptProposal ×2, createBusiness ×1, createEmployee ×1, createLocation ×3, createPlant ×1, delivery ×1, and 10 more)
+Called from: production: core/ops.ts (acceptProposal ×2, createBusiness ×1, createEmployee ×1, createLocation ×2, createPlant ×1, delivery ×1, and 10 more)
 
 **`createBusiness`** *(exported)*
 
@@ -3603,7 +3619,7 @@ Called from: production: core/api.ts (run ×2)
 setGroup(inst: Instance, thingName: string, grouping: string, value: string): void
 ```
 
-Called from: production: core/api.ts (run ×3); core/ops.ts (createLocation ×1)
+Called from: production: core/api.ts (run ×3)
 
 **`groupOf`** *(exported)*
 
@@ -4795,7 +4811,7 @@ Called from: production: db-matrix-reports.ts (resolveKey ×1)
 resolveKey(axis: MatrixAxis, accountId: number, entityIndex: Map<number, { name: string; parent_id: number | null; }>): string
 ```
 
-Called from: production: db-matrix-reports.ts (getAxisValues ×4, getCube ×2, getProfitAndLossByAxis ×2)
+Called from: production: db-matrix-reports.ts (getAxisValues ×3, getCube ×2, getProfitAndLossByAxis ×2)
 
 **`resolveItemKey`**
 
@@ -5424,7 +5440,7 @@ Called from: production: call-dispatch/journal.ts (journalFunctions.rolloverToNe
 **`getSalesReport`** *(exported)*
 
 ```
-getSalesReport(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string): SalesReport
+getSalesReport(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string, itemGrouping?: string): SalesReport
 ```
 
 Called from: production: call-dispatch/reports.ts (reportsFunctions.getSalesReport ×1) · tests: 1 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
@@ -5641,10 +5657,10 @@ getInventoryListingByLocation(business?: BusinessName, hierarchyName?: string): 
 
 Called from: production: call-dispatch/locations.ts (locationsFunctions.getInventoryListingByLocation ×1); db-stock.ts (createStockTake ×1, getBelowReorderStock ×1, getInventoryListing ×1, getStockOutRiskReport ×1) · tests: 2 call(s) in 1 file(s) · tooling: 3 call(s) in 2 file(s)
 
-**`allItemCategories`**
+**`rowGroupsOf`**
 
 ```
-allItemCategories(): Map<string, string | null>
+rowGroupsOf(business: string): (item: string, location?: string) => Record<string, string | null>
 ```
 
 Called from: production: db-stock.ts (getStockMovementReport ×1)
@@ -5660,7 +5676,7 @@ Called from: production: db-stock.ts (getStockMovementReport ×1)
 **`getStockMovementReport`** *(exported)*
 
 ```
-getStockMovementReport(business: string, ledgerName: string, fromDate?: string, toDate?: string, hierarchyName?: string): StockMovementReport
+getStockMovementReport(business: string, ledgerName: string, fromDate?: string, toDate?: string): StockMovementReport
 ```
 
 Called from: production: call-dispatch/locations.ts (locationsFunctions.getStockMovementReport ×1) · tests: 1 call(s) in 1 file(s)
@@ -5993,7 +6009,7 @@ Called from: nowhere the compiler could find.
 asUserId(id: number): UserId
 ```
 
-Called from: production: call-dispatch/arap.ts (arapFunctions.postAPPayment ×1, arapFunctions.postARReceipt ×1); call-dispatch/auth.ts (authFunctions.changeOwnPassword ×1, authFunctions.setOwnDateFormat ×1, authFunctions.setOwnNumberFormat ×1, authFunctions.setOwnPageSize ×1, authFunctions.setUserRoleInBusiness ×1, authFunctions.unsetUserRoleInBusiness ×1); call-dispatch/businesses.ts ((module level) ×2, businessesFunctions.buildBankCurrencyStructure ×1, businessesFunctions.createProfitCenter ×1, businessesFunctions.nominateBankAccount ×1, businessesFunctions.saveBusinessTypeAnswers ×1); call-dispatch/contacts.ts (contactsFunctions.deleteTypedAddress ×1, contactsFunctions.deleteTypedContactPerson ×1, contactsFunctions.deleteTypedPhone ×1, contactsFunctions.setTypedAddress ×1, contactsFunctions.setTypedContactPerson ×1, contactsFunctions.setTypedPhone ×1); call-dispatch/customer-registration.ts (customerRegistrationFunctions.registerCustomer ×1); call-dispatch/departments.ts (departmentsFunctions.createDepartment ×1, departmentsFunctions.deleteDepartment ×1, departmentsFunctions.deleteEmployeeDepartment ×1, departmentsFunctions.deleteEmployeeManager ×1, departmentsFunctions.setEmployeeDepartment ×1, departmentsFunctions.setEmployeeManager ×1); call-dispatch/entities.ts (entitiesFunctions.createCustomer ×1, entitiesFunctions.createEmployeeContact ×1, entitiesFunctions.createEntity ×1, entitiesFunctions.createProvider ×1, entitiesFunctions.reorderEntities ×2, entitiesFunctions.revokeEntity ×1, and 3 more); call-dispatch/hierarchy.ts (hierarchyFunctions.createHierarchyGrouping ×1, hierarchyFunctions.createHierarchyValue ×2, hierarchyFunctions.defineProductShape ×1, hierarchyFunctions.deleteHierarchyGrouping ×1, hierarchyFunctions.deleteHierarchyTag ×1, hierarchyFunctions.deleteHierarchyValue ×1, and 1 more); and 19 more file(s) · tests: 18 call(s) in 4 file(s) · tooling: 72 call(s) in 11 file(s)
+Called from: production: call-dispatch/arap.ts (arapFunctions.postAPPayment ×1, arapFunctions.postARReceipt ×1); call-dispatch/auth.ts (authFunctions.changeOwnPassword ×1, authFunctions.setOwnDateFormat ×1, authFunctions.setOwnNumberFormat ×1, authFunctions.setOwnPageSize ×1, authFunctions.setUserRoleInBusiness ×1, authFunctions.unsetUserRoleInBusiness ×1); call-dispatch/businesses.ts ((module level) ×2, businessesFunctions.buildBankCurrencyStructure ×1, businessesFunctions.createProfitCenter ×1, businessesFunctions.nominateBankAccount ×1, businessesFunctions.saveBusinessTypeAnswers ×1); call-dispatch/contacts.ts (contactsFunctions.deleteTypedAddress ×1, contactsFunctions.deleteTypedContactPerson ×1, contactsFunctions.deleteTypedPhone ×1, contactsFunctions.setTypedAddress ×1, contactsFunctions.setTypedContactPerson ×1, contactsFunctions.setTypedPhone ×1); call-dispatch/customer-registration.ts (customerRegistrationFunctions.registerCustomer ×1); call-dispatch/departments.ts (departmentsFunctions.createDepartment ×1, departmentsFunctions.deleteDepartment ×1, departmentsFunctions.deleteEmployeeDepartment ×1, departmentsFunctions.deleteEmployeeManager ×1, departmentsFunctions.setEmployeeDepartment ×1, departmentsFunctions.setEmployeeManager ×1); call-dispatch/entities.ts (entitiesFunctions.createCustomer ×1, entitiesFunctions.createEmployeeContact ×1, entitiesFunctions.createEntity ×1, entitiesFunctions.createProvider ×1, entitiesFunctions.reorderEntities ×2, entitiesFunctions.revokeEntity ×1, and 3 more); call-dispatch/hierarchy.ts (hierarchyFunctions.createHierarchyGrouping ×1, hierarchyFunctions.createHierarchyValue ×2, hierarchyFunctions.defineProductShape ×1, hierarchyFunctions.deleteHierarchyGrouping ×1, hierarchyFunctions.deleteHierarchyTag ×1, hierarchyFunctions.deleteHierarchyValue ×1, and 1 more); and 19 more file(s) · tests: 18 call(s) in 4 file(s) · tooling: 71 call(s) in 11 file(s)
 
 **`asEntityId`** *(exported)*
 
@@ -6073,7 +6089,7 @@ Called from: production: call-dispatch/items.ts (itemsFunctions.getItemStorageOr
 getEntityTree(businessName?: string): (EntityNode & { depth: number; is_postable_account: boolean; line_type: string | null; })[]
 ```
 
-Called from: production: call-dispatch/entities.ts (entitiesFunctions.getEntityTree ×1); call-dispatch/locations.ts (locationsFunctions.listLocations ×1); db-reports.ts (getSalesReport ×1); db.ts (getBusinessConfigurationReport ×1, isDescendantOf ×1) · tests: 53 call(s) in 1 file(s) · tooling: 14 call(s) and 1 reference(s) in 6 file(s)
+Called from: production: call-dispatch/entities.ts (entitiesFunctions.getEntityTree ×1); call-dispatch/locations.ts (locationsFunctions.listLocations ×1); db.ts (getBusinessConfigurationReport ×1, isDescendantOf ×1) · tests: 53 call(s) in 1 file(s) · tooling: 14 call(s) and 1 reference(s) in 6 file(s)
 
 **`orderSiblingsByDisplayOrderPreJoined`**
 
@@ -6305,7 +6321,7 @@ Called from: production: call-dispatch/locations.ts (locationsFunctions.listLoca
 resolveBusinessLocationId(businessName: string, locationName: string): number | undefined
 ```
 
-Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.setHierarchyTag ×1); db.ts (ensureItemLocationInventoryAccount ×1, ensureItemLocationQuantityAccount ×1) · tests: 1 call(s) in 1 file(s)
+Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.setHierarchyTag ×1); db.ts (checkGroupingTag ×1, ensureItemLocationInventoryAccount ×1, ensureItemLocationQuantityAccount ×1) · tests: 1 call(s) in 1 file(s)
 
 **`getOrganizationChart`** *(exported)*
 
@@ -6641,15 +6657,39 @@ Called from: production: db-stock.ts (getItemLocation ×1, getStockOutRiskReport
 ensureBusinessRoot(businessName: BusinessName, rootName: string, userId: UserId): { id: number; name: string; }
 ```
 
-Called from: production: db.ts (createProfitCenter ×1, defineProductShape ×1, deleteHierarchyGrouping ×1, ensureHierarchyGrouping ×1, ensureProductInstance ×1)
+Called from: production: db.ts (createProfitCenter ×1, defineProductShape ×1, deleteHierarchyGrouping ×1, ensureHierarchyGrouping ×2, ensureProductInstance ×1)
+
+**`groupingKind`** *(exported)*
+
+```
+groupingKind(groupingId: number): GroupingKind | undefined
+```
+
+Called from: production: db.ts (checkGroupingTag ×1, ensureHierarchyGrouping ×1, getBusinessHierarchy ×1)
 
 **`ensureHierarchyGrouping`** *(exported)*
 
 ```
-ensureHierarchyGrouping(businessName: BusinessName, groupingName: string, userId: UserId): { id: number; name: string; }
+ensureHierarchyGrouping(businessName: BusinessName, groupingName: string, userId: UserId, groups?: GroupingKind): { id: number; name: string; }
 ```
 
-Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.createHierarchyGrouping ×1); db.ts (createAndConfigureLocation ×1, defineProductShape ×1, deleteHierarchyValue ×1, ensureHierarchyValue ×1) · tests: 9 call(s) in 2 file(s) · tooling: 8 call(s) in 2 file(s)
+Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.createHierarchyGrouping ×1); db.ts (createAndConfigureLocation ×1, defineProductShape ×1) · tests: 26 call(s) in 2 file(s) · tooling: 2 call(s) in 2 file(s)
+
+**`checkGroupingTag`** *(exported)*
+
+```
+checkGroupingTag(businessName: string, groupingName: string, entityName: string): void
+```
+
+Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.setHierarchyTag ×1) · tests: 5 call(s) in 1 file(s) · tooling: 3 call(s) in 1 file(s)
+
+**`requireHierarchyGrouping`**
+
+```
+requireHierarchyGrouping(businessName: BusinessName, groupingName: string): { id: number; name: string; }
+```
+
+Called from: production: db.ts (deleteHierarchyValue ×1, ensureHierarchyValue ×1)
 
 **`resolveHierarchyValueId`** *(exported)*
 
@@ -6665,7 +6705,7 @@ Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.setHiera
 ensureHierarchyValue(businessName: BusinessName, groupingName: string, valueName: string, userId: UserId): { id: number; name: string; }
 ```
 
-Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.createHierarchyValue ×1); db.ts (createAndConfigureLocation ×1, ensureProductInstance ×1) · tests: 29 call(s) in 2 file(s) · tooling: 9 call(s) in 2 file(s)
+Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.createHierarchyValue ×1); db.ts (createAndConfigureLocation ×1, ensureProductInstance ×1) · tests: 33 call(s) in 2 file(s) · tooling: 9 call(s) in 2 file(s)
 
 **`deleteHierarchyValue`** *(exported)*
 
@@ -6817,7 +6857,7 @@ Called from: production: call-dispatch/locations.ts (locationsFunctions.resolveO
 getBusinessHierarchy(businessName: BusinessName): HierarchyGroupingWithValues[]
 ```
 
-Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.getHierarchy ×1); db-matrix-reports.ts (getAxisValues ×1); db.ts (getBusinessConfigurationReport ×1) · tests: 1 call(s) in 1 file(s)
+Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.getHierarchy ×1); db-matrix-reports.ts (getAxisValues ×1); db-reports.ts (getSalesReport ×1); db-stock.ts (rowGroupsOf ×1); db.ts (getBusinessConfigurationReport ×1) · tests: 2 call(s) in 1 file(s)
 
 **`getBusinessProductShapes`** *(exported)*
 
@@ -6897,7 +6937,7 @@ Called from: production: db-quotations.ts (draftQuotation ×1, rejectQuotation �
 getHierarchyGroupForLocation(locationName: string, hierarchyName: string): string | undefined
 ```
 
-Called from: production: db-stock.ts (getInventoryListingByLocation ×1, getStockMovementReport ×2); db.ts (getHierarchyGroupForAccount ×1) · tooling: 1 call(s) in 1 file(s)
+Called from: production: db-stock.ts (getInventoryListingByLocation ×1, rowGroupsOf ×1); db.ts (getHierarchyGroupForAccount ×1) · tooling: 1 call(s) in 1 file(s)
 
 **`resolveDispatchLocation`** *(exported)*
 
@@ -7321,7 +7361,7 @@ Called from: production: call-dispatch/items.ts (itemsFunctions.getBomComponents
 setHierarchyParent(entityName: string, hierarchyName: string, parentName: string, userId: UserId, entityId?: number, targetId?: number): void
 ```
 
-Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.createHierarchyValue ×1, hierarchyFunctions.setHierarchyTag ×1); db-journal.ts (ensureLocationScopedAccount ×1); db-seed.ts (migrateForContactTypesAndPerBusinessContacts ×3, migrateForVocabularyAlternates ×1); db.ts (createAndConfigureLocation ×1, ensureContactTypeHeaderAccounts ×1, ensureItemLocationInventoryAccount ×1, ensureItemLocationLeaf ×2, ensureItemLocationQuantityAccount ×1, ensureItemTier ×1, and 2 more) · tests: 39 call(s) in 1 file(s) · tooling: 5 call(s) in 2 file(s)
+Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.createHierarchyValue ×1, hierarchyFunctions.setHierarchyTag ×1); db-journal.ts (ensureLocationScopedAccount ×1); db-seed.ts (migrateForContactTypesAndPerBusinessContacts ×3, migrateForVocabularyAlternates ×1); db.ts (createAndConfigureLocation ×1, ensureContactTypeHeaderAccounts ×1, ensureItemLocationInventoryAccount ×1, ensureItemLocationLeaf ×2, ensureItemLocationQuantityAccount ×1, ensureItemTier ×1, and 2 more) · tests: 39 call(s) in 1 file(s) · tooling: 4 call(s) in 2 file(s)
 
 **`getHierarchyParent`** *(exported)*
 
@@ -7329,7 +7369,7 @@ Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.createHi
 getHierarchyParent(entityName: string, hierarchyName: string): string | undefined
 ```
 
-Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.getHierarchyTag ×1); db-matrix-reports.ts (getAxisValues ×1, resolveItemKey ×2, resolveKey ×2); db-reports.ts (categoryOf ×1, resolveAccountHierarchyGroup ×1); db.ts (ensureContactTypeHeaderAccounts ×1, ensureItemTierLocationLeaf ×1, getContactBaseAccounts ×1, getHierarchyAncestorChain ×1, getHierarchyGroupForLocation ×1, getHierarchyGroups ×1, and 2 more) · tests: 15 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.getHierarchyTag ×1); db-matrix-reports.ts (getAxisValues ×1, resolveItemKey ×2, resolveKey ×2); db-reports.ts (groupOf ×1, resolveAccountHierarchyGroup ×1); db.ts (ensureContactTypeHeaderAccounts ×1, ensureItemTierLocationLeaf ×1, getContactBaseAccounts ×1, getHierarchyAncestorChain ×1, getHierarchyGroupForLocation ×1, getHierarchyGroups ×1, and 2 more) · tests: 16 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
 **`deleteHierarchyParent`** *(exported)*
 
@@ -7497,7 +7537,7 @@ Called from: production: db-reports.ts (getChartOfAccounts ×1, sumHierarchyDesc
 getHierarchyAssignments(hierarchyName: string): Record<string, string>
 ```
 
-Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.getHierarchyAssignments ×1); db-stock.ts (allItemCategories ×1)
+Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.getHierarchyAssignments ×1); db-stock.ts (rowGroupsOf ×1)
 
 **`getEntityLinksPointingAt`** *(exported)*
 
@@ -7681,7 +7721,7 @@ Called from: production: call-dispatch/items.ts (itemsFunctions.listItems ×1)
 createItem(name: string, parentCategoryOrItemsRoot: string, userId: UserId, businessName?: BusinessName, isStorable?: boolean): void
 ```
 
-Called from: production: db.ts (ensureCurrencyExchangeItem ×1, ensureServiceItem ×1) · tests: 89 call(s) in 3 file(s) · tooling: 12 call(s) in 5 file(s)
+Called from: production: db.ts (ensureCurrencyExchangeItem ×1, ensureServiceItem ×1) · tests: 89 call(s) in 3 file(s) · tooling: 11 call(s) in 5 file(s)
 
 **`ensureServiceItem`** *(exported)*
 
@@ -9351,7 +9391,7 @@ Called from: production: db-seed.ts (moveLink ×1); db.ts (revokeEntity ×1, set
 Entity.relate(id: number, target: string | null, userId: UserId, targetId?: number): void
 ```
 
-Called from: production: auth.ts (getSessionUser ×1, login ×1, logout ×1, setUserActive ×1, setUserRoles ×1); db-journal.ts (clockInToProject ×1, clockOutOfProject ×1, clockPlantIn ×1, clockPlantOut ×1); db-reports.ts (resolveRolloverLines ×1); db-seed.ts (migrateForCogsTag ×1, migrateForMenuEntities ×2, moveLink ×1); db-stock.ts (createStockTake ×1, setLocation ×5); db.ts (addOrUpdateItemSource ×1, addTyped ×1, copyChildren ×2, createBusiness ×2, createInvoice ×2, defineProductShape ×1, and 14 more); primitives.ts (Detail.delete ×1, Detail.set ×1, Entity.tag ×1, Entity.untag ×1, Link.mark ×1, Link.unmark ×1)
+Called from: production: auth.ts (getSessionUser ×1, login ×1, logout ×1, setUserActive ×1, setUserRoles ×1); db-journal.ts (clockInToProject ×1, clockOutOfProject ×1, clockPlantIn ×1, clockPlantOut ×1); db-reports.ts (resolveRolloverLines ×1); db-seed.ts (migrateForCogsTag ×1, migrateForMenuEntities ×2, moveLink ×1); db-stock.ts (createStockTake ×1, setLocation ×5); db.ts (addOrUpdateItemSource ×1, addTyped ×1, copyChildren ×2, createBusiness ×2, createInvoice ×2, defineProductShape ×1, and 15 more); primitives.ts (Detail.delete ×1, Detail.set ×1, Entity.tag ×1, Entity.untag ×1, Link.mark ×1, Link.unmark ×1)
 
 **`Entity.revoke`** *(exported)*
 
@@ -10056,7 +10096,7 @@ Called from: nowhere the compiler could find.
 **`getSalesReport`** *(exported)*
 
 ```
-getSalesReport(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string): Promise<SalesReport>
+getSalesReport(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string, itemGrouping?: string): Promise<SalesReport>
 ```
 
 Called from: nowhere the compiler could find.
@@ -10237,6 +10277,14 @@ getHierarchy(business: string): Promise<HierarchyGroupingWithValues[]>
 
 Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×3, routes/items ×1, routes/locations ×1, routes/reports/stock-movement ×1, routes/setup/bank-accounts ×1, routes/setup/business-setup ×1, routes/setup/hierarchy ×1, routes/setup/yearend ×1, and 1 more
 
+**`groupingsOf`** *(exported)*
+
+```
+groupingsOf(hierarchy: HierarchyGroupingWithValues[], kind: GroupingKind): HierarchyGroupingWithValues[]
+```
+
+Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×4, routes/items ×2, routes/setup/bank-accounts ×1, routes/setup/business-setup ×1, routes/setup/yearend ×1, routes/stock/listing ×1
+
 **`getProductShapes`** *(exported)*
 
 ```
@@ -10248,10 +10296,10 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/hierarch
 **`createHierarchyGrouping`** *(exported)*
 
 ```
-createHierarchyGrouping(business: string, groupingName: string): Promise<{ name: string; }>
+createHierarchyGrouping(business: string, groupingName: string, groups: GroupingKind): Promise<{ name: string; }>
 ```
 
-Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×3, routes/setup/hierarchy ×1
+Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×2, routes/items ×1, routes/setup/business-setup ×1, routes/setup/hierarchy ×1
 
 **`createHierarchyValue`** *(exported)*
 
@@ -11603,7 +11651,7 @@ Called from: production: api.ts (apiLogin ×1, createUserAccount ×1, decodeCate
 decodeShape(encoded: string): [string, string][] | undefined
 ```
 
-Called from: production: api.ts (defineProductShape ×1, getProductShapes ×1, lookupItemByUpc ×1)
+Called from: production: api.ts (decodeRowGroups ×1, defineProductShape ×1, getProductShapes ×1, lookupItemByUpc ×1)
 
 **`encodeStringList`**
 
@@ -11773,10 +11821,18 @@ getStorageSpaceReport(): Promise<StorageSpaceLocationGroup[]>
 
 Called from: nowhere the compiler could find.
 
+**`decodeRowGroups`**
+
+```
+decodeRowGroups(encoded: string): Record<string, string | null>
+```
+
+Called from: production: api.ts (getStockMovementReport ×3)
+
 **`getStockMovementReport`** *(exported)*
 
 ```
-getStockMovementReport(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string, hierarchyName?: string): Promise<StockMovementReport>
+getStockMovementReport(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string): Promise<StockMovementReport>
 ```
 
 Called from: Svelte pages (by name in the file's imports): routes/reports/stock-movement ×1
@@ -12173,7 +12229,7 @@ Called from: nowhere the compiler could find.
 getAxisValues(business: string, ledger: string): Promise<AxisValues>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/profit-and-loss ×1
+Called from: nowhere the compiler could find.
 
 **`getAxes`** *(exported)*
 
@@ -12181,7 +12237,7 @@ Called from: Svelte pages (by name in the file's imports): routes/reports/profit
 getAxes(business: string, ledger: string): Promise<{ values: AxisValues; groups: Record<string, string>; }>
 ```
 
-Called from: nowhere the compiler could find.
+Called from: Svelte pages (by name in the file's imports): routes/reports/profit-and-loss ×1
 
 ### `frontend/src/lib/money.ts`
 
@@ -12277,7 +12333,7 @@ Called from: production: screen-runtime.ts (actions.purchase ×1, actions.sale �
 named(es: { name: string; }[]): Choice[]
 ```
 
-Called from: production: screen-runtime.ts (sources.customers ×1, sources.items ×1, sources.providers ×1)
+Called from: production: screen-runtime.ts (sources.customers ×1, sources.itemGroupings ×1, sources.items ×1, sources.providers ×1)
 
 **`under`**
 
@@ -12286,6 +12342,14 @@ under(es: EntityNode[], parentName: string): EntityNode[]
 ```
 
 Called from: production: screen-runtime.ts (sources.customers ×1, sources.providers ×1)
+
+**`sources.itemGroupings`** *(exported)*
+
+```
+sources.itemGroupings(business: string): Promise<Choice[]>
+```
+
+Called from: nowhere the compiler could find.
 
 **`sources.locations`** *(exported)*
 
@@ -12642,7 +12706,7 @@ Called from: nowhere the compiler could find.
 **`reports.sales`** *(exported)*
 
 ```
-reports.sales(c: Context, v: Values): Promise<{ columns: { groups: { title: string; table: string; rows: ReportRow[]; }[]; summary: { label: any; value: string; }; }[]; }>
+reports.sales(c: Context, v: Values): Promise<{ columns: { groups: { title: string; table: string; rows: ReportRow[]; labels: { group: any; }; }[]; summary: { label: any; value: string; }; }[]; }>
 ```
 
 Called from: nowhere the compiler could find.

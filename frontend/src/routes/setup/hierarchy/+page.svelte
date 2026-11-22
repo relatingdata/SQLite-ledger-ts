@@ -13,6 +13,7 @@
     defineProductShape as defineProductShapeApi,
     ApiError,
     type HierarchyGroupingWithValues,
+    type GroupingKind,
   } from '$lib/api';
 
   // Single source of truth for entity name display.
@@ -26,6 +27,8 @@
   let error = '';
 
   let newGroupingName = '';
+  // What the new grouping groups — see docs/pm-domain-reference.md.
+  let newGroupingGroups: GroupingKind = 'Items';
   let creatingGrouping = false;
 
   let valueForGrouping: Record<string, string> = {};
@@ -122,7 +125,7 @@
     creatingGrouping = true;
     error = '';
     try {
-      await createHierarchyGrouping(session.current.businessName, newGroupingName.trim());
+      await createHierarchyGrouping(session.current.businessName, newGroupingName.trim(), newGroupingGroups);
       closeInsertGrouping();
       await load();
     } catch (e) {
@@ -214,10 +217,22 @@
                 else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeInsertGrouping(); }
               }}
             />
+            <select
+              name="groups"
+              bind:value={newGroupingGroups}
+              disabled={creatingGrouping}
+              onkeydown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); addGrouping(); }
+                else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeInsertGrouping(); }
+              }}
+            >
+              <option value="Items">{translations.current['Groups items'] ?? 'Groups items'}</option>
+              <option value="Locations">{translations.current['Groups locations'] ?? 'Groups locations'}</option>
+            </select>
           {/snippet}
           {#snippet row(g)}
             <span>{T(g.grouping)}</span>
-            <span class="hint">({g.values.length})</span>
+            <span class="hint">({g.groups ? `${T(g.groups)}, ` : ''}{g.values.length})</span>
           {/snippet}
         </SelectableListEditor>
 

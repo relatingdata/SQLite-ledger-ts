@@ -22,22 +22,23 @@ Create Location,data,/locations,.list-toolbar;;key:Insert,createAndConfigureLoca
 Create Location,data,/locations,.list-toolbar;;key:Insert,createAndConfigureLocation,key:Enter,2,locationName,.generic-form fieldset >> nth=0 >> input,text
 Create Location,data,/locations,.list-toolbar;;key:Insert,createAndConfigureLocation,key:Enter,3,city,.generic-form fieldset >> nth=1 >> input,text
 Create Location,data,/locations,.list-toolbar;;key:Insert,createAndConfigureLocation,key:Enter,4,locationType,.generic-form fieldset >> nth=2 >> select,select
-Create Location,data,/locations,.list-toolbar;;key:Insert,createAndConfigureLocation,key:Enter,5,division,,text
-Create Location,data,/locations,.list-toolbar;;key:Insert,createAndConfigureLocation,key:Enter,6,bottleCapacity,,text
-Create Location,data,/locations,.list-toolbar;;key:Insert,createAndConfigureLocation,key:Enter,7,cartonCapacity,,text
+Create Location,data,/locations,.list-toolbar;;key:Insert,createAndConfigureLocation,key:Enter,5,bottleCapacity,,text
+Create Location,data,/locations,.list-toolbar;;key:Insert,createAndConfigureLocation,key:Enter,6,cartonCapacity,,text
 Create Employee,data,/setup/business-setup,button:has-text('{{locationName}}') >> nth=1;;key:Insert,createEmployeeAt,key:Enter,1,businessName,,text
 Create Employee,data,/setup/business-setup,button:has-text('{{locationName}}') >> nth=1;;key:Insert,createEmployeeAt,key:Enter,2,employeeName,input[placeholder='Employee name'],text
 Create Employee,data,/setup/business-setup,button:has-text('{{locationName}}') >> nth=1;;key:Insert,createEmployeeAt,key:Enter,3,locationName,,text
 Create Provider,data,/editor,.card.list th:first-child;;key:Insert,createProviderSimple,key:Enter,1,businessName,,text
 Create Provider,data,/editor,.card.list th:first-child;;key:Insert,createProviderSimple,key:Enter,2,providerName,input[placeholder='e.g. Gamma LLC'],text
 Create Provider,data,/editor,.card.list th:first-child;;key:Insert,createProviderSimple,key:Enter,3,parent,select >> nth=0,select
-Create Item No Category,data,/items,button:has-text('+ Item (no category)'),createUncategorizedItem,key:Enter,1,businessName,,text
-Create Item No Category,data,/items,button:has-text('+ Item (no category)'),createUncategorizedItem,key:Enter,2,itemName,input[placeholder='New item name'],text
-Create Category,data,/items,"[role=""toolbar""][aria-keyshortcuts];;key:Insert",createCategorySimple,key:Enter,1,businessName,,text
-Create Category,data,/items,"[role=""toolbar""][aria-keyshortcuts];;key:Insert",createCategorySimple,key:Enter,2,categoryName,input[placeholder='Category name'],text
-Create Item Under Category,data,/items,button:has-text('{{category}}');;key:Insert,createItemUnderCategory,key:Enter,1,businessName,,text
-Create Item Under Category,data,/items,button:has-text('{{category}}');;key:Insert,createItemUnderCategory,key:Enter,2,itemName,input[placeholder='New item name'],text
-Create Item Under Category,data,/items,button:has-text('{{category}}');;key:Insert,createItemUnderCategory,key:Enter,3,category,,text
+Create Item No Category,data,/items,button:has-text('+ Item (ungrouped)'),createUncategorizedItem,key:Enter,1,businessName,,text
+Create Item No Category,data,/items,button:has-text('+ Item (ungrouped)'),createUncategorizedItem,key:Enter,2,itemName,input[placeholder='New item name'],text
+Create Item Group Value,data,/items,"button.grouping-choice:text-is('{{groupingName}}');;[role=""toolbar""][aria-keyshortcuts];;key:Insert",createItemGroupValue,key:Enter,1,businessName,,text
+Create Item Group Value,data,/items,"button.grouping-choice:text-is('{{groupingName}}');;[role=""toolbar""][aria-keyshortcuts];;key:Insert",createItemGroupValue,key:Enter,2,groupingName,,text
+Create Item Group Value,data,/items,"button.grouping-choice:text-is('{{groupingName}}');;[role=""toolbar""][aria-keyshortcuts];;key:Insert",createItemGroupValue,key:Enter,3,valueName,input[placeholder='New value'],text
+Create Item In Group,data,/items,button.grouping-choice:text-is('{{groupingName}}');;button:has-text('{{valueName}}');;key:Insert,createItemInGroup,key:Enter,1,businessName,,text
+Create Item In Group,data,/items,button.grouping-choice:text-is('{{groupingName}}');;button:has-text('{{valueName}}');;key:Insert,createItemInGroup,key:Enter,2,itemName,input[placeholder='New item name'],text
+Create Item In Group,data,/items,button.grouping-choice:text-is('{{groupingName}}');;button:has-text('{{valueName}}');;key:Insert,createItemInGroup,key:Enter,3,groupingName,,text
+Create Item In Group,data,/items,button.grouping-choice:text-is('{{groupingName}}');;button:has-text('{{valueName}}');;key:Insert,createItemInGroup,key:Enter,4,valueName,,text
 Set Item Cost and Pack Size,data,/items,button:has-text('Amber Ale 330ml'),setItemCostAndPackSize,button:has-text('Add source'),1,businessName,,text
 Set Item Cost and Pack Size,data,/items,button:has-text('Amber Ale 330ml'),setItemCostAndPackSize,button:has-text('Add source'),2,itemName,,text
 Set Item Cost and Pack Size,data,/items,button:has-text('Amber Ale 330ml'),setItemCostAndPackSize,button:has-text('Add source'),3,providerName,select >> nth=1,select
@@ -61,9 +62,16 @@ Cash Purchase,data,/arap/cash-purchase,,cashPurchaseSimple,button:has-text('Comp
 Cash Purchase,data,,,,,6,ledger,,text
 Create Hierarchy Grouping,data,/setup/hierarchy,".hierarchy-layout fieldset.sub-block:first-of-type [role=""toolbar""];;key:Insert",createHierarchyGroupingSimple,key:Enter,1,businessName,,text
 Create Hierarchy Grouping,data,/setup/hierarchy,".hierarchy-layout fieldset.sub-block:first-of-type [role=""toolbar""];;key:Insert",createHierarchyGroupingSimple,key:Enter,2,groupingName,"input[placeholder='New grouping name (e.g. Storage, Glass Size)']",text
-Create Hierarchy Value,data,/setup/hierarchy,".hierarchy-layout fieldset.sub-block:first-of-type .repeat-block:last-of-type;;.hierarchy-layout fieldset.sub-block:last-of-type [role=""toolbar""];;key:Insert",createHierarchyValueSimple,key:Enter,1,businessName,,text
-Create Hierarchy Value,data,/setup/hierarchy,".hierarchy-layout fieldset.sub-block:first-of-type .repeat-block:last-of-type;;.hierarchy-layout fieldset.sub-block:last-of-type [role=""toolbar""];;key:Insert",createHierarchyValueSimple,key:Enter,2,groupingName,,text
-Create Hierarchy Value,data,/setup/hierarchy,".hierarchy-layout fieldset.sub-block:first-of-type .repeat-block:last-of-type;;.hierarchy-layout fieldset.sub-block:last-of-type [role=""toolbar""];;key:Insert",createHierarchyValueSimple,key:Enter,3,valueName,.hierarchy-layout fieldset.sub-block:last-of-type input[placeholder='New value'],text
+Create Hierarchy Grouping,data,/setup/hierarchy,".hierarchy-layout fieldset.sub-block:first-of-type [role=""toolbar""];;key:Insert",createHierarchyGroupingSimple,key:Enter,3,groups,.hierarchy-layout select[name='groups'],select
+Create Location Grouping Via Structure Popup,data,/setup/business-structure,.grouping-bar button.link-button:has-text('+ New grouping'),createHierarchyGroupingSimple,.grouping-bar .inline-form button:has-text('Create'),1,businessName,,text
+Create Location Grouping Via Structure Popup,data,/setup/business-structure,.grouping-bar button.link-button:has-text('+ New grouping'),createHierarchyGroupingSimple,.grouping-bar .inline-form button:has-text('Create'),2,groupingName,input[placeholder='Name of the grouping'],text
+Create Location Grouping Via Structure Popup,data,/setup/business-structure,.grouping-bar button.link-button:has-text('+ New grouping'),createHierarchyGroupingSimple,.grouping-bar .inline-form button:has-text('Create'),3,groups,,text
+Create Item Grouping Via Structure Popup,data,/setup/business-structure,button:has-text('Item Groupings');;.grouping-bar button.link-button:has-text('+ New grouping'),createHierarchyGroupingSimple,.grouping-bar .inline-form button:has-text('Create'),1,businessName,,text
+Create Item Grouping Via Structure Popup,data,/setup/business-structure,button:has-text('Item Groupings');;.grouping-bar button.link-button:has-text('+ New grouping'),createHierarchyGroupingSimple,.grouping-bar .inline-form button:has-text('Create'),2,groupingName,input[placeholder='Name of the grouping'],text
+Create Item Grouping Via Structure Popup,data,/setup/business-structure,button:has-text('Item Groupings');;.grouping-bar button.link-button:has-text('+ New grouping'),createHierarchyGroupingSimple,.grouping-bar .inline-form button:has-text('Create'),3,groups,,text
+Create Hierarchy Value,data,/setup/hierarchy,".hierarchy-layout fieldset.sub-block:first-of-type .repeat-block:has-text('{{groupingName}}');;.hierarchy-layout fieldset.sub-block:last-of-type [role=""toolbar""];;key:Insert",createHierarchyValueSimple,key:Enter,1,businessName,,text
+Create Hierarchy Value,data,/setup/hierarchy,".hierarchy-layout fieldset.sub-block:first-of-type .repeat-block:has-text('{{groupingName}}');;.hierarchy-layout fieldset.sub-block:last-of-type [role=""toolbar""];;key:Insert",createHierarchyValueSimple,key:Enter,2,groupingName,,text
+Create Hierarchy Value,data,/setup/hierarchy,".hierarchy-layout fieldset.sub-block:first-of-type .repeat-block:has-text('{{groupingName}}');;.hierarchy-layout fieldset.sub-block:last-of-type [role=""toolbar""];;key:Insert",createHierarchyValueSimple,key:Enter,3,valueName,.hierarchy-layout fieldset.sub-block:last-of-type input[placeholder='New value'],text
 Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),receiveStockWithCombination,button:has-text('Receive'),1,businessName,,text
 Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),receiveStockWithCombination,button:has-text('Receive'),2,itemName,,text
 Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),receiveStockWithCombination,button:has-text('Receive'),3,locationName,select >> nth=2,select
@@ -71,14 +79,15 @@ Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),r
 Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),receiveStockWithCombination,button:has-text('Receive'),5,groupingName,select >> nth=3,select
 Receive Into Storage,data,/items,button:has-text('Highland Single Malt 700ml'),receiveStockWithCombination,button:has-text('Receive'),6,storageValue,select >> nth=4,select
 Receive Into Storage,data,,,,,7,ledger,,text
-Open Container,data,/locations,.entry:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),1,businessName,,text
-Open Container,data,/locations,.entry:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),2,locationName,,text
-Open Container,data,/locations,.entry:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),3,itemName,input[placeholder='Item name…'],text
-Open Container,data,/locations,.entry:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),4,containerValue,select >> nth=3,select
-Open Container,data,/locations,.entry:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),5,cartonsOpened,input[placeholder='1'],text
-Open Container,data,/locations,.entry:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),6,unitValue,select >> nth=4,select
-Open Container,data,/locations,.entry:has-text('Main Street Cellar');;select:select >> nth=2::Container,openContainer,button:has-text('Open Container'),7,unitsProduced,input[placeholder='e.g. 24'],text
+Open Container,data,/locations,.entry:has-text('Main Street Cellar');;select:select >> nth=2::{{groupingName}},openContainer,button:has-text('Open Container'),1,businessName,,text
+Open Container,data,/locations,.entry:has-text('Main Street Cellar');;select:select >> nth=2::{{groupingName}},openContainer,button:has-text('Open Container'),2,locationName,,text
+Open Container,data,/locations,.entry:has-text('Main Street Cellar');;select:select >> nth=2::{{groupingName}},openContainer,button:has-text('Open Container'),3,itemName,input[placeholder='Item name…'],text
+Open Container,data,/locations,.entry:has-text('Main Street Cellar');;select:select >> nth=2::{{groupingName}},openContainer,button:has-text('Open Container'),4,containerValue,select >> nth=3,select
+Open Container,data,/locations,.entry:has-text('Main Street Cellar');;select:select >> nth=2::{{groupingName}},openContainer,button:has-text('Open Container'),5,cartonsOpened,input[placeholder='1'],text
+Open Container,data,/locations,.entry:has-text('Main Street Cellar');;select:select >> nth=2::{{groupingName}},openContainer,button:has-text('Open Container'),6,unitValue,select >> nth=4,select
+Open Container,data,/locations,.entry:has-text('Main Street Cellar');;select:select >> nth=2::{{groupingName}},openContainer,button:has-text('Open Container'),7,unitsProduced,input[placeholder='e.g. 24'],text
 Open Container,data,,,,,8,ledger,,text
+Open Container,data,,,,,9,groupingName,,text
 Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),1,businessName,,text
 Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),3,fromLocationName,select >> nth=1,select
 Transfer Items,data,/stock/transfer,,transferItemsSimple,button:has-text('Transfer'),2,itemName,select >> nth=0,select
@@ -173,21 +182,21 @@ Check P&L By Item,data,/reports/profit-and-loss,,,,4,toDate,input[type=date] >> 
 Check P&L By Item,data,/reports/profit-and-loss,,,,5,innerAxis,select >> nth=1,select_value
 Check P&L By Item,data,/reports/profit-and-loss,,,,6,outerAxis,select >> nth=0,select_value
 Check P&L By Item,data,/reports/profit-and-loss,,,,7,itemName,,text
-Check P&L By Category,data,/reports/profit-and-loss,,,,1,businessName,,text
-Check P&L By Category,data,/reports/profit-and-loss,,,,2,ledger,,text
-Check P&L By Category,data,/reports/profit-and-loss,,,,3,fromDate,input[type=date] >> nth=0,text
-Check P&L By Category,data,/reports/profit-and-loss,,,,4,toDate,input[type=date] >> nth=1,text
-Check P&L By Category,data,/reports/profit-and-loss,,,,5,outerAxis,select >> nth=0,select_value
-Check P&L By Category,data,/reports/profit-and-loss,,,,6,innerAxis,select >> nth=1,select_value
-Check P&L By Category,data,/reports/profit-and-loss,,,,7,categoryName,,text
-Check P&L By Category,data,/reports/profit-and-loss,,,,8,itemName,,text
-Check P&L By Division,data,/reports/profit-and-loss,,,,1,businessName,,text
-Check P&L By Division,data,/reports/profit-and-loss,,,,2,ledger,,text
-Check P&L By Division,data,/reports/profit-and-loss,,,,3,fromDate,input[type=date] >> nth=0,text
-Check P&L By Division,data,/reports/profit-and-loss,,,,4,toDate,input[type=date] >> nth=1,text
-Check P&L By Division,data,/reports/profit-and-loss,,,,5,innerAxis,select >> nth=1,select_value
-Check P&L By Division,data,/reports/profit-and-loss,,,,6,outerAxis,select >> nth=0,select_value
-Check P&L By Division,data,/reports/profit-and-loss,,,,7,divisionName,,text
+Check P&L Group Has Item,data,/reports/profit-and-loss,,,,1,businessName,,text
+Check P&L Group Has Item,data,/reports/profit-and-loss,,,,2,ledger,,text
+Check P&L Group Has Item,data,/reports/profit-and-loss,,,,3,fromDate,input[type=date] >> nth=0,text
+Check P&L Group Has Item,data,/reports/profit-and-loss,,,,4,toDate,input[type=date] >> nth=1,text
+Check P&L Group Has Item,data,/reports/profit-and-loss,,,,5,outerAxis,select >> nth=0,select_value
+Check P&L Group Has Item,data,/reports/profit-and-loss,,,,6,innerAxis,select >> nth=1,select_value
+Check P&L Group Has Item,data,/reports/profit-and-loss,,,,7,valueName,,text
+Check P&L Group Has Item,data,/reports/profit-and-loss,,,,8,itemName,,text
+Check P&L Group Is Whole,data,/reports/profit-and-loss,,,,1,businessName,,text
+Check P&L Group Is Whole,data,/reports/profit-and-loss,,,,2,ledger,,text
+Check P&L Group Is Whole,data,/reports/profit-and-loss,,,,3,fromDate,input[type=date] >> nth=0,text
+Check P&L Group Is Whole,data,/reports/profit-and-loss,,,,4,toDate,input[type=date] >> nth=1,text
+Check P&L Group Is Whole,data,/reports/profit-and-loss,,,,5,innerAxis,select >> nth=1,select_value
+Check P&L Group Is Whole,data,/reports/profit-and-loss,,,,6,outerAxis,select >> nth=0,select_value
+Check P&L Group Is Whole,data,/reports/profit-and-loss,,,,7,valueName,,text
 Create User,data,/setup/users,"[role=""toolbar""][aria-keyshortcuts];;key:Insert",createUserSimple,key:Enter,1,username,.form-card fieldset:has(legend:has-text('Username')) input,text
 Create User,data,/setup/users,"[role=""toolbar""][aria-keyshortcuts];;key:Insert",createUserSimple,key:Enter,2,password,.form-card fieldset:has(legend:has-text('Password')) input,text
 Create User,data,/setup/users,"[role=""toolbar""][aria-keyshortcuts];;key:Insert",createUserSimple,key:Enter,3,roles,.form-card .multiselect,check_by_text
@@ -202,13 +211,16 @@ Add Location Via Structure Popup,data,/setup/business-structure,button:has-text(
 Add Location Via Structure Popup,data,/setup/business-structure,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create Location'),2,locationName,.generic-form fieldset >> nth=0 >> input,text
 Add Location Via Structure Popup,data,/setup/business-structure,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create Location'),3,city,.generic-form fieldset >> nth=1 >> input,text
 Add Location Via Structure Popup,data,/setup/business-structure,button:has-text('+ New Location'),createAndConfigureLocation,button:has-text('Create Location'),4,locationType,.generic-form fieldset >> nth=2 >> select,select
-Add Division Via Structure Popup,data,/setup/business-structure,button:has-text('+ New Division'),addDivisionViaStructurePopup,.inline-form button:has-text('Create'),1,businessName,,text
-Add Division Via Structure Popup,data,/setup/business-structure,button:has-text('+ New Division'),addDivisionViaStructurePopup,.inline-form button:has-text('Create'),2,valueName,"input[placeholder='Division name, e.g. Adelaide Metro']",text
-Move Location To Division,data,/setup/business-structure,.box:has(.box-label:text-is('{{locationName}}'));;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,1,businessName,,text
-Move Location To Division,data,/setup/business-structure,.box:has(.box-label:text-is('{{locationName}}'));;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,2,locationName,,text
-Move Location To Division,data,/setup/business-structure,.box:has(.box-label:text-is('{{locationName}}'));;.side-panel button:has-text('Move'),setHierarchyTagSimple,key:Enter,3,division,.inline-panel select,select
-Add Category Via Structure Popup,data,/setup/business-structure,button:has-text('Item Categories');;button:has-text('+ New top-level category'),addTopLevelCategoryViaStructurePopup,.inline-form button:has-text('Create'),1,businessName,,text
-Add Category Via Structure Popup,data,/setup/business-structure,button:has-text('Item Categories');;button:has-text('+ New top-level category'),addTopLevelCategoryViaStructurePopup,.inline-form button:has-text('Create'),2,categoryName,input[placeholder='Category name'],text
+Add Location Group Value Via Structure Popup,data,/setup/business-structure,button.grouping-choice:text-is('{{groupingName}}');;button.add-group-value,addLocationGroupValueViaStructurePopup,.inline-form button:has-text('Create'),1,businessName,,text
+Add Location Group Value Via Structure Popup,data,/setup/business-structure,button.grouping-choice:text-is('{{groupingName}}');;button.add-group-value,addLocationGroupValueViaStructurePopup,.inline-form button:has-text('Create'),2,groupingName,,text
+Add Location Group Value Via Structure Popup,data,/setup/business-structure,button.grouping-choice:text-is('{{groupingName}}');;button.add-group-value,addLocationGroupValueViaStructurePopup,.inline-form button:has-text('Create'),3,valueName,input[placeholder='New value'],text
+Move Location To Group,data,/setup/business-structure,"button.grouping-choice:text-is('{{groupingName}}');;.box:has(.box-label:text-is('{{locationName}}'));;.side-panel button:has-text('Move')",setLocationGroup,key:Enter,1,businessName,,text
+Move Location To Group,data,/setup/business-structure,"button.grouping-choice:text-is('{{groupingName}}');;.box:has(.box-label:text-is('{{locationName}}'));;.side-panel button:has-text('Move')",setLocationGroup,key:Enter,2,locationName,,text
+Move Location To Group,data,/setup/business-structure,"button.grouping-choice:text-is('{{groupingName}}');;.box:has(.box-label:text-is('{{locationName}}'));;.side-panel button:has-text('Move')",setLocationGroup,key:Enter,3,groupingName,,text
+Move Location To Group,data,/setup/business-structure,"button.grouping-choice:text-is('{{groupingName}}');;.box:has(.box-label:text-is('{{locationName}}'));;.side-panel button:has-text('Move')",setLocationGroup,key:Enter,4,valueName,.inline-panel select,select
+Add Item Group Value Via Structure Popup,data,/setup/business-structure,button:has-text('Item Groupings');;button.grouping-choice:text-is('{{groupingName}}');;button.add-top-level-value,addItemGroupValueViaStructurePopup,.inline-form button:has-text('Create'),1,businessName,,text
+Add Item Group Value Via Structure Popup,data,/setup/business-structure,button:has-text('Item Groupings');;button.grouping-choice:text-is('{{groupingName}}');;button.add-top-level-value,addItemGroupValueViaStructurePopup,.inline-form button:has-text('Create'),2,groupingName,,text
+Add Item Group Value Via Structure Popup,data,/setup/business-structure,button:has-text('Item Groupings');;button.grouping-choice:text-is('{{groupingName}}');;button.add-top-level-value,addItemGroupValueViaStructurePopup,.inline-form button:has-text('Create'),3,valueName,input[placeholder='New value'],text
 Create Department Via Structure Popup,data,/setup/business-structure,button:has-text('+ New Department'),addDepartmentViaStructurePopup,.inline-form button:has-text('Create'),1,businessName,,text
 Create Department Via Structure Popup,data,/setup/business-structure,button:has-text('+ New Department'),addDepartmentViaStructurePopup,.inline-form button:has-text('Create'),2,departmentName,"input[placeholder='Department name, e.g. Sales']",text
 Assign Employee Department Via Structure Popup,data,/setup/business-structure,.box:has(.box-label:text-is('{{employeeName}}'));;.side-panel button:has-text('Move'),assignEmployeeDepartmentViaStructurePopup,key:Enter,1,businessName,,text

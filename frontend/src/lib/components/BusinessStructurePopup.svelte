@@ -16,6 +16,7 @@
     listLocations,
     getLocationTypes,
     getHierarchy,
+    groupingsOf,
     getHierarchyTag,
     getHierarchyAssignments,
     setHierarchyTag,
@@ -36,6 +37,7 @@
     ApiError,
     type LocationRecord,
     type HierarchyGroupingWithValues,
+    type GroupingKind,
     type DepartmentRecord,
     type OrgChartStructure,
     type OrgChartEmployee,
@@ -53,15 +55,49 @@
   // docs/pm-frontend-reference.md.
   type Tab = 'structure' | 'categories' | 'hierarchies';
   const STEPS: { id: Tab; title: string; blurb: string }[] = [
-    { id: 'structure', title: 'Org Chart', blurb: 'Where this business physically operates, and who works there — locations, divisions, departments, and employees, all in one chart. Add as many as you like, or skip this entirely and come back to it later from the Locations and Employees screens.' },
-    { id: 'categories', title: 'Item Categories', blurb: 'An optional way to group what this business sells or stocks. Plenty of businesses never need one — items can always live with no category at all.' },
-    { id: 'hierarchies', title: 'Other Hierarchies', blurb: 'Any further grouping this business wants to report by — region, bottle size, storage area — beyond Division. Most businesses never need this.' },
+    { id: 'structure', title: 'Org Chart', blurb: 'Where this business physically operates, and who works there — locations and their groups, departments, and employees, all in one chart. Add as many as you like, or skip this entirely and come back to it later from the Locations and Employees screens.' },
+    { id: 'categories', title: 'Item Groupings', blurb: 'An optional way to group what this business sells or stocks, under a name of its own. Plenty of businesses never need one — items can always stay ungrouped.' },
+    { id: 'hierarchies', title: 'Other Hierarchies', blurb: 'Every grouping of this business, of its items or of its locations — region, bottle size, storage area. Most businesses never need more than one of each.' },
   ];
   let stepIndex = $state(0);
   let activeTab: Tab = $derived(STEPS[stepIndex].id);
 
-  const DIVISION = 'Division';
-  const CATEGORY = 'Category';
+  // The location grouping the org chart shows and the item grouping the
+  // second step shows, each chosen among the business's own (the first
+  // created by default); no grouping is named in the code — see
+  // docs/pm-domain-reference.md, "No grouping name is in the code".
+  let allGroupings: HierarchyGroupingWithValues[] = $state([]);
+  let locationGroupings = $derived(groupingsOf(allGroupings, 'Locations'));
+  let itemGroupings = $derived(groupingsOf(allGroupings, 'Items'));
+  let locationGrouping = $state('');
+  let itemGrouping = $state('');
+  function settleGroupings(h: HierarchyGroupingWithValues[]) {
+    allGroupings = h;
+    const ofLocations = groupingsOf(h, 'Locations');
+    const ofItems = groupingsOf(h, 'Items');
+    if (!ofLocations.some((g) => g.grouping === locationGrouping)) locationGrouping = ofLocations[0]?.grouping ?? '';
+    if (!ofItems.some((g) => g.grouping === itemGrouping)) itemGrouping = ofItems[0]?.grouping ?? '';
+  }
+  // A new grouping of the given kind, named in the step that shows it.
+  let namingGroupingOf: GroupingKind | null = $state(null);
+  let namedGrouping = $state('');
+  async function submitNamedGrouping() {
+    if (!namedGrouping.trim() || !namingGroupingOf) return;
+    const kind = namingGroupingOf;
+    try {
+      await createHierarchyGrouping(business, namedGrouping.trim(), kind);
+      if (kind === 'Locations') locationGrouping = namedGrouping.trim();
+      else itemGrouping = namedGrouping.trim();
+      namedGrouping = '';
+      namingGroupingOf = null;
+      if (kind === 'Locations') await loadStructureTab();
+      else await loadCategoriesTab();
+    } catch (e) {
+      const message = e instanceof ApiError ? e.message : 'Could not create the grouping.';
+      if (kind === 'Locations') structureError = message;
+      else categoriesError = message;
+    }
+  }
   const UNASSIGNED_KEY = '__unassigned__';
   const UNASSIGNED_DEPT_KEY = '__unassigned_dept__';
 
@@ -114,11 +150,10 @@
       locationTypes = types;
       departments = depts;
       orgChart = chart;
-      divisionValues = hierarchy.find((h: HierarchyGroupingWithValues) => h.grouping === DIVISION)?.values ?? [];
-      // One bulk read, not a per-location getHierarchyTag loop — see
-      // getOrgChartStructure/getHierarchyTag's own N+1 note in the plan
-      // for why this was worth avoiding for Division too, while already here.
-      const tags = await Promise.all(locs.map((l) => getHierarchyTag(l.name, DIVISION).catch(() => ({ parentName: null }))));
+      settleGroupings(hierarchy);
+      divisionValues = hierarchy.find((h: HierarchyGroupingWithValues) => h.grouping === locationGrouping)?.values ?? [];
+      const grouping = locationGrouping;
+      const tags = grouping ? await Promise.all(locs.map((l) => getHierarchyTag(l.name, grouping).catch(() => ({ parentName: null })))) : locs.map(() => ({ parentName: null }));
       locationDivision = Object.fromEntries(locs.map((l, i) => [l.name, tags[i].parentName]));
     } catch (e) {
       structureError = e instanceof ApiError ? e.message : 'Could not load the org chart.';
@@ -136,7 +171,7 @@
     for (const v of divisionValues.slice().sort((a, b) => a.localeCompare(b))) {
       nodes.push({ key: `div:${v}`, parentId: null, label: v, kind: 'division', canMove: false });
     }
-    nodes.push({ key: UNASSIGNED_KEY, parentId: null, label: 'Unassigned (no division)', kind: 'unassigned' });
+    nodes.push({ key: UNASSIGNED_KEY, parentId: null, label: 'Ungrouped', kind: 'unassigned' });
     for (const l of locations.slice().sort((a, b) => a.name.localeCompare(b.name))) {
       const d = locationDivision[l.name] ?? null;
       nodes.push({ key: `loc:${l.name}`, parentId: d ? `div:${d}` : UNASSIGNED_KEY, label: l.name, kind: 'location', canMove: true });
@@ -212,15 +247,14 @@
   let addingDivisionValue = $state(false);
   let newDivisionValueName = $state('');
   async function submitNewDivisionValue() {
-    if (!newDivisionValueName.trim()) return;
+    if (!newDivisionValueName.trim() || !locationGrouping) return;
     try {
-      await createHierarchyGrouping(business, DIVISION);
-      await createHierarchyValue(business, DIVISION, newDivisionValueName.trim());
+      await createHierarchyValue(business, locationGrouping, newDivisionValueName.trim());
       newDivisionValueName = '';
       addingDivisionValue = false;
       await loadStructureTab();
     } catch (e) {
-      structureError = e instanceof ApiError ? e.message : 'Could not create division.';
+      structureError = e instanceof ApiError ? e.message : 'Could not create the group.';
     }
   }
 
@@ -251,7 +285,7 @@
   let moveStructureOptions: { value: string | null; label: string }[] = $derived.by(() => {
     const node = movingStructureKey ? findStructureNode(movingStructureKey) : undefined;
     if (node?.kind === 'location') {
-      return [{ value: null, label: translations.current['Unassigned (no division)'] ?? 'Unassigned (no division)' }, ...divisionValues.map((v) => ({ value: v, label: v }))];
+      return [{ value: null, label: translations.current['Ungrouped'] ?? 'Ungrouped' }, ...divisionValues.map((v) => ({ value: v, label: v }))];
     }
     if (node?.kind === 'employee') {
       return [
@@ -268,8 +302,8 @@
   async function confirmMoveStructureNode(node: OrgChartBox, destination: string | null) {
     try {
       if (node.kind === 'location') {
-        if (destination) await setHierarchyTag(node.label, DIVISION, destination);
-        else await deleteHierarchyTag(node.label, DIVISION);
+        if (destination) await setHierarchyTag(node.label, locationGrouping, destination);
+        else await deleteHierarchyTag(node.label, locationGrouping);
       } else if (node.kind === 'employee') {
         if (destination) await setEmployeeDepartment(node.label, destination);
         else await deleteEmployeeDepartment(node.label);
@@ -331,13 +365,13 @@
         structureError = e instanceof ApiError ? e.message : 'Could not delete location.';
       }
     } else if (node.kind === 'division' ) {
-      if (!confirm(`Delete the "${translations.current[node.label] ?? node.label}" division? This cannot be undone.`)) return;
+      if (!confirm(`Delete "${translations.current[node.label] ?? node.label}"? This cannot be undone.`)) return;
       try {
-        await deleteHierarchyValue(business, DIVISION, node.label);
+        await deleteHierarchyValue(business, locationGrouping, node.label);
         selectedKey = null;
         await loadStructureTab();
       } catch (e) {
-        structureError = e instanceof ApiError ? e.message : 'Could not delete division.';
+        structureError = e instanceof ApiError ? e.message : 'Could not delete the group.';
       }
     } else if (node.kind === 'department') {
       if (!confirm(`Delete the "${translations.current[node.label] ?? node.label}" department? This cannot be undone.`)) return;
@@ -374,11 +408,12 @@
     categoriesLoading = true;
     categoriesError = '';
     try {
-      const [h, assignments] = await Promise.all([getHierarchy(business), getHierarchyAssignments(CATEGORY)]);
-      categoryValues = h.find((g) => g.grouping === CATEGORY)?.values ?? [];
-      categoryParents = assignments;
+      const h = await getHierarchy(business);
+      settleGroupings(h);
+      categoryValues = h.find((g) => g.grouping === itemGrouping)?.values ?? [];
+      categoryParents = itemGrouping ? await getHierarchyAssignments(itemGrouping) : {};
     } catch (e) {
-      categoriesError = e instanceof ApiError ? e.message : 'Could not load item categories.';
+      categoriesError = e instanceof ApiError ? e.message : 'Could not load the item groupings.';
     } finally {
       categoriesLoading = false;
     }
@@ -418,16 +453,15 @@
     newCategoryName = '';
   }
   async function submitNewCategory() {
-    if (!newCategoryName.trim() || !addingCategoryUnder) return;
+    if (!newCategoryName.trim() || !addingCategoryUnder || !itemGrouping) return;
     try {
-      await createHierarchyGrouping(business, CATEGORY);
       const parentValueName = addingCategoryUnder === 'root' ? undefined : (addingCategoryUnder as StructureNode).name;
-      await createHierarchyValue(business, CATEGORY, newCategoryName.trim(), parentValueName);
+      await createHierarchyValue(business, itemGrouping, newCategoryName.trim(), parentValueName);
       addingCategoryUnder = null;
       newCategoryName = '';
       await loadCategoriesTab();
     } catch (e) {
-      categoriesError = e instanceof ApiError ? e.message : 'Could not create category.';
+      categoriesError = e instanceof ApiError ? e.message : 'Could not create the group.';
     }
   }
 
@@ -453,12 +487,12 @@
   }
   async function confirmMoveCategory(node: StructureNode, destination: string | null) {
     try {
-      if (destination) await setHierarchyTag(node.name, CATEGORY, destination);
-      else await deleteHierarchyTag(node.name, CATEGORY);
+      if (destination) await setHierarchyTag(node.name, itemGrouping, destination);
+      else await deleteHierarchyTag(node.name, itemGrouping);
       movingCategoryKey = null;
       await loadCategoriesTab();
     } catch (e) {
-      categoriesError = e instanceof ApiError ? e.message : 'Could not move category.';
+      categoriesError = e instanceof ApiError ? e.message : 'Could not move the group.';
     }
   }
 
@@ -468,16 +502,16 @@
     if (!node || node.kind !== 'category') return;
     if (!confirm(`Delete "${translations.current[node.name] ?? node.name}"? This cannot be undone.`)) return;
     try {
-      await deleteHierarchyValue(business, CATEGORY, node.name);
+      await deleteHierarchyValue(business, itemGrouping, node.name);
       selectedKey = null;
       await loadCategoriesTab();
     } catch (e) {
-      categoriesError = e instanceof ApiError ? e.message : 'Could not delete category.';
+      categoriesError = e instanceof ApiError ? e.message : 'Could not delete the group.';
     }
   }
 
   // ---------------------------------------------------------------
-  // Other Hierarchies (any grouping other than Division)
+  // Other Hierarchies: every grouping of the business, saying what it groups
   // ---------------------------------------------------------------
   let hierarchy: HierarchyGroupingWithValues[] = $state([]);
   let hierarchiesError = $state('');
@@ -487,7 +521,7 @@
     hierarchiesLoading = true;
     hierarchiesError = '';
     try {
-      hierarchy = (await getHierarchy(business)).filter((h) => h.grouping !== DIVISION && h.grouping !== CATEGORY);
+      hierarchy = (await getHierarchy(business)).filter((h) => h.groups);
     } catch (e) {
       hierarchiesError = e instanceof ApiError ? e.message : 'Could not load hierarchies.';
     } finally {
@@ -502,6 +536,7 @@
       .map((h) => ({
         key: `grp:${h.grouping}`,
         name: h.grouping,
+        label: `${translations.current[h.grouping] ?? h.grouping} (${translations.current[h.groups ?? ''] ?? h.groups})`,
         kind: 'hierarchy-value',
         canAddChild: true,
         children: h.values
@@ -513,10 +548,11 @@
 
   let addingGrouping = $state(false);
   let newGroupingName = $state('');
+  let newGroupingGroups: GroupingKind = $state('Items');
   async function submitNewGrouping() {
     if (!newGroupingName.trim()) return;
     try {
-      await createHierarchyGrouping(business, newGroupingName.trim());
+      await createHierarchyGrouping(business, newGroupingName.trim(), newGroupingGroups);
       newGroupingName = '';
       addingGrouping = false;
       await loadHierarchiesTab();
@@ -607,6 +643,26 @@
   loadStructureTab();
 </script>
 
+{#snippet groupingBar(kind: GroupingKind, list: HierarchyGroupingWithValues[], chosen: string, choose: (g: string) => void)}
+  <div class="grouping-bar">
+    {#if list.length > 0}
+      <span>{translations.current['Grouping'] ?? 'Grouping'}:</span>
+      {#each list as g (g.grouping)}
+        <button type="button" class="btn secondary small grouping-choice" class:active={g.grouping === chosen} onclick={() => choose(g.grouping)}>{translations.current[g.grouping] ?? g.grouping}</button>
+      {/each}
+    {/if}
+    {#if namingGroupingOf === kind}
+      <div class="inline-form">
+        <input bind:value={namedGrouping} placeholder={translations.current['Name of the grouping'] ?? 'Name of the grouping'} />
+        <button type="button" class="btn" onclick={submitNamedGrouping}>{translations.current['Create'] ?? 'Create'}</button>
+        <button type="button" class="btn secondary" onclick={() => (namingGroupingOf = null)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
+      </div>
+    {:else}
+      <button type="button" class="link-button" onclick={() => { namingGroupingOf = kind; namedGrouping = ''; }}>+ {translations.current['New grouping'] ?? 'New grouping'}</button>
+    {/if}
+  </div>
+{/snippet}
+
 <div class="overlay" role="presentation" onclick={onClose}>
   <div class="panel" role="dialog" aria-modal="true" tabindex="-1" aria-label={translations.current['Business Structure'] ?? 'Business Structure'} onclick={(e) => e.stopPropagation()} onkeydown={onPanelKeydown}>
     <header>
@@ -636,8 +692,10 @@
         {#if structureLoading}
           <p>{translations.current['Loading…'] ?? 'Loading…'}</p>
         {:else}
+          {@render groupingBar('Locations', locationGroupings, locationGrouping, (g) => { locationGrouping = g; loadStructureTab(); })}
           <div class="org-chart">
             <OrgChartNode
+              groupLabel={locationGrouping}
               nodes={orgChartNodes}
               onAddChild={onAddChildStructureTab}
               onStartMove={startMoveStructureNode}
@@ -654,13 +712,13 @@
               onSelect={selectNode}
             />
           </div>
-          <p class="keyboard-hint">{translations.current['Select a box, then press Delete to remove it. Locations/Divisions and Departments delete here; Employees are only (re)assigned here — see the Employees screen to add or remove one.'] ?? 'Select a box, then press Delete to remove it. Locations/Divisions and Departments delete here; Employees are only (re)assigned here — see the Employees screen to add or remove one.'}</p>
+          <p class="keyboard-hint">{translations.current['Select a box, then press Delete to remove it. Locations, their groups and Departments delete here; Employees are only (re)assigned here — see the Employees screen to add or remove one.'] ?? 'Select a box, then press Delete to remove it. Locations, their groups and Departments delete here; Employees are only (re)assigned here — see the Employees screen to add or remove one.'}</p>
           <div class="tab-actions">
             {#if !addingLocationForm}
               <button type="button" class="btn" onclick={() => (addingLocationForm = true)}>+ {translations.current['New Location'] ?? 'New Location'}</button>
             {/if}
-            {#if !addingDivisionValue}
-              <button type="button" class="btn secondary" onclick={() => (addingDivisionValue = true)}>+ {translations.current['New Division'] ?? 'New Division'}</button>
+            {#if !addingDivisionValue && locationGrouping}
+              <button type="button" class="btn secondary add-group-value" onclick={() => (addingDivisionValue = true)}>+ {translations.current[locationGrouping] ?? locationGrouping}</button>
             {/if}
             {#if !addingDepartmentForm}
               <button type="button" class="btn secondary" onclick={() => (addingDepartmentForm = true)}>+ {translations.current['New Department'] ?? 'New Department'}</button>
@@ -671,7 +729,7 @@
           {/if}
           {#if addingDivisionValue}
             <div class="inline-form">
-              <input bind:value={newDivisionValueName} placeholder={translations.current['Division name, e.g. Adelaide Metro'] ?? 'Division name, e.g. Adelaide Metro'} />
+              <input bind:value={newDivisionValueName} placeholder={translations.current['New value'] ?? 'New value'} />
               <button type="button" class="btn" onclick={submitNewDivisionValue}>{translations.current['Create'] ?? 'Create'}</button>
               <button type="button" class="btn secondary" onclick={() => (addingDivisionValue = false)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
             </div>
@@ -689,18 +747,21 @@
         {#if categoriesLoading}
           <p>{translations.current['Loading…'] ?? 'Loading…'}</p>
         {:else}
+          {@render groupingBar('Items', itemGroupings, itemGrouping, (g) => { itemGrouping = g; loadCategoriesTab(); })}
           <div class="tree">
             {#each categoryTree as node (node.key)}
               <StructureTreeNode {node} onAddChild={onAddChildCategoriesTab} onStartMove={startMoveCategory} movingKey={movingCategoryKey} moveOptions={moveCategoryOptions} onConfirmMove={confirmMoveCategory} onCancelMove={() => (movingCategoryKey = null)} {selectedKey} onSelect={selectNode} />
             {/each}
           </div>
-          <p class="keyboard-hint">{translations.current['Select a category, then press Delete to remove it.'] ?? 'Select a category, then press Delete to remove it.'}</p>
-          <div class="tab-actions">
-            <button type="button" class="btn" onclick={addTopLevelCategory}>+ {translations.current['New top-level category'] ?? 'New top-level category'}</button>
-          </div>
+          <p class="keyboard-hint">{translations.current['Select a group, then press Delete to remove it.'] ?? 'Select a group, then press Delete to remove it.'}</p>
+          {#if itemGrouping}
+            <div class="tab-actions">
+              <button type="button" class="btn add-top-level-value" onclick={addTopLevelCategory}>+ {translations.current['New top-level value'] ?? 'New top-level value'}</button>
+            </div>
+          {/if}
           {#if addingCategoryUnder}
             <div class="inline-form">
-              <input bind:value={newCategoryName} placeholder={translations.current['Category name'] ?? 'Category name'} />
+              <input bind:value={newCategoryName} placeholder={translations.current['New value'] ?? 'New value'} />
               <button type="button" class="btn" onclick={submitNewCategory}>{translations.current['Create'] ?? 'Create'}</button>
               <button type="button" class="btn secondary" onclick={() => (addingCategoryUnder = null)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
             </div>
@@ -711,7 +772,7 @@
         {#if hierarchiesLoading}
           <p>{translations.current['Loading…'] ?? 'Loading…'}</p>
         {:else}
-          <p class="field-note">{translations.current['Any further grouping your business wants to report by — region, bottle size, storage area — beyond Division.'] ?? 'Any further grouping your business wants to report by — region, bottle size, storage area — beyond Division.'}</p>
+          <p class="field-note">{translations.current['Every grouping your business reports by, of its items or of its locations — region, bottle size, storage area.'] ?? 'Every grouping your business reports by, of its items or of its locations — region, bottle size, storage area.'}</p>
           <div class="tree">
             {#each hierarchiesTree as node (node.key)}
               <StructureTreeNode {node} onAddChild={onAddChildHierarchiesTab} onStartMove={() => {}} movingKey={null} moveOptions={[]} onConfirmMove={() => {}} onCancelMove={() => {}} {selectedKey} onSelect={selectNode} />
@@ -726,6 +787,10 @@
           {#if addingGrouping}
             <div class="inline-form">
               <input bind:value={newGroupingName} placeholder={translations.current['Hierarchy name, e.g. Storage'] ?? 'Hierarchy name, e.g. Storage'} />
+              <select name="groups" bind:value={newGroupingGroups}>
+                <option value="Items">{translations.current['Groups items'] ?? 'Groups items'}</option>
+                <option value="Locations">{translations.current['Groups locations'] ?? 'Groups locations'}</option>
+              </select>
               <button type="button" class="btn" onclick={submitNewGrouping}>{translations.current['Create'] ?? 'Create'}</button>
               <button type="button" class="btn secondary" onclick={() => (addingGrouping = false)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
             </div>
@@ -752,6 +817,17 @@
 </div>
 
 <style>
+  .grouping-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.6rem;
+  }
+  .grouping-choice.active {
+    background: var(--brass-dark, #7a5c2e);
+    color: white;
+  }
   .overlay {
     position: fixed;
     inset: 0;

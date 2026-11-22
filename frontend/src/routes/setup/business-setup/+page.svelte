@@ -13,6 +13,8 @@
     getOrganizationChart,
     getHierarchy,
     createHierarchyValue,
+    createHierarchyGrouping,
+    groupingsOf,
     setHierarchyTag,
     getHierarchyTag,
     deleteHierarchyTag,
@@ -46,18 +48,38 @@
   type Selection = { type: 'group' | 'location' | 'employee'; name: string; group?: string; location?: string } | null;
   let selection: Selection = $state(null);
 
-  // Grouping hierarchy name, never hardcoded — see docs/pm-frontend-reference.md.
+  // The location grouping the tree shows: the one chosen, else the one the
+  // chart's groups are values of, else the first; '' when the business
+  // has none yet. Never a name in the code — see docs/pm-frontend-reference.md.
+  let locationGroupings = $derived(groupingsOf(hierarchy, 'Locations'));
+  let chosenGrouping = $state('');
   let locationHierarchyName = $derived.by(() => {
+    if (locationGroupings.some((g) => g.grouping === chosenGrouping)) return chosenGrouping;
     const groupNames = new Set<string>(chart ? chart.groups.map((g): string => g.group) : []);
-    if (groupNames.size > 0) {
-      const match = hierarchy.find((h) => h.values.some((v) => groupNames.has(v)));
-      if (match) return match.grouping;
-    }
-    return hierarchy[0]?.grouping ?? 'Division';
+    const match = locationGroupings.find((h) => h.values.some((v) => groupNames.has(v)));
+    return (match ?? locationGroupings[0])?.grouping ?? '';
   });
 
-  // Further hierarchy dimensions beyond the grouping one — see docs/pm-frontend-reference.md.
-  let otherHierarchies = $derived.by(() => hierarchy.filter((h) => h.grouping !== locationHierarchyName));
+  // The business's other location groupings — see docs/pm-frontend-reference.md.
+  let otherHierarchies = $derived.by(() => locationGroupings.filter((h) => h.grouping !== locationHierarchyName));
+
+  // A new location grouping, named by the business.
+  let addingGrouping = $state(false);
+  let newGroupingName = $state('');
+  let groupingError = $state('');
+  async function addGrouping() {
+    if (!session.current || !newGroupingName.trim()) return;
+    groupingError = '';
+    try {
+      await createHierarchyGrouping(session.current.businessName, newGroupingName.trim(), 'Locations');
+      chosenGrouping = newGroupingName.trim();
+      newGroupingName = '';
+      addingGrouping = false;
+      await loadChart();
+    } catch (e) {
+      groupingError = e instanceof ApiError ? e.message : 'Could not create the grouping.';
+    }
+  }
 
   function selectGroup(name: string) {
     selection = { type: 'group', name };
@@ -125,7 +147,7 @@
       );
       await setEntityRelationship(newLocationName.trim(), 'Belongs To Group', groupName);
       // Also tagged via the Hierarchy mechanism — see docs/pm-frontend-reference.md.
-      await setHierarchyTag(newLocationName.trim(), locationHierarchyName, groupName);
+      if (locationHierarchyName) await setHierarchyTag(newLocationName.trim(), locationHierarchyName, groupName);
       for (const h of otherHierarchies) {
         const value = newLocationDimensionValues[h.grouping];
         if (value) await setHierarchyTag(newLocationName.trim(), h.grouping, value);
@@ -180,8 +202,10 @@
       creatingLocationFor = selection.name;
     } else if (selection?.type === 'location') {
       creatingEmployeeFor = selection.name;
-    } else {
+    } else if (locationHierarchyName) {
       showAddGroup = true;
+    } else {
+      addingGrouping = true;
     }
   }
 
@@ -371,7 +395,7 @@
   <legend>{translations.current['Business Setup'] ?? 'Business Setup'}</legend>
   <p class="intro">
     {translations.current['One place to set up and amend the real, whole structure of a business'] ?? 'One place to set up and amend the real, whole structure of a business'} —
-    {translations.current[locationHierarchyName] ?? locationHierarchyName.toLowerCase()}
+    {locationHierarchyName ? (translations.current[locationHierarchyName] ?? locationHierarchyName) : ''}
     {translations.current['groups of real Locations (with address, phone, and real weekly open hours), and each location\'s own real staff (with address, phone, wage/salary, and a real weekly schedule validated against that location\'s own open hours).'] ?? 'groups of real Locations (with address, phone, and real weekly open hours), and each location\'s own real staff (with address, phone, wage/salary, and a real weekly schedule validated against that location\'s own open hours).'}
   </p>
 
@@ -380,9 +404,30 @@
 {:else if error}
   <p class="error">{error}</p>
 {:else if chart}
+  <div class="grouping-bar">
+    {#if locationGroupings.length > 0}
+      <span>{translations.current['Grouping'] ?? 'Grouping'}:</span>
+      {#each locationGroupings as g (g.grouping)}
+        <button type="button" class="btn secondary small grouping-choice" class:active={g.grouping === locationHierarchyName} onclick={() => { chosenGrouping = g.grouping; selection = null; }}>{translations.current[g.grouping] ?? g.grouping}</button>
+      {/each}
+    {/if}
+    {#if addingGrouping}
+      <input
+        bind:value={newGroupingName}
+        placeholder={translations.current['Name of the grouping, e.g. Division'] ?? 'Name of the grouping, e.g. Division'}
+        onkeydown={(e) => {
+          if (e.key === 'Enter') { e.preventDefault(); addGrouping(); }
+          else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); addingGrouping = false; groupingError = ''; }
+        }}
+      />
+    {:else}
+      <button type="button" class="link-button" onclick={() => { addingGrouping = true; newGroupingName = ''; groupingError = ''; }}>+ {translations.current['New grouping'] ?? 'New grouping'}</button>
+    {/if}
+    {#if groupingError}<p class="error small">{groupingError}</p>{/if}
+  </div>
   <div class="layout">
     <TreeEditor
-      legend={`${chart.business} — ${translations.current[locationHierarchyName] ?? locationHierarchyName} ${translations.current['for Locations'] ?? 'for Locations'}`}
+      legend={locationHierarchyName ? `${chart.business} — ${translations.current[locationHierarchyName] ?? locationHierarchyName} ${translations.current['for Locations'] ?? 'for Locations'}` : `${chart.business} — ${translations.current['Locations'] ?? 'Locations'}`}
       {hintText}
       onInsert={handleInsert}
       onDelete={handleDelete}
@@ -633,6 +678,17 @@
 </fieldset>
 
 <style>
+  .grouping-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.8rem;
+  }
+  .grouping-choice.active {
+    background: var(--brass-dark, #7a5c2e);
+    color: white;
+  }
   .intro {
     max-width: 80ch;
   }

@@ -897,13 +897,11 @@ export function revokeEntity(id: number, userId: UserId): void {
   const entity = getEntity(id);
   if (!entity) throw new NotFoundError(`Entity ${id} not found.`);
   const childNames = Entity.children(id).map((c) => c.name);
-  // An item's own Category link record (`${name} — Hierarchy: Category`)
-  // only classifies it, so it never blocks deleting the item (the Items
-  // page's Delete); it stays as history, untagged below, so the category
-  // can then be deleted too. Other link records, such as a location's
-  // Division, still block.
-  const categoryLink = `${entity.name} — Hierarchy: Category`;
-  const hasChildren = childNames.some((n) => !FACT_ATTR_CHILD_NAMES.has(n) && n !== categoryLink);
+  // A hierarchy link record (`${name} — Hierarchy: {grouping}`) only
+  // classifies the entity, so it never blocks deleting it; it stays as
+  // history, untagged below, so the value can then be deleted too.
+  const hierarchyLinkPrefix = `${entity.name} — Hierarchy: `;
+  const hasChildren = childNames.some((n) => !FACT_ATTR_CHILD_NAMES.has(n) && !n.startsWith(hierarchyLinkPrefix));
   if (hasChildren) throw new ValidationError('Cannot revoke an entity that still has children — move or revoke them first.');
   const hasPostings = db.prepare(`SELECT 1 FROM journal_line WHERE account_id = ? LIMIT 1`).get(id);
   if (hasPostings) throw new ValidationError('Cannot revoke an entity that has journal postings against it.');
@@ -942,9 +940,10 @@ export function revokeEntity(id: number, userId: UserId): void {
     if (isActual && otherActualCount === 0) throw new ValidationError(`"${parent.name}" must always have a real Actual ledger — this is its only one.`);
     if (isBudget && otherBudgetCount === 0) throw new ValidationError(`"${parent.name}" must always have a real Budget ledger — this is its only one.`);
   }
-  // A revoked item no longer counts in its category: untag its link.
-  const categoryLinkRecord = Entity.children(id).find((c) => c.name === categoryLink);
-  if (categoryLinkRecord) Entity.untag(categoryLinkRecord.id, 'Hierarchy: Category', userId);
+  // A revoked entity no longer counts in any group: untag its links.
+  for (const link of Entity.children(id).filter((c) => c.name.startsWith(hierarchyLinkPrefix))) {
+    Entity.untag(link.id, link.name.slice(`${entity.name} — `.length), userId);
+  }
   db.prepare(`INSERT INTO entity_revoke (entity_id, revoked_by) VALUES (?, ?)`).run(id, userId);
   const revokedRoot = requireEntity('Application', typeRootName);
   Entity.ensureUnder('Revoked', revokedRoot.id, userId);
@@ -2025,9 +2024,59 @@ function ensureBusinessRoot(businessName: BusinessName, rootName: string, userId
   return Entity.getUnder(rootName, business.id) ?? Entity.create(rootName, business.id, userId);
 }
 
-export function ensureHierarchyGrouping(businessName: BusinessName, groupingName: string, userId: UserId): { id: number; name: string } {
+/** What a grouping of the business's own groups: its items or its
+ * locations (docs/pm-domain-reference.md, "A grouping records what it
+ * groups"). The application's own groupings (Department, Storage Tier,
+ * ...) record nothing. */
+export type GroupingKind = 'Items' | 'Locations';
+export const GROUPING_KINDS: readonly GroupingKind[] = ['Items', 'Locations'];
+/** The relation records under a grouping, which are not its values. */
+const GROUPING_RELATIONS = new Set(['Groups', 'Kind']);
+
+export function groupingKind(groupingId: number): GroupingKind | undefined {
+  const record = Entity.getUnder('Groups', groupingId);
+  const target = record?.relation_id != null ? Entity.get(record.relation_id) : undefined;
+  if (!target) return undefined;
+  return target.name === 'Locations' ? 'Locations' : target.name === 'Items' || target.name.endsWith(' Items') ? 'Items' : undefined;
+}
+
+export function ensureHierarchyGrouping(businessName: BusinessName, groupingName: string, userId: UserId, groups?: GroupingKind): { id: number; name: string } {
   const hierarchyRoot = ensureBusinessRoot(businessName, 'Hierarchy', userId);
-  return Entity.getUnder(groupingName, hierarchyRoot.id) ?? Entity.create(groupingName, hierarchyRoot.id, userId);
+  const grouping = Entity.getUnder(groupingName, hierarchyRoot.id) ?? Entity.create(groupingName, hierarchyRoot.id, userId);
+  if (groups) {
+    const recorded = groupingKind(grouping.id);
+    if (recorded && recorded !== groups) throw new ValidationError(`"${groupingName}" groups ${recorded.toLowerCase()}, not ${groups.toLowerCase()}.`);
+    if (!recorded) {
+      const branch = ensureBusinessRoot(businessName, groups, userId);
+      const record = Entity.getUnder('Groups', grouping.id) ?? Entity.create('Groups', grouping.id, userId);
+      Entity.relate(record.id, null, userId, branch.id);
+    }
+  }
+  return grouping;
+}
+
+/** Refuses to tag an item with a location grouping or a location with
+ * an item grouping; a value may be tagged under a value of its own
+ * grouping, to nest. */
+export function checkGroupingTag(businessName: string, groupingName: string, entityName: string): void {
+  const businessId = Entity.get(businessName, 'Businesses')?.id;
+  const hierarchyRoot = businessId !== undefined ? Entity.getUnder('Hierarchy', businessId) : undefined;
+  const grouping = hierarchyRoot ? Entity.getUnder(groupingName, hierarchyRoot.id) : undefined;
+  const kind = grouping ? groupingKind(grouping.id) : undefined;
+  if (!grouping || !kind || Entity.getUnder(entityName, grouping.id)) return;
+  const isLocation = resolveBusinessLocationId(businessName, entityName) !== undefined;
+  if (kind === 'Locations' && !isLocation) throw new ValidationError(`"${groupingName}" groups locations; "${entityName}" is not one.`);
+  if (kind === 'Items' && isLocation) throw new ValidationError(`"${groupingName}" groups items; "${entityName}" is a location.`);
+}
+
+/** The business's grouping of this name, or a NotFoundError: a value is
+ * only added to a grouping that exists. */
+function requireHierarchyGrouping(businessName: BusinessName, groupingName: string): { id: number; name: string } {
+  const businessId = Entity.get(businessName, 'Businesses')?.id;
+  const hierarchyRoot = businessId !== undefined ? Entity.getUnder('Hierarchy', businessId) : undefined;
+  const grouping = hierarchyRoot ? Entity.getUnder(groupingName, hierarchyRoot.id) : undefined;
+  if (!grouping) throw new NotFoundError(`"${businessName}" has no grouping named "${groupingName}".`);
+  return grouping;
 }
 
 // The business's own value of this grouping, or undefined; never creates.
@@ -2039,7 +2088,7 @@ export function resolveHierarchyValueId(businessName: string, groupingName: stri
 }
 
 export function ensureHierarchyValue(businessName: BusinessName, groupingName: string, valueName: string, userId: UserId): { id: number; name: string } {
-  const grouping = ensureHierarchyGrouping(businessName, groupingName, userId);
+  const grouping = requireHierarchyGrouping(businessName, groupingName);
   return Entity.getUnder(valueName, grouping.id) ?? Entity.create(valueName, grouping.id, userId);
 }
 
@@ -2055,7 +2104,7 @@ export function ensureHierarchyValue(businessName: BusinessName, groupingName: s
 // caught by the incoming-links check. See
 // /root/.claude/plans/stateful-snacking-adleman.md.
 export function deleteHierarchyValue(businessName: BusinessName, groupingName: string, valueName: string, userId: UserId): void {
-  const grouping = ensureHierarchyGrouping(businessName, groupingName, userId);
+  const grouping = requireHierarchyGrouping(businessName, groupingName);
   const value = Entity.getUnder(valueName, grouping.id);
   if (!value) throw new NotFoundError(`No real value named "${valueName}" under "${groupingName}".`);
   Entity.revoke(value.id, userId);
@@ -2413,6 +2462,8 @@ export function resolveOpenContainerAccounts(
 
 export interface HierarchyGroupingWithValues {
   grouping: string;
+  /** What it groups; undefined for the application's own groupings. */
+  groups?: GroupingKind;
   values: string[];
 }
 
@@ -2429,7 +2480,8 @@ export function getBusinessHierarchy(businessName: BusinessName): HierarchyGroup
   const groupings = Entity.children(hierarchyId).filter((g) => !(ROLE_MATRIX_GROUPINGS as readonly string[]).includes(g.name));
   return groupings.map((g) => ({
     grouping: g.name,
-    values: Entity.children(g.id).map((v) => v.name),
+    groups: groupingKind(g.id),
+    values: Entity.children(g.id).filter((v) => !GROUPING_RELATIONS.has(v.name)).map((v) => v.name),
   }));
 }
 
@@ -5435,7 +5487,7 @@ export function createAndConfigureLocation(businessName: BusinessName, locationN
     // (see docs/user-manual-ch3-tutorial.md's Ice-business mini year-end).
     ensureLocationCapacityAccount(businessName, getActiveLedger(businessName) ?? asLedgerName('Actual'), asLocationName(locationName), userId);
     if (group && groupingName) {
-      ensureHierarchyGrouping(businessName, groupingName, userId);
+      ensureHierarchyGrouping(businessName, groupingName, userId, 'Locations');
       const value = ensureHierarchyValue(businessName, groupingName, group, userId);
       setHierarchyParent(locationName, groupingName, group, userId, entity.id, value.id);
       setRelationship(group, 'Belongs To Business', businessName, userId);
@@ -5706,7 +5758,8 @@ export interface BusinessConfigurationReport {
   secondaryCurrencies: string[];
   hierarchies: HierarchyGroupingWithValues[];
   locations: { name: string; city: string; locationType: string }[];
-  categories: string[];
+  /** The items that are the parent of other items. */
+  products: string[];
   chartOfAccountsPrototype: string | null;
   notes: { name: string; text: string }[];
 }
@@ -5731,7 +5784,7 @@ export function getBusinessConfigurationReport(businessName: BusinessName): Busi
   });
 
   const itemsRootId = (entities.find((e) => e.name === 'Items' && e.parent_id === business.id) ?? entities.find((e) => e.name === `${businessName} Items` && e.parent_id === business.id))?.id;
-  const categories = itemsRootId
+  const products = itemsRootId
     ? entities.filter((e) => e.parent_id === itemsRootId && entities.some((c) => c.parent_id === e.id)).map((e) => e.name)
     : [];
 
@@ -5750,7 +5803,7 @@ export function getBusinessConfigurationReport(businessName: BusinessName): Busi
     secondaryCurrencies,
     hierarchies,
     locations,
-    categories,
+    products,
     chartOfAccountsPrototype: null,
     notes: getFinancialStatementNotes(businessName),
   };

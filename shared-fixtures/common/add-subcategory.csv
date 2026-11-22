@@ -1,6 +1,6 @@
-# On the Items page: select the category ${under}, and nest the new
-# category ${name} within it with "+ Subcategory".
+# On the Items page: select the value ${under}, and nest the new value
+# ${name} within it with "+ Subgroup".
 "Click","button:text-is('${under}')"
-"Click","button:text-is('+ Subcategory')"
-"Set","placeholder","Subcategory name"
+"Click","button:text-is('+ Subgroup')"
+"Set","placeholder","New value"
 "Include","inline-add-on-items-page.csv"

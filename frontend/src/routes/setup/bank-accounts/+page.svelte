@@ -10,6 +10,7 @@
     registerBankAccount,
     unregisterBankAccount,
     getHierarchy,
+    groupingsOf,
     ApiError,
     type EntityNode,
     type BankAccountRow,
@@ -42,7 +43,8 @@
       entities = ents;
       bankAccounts = accounts;
       cashPosition = position;
-      groupNames = hierarchy.flatMap((h) => h.values);
+      // A bank account is nominated by the business or a group of its locations.
+      groupNames = groupingsOf(hierarchy, 'Locations').flatMap((h) => h.values);
     } catch (e) {
       if (requestId !== latestRequestId) return;
       error = e instanceof ApiError ? e.message : 'Failed to load.';

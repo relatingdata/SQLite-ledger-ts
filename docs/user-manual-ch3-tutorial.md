@@ -44,7 +44,7 @@ A business starts with one location selling one item --- not a fully-built org c
 
 ![The retail outlet, Main Street Cellar, created with its own real shelf and carton capacity, no division yet.](manual-images-tutorial/retail_created.png)
 
-The **Items Catalog** then creates the simplest possible item: a block of **Ice**, with genuinely no category at all --- not even a "General" catch-all. The system itself must be able to operate with zero hierarchy (no categories, divisions, or profit centers), and this is the real, live proof: the "+ Item (no category)" action adds Ice directly under the Items root, no category ever created or selected.
+The **Items Catalog** then creates the simplest possible item: a block of **Ice**, with genuinely no category at all --- not even a "General" catch-all. The system itself must be able to operate with zero hierarchy (no categories, divisions, or profit centers), and this is the real, live proof: the "+ Item (ungrouped)" action adds Ice directly under the Items root, no category ever created or selected.
 
 ![Ice created, with no category at all.](manual-images-tutorial/item_ice_created.png)
 
@@ -96,13 +96,13 @@ With a single Ice stall's first year closed out, the owner puts in a further, re
 
 ## Growing the business, through the Business Structure popup
 
-Everything from here on is genuine growth, carried out entirely through the real **Business Structure** popup --- reachable either from **Configuration → Business Structure**, at any time, or straight from the **Set up your business structure** button shown right after creating a business. It is a graphical, editable view over a business's Locations, Divisions, and Item Categories, built from the exact, same screens and backend calls as the dedicated Locations, Hierarchies & Products, and Inventory Catalog pages it fronts --- never a separate, parallel mechanism of its own. See the Programmer's Manual for the full design.
+Everything from here on is genuine growth, carried out entirely through the real **Business Structure** popup --- reachable either from **Configuration → Business Structure**, at any time, or straight from the **Set up your business structure** button shown right after creating a business. It is a graphical, editable view over a business's Locations, and its own groupings of its locations and of its items, built from the exact, same screens and backend calls as the dedicated Locations, Hierarchies & Products, and Inventory Catalog pages it fronts --- never a separate, parallel mechanism of its own. See the Programmer's Manual for the full design.
 
 ![The Business Structure popup, opened over Tutorial Wine Retail Business.](manual-images-tutorial/structure_popup_location_added.png)
 
-A second location first: **Head Office**, a warehouse in Adelaide, added via the popup's own "+ New Location" form, on its "Locations & Divisions" tab. Unlike the dedicated Locations screen, the popup's own quick-add form has no capacity fields of its own --- a warehouse added this way can still have its real carton capacity set afterwards, directly on the Locations page.
+A second location first: **Head Office**, a warehouse in Adelaide, added via the popup's own "+ New Location" form, on its Org Chart step. Unlike the dedicated Locations screen, the popup's own quick-add form has no capacity fields of its own --- a warehouse added this way can still have its real carton capacity set afterwards, directly on the Locations page.
 
-A division this business did not have a moment ago comes next: **Adelaide Metro**, created with the popup's own "+ New Division" action --- one click, which itself creates the Division grouping (not yet in existence at all until now) and its first value, together.
+The business has no grouping of its locations yet, so it names one: **Division**, typed into the popup's "+ New grouping" on the Org Chart step (any name would do; the screens follow whichever is chosen). Its first value comes next: **Adelaide Metro**, created with the "+ Division" button that now appears.
 
 ![A new division, Adelaide Metro, created from inside the popup.](manual-images-tutorial/structure_popup_division_added.png)
 
@@ -112,7 +112,7 @@ Then the real growing-up moment: **Main Street Cellar**, which already existed w
 
 ![Head Office joining the same division.](manual-images-tutorial/structure_popup_move_ho.png)
 
-One further growth step, on the popup's "Item Categories" tab: a **Whiskey** category, created ahead of time with "+ New top-level category" --- so that Highland Single Malt's own creation, later in this chapter, can simply select it from the dropdown rather than typing a brand-new category name inline.
+One further growth step, on the popup's **Item Groupings** step: the business names its grouping of its items, **Category**, with "+ New grouping", and creates its first value, **Whiskey**, with "+ New top-level value" --- so that Highland Single Malt's own creation, later in this chapter, can simply be placed in it.
 
 ![A Whiskey category, pre-created from the popup, ready for Highland Single Malt to select directly.](manual-images-tutorial/structure_popup_category_added.png)
 
@@ -124,7 +124,7 @@ One further growth step, on the popup's "Item Categories" tab: a **Whiskey** cat
 
 ## Creating the next items
 
-The **Items Catalog** creates two further items. Unlike Ice, both get a real category --- but creating a brand-new category is now its own, separate, real step: with nothing selected in the tree, Insert opens a plain "new top-level category" form, used here to create **Beer**.
+The **Items Catalog** creates two further items. Unlike Ice, both get a value of the Category grouping, which the catalog now shows --- but creating a new value is its own step: with nothing selected in the tree, Insert opens a plain "New value" form, used here to create **Beer**.
 
 ![A new Beer category, created on its own, before any item sits inside it.](manual-images-tutorial/category_beer_created.png)
 

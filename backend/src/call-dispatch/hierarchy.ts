@@ -19,6 +19,9 @@ import {
   asUserId,
   resolveBusinessLocationId,
   resolveHierarchyValueId,
+  checkGroupingTag,
+  GROUPING_KINDS,
+  type GroupingKind,
 } from '../db.js';
 import { CallError, decodeShape, encodeShape, requireAuth, requireRole, row, sessionBusinessName, table, type BackendCall } from '../call-dispatch.js';
 
@@ -35,12 +38,13 @@ export const hierarchyFunctions: Record<string, BackendCall> = {
     const [business] = v;
     if (!business) throw new CallError(400, 'business is required.');
     const groupings = getBusinessHierarchy(asBusinessName(business));
-    const rows: { grouping: string; value: string }[] = [];
+    const rows: { grouping: string; groups: string; value: string }[] = [];
     for (const g of groupings) {
-      if (g.values.length === 0) rows.push({ grouping: g.grouping, value: '' });
-      else for (const value of g.values) rows.push({ grouping: g.grouping, value });
+      const groups = g.groups ?? '';
+      if (g.values.length === 0) rows.push({ grouping: g.grouping, groups, value: '' });
+      else for (const value of g.values) rows.push({ grouping: g.grouping, groups, value });
     }
-    return table(['grouping', 'value'], rows);
+    return table(['grouping', 'groups', 'value'], rows);
   },
   // Positional args: [0] business. Each real product shape (a real,
   // ordered chain of [dimensionName, groupingName] pairs) is encoded via
@@ -53,13 +57,15 @@ export const hierarchyFunctions: Record<string, BackendCall> = {
     const shapes = getBusinessProductShapes(asBusinessName(business));
     return table(['shape'], shapes.map((chain) => ({ shape: encodeShape(chain) })));
   },
-  // Positional args: [0] business, [1] groupingName.
+  // Positional args: [0] business, [1] groupingName, [2] groups (Items
+  // or Locations: what the grouping groups).
   createHierarchyGrouping: (v, user) => {
     const admin = requireRole(user, 'Administrator', 'Bookkeeper');
-    const [business, groupingName] = v;
+    const [business, groupingName, groups] = v;
     if (!business || !groupingName) throw new CallError(400, 'business and groupingName are both required.');
+    if (!(GROUPING_KINDS as readonly string[]).includes(groups ?? '')) throw new CallError(400, `groups must be one of ${GROUPING_KINDS.join(', ')}.`);
     try {
-      const grouping = ensureHierarchyGrouping(asBusinessName(business), groupingName, asUserId(admin.id));
+      const grouping = ensureHierarchyGrouping(asBusinessName(business), groupingName, asUserId(admin.id), groups as GroupingKind);
       return row(grouping.name);
     } catch (err) {
       if (err instanceof ValidationError) throw new CallError(409, err.message);
@@ -78,6 +84,7 @@ export const hierarchyFunctions: Record<string, BackendCall> = {
       return row(value.name);
     } catch (err) {
       if (err instanceof ValidationError) throw new CallError(409, err.message);
+      if (err instanceof NotFoundError) throw new CallError(404, err.message);
       throw err;
     }
   },
@@ -92,6 +99,7 @@ export const hierarchyFunctions: Record<string, BackendCall> = {
       const business = sessionBusinessName();
       const entityId = business ? resolveBusinessLocationId(business, entityName) : undefined;
       const targetId = business ? resolveHierarchyValueId(business, hierarchyName, parentName) : undefined;
+      if (business) checkGroupingTag(business, hierarchyName, entityName);
       setHierarchyParent(entityName, hierarchyName, parentName, asUserId(admin.id), entityId, targetId);
       return row(entityName, hierarchyName, parentName);
     } catch (err) {

@@ -1,6 +1,7 @@
 # The stock movement report shows purchases, transfers and sales,
-# grouped by division, location (transfers by where they went) or
-# category. Transfers have no division of their own.
+# grouped by a location grouping (here Division), location (transfers
+# by where they went) or an item grouping (here Category). Transfers
+# have no location grouping of their own.
 "Include","../common/business.csv"
 "Include","../common/two-locations-in-divisions.csv"
 "Set","category","Beer"
@@ -13,7 +14,7 @@
 "Click",".group-head:has-text('Head Office Division')"
 "Page Count","tbody tr","1"
 "Click","button:text-is('Transfers')"
-"Page Shows",".empty","Transfers have no real"
+"Page Shows",".empty","A transfer is between two locations"
 "Select Option",".controls select","Location"
 "Page Shows",".group-head:has-text('Warehouse B')","12"
 "Click","button:text-is('Sales')"

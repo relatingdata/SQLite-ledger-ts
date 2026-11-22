@@ -13,7 +13,7 @@
 # One real site store for the (small amount of) material this chapter
 # actually receives - the real contention story below is about Labour/
 # Plant, not materials, so materials stay deliberately minimal.
-"Create Location","${business}","Site Store","Adelaide","Warehouse","","",""
+"Create Location","${business}","Site Store","Adelaide","Warehouse","",""
 "Create Provider","${business}","Statewide Building Supplies","Accounts Payable"
 "Create Customer","${business}","Oak St Family Trust","Customers"
 "Create Customer","${business}","Riverside Developments","Customers"

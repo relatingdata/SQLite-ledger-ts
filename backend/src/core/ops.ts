@@ -135,7 +135,6 @@ export interface NewLocation {
   bottleCapacity?: string;
   cartonCapacity?: string;
   timezone?: string;
-  division?: string;
 }
 
 export function createLocation(inst: Instance, input: NewLocation): Node {
@@ -151,7 +150,6 @@ export function createLocation(inst: Instance, input: NewLocation): Node {
     if (optional(input.locationType)) {
       inst.core.relate(location.id, 'Location Type', inst.localise('Location Types', input.locationType!, 'Location Type').id, inst.id);
     }
-    if (optional(input.division)) setGroup(inst, input.name, 'Division', input.division!);
     return location;
   });
 }
@@ -255,12 +253,18 @@ export function itemSource(inst: Instance, itemName: string, providerName: strin
 
 // --- hierarchy ----------------------------------------------------------------
 
-/** Puts a thing in a group: one relation, named after the grouping. */
+/** Puts a thing in a group: one relation, named after the grouping. An
+ * item goes only in an item grouping, a location only in a location
+ * grouping (docs/pm-domain-reference.md). */
 export function setGroup(inst: Instance, thingName: string, grouping: string, value: string): void {
   inst.store.tx(() => {
     const thing = inst.anything(thingName);
     if (!thing) throw new NotFound(`Nothing named "${thingName}" to put in ${grouping}.`);
-    inst.core.relate(thing.id, grouping, inst.groupValue(grouping, value).id, inst.id);
+    const kind = inst.groupingKind(grouping);
+    const isLocation = inst.existing('Locations', thingName)?.id === thing.id;
+    if (kind === 'Locations' && !isLocation) throw new Refused(`"${grouping}" groups locations; "${thingName}" is not one.`);
+    if (kind === 'Items' && isLocation) throw new Refused(`"${grouping}" groups items; "${thingName}" is a location.`);
+    inst.core.relate(thing.id, grouping, inst.valueOf(grouping, value).id, inst.id);
   });
 }
 

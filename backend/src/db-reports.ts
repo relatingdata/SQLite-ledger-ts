@@ -2,7 +2,7 @@
 // this file carries no further multiline comments.
 import { db, getQualifiedDisplayName, getCombinationDisplayName, resolveBusinessCoaAccountId } from './db.js';
 import { Hierarchy, Currency, type HierarchyTreeNode } from './primitives.js';
-import { ValidationError, getEntityTree, stageLine, postJournalEntry, getHierarchyGroups, getHierarchyParent, getHierarchyChildren, asAccountName, requireEntity, typeBusinessName, typeRootName, getBusinessHomeCurrency, getAccountProfitCenter, setActiveLedger, type BusinessName, type LedgerName, type UserId } from './db.js';
+import { ValidationError, stageLine, postJournalEntry, getHierarchyGroups, getHierarchyParent, getHierarchyChildren, getBusinessHierarchy, asAccountName, requireEntity, typeBusinessName, typeRootName, getBusinessHomeCurrency, getAccountProfitCenter, setActiveLedger, type BusinessName, type LedgerName, type UserId } from './db.js';
 import { Entity } from './primitives.js';
 import type { EntityNode } from './entity-driver.js';
 
@@ -1261,20 +1261,25 @@ export interface SalesReportLine {
   amount_minor: number;
 }
 
-export interface SalesCategorySummary {
-  category: string;
+export interface SalesGroupSummary {
+  group: string;
   quantity: number;
   amount_minor: number;
 }
 
 export interface SalesReport {
   detailed: SalesReportLine[];
-  category_summary: SalesCategorySummary[];
+  /** By the item grouping `grouping`, or by item when it is null. */
+  group_summary: SalesGroupSummary[];
+  grouping: string | null;
   total_quantity: number;
   total_amount_minor: number;
 }
 
-export function getSalesReport(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string): SalesReport {
+/** Every posted sale in a period, line by line, and summed by one of the
+ * business's item groupings (the first it created, unless one is named),
+ * or by item when it has none (docs/pm-domain-reference.md). */
+export function getSalesReport(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string, itemGrouping?: string): SalesReport {
   const businessId = resolveBusinessEntityId(business) ?? -1;
   const ledgerId = resolveLedgerEntityId(business, ledger) ?? -1;
   // item_name is resolved below via Entity.getMany, not joined in SQL here
@@ -1305,20 +1310,11 @@ export function getSalesReport(business: BusinessName, ledger: LedgerName, fromD
     item_name: r.item_id !== null ? (itemNameById.get(r.item_id) ?? null) : null,
   }));
 
-  const entities = getEntityTree();
-  // Category is a genuinely optional, generic Hierarchy tag here — the
-  // exact same `getHierarchyParent` mechanism Division/any other
-  // business-defined grouping already uses, never a special, real
-  // tree-position lookup. An item with no Category tag at all (the
-  // single-item, no-grouping case) genuinely, correctly falls to
-  // 'Other' rather than resolving to whatever real entity happens to
-  // sit above it in the tree.
-  const categoryOf = (itemId: number | null): string => {
-    if (!itemId) return 'Other';
-    const entity = entities.find((e) => e.id === itemId);
-    if (!entity) return 'Other';
-    return getHierarchyParent(entity.name, 'Category') ?? 'Other';
-  };
+  const itemGroupings = getBusinessHierarchy(business).filter((g) => g.groups === 'Items').map((g) => g.grouping);
+  const grouping = itemGrouping && itemGroupings.includes(itemGrouping) ? itemGrouping : (itemGroupings[0] ?? null);
+  const other = '(—)';
+  const groupOf = (r: { item_name: string | null; description: string }): string =>
+    grouping === null ? (r.item_name ?? r.description) : (r.item_name ? getHierarchyParent(r.item_name, grouping) : undefined) ?? other;
 
   const summaryMap = new Map<string, { quantity: number; amount_minor: number }>();
   let total_quantity = 0;
@@ -1327,19 +1323,19 @@ export function getSalesReport(business: BusinessName, ledger: LedgerName, fromD
   for (const r of rows) {
     const { item_id, ...line } = r;
     detailed.push(line);
-    const cat = categoryOf(item_id);
-    const existing = summaryMap.get(cat) ?? { quantity: 0, amount_minor: 0 };
+    const group = groupOf(line);
+    const existing = summaryMap.get(group) ?? { quantity: 0, amount_minor: 0 };
     existing.quantity += line.quantity ?? 0;
     existing.amount_minor += line.amount_minor;
-    summaryMap.set(cat, existing);
+    summaryMap.set(group, existing);
     total_quantity += line.quantity ?? 0;
     total_amount_minor += line.amount_minor;
   }
-  const category_summary = [...summaryMap.entries()]
-    .map(([category, v]) => ({ category, ...v }))
+  const group_summary = [...summaryMap.entries()]
+    .map(([group, v]) => ({ group, ...v }))
     .sort((a, b) => b.amount_minor - a.amount_minor);
 
-  return { detailed, category_summary, total_quantity, total_amount_minor };
+  return { detailed, group_summary, grouping, total_quantity, total_amount_minor };
 }
 
 export function getProfitAndLossComparison(businessName: BusinessName, ledgerA: LedgerName, ledgerB: LedgerName): ProfitAndLossComparison {

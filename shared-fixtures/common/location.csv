@@ -6,4 +6,4 @@
 "Default","location","Test Store"
 "Default","city","Brisbane"
 "Default","locationType","Retail"
-"Create Location","${business}","${location}","${city}","${locationType}","","100","10"
+"Create Location","${business}","${location}","${city}","${locationType}","100","10"

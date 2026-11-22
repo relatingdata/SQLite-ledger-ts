@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { session } from '$lib/state.svelte';
-  import { getStockMovementReport, getHierarchy, ApiError, type StockMovementReport, type OrderReceiptRow, type StockTransferRow, type StockSaleRow } from '$lib/api';
+  import { getStockMovementReport, getHierarchy, ApiError, type HierarchyGroupingWithValues, type StockMovementReport, type OrderReceiptRow, type StockTransferRow, type StockSaleRow } from '$lib/api';
   import { translations } from '$lib/state.svelte';
   import FromToDateFields from '$lib/components/FromToDateFields.svelte';
 
@@ -14,17 +14,19 @@
   type Tab = 'receipts' | 'transfers' | 'sales';
   let tab: Tab = $state('receipts');
 
-  // Grouping names never hardcoded — see docs/pm-frontend-reference.md.
-  type GroupKey = 'group' | 'location' | 'provider' | 'category';
-  let groupBy: GroupKey = $state('group');
-  let hierarchyName: string | undefined = $state(undefined);
+  // Location, provider, or any of the business's item or location
+  // groupings, each by its own name — see docs/pm-frontend-reference.md.
+  let groupings: HierarchyGroupingWithValues[] = $state([]);
+  let groupBy: string = $state('location');
+  const LOCATION = '\u0000location';
+  const PROVIDER = '\u0000provider';
 
   let latestRequestId = 0;
   async function load() {
     const requestId = ++latestRequestId;
     loading = true;
     try {
-      const result = await (session.current ? getStockMovementReport(session.current.businessName, session.current.ledgerName, fromDate || undefined, toDate || undefined, hierarchyName) : Promise.reject(new Error('No ledger selected.')));
+      const result = await (session.current ? getStockMovementReport(session.current.businessName, session.current.ledgerName, fromDate || undefined, toDate || undefined) : Promise.reject(new Error('No ledger selected.')));
       if (requestId !== latestRequestId) return;
       report = result;
     } catch (e) {
@@ -38,8 +40,8 @@
   onMount(async () => {
     if (session.current) {
       try {
-        const hierarchy = await getHierarchy(session.current.businessName);
-        if (hierarchy.length > 0) hierarchyName = hierarchy[0].grouping;
+        groupings = (await getHierarchy(session.current.businessName)).filter((g) => g.groups);
+        groupBy = (groupings.find((g) => g.groups === 'Locations') ?? groupings[0])?.grouping ?? LOCATION;
       } catch {
         /* the report still works with no group tagging at all if this fails */
       }
@@ -55,18 +57,15 @@
     else expandedGroups.add(key);
   }
 
-  function keyFor(row: OrderReceiptRow | StockTransferRow | StockSaleRow, key: GroupKey): string {
-    if (key === 'category') return row.category ?? '(No category)';
-    if ('from_location' in row) {
-      // Transfers group by destination location — see docs/pm-frontend-reference.md.
-      return key === 'location' ? row.to_location : '(Not applicable to transfers)';
-    }
-    if (key === 'group') return row.group ?? '(No group)';
-    if (key === 'location') return row.location;
-    return row.vendor ?? '(No provider on file)';
+  const none = (grouping: string) => `(${translations.current['No'] ?? 'No'} ${translations.current[grouping] ?? grouping})`;
+  function keyFor(row: OrderReceiptRow | StockTransferRow | StockSaleRow, key: string): string {
+    // Transfers group by destination location — see docs/pm-frontend-reference.md.
+    if (key === LOCATION) return 'from_location' in row ? row.to_location : row.location;
+    if (key === PROVIDER) return ('vendor' in row ? row.vendor : null) ?? '(No provider on file)';
+    return row.groups[key] ?? none(key);
   }
 
-  function groupRows<T extends OrderReceiptRow | StockTransferRow | StockSaleRow>(rows: T[], key: GroupKey) {
+  function groupRows<T extends OrderReceiptRow | StockTransferRow | StockSaleRow>(rows: T[], key: string) {
     const groups = new Map<string, { name: string; rows: T[]; totalQuantity: number; totalAmount: number }>();
     for (const row of rows) {
       const k = keyFor(row, key);
@@ -79,14 +78,16 @@
     return [...groups.values()].sort((a, b) => a.name.localeCompare(b.name));
   }
 
-  let groupingApplicable = $derived.by(() => tab !== 'transfers' || groupBy === 'location' || groupBy === 'category');
+  // A transfer is between two locations, so only Location (its
+  // destination) and the item groupings apply to it.
+  let groupingApplicable = $derived.by(() => tab !== 'transfers' || groupBy === LOCATION || groupings.some((g) => g.grouping === groupBy && g.groups === 'Items'));
   let groups = $derived.by(() => !report
     ? []
     : tab === 'receipts'
-      ? groupRows(report.receipts, groupingApplicable ? groupBy : 'category')
+      ? groupRows(report.receipts, groupBy)
       : tab === 'transfers'
-        ? groupRows(report.transfers, groupingApplicable ? groupBy : 'category')
-        : groupRows(report.sales, groupingApplicable ? groupBy : 'category'));
+        ? groupRows(report.transfers, groupingApplicable ? groupBy : LOCATION)
+        : groupRows(report.sales, groupBy));
 
   const fmt = (c: number) => (c / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 </script>
@@ -106,10 +107,10 @@
   <fieldset>
     <legend>{translations.current['Group by'] ?? 'Group by'}</legend>
     <select bind:value={groupBy}>
-      <option value="group">{translations.current[hierarchyName ?? 'Group'] ?? (hierarchyName ?? 'Group')}</option>
-      <option value="location">{translations.current['Location'] ?? 'Location'}</option>
-      <option value="provider">{translations.current['Provider'] ?? 'Provider'}</option>
-      <option value="category">{translations.current['Category'] ?? 'Category'}</option>
+      {#each groupings.filter((g) => g.groups === 'Locations') as g}<option value={g.grouping}>{translations.current[g.grouping] ?? g.grouping}</option>{/each}
+      <option value={LOCATION}>{translations.current['Location'] ?? 'Location'}</option>
+      <option value={PROVIDER}>{translations.current['Provider'] ?? 'Provider'}</option>
+      {#each groupings.filter((g) => g.groups === 'Items') as g}<option value={g.grouping}>{translations.current[g.grouping] ?? g.grouping}</option>{/each}
     </select>
   </fieldset>
 
@@ -121,7 +122,7 @@
 {:else if error}
   <p class="error center-text">{error}</p>
 {:else if !groupingApplicable}
-  <p class="center-text empty">Transfers have no real {groupBy} of their own — try grouping by Location or Category.</p>
+  <p class="center-text empty">{translations.current['A transfer is between two locations: group transfers by Location or by a grouping of the items.'] ?? 'A transfer is between two locations: group transfers by Location or by a grouping of the items.'}</p>
 {:else if groups.length === 0}
   <p class="center-text empty">No {tab} in the selected period.</p>
 {:else}

@@ -196,8 +196,8 @@ location with stock, item then location, a page at a time (`limit`,
 business.
 
 **`getInventoryListingByLocation`** is the same, grouped by location,
-each tagged with its group in the grouping `hierarchyName` asks for
-(`"Division"`, or any other; `group` is `null` when none is asked). It
+each tagged with its value in the location grouping `hierarchyName`
+asks for (`group` is `null` when none is asked). It
 is not paged: there are few locations. `business` is optional and falls
 back to the session's, as for `setItemLocationLevelDetails` above.
 `getBelowReorderStock` and `getStockOutRiskReport` are built on it.
@@ -207,20 +207,22 @@ position) and `getLocationCapacityStatus` take no `business`, so two
 businesses with an item and a location of the same names could read
 each other's figures. This is an open gap.
 
-**`allItemCategories`/`allPreferredProviders`** (private) read every
-item's category or preferred vendor in one query each, so a report of
+**`rowGroupsOf`/`allPreferredProviders`** (private) read every
+item's value in each item grouping (one `getHierarchyAssignments` per
+grouping) or its preferred vendor in one query each, so a report of
 thousands of rows makes no query per row (per row took about 4 seconds
-for a month). `allItemCategories` is `getHierarchyAssignments('Category')`
-(`db.ts`).
+for a month).
 
 **`getStockMovementReport`** is stock's physical journey (received,
 transferred, sold), from the quantity lines on the per-location
 quantity accounts (`<item> — <location> — Qty`) in the date range. A
 journal with lines at two locations is a transfer, from the one whose
 count fell to the one whose count rose; a journal at one location is a
-receipt when the quantity is positive and a sale when negative. Rows
-carry each item's category and preferred vendor, and, with
-`hierarchyName`, each location's group. Sales for the range are read
+receipt when the quantity is positive and a sale when negative. Each
+row carries its preferred vendor and `groups`: its value in each of the
+business's item groupings and, for a receipt or a sale, in each of its
+location groupings (null where it has none; a transfer, between two
+locations, has only its item groupings). Sales for the range are read
 once, keyed by invoice reference and Sales account (`Sales - X
 (Bottle)` is read as `X`).
 

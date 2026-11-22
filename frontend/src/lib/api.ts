@@ -454,19 +454,21 @@ export interface SalesReportLine {
   unit_price_minor: number | null;
   amount_minor: number;
 }
-export interface SalesCategorySummary {
-  category: string;
+export interface SalesGroupSummary {
+  group: string;
   quantity: number;
   amount_minor: number;
 }
 export interface SalesReport {
   detailed: SalesReportLine[];
-  category_summary: SalesCategorySummary[];
+  /** By the item grouping `grouping`, or by item when it is null. */
+  group_summary: SalesGroupSummary[];
+  grouping: string | null;
   total_quantity: number;
   total_amount_minor: number;
 }
-export const getSalesReport = (business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string) =>
-  callRow('getSalesReport', [business, ledger, fromDate, toDate], (f): SalesReport => ({
+export const getSalesReport = (business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string, itemGrouping?: string) =>
+  callRow('getSalesReport', [business, ledger, fromDate, toDate, itemGrouping], (f): SalesReport => ({
     detailed: decodeRecordList(['invoice_date', 'reference', 'item_name', 'description', 'quantity', 'unit_price_minor', 'amount_minor'], f[0]).map((r) => ({
       invoice_date: r.invoice_date,
       reference: r.reference,
@@ -476,13 +478,14 @@ export const getSalesReport = (business: BusinessName, ledger: LedgerName, fromD
       unit_price_minor: r.unit_price_minor === '' ? null : Number(r.unit_price_minor),
       amount_minor: Number(r.amount_minor),
     })),
-    category_summary: decodeRecordList(['category', 'quantity', 'amount_minor'], f[1]).map((r) => ({
-      category: r.category,
+    group_summary: decodeRecordList(['group', 'quantity', 'amount_minor'], f[1]).map((r) => ({
+      group: r.group,
       quantity: Number(r.quantity),
       amount_minor: Number(r.amount_minor),
     })),
     total_quantity: Number(f[2]),
     total_amount_minor: Number(f[3]),
+    grouping: f[4] || null,
   }));
 
 // Named AccountStatementLine (not StatementLine) to avoid colliding with
@@ -721,29 +724,32 @@ export interface HierarchyGroupRecord {
   parentName: string | null;
 }
 // Generic replacement for the former, privileged getDivisions() — see docs/pm-frontend-reference.md.
+/** What a grouping of the business's own groups (docs/pm-domain-reference.md). */
+export type GroupingKind = 'Items' | 'Locations';
 export interface HierarchyGroupingWithValues {
   grouping: string;
+  /** Undefined for the application's own groupings (Department, ...). */
+  groups?: GroupingKind;
   values: string[];
 }
 export const getHierarchy = async (business: string): Promise<HierarchyGroupingWithValues[]> => {
-  const rows = await callTable('getHierarchy', [business], (f) => ({ grouping: f.grouping, value: f.value }));
-  const byGrouping = new Map<string, string[]>();
-  const order: string[] = [];
+  const rows = await callTable('getHierarchy', [business], (f) => ({ grouping: f.grouping, groups: f.groups, value: f.value }));
+  const byGrouping = new Map<string, HierarchyGroupingWithValues>();
   for (const r of rows) {
-    if (!byGrouping.has(r.grouping)) {
-      byGrouping.set(r.grouping, []);
-      order.push(r.grouping);
-    }
-    if (r.value !== '') byGrouping.get(r.grouping)!.push(r.value);
+    if (!byGrouping.has(r.grouping)) byGrouping.set(r.grouping, { grouping: r.grouping, groups: (r.groups || undefined) as GroupingKind | undefined, values: [] });
+    if (r.value !== '') byGrouping.get(r.grouping)!.values.push(r.value);
   }
-  return order.map((grouping) => ({ grouping, values: byGrouping.get(grouping)! }));
+  return [...byGrouping.values()];
 };
+/** The business's groupings of its items, or of its locations, in the
+ * order they were created. */
+export const groupingsOf = (hierarchy: HierarchyGroupingWithValues[], kind: GroupingKind): HierarchyGroupingWithValues[] => hierarchy.filter((h) => h.groups === kind);
 export const getProductShapes = async (business: string): Promise<[string, string][][]> => {
   const rows = await callTable('getProductShapes', [business], (f) => f.shape);
   return rows.map((encoded) => decodeShape(encoded) ?? []);
 };
-export const createHierarchyGrouping = (business: string, groupingName: string) =>
-  callRow('createHierarchyGrouping', [business, groupingName], (f): { name: string } => ({ name: f[0] }));
+export const createHierarchyGrouping = (business: string, groupingName: string, groups: GroupingKind) =>
+  callRow('createHierarchyGrouping', [business, groupingName, groups], (f): { name: string } => ({ name: f[0] }));
 export const createHierarchyValue = (business: string, groupingName: string, valueName: string, parentValueName?: string | null) =>
   callRow('createHierarchyValue', [business, groupingName, valueName, parentValueName ?? undefined], (f): { name: string } => ({ name: f[0] }));
 export const defineProductShape = (business: string, dimensions: [string, string][]) =>
@@ -834,7 +840,7 @@ export interface BusinessConfigurationReport {
   secondaryCurrencies: string[];
   hierarchies: HierarchyGroupingWithValues[];
   locations: { name: string; city: string; locationType: string }[];
-  categories: string[];
+  products: string[];
   chartOfAccountsPrototype: string | null;
   notes: { name: string; text: string }[];
 }
@@ -851,9 +857,9 @@ export const getBusinessConfigurationReport = (businessName: string) =>
       bankAccounts: decodeRecordList(['name', 'routingDetail', 'accountNumber'], f[4]).map((r) => ({ name: r.name, routingDetail: r.routingDetail, accountNumber: r.accountNumber })),
       homeCurrency: f[5] || null,
       secondaryCurrencies: decodeStringList(f[6]),
-      hierarchies: decodeRecordList(['grouping', 'values'], f[7]).map((r) => ({ grouping: r.grouping, values: decodeStringList(r.values) })),
+      hierarchies: decodeRecordList(['grouping', 'groups', 'values'], f[7]).map((r) => ({ grouping: r.grouping, groups: (r.groups || undefined) as GroupingKind | undefined, values: decodeStringList(r.values) })),
       locations: decodeRecordList(['name', 'city', 'locationType'], f[8]).map((r) => ({ name: r.name, city: r.city, locationType: r.locationType })),
-      categories: decodeStringList(f[9]),
+      products: decodeStringList(f[9]),
       chartOfAccountsPrototype: f[11] || null,
       notes: decodeRecordList(['name', 'text'], f[10]).map((r) => ({ name: r.name, text: r.text })),
     })
@@ -2749,13 +2755,14 @@ export const getStorageSpaceReport = async (): Promise<StorageSpaceLocationGroup
 
 export interface StockMovementRow {
   item: string;
-  category: string | null;
+  /** The row's value in each of the business's item groupings and, for a
+   * receipt or a sale, location groupings; null where it has none. */
+  groups: Record<string, string | null>;
   quantity: number;
   date: string;
 }
 export interface OrderReceiptRow extends StockMovementRow {
   location: string;
-  group: HierarchyGroupName | null;
   vendor: string | null;
 }
 export interface StockTransferRow extends StockMovementRow {
@@ -2764,7 +2771,6 @@ export interface StockTransferRow extends StockMovementRow {
 }
 export interface StockSaleRow extends StockMovementRow {
   location: string;
-  group: HierarchyGroupName | null;
   vendor: string | null;
   amount_minor: number;
 }
@@ -2773,32 +2779,31 @@ export interface StockMovementReport {
   transfers: StockTransferRow[];
   sales: StockSaleRow[];
 }
-export const getStockMovementReport = (business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string, hierarchyName?: string) =>
-  callRow('getStockMovementReport', [business, ledger, fromDate, toDate, hierarchyName], (f): StockMovementReport => ({
-    receipts: decodeRecordList(['item', 'category', 'quantity', 'date', 'location', 'group', 'vendor'], f[0]).map((r) => ({
+const decodeRowGroups = (encoded: string): Record<string, string | null> => Object.fromEntries((decodeShape(encoded) ?? []).map(([k, v]) => [k, v || null]));
+export const getStockMovementReport = (business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string) =>
+  callRow('getStockMovementReport', [business, ledger, fromDate, toDate], (f): StockMovementReport => ({
+    receipts: decodeRecordList(['item', 'groups', 'quantity', 'date', 'location', 'vendor'], f[0]).map((r) => ({
       item: r.item,
-      category: r.category || null,
+      groups: decodeRowGroups(r.groups),
       quantity: Number(r.quantity),
       date: r.date,
       location: r.location,
-      group: (r.group || null) as HierarchyGroupName | null,
       vendor: r.vendor || null,
     })),
-    transfers: decodeRecordList(['item', 'category', 'quantity', 'date', 'from_location', 'to_location'], f[1]).map((r) => ({
+    transfers: decodeRecordList(['item', 'groups', 'quantity', 'date', 'from_location', 'to_location'], f[1]).map((r) => ({
       item: r.item,
-      category: r.category || null,
+      groups: decodeRowGroups(r.groups),
       quantity: Number(r.quantity),
       date: r.date,
       from_location: r.from_location,
       to_location: r.to_location,
     })),
-    sales: decodeRecordList(['item', 'category', 'quantity', 'date', 'location', 'group', 'vendor', 'amount_minor'], f[2]).map((r) => ({
+    sales: decodeRecordList(['item', 'groups', 'quantity', 'date', 'location', 'vendor', 'amount_minor'], f[2]).map((r) => ({
       item: r.item,
-      category: r.category || null,
+      groups: decodeRowGroups(r.groups),
       quantity: Number(r.quantity),
       date: r.date,
       location: r.location,
-      group: (r.group || null) as HierarchyGroupName | null,
       vendor: r.vendor || null,
       amount_minor: Number(r.amount_minor),
     })),

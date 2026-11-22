@@ -59,7 +59,7 @@ import {
   asProviderName,
   asUserId,
 } from '../db.js';
-import { CallError, encodeStringList, decodeStringList, decodeShape, encodeRecordList, decodeRecordList, requireAuth, requireRole, row, table, type BackendCall } from '../call-dispatch.js';
+import { CallError, encodeStringList, decodeStringList, decodeShape, encodeShape, encodeRecordList, decodeRecordList, requireAuth, requireRole, row, table, type BackendCall } from '../call-dispatch.js';
 
 export const locationsFunctions: Record<string, BackendCall> = {
   // GET / — business query param is required (locations are scoped per
@@ -642,15 +642,17 @@ export const locationsFunctions: Record<string, BackendCall> = {
   // encoded via encodeRecordList rather than forced into one table.
   getStockMovementReport: (v, user) => {
     requireAuth(user);
-    const [business, ledger, fromDate, toDate, hierarchyName] = v;
+    const [business, ledger, fromDate, toDate] = v;
     if (!business) throw new CallError(400, 'business is required.');
     if (!ledger) throw new CallError(400, 'ledger is required.');
     try {
-      const report = getStockMovementReport(business, ledger, fromDate || undefined, toDate || undefined, hierarchyName || undefined);
+      const report = getStockMovementReport(business, ledger, fromDate || undefined, toDate || undefined);
+      // Each row's groups: [grouping, value] pairs, the value '' for none.
+      const groups = (g: Record<string, string | null>) => encodeShape(Object.entries(g).map(([k, value]): [string, string] => [k, value ?? '']));
       return row(
-        encodeRecordList(['item', 'category', 'quantity', 'date', 'location', 'group', 'vendor'], report.receipts.map((r) => ({ ...r, category: r.category ?? '', group: r.group ?? '', vendor: r.vendor ?? '' }))),
-        encodeRecordList(['item', 'category', 'quantity', 'date', 'from_location', 'to_location'], report.transfers.map((r) => ({ ...r, category: r.category ?? '' }))),
-        encodeRecordList(['item', 'category', 'quantity', 'date', 'location', 'group', 'vendor', 'amount_minor'], report.sales.map((r) => ({ ...r, category: r.category ?? '', group: r.group ?? '', vendor: r.vendor ?? '' })))
+        encodeRecordList(['item', 'groups', 'quantity', 'date', 'location', 'vendor'], report.receipts.map((r) => ({ ...r, groups: groups(r.groups), vendor: r.vendor ?? '' }))),
+        encodeRecordList(['item', 'groups', 'quantity', 'date', 'from_location', 'to_location'], report.transfers.map((r) => ({ ...r, groups: groups(r.groups) }))),
+        encodeRecordList(['item', 'groups', 'quantity', 'date', 'location', 'vendor', 'amount_minor'], report.sales.map((r) => ({ ...r, groups: groups(r.groups), vendor: r.vendor ?? '' })))
       );
     } catch (err) {
       // Matches the old route's own exact, narrower gate: ValidationError

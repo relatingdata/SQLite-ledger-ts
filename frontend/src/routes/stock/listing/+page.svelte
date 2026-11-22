@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { getInventoryListingByLocation, getHierarchy, setItemLocationLevels, asItemName, asLocationName, ApiError, type InventoryListingLocationGroup, type InventoryListingRow } from '$lib/api';
+  import { getInventoryListingByLocation, getHierarchy, groupingsOf, setItemLocationLevels, asItemName, asLocationName, ApiError, type InventoryListingLocationGroup, type InventoryListingRow } from '$lib/api';
   import { translations, session } from '$lib/state.svelte';
 
   let groups: InventoryListingLocationGroup[] = $state([]);
@@ -26,7 +26,7 @@
     if (session.current) {
       try {
         const hierarchy = await getHierarchy(session.current.businessName);
-        if (hierarchy.length > 0) hierarchyName = hierarchy[0].grouping;
+        hierarchyName = groupingsOf(hierarchy, 'Locations')[0]?.grouping;
       } catch {
         /* the report still works with no group tagging at all if this fails */
       }

@@ -159,15 +159,16 @@ export const CORE_API_VERIFY: Record<string, Verify> = {
     const summed = nodes.reduce((sum, n) => sum + n.net, 0);
     return !!item && item.net > 0 && summed === (await profitAndLoss(a, api)).net;
   },
-  profit_and_loss_by_category_detailed: async (a, api) => {
-    const category = (await byAxis(a, api, 'Category', 'Item')).find((n) => n.key === a.categoryName);
-    return !!category && category.children.includes(a.itemName);
+  profit_and_loss_group_has_item: async (a, api) => {
+    // The value valueName of the inner grouping holds the item itemName.
+    const group = (await byAxis(a, api, a.innerAxis, 'Item')).find((n) => n.key === a.valueName);
+    return !!group && group.children.includes(a.itemName);
   },
-  profit_and_loss_by_division_consolidated: async (a, api) => {
-    const nodes = await byAxis(a, api, 'Division', 'Consolidated');
+  profit_and_loss_group_is_whole: async (a, api) => {
+    const nodes = await byAxis(a, api, a.outerAxis, a.innerAxis);
     const total = (await profitAndLoss(a, api)).net;
-    const division = nodes.find((n) => n.key === a.divisionName);
-    return !!division && division.net === total && nodes.reduce((sum, n) => sum + n.net, 0) === total;
+    const group = nodes.find((n) => n.key === a.valueName);
+    return !!group && group.net === total && nodes.reduce((sum, n) => sum + n.net, 0) === total;
   },
   user_has_exact_roles: async (a, api) => {
     const expected = list(a.roles).sort();
@@ -175,7 +176,7 @@ export const CORE_API_VERIFY: Record<string, Verify> = {
     return expected.length === actual.length && expected.every((r, n) => r === actual[n]);
   },
   translation_matches: async (a, api) => (await api.must('getTranslation', [a.concept, a.language])).row[0] === a.translationText,
-  location_in_hierarchy_group: async (a, api) => (await api.must('getGroup', [a.businessName, a.locationName, 'Division'])).row[0] === a.division,
+  location_in_hierarchy_group: async (a, api) => (await api.must('getGroup', [a.businessName, a.locationName, a.groupingName])).row[0] === a.valueName,
 };
 
 /** The API function a session screen maps to. */

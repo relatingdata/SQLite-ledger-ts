@@ -429,11 +429,13 @@ path,verify,screenshot,skip
 ,,,false
 ,,,false
 ,,,false
-,bom_components_recorded,,false
 ,,,false
 ,bom_components_recorded,,false
 ,,,false
 ,bom_components_recorded,,false
+,,,false
+,bom_components_recorded,,false
+,,,false
 ,,,false
 ,,,false
 ,,,false

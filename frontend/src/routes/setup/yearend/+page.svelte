@@ -13,6 +13,7 @@
     createLedger,
     resolveRolloverLines,
     getHierarchy,
+    groupingsOf,
     getReportingPeriods,
     asLedgerName,
     asAccountName,
@@ -81,7 +82,9 @@
         ledgers = await getLedgers(session.current.businessName);
         try {
           const hierarchy = await getHierarchy(session.current.businessName);
-          if (hierarchy.length > 0) hierarchyPath = ['Location', ...hierarchy.map((h) => h.grouping)];
+          // Each location, then each of its groups, in the location groupings.
+          const ofLocations = groupingsOf(hierarchy, 'Locations');
+          if (ofLocations.length > 0) hierarchyPath = ['Location', ...ofLocations.map((h) => h.grouping)];
         } catch {
           /* the close still works with just a Location breakdown if this fails */
         }

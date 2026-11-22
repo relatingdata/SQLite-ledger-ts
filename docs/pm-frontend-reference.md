@@ -358,11 +358,12 @@ Tests (*Testing: Unit*, "Running the tests"):
   cartons and bottles, so it is shown as whole numbers, not through
   `formatAmount`.
 - **`reports/new-stock-on-hand/+page.svelte`**: the axis choices are
-  Item, Category, Location and Consolidated, plus the business's other
-  hierarchies once they load (*Core Domain Reference*, "Hierarchies and
+  Item, Location and Consolidated, plus the business's groupings once
+  they load (*Core Domain Reference*, "Hierarchies and
   multi-dimensional reporting").
 - **`setup/bank-accounts/+page.svelte`**: a bank account can be
-  registered for any group of any of the business's hierarchies.
+  registered for the business or for any value of its location
+  groupings.
 - **`lib/treeAdapter.ts`**: converts the flat, `parent_id`-based entity
   list into the dot-separated path format `@keenmate/svelte-treeview`
   expects (`"1"`, `"1.1"`, `"1.1.2"`, ...), assigning each node's
@@ -501,12 +502,15 @@ Tests (*Testing: Unit*, "Running the tests"):
 
 ## `frontend/src/routes/reports/stock-movement/+page.svelte` — the Stock Movement report
 
-The report groups by location, provider, category (`Hierarchy:
-Category`, "(No category)" when untagged) or "group", which is the
-business's first configured hierarchy (such as Division); with no
-hierarchy, or if it fails to load, the report still works. Groups
-start collapsed, showing subtotals. A transfer has no provider or
-group, so grouping by location uses its destination.
+The report groups by any of the business's location groupings,
+location, provider, or any of its item groupings, each offered by its
+own name ("(No <grouping>)" when a row has no value); it starts on the
+first location grouping, else the first item grouping, else location.
+With no grouping, or if they fail to load, the report still works.
+Groups start collapsed, showing subtotals. A transfer, between two
+locations, has no provider and no location grouping: it groups by
+location (its destination) or by an item grouping, and the page says
+so when another is chosen.
 
 Tests (*Testing: Unit*, "Running the tests"):
 - "stock-movement-by-grouping" (`shared-fixtures/tests/stock-movement-by-grouping.csv`)
@@ -571,10 +575,10 @@ currency's scale but is not used here yet.
 
 ## `frontend/src/routes/stock/listing/+page.svelte` — the Stock Listing report
 
-Locations are grouped by the business's first configured hierarchy
-(such as Division), using the group `getInventoryListingByLocation`
-returns; a location with none is under "(No group)". With no hierarchy
-the report still works. Groups and locations start collapsed, showing
+Locations are grouped by the business's first location grouping, using
+the value `getInventoryListingByLocation` returns; a location with
+none is under "(No group)". With no location grouping the report still
+works. Groups and locations start collapsed, showing
 totals.
 
 Tests (*Testing: Unit*, "Running the tests"):
@@ -628,8 +632,7 @@ an exact UPC match first, then the first item found by name.
 ## `frontend/src/routes/setup/yearend/+page.svelte` — Close Books and Rollover
 
 **The close-books breakdown** is by Location, then by the business's
-other hierarchies (such as Division); if those fail to load, by
-Location only.
+location groupings; if those fail to load, by Location only.
 
 **Close Books** posts `previewCloseBooks`'s `preview.lines` with
 `stageLine`/`postJournalEntry` (`acceptAndClose`); nothing is
@@ -744,8 +747,9 @@ grouped by location so drill-down works. If the values fail to load,
 only the headings are offered.
 
 **One axis from each side.** Location and the business's location
-groupings (such as Division) are one side, where a sale happened;
-Item and Category are the other, what was sold. Crossing two axes from
+groupings are one side, where a sale happened; Item and its item
+groupings are the other, what was sold (`getAxes`'s `groups` says
+which side each grouping is on). Crossing two axes from
 the same side adds nothing, so each dropdown offers only the other
 side's axes. When a change would leave the other dropdown on an axis
 from the same side, that one resets to Consolidated. The guard is a
@@ -754,10 +758,10 @@ would reject as circular (`outerAxis` depends on `outerSelection`,
 which the guard sets).
 
 `allowedOuterAxes` and `allowedInnerAxes` are `$derived` from
-`opposingHierarchyAxes`, which reads `locationHierarchy` and
-`groupableAxes` (themselves `$derived` from `axisValues`), so a further
-hierarchy such as Division becomes selectable as soon as the axis
-values load.
+`opposingHierarchyAxes`, which reads `itemHierarchy`,
+`locationHierarchy` and `groupableAxes` (themselves `$derived` from
+`axisValues` and `axisGroups`), so a grouping becomes selectable as
+soon as the axis values load.
 
 Tests (*Testing: Unit*, "Running the tests"):
 - "profit-and-loss-by-division-and-category" (`shared-fixtures/tests/profit-and-loss-by-division-and-category.csv`)
@@ -847,14 +851,25 @@ pairs exist; only the ticked ones are created.
 
 ## `frontend/src/lib/components/BusinessStructurePopup.svelte` and `StructureTreeNode.svelte` — the Business Structure popup
 
-An editable picture of one business's locations, divisions, item
-categories and other hierarchies, using the same calls as the
+An editable picture of one business's locations, its groupings of
+locations and of items, and their values, using the same calls as the
 Locations, Setup → Hierarchies and Items screens.
 
-It is a wizard: a stepper (Org Chart → Item Categories → Other
+It is a wizard: a stepper (Org Chart → Item Groupings → Other
 Hierarchies), a line of explanation per step, and Back/Next/Finish.
-Every step can be skipped; a business may have no locations,
-divisions or categories at all. `activeTab` is `$derived` from
+Every step can be skipped; a business may have no locations and no
+groupings at all.
+
+**No grouping is named in the code.** The Org Chart shows one of the
+business's location groupings and the Item Groupings step one of its
+item groupings, each chosen with the `grouping-choice` buttons of a
+`groupingBar` (the first created by default); "+ New grouping" names
+a new one of that kind (`createHierarchyGrouping(business, name,
+'Locations' | 'Items')`). The Org Chart's "+ <grouping>" button
+(`add-group-value`) adds a value, and its group boxes are labelled with
+the grouping's name (`OrgChartNode`'s `groupLabel`). Other
+Hierarchies lists every grouping with what it groups, and asks which
+when it creates one. `activeTab` is `$derived` from
 `stepIndex`, and each step loads when first shown (`loadStep`).
 
 The quick-add Location form has optional bottle and carton capacity;
@@ -871,38 +886,35 @@ time via a "Business Structure" entry under Configuration
 same popup for `session.current.businessName`.
 
 **Every reposition in this popup is a hierarchy *tag*, never a
-structural reparent** — Locations ↔ Division, Item Category value ↔
-parent Category value, and Employee ↔ Department/Manager are all the
+structural reparent** — a Location ↔ a value of the location grouping,
+an item grouping's value ↔ its parent value, and Employee ↔
+Department/Manager are all the
 same kind of move, carried through the component without being
 collapsed into one mechanism only because each targets a different
 named link:
 
-- **Locations ↔ Division membership** is a tag on the Location
+- **A Location's value of the location grouping** is a tag on the Location
   (`setHierarchyTag`/`deleteHierarchyTag`, `frontend/src/lib/api.ts` —
   `setHierarchyParent`/`deleteHierarchyParent` on the backend,
   `backend/src/db.ts`). A location's real `parent_id` never changes —
   it stays under the business's `Locations` root forever. "Moving" a
-  location between divisions, or to "Unassigned", only changes or
-  clears this tag.
-- **Item Category value ↔ parent Category value** is a tag on the
-  category value itself, via the exact same `setHierarchyTag`/
-  `deleteHierarchyTag` pair — "moving" a category re-tags its own
-  `Hierarchy: Category` link (clearing it for "Top level"), the same
-  as moving a Location between Divisions. A category value's real
-  `parent_id` never changes either — it's a lightweight entity
-  registered once under the business's Hierarchy registry
-  (`ensureHierarchyValue`/`createHierarchyValue`) and never nested in
-  the real Items catalog tree, so arbitrarily deep category-under-
-  category nesting is free: a value can be tagged under a further
-  value of the same grouping to any depth, the identical mechanism
-  Division itself could use but conventionally doesn't.
+  location between values, or to "Ungrouped", only changes or clears
+  this tag.
+- **An item grouping's value ↔ its parent value** is a tag on the value
+  itself, via the same `setHierarchyTag`/`deleteHierarchyTag` pair —
+  "moving" a value re-tags its own `Hierarchy: <grouping>` link
+  (clearing it for "Top level"). A value's `parent_id` never changes
+  either — it is an entity registered once under the business's
+  Hierarchy registry (`ensureHierarchyValue`/`createHierarchyValue`)
+  and never nested in the Items catalog tree, so values nest to any
+  depth, as a location grouping's values can.
 - **Employee ↔ Department/Manager** is two entity links on the
   employee (`setEmployeeDepartment`/`setEmployeeManager`, over
   `setEntityLink`), since neither is a reporting hierarchy (*The Entity
   Model*, "Departments and the Org Chart").
 
 **`StructureTreeNode.svelte`** is the generic, recursive node renderer
-shared by the Item Categories and Other Hierarchies tabs (the Org
+shared by the Item Groupings and Other Hierarchies tabs (the Org
 Chart tab uses the separate `OrgChartNode.svelte`, described above) —
 unlike the read-only, select-only `HierarchyGroupTreeNode.svelte`,
 each node can offer an "+ Add" action (opens a type-specific form the
@@ -976,11 +988,13 @@ Tests (*Testing: Unit*, "Running the tests"):
 ## `frontend/src/routes/setup/business-setup/+page.svelte` — org chart: groups, locations, employees
 
 **The grouping used for locations** (`locationHierarchyName`) is the
-business's hierarchy whose values are its org-chart groups, else its
-first hierarchy (`getHierarchy`), else `Division` for a new business;
-typing another name into "Add a `<name>`" the first time uses that
-instead. **`otherHierarchies`** are the business's other hierarchies
-(such as Storage or Size), each a field on the Location form.
+location grouping chosen with the `grouping-choice` buttons, else the
+one whose values are the org-chart groups, else the first
+(`groupingsOf(getHierarchy(business), 'Locations')`), else none: a new
+business has no grouping until it names one ("+ New grouping", or
+Insert with nothing selected), and no grouping name is in the code.
+**`otherHierarchies`** are the business's other location groupings,
+each a field on the Location form.
 
 **A new location** is created under the business's `Locations` root
 and tagged with its group (`setHierarchyTag`), which the reports that
@@ -1013,31 +1027,36 @@ Tests (*Testing: Unit*, "Running the tests"):
 
 ## `frontend/src/routes/items/+page.svelte` — the Items catalog tree
 
-**Category is an optional hierarchy tag**, like Division
-(`setHierarchyParent`, `getHierarchyAssignments`), never a position in
-the Items tree. Every item is created directly under the business's
-`Items` root (`createEntity`, then `setItem`); a category is a tag
-added or removed with `setHierarchyTag`/`deleteHierarchyTag`, and a
-category value is an entity in the business's Hierarchy registry
-(`createHierarchyValue`/`ensureHierarchyValue`). Every category control
-is optional: a business with one item and no categories works the
-same way (*Core Domain Reference*, "Hierarchies and multi-dimensional
-reporting").
+**The tree shows one item grouping** (`itemGrouping`), chosen with
+the `grouping-choice` buttons among the business's item groupings (the
+first created by default); "+ New grouping" names a new one
+(`addGrouping`, `createHierarchyGrouping(business, name, 'Items')`).
+No grouping name is in the code. A value of the grouping is an
+optional tag (`setHierarchyParent`, `getHierarchyAssignments`), never
+a position in the Items tree. Every item is created directly under the
+business's `Items` root (`createEntity`, then `setItem`); a value is
+an entity in the business's Hierarchy registry
+(`createHierarchyValue`/`ensureHierarchyValue`). Every grouping control
+is optional: a business with one item and no grouping works the same
+way, Insert then adding an ungrouped item (*Core Domain Reference*,
+"Hierarchies and multi-dimensional reporting").
 
-- **`categoryValues`**: the business's `Category` values
-  (`getHierarchy(business)`), so an empty category still shows.
-- **`categoryAssignments`**: every `Hierarchy: Category` link in one
-  call (`getHierarchyAssignments('Category')`, entity name → value), for
-  items and for values tagged under another value.
+- **`categoryValues`**: the chosen grouping's values
+  (`getHierarchy(business)`), so an empty value still shows.
+- **`categoryAssignments`**: every `Hierarchy: <grouping>` link in one
+  call (`getHierarchyAssignments(itemGrouping)`, entity name → value),
+  for items and for values tagged under another value.
 - **`categoryTree`**: built from those two. A value with no parent value
-  is top level; values nest to any depth. Items hang under their
-  category by name.
-- **`uncategorizedItems`**: items with no category.
+  is top level; values nest to any depth. Items hang under their value
+  by name.
+- **`uncategorizedItems`**: items with no value of the grouping
+  ("Ungrouped").
 
-**Selection** is a category value or an item. With a category
-selected, Insert adds an item in it; Delete removes the selection
-(a category with `deleteHierarchyValue`, which removes no item). "+
-Subcategory" adds a value under the selected one.
+**Selection** is a value or an item. With a value selected, Insert
+adds an item in it; Delete removes the selection (a value with
+`deleteHierarchyValue`, which removes no item). "+ Subgroup" adds a
+value under the selected one. The item detail shows the item's value
+as "<grouping>: <value>".
 
 **`entities` vs. `globalEntities`**: `entities` is the business's
 subtree (`getEntityTree(session.current?.businessName)`), used for the
@@ -1056,22 +1075,22 @@ combination-tracked receipt the value entry is then built by
 is created directly under it (`createEntity({ name, parentId: root.id
 })`).
 
-**`addUncategorizedItem`** ("+ Item (no category)", or Insert with an
-uncategorized item selected) creates an item with no category:
+**`addUncategorizedItem`** ("+ Item (ungrouped)", or Insert with an
+ungrouped item selected) creates an item with no value:
 `createEntity` and `setItem`, as `addItemUnderCategory` does, without
 its `setHierarchyTag`.
 
-**`addSubcategory`** ("+ Subcategory") calls `createHierarchyValue(business,
-'Category', name, parentCategoryName)`; `addTopLevelCategory` makes the
-same call without a parent.
+**`addSubcategory`** ("+ Subgroup") calls `createHierarchyValue(business,
+itemGrouping, name, parentCategoryName)`; `addTopLevelCategory` makes
+the same call without a parent.
 
 **`addItemUnderCategory`** calls `setItem` straight after
 `createEntity`, because `listItems` lists only entities with contact
 details, which `setItem` gives; then `setHierarchyTag` puts it in the
-category.
+value.
 
 **`handleInsert`/`handleDelete`** decide what the keys do for a
-category or an item, and `hintText` says it (as on Business Setup).
+value or an item, and `hintText` says it (as on Business Setup).
 
 Tests (*Testing: Unit*, "Running the tests"):
 - "items-categories-insert-delete" (`shared-fixtures/tests/items-categories-insert-delete.csv`)

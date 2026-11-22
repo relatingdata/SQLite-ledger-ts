@@ -177,7 +177,7 @@ export const businessesFunctions: Record<string, BackendCall> = {
   // arrays (addresses, phones, ownerOrPartners, bankAccounts,
   // secondaryCurrencies, hierarchies — itself one further level nested,
   // since each hierarchy carries its own values[] — plus locations,
-  // categories, notes). Each array-of-records uses encodeRecordList;
+  // products, notes). Each array-of-records uses encodeRecordList;
   // each plain string[] uses encodeStringList; hierarchies nests
   // encodeStringList inside encodeRecordList (the same codec applied
   // recursively, same precedent as journal.ts's encodeRecordList itself
@@ -196,9 +196,9 @@ export const businessesFunctions: Record<string, BackendCall> = {
         encodeRecordList(['name', 'routingDetail', 'accountNumber'], r.bankAccounts),
         r.homeCurrency ?? '',
         encodeStringList(r.secondaryCurrencies),
-        encodeRecordList(['grouping', 'values'], r.hierarchies.map((h) => ({ grouping: h.grouping, values: encodeStringList(h.values) }))),
+        encodeRecordList(['grouping', 'groups', 'values'], r.hierarchies.map((h) => ({ grouping: h.grouping, groups: h.groups ?? '', values: encodeStringList(h.values) }))),
         encodeRecordList(['name', 'city', 'locationType'], r.locations),
-        encodeStringList(r.categories),
+        encodeStringList(r.products),
         encodeRecordList(['name', 'text'], r.notes),
         r.chartOfAccountsPrototype ?? ''
       );

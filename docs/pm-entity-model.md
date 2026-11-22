@@ -361,14 +361,15 @@ the structured form is the cartesian mechanism below.
   sub-location (the entity related to it), when there is one;
   everything else from the location itself.
 
-**Category is an optional lateral tag**, like Division, applied to a
-Product or an Item by name (`setHierarchyParent(name, 'Category',
-parentName, userId)`, `getHierarchyParent(name, 'Category')`), never
-an ancestor. A category value (`Beer`) is an entity in the business's
-Hierarchy registry, not under `Items`, so finding an item's category
-is one link lookup and re-categorising moves nothing. *Core Domain
-Reference*, "Hierarchies and multi-dimensional reporting", describes
-the mechanism it shares with Division.
+**An item grouping is an optional lateral tag**, applied to a Product
+or an Item by name (`setHierarchyParent(name, grouping, value,
+userId)`, `getHierarchyParent(name, grouping)`), never an ancestor.
+A value (`Beer`, in a grouping the business called Category) is an
+entity in the business's Hierarchy registry, not under `Items`, so
+finding an item's value is one link lookup and regrouping moves
+nothing. *Core Domain Reference*, "Hierarchies and multi-dimensional
+reporting", describes the mechanism, which location groupings share,
+and the rule that no grouping name is in the code.
 
 A function walking up from an item to its Items root recognizes
 `Items` or a name ending in `" Items"`; an exact match on `Items`

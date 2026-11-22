@@ -12,13 +12,11 @@
   import { Text } from 'sveltui';
   import { keyboard } from 'sveltui';
   import { onDestroy } from 'svelte';
-  import { ApiError, createHierarchyGrouping, createHierarchyValue, deleteHierarchyGrouping, deleteHierarchyValue, getHierarchy, type HierarchyGroupingWithValues } from '../api.ts';
+  import { ApiError, createHierarchyGrouping, createHierarchyValue, deleteHierarchyGrouping, deleteHierarchyValue, getHierarchy, firstGroupingOf, type HierarchyGroupingWithValues } from '../api.ts';
   import Panel from '../components/Panel.svelte';
   import TextInput from '../components/TextInput.svelte';
   import { brass, ink, inkSoft } from '../theme.ts';
 
-  const DIVISION = 'Division';
-  const CATEGORY = 'Category';
 
   type View = 'groupings' | 'new-grouping' | 'values' | 'new-value';
 
@@ -39,7 +37,10 @@
   async function refresh(): Promise<void> {
     try {
       const h = await getHierarchy(businessName);
-      groupings = h.filter((g) => g.grouping !== DIVISION && g.grouping !== CATEGORY).sort((a, b) => a.grouping.localeCompare(b.grouping));
+      // Every grouping except the first of each kind, which the Org Chart
+      // and Item Categories screens show.
+      const shown = new Set([firstGroupingOf(h, 'Locations'), firstGroupingOf(h, 'Items')]);
+      groupings = h.filter((g) => g.groups && !shown.has(g.grouping)).sort((a, b) => a.grouping.localeCompare(b.grouping));
       error = null;
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Could not load hierarchies.';
@@ -125,7 +126,8 @@
     if (!name) { view = 'groupings'; return; }
     busy = true; error = null;
     try {
-      await createHierarchyGrouping(businessName, name);
+      // A further grouping of the items; a location grouping is named on the Org Chart.
+      await createHierarchyGrouping(businessName, name, 'Items');
       await refresh();
       view = 'groupings';
     } catch (err) {

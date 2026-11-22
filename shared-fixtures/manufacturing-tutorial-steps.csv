@@ -15,8 +15,8 @@
 # Two real, distinct storage locations - raw materials in one,
 # finished assemblies in the other - genuinely different from
 # Retail's own single-shop-floor model.
-"Create Location","${business}","Raw Materials Store","Adelaide","Warehouse","","",""
-"Create Location","${business}","Finished Goods Store","Adelaide","Warehouse","","",""
+"Create Location","${business}","Raw Materials Store","Adelaide","Warehouse","",""
+"Create Location","${business}","Finished Goods Store","Adelaide","Warehouse","",""
 # One real supplier of raw aluminum/glass/timber/hardware, one real
 # trade customer buying finished assemblies.
 "Create Provider","${business}","Statewide Timber & Glass Supplies","Accounts Payable"
@@ -509,16 +509,18 @@
 # the three builder orders above (a modest slice of it) are filled.
 # A third real location - the actual production floor, distinct from
 # both the raw-material warehouse and the finished-goods warehouse.
-"Create Location","${business}","Factory","Adelaide","Warehouse","","",""
-# Two real Divisions - the warehousing locations grouped apart from
-# the one real production floor - tagged via the Business Structure
-# popup's own real 'New Division'/'Move...' actions, exactly like the
-# Retail tutorial's own Division use.
-"Add Division Via Structure Popup","${business}","Production"
-"Add Division Via Structure Popup","${business}","Warehousing"
-"Move Location To Division","${business}","Raw Materials Store","Warehousing"
-"Move Location To Division","${business}","Factory","Production"
-"Move Location To Division","${business}","Finished Goods Store","Warehousing"
+"Create Location","${business}","Factory","Adelaide","Warehouse","",""
+# A location grouping the business calls Division, with two values -
+# the warehousing locations grouped apart from the production floor -
+# named and used through the Business Structure popup's "+ New
+# grouping", "+ Division" and "Move..." actions, as in the Retail
+# tutorial.
+"Create Location Grouping Via Structure Popup","${business}","Division","Locations"
+"Add Location Group Value Via Structure Popup","${business}","Division","Production"
+"Add Location Group Value Via Structure Popup","${business}","Division","Warehousing"
+"Move Location To Group","${business}","Raw Materials Store","Division","Warehousing"
+"Move Location To Group","${business}","Factory","Division","Production"
+"Move Location To Group","${business}","Finished Goods Store","Division","Warehousing"
 # Eight real workshops, modelled as real, postable Departments (per
 # the earlier feasibility check: a literal BOM 'Labour/Plant' line has
 # no real UI on the Items page's own BOM card - only the separate
@@ -621,19 +623,20 @@
 "Check Bom Components Recorded","Timber Stile","1"
 "Set Bom Component","Timber Rail","${business}","Timber Length (6.1m)","0.2","ea"
 "Check Bom Components Recorded","Timber Rail","1"
-# Five real Item Categories, and every real item (the 23 above, plus
-# the 2 new bulk lengths) tagged into one - via the Business
-# Structure popup's own real 'New top-level category' action for each
-# value, then the generic, already-proven Tag Item Hierarchy action
+# An item grouping the business calls Category, with five values, and
+# every item (the 23 above, plus the 2 new bulk lengths) tagged into
+# one - via the Business Structure popup's "+ New grouping" and "+ New
+# top-level value" actions, then the generic Tag Item Hierarchy action
 # (data-kind, no UI selectors yet - the same, documented exception
 # the earlier feasibility check already found and flagged) for each
 # item, since there is no dedicated UI control for tagging an
-# EXISTING item into a category after its own creation.
-"Add Category Via Structure Popup","${business}","Raw Materials"
-"Add Category Via Structure Popup","${business}","Hardware & Fittings"
-"Add Category Via Structure Popup","${business}","Bulk Lengths"
-"Add Category Via Structure Popup","${business}","Frame Assemblies"
-"Add Category Via Structure Popup","${business}","Complete Units"
+# EXISTING item into a value after its own creation.
+"Create Item Grouping Via Structure Popup","${business}","Category","Items"
+"Add Item Group Value Via Structure Popup","${business}","Category","Raw Materials"
+"Add Item Group Value Via Structure Popup","${business}","Category","Hardware & Fittings"
+"Add Item Group Value Via Structure Popup","${business}","Category","Bulk Lengths"
+"Add Item Group Value Via Structure Popup","${business}","Category","Frame Assemblies"
+"Add Item Group Value Via Structure Popup","${business}","Category","Complete Units"
 "Tag Item Hierarchy","${business}","Glass Pane","Category","Raw Materials"
 "Tag Item Hierarchy","${business}","Timber Stile","Category","Raw Materials"
 "Tag Item Hierarchy","${business}","Timber Rail","Category","Raw Materials"
@@ -662,7 +665,7 @@
 # A real Other Hierarchy - 'Process' - the production stage each item
 # belongs to, independent of (coarser than) the eight Departments'
 # own workshop-level granularity.
-"Create Hierarchy Grouping","${business}","Process"
+"Create Hierarchy Grouping","${business}","Process","Items"
 "Create Hierarchy Value","${business}","Process","Cutting"
 "Create Hierarchy Value","${business}","Process","Glazing"
 "Create Hierarchy Value","${business}","Process","Framing & Lock Fitting"

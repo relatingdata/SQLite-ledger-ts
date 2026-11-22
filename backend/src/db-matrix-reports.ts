@@ -18,9 +18,8 @@ function resolveLedgerEntityId(business: string, ledger: string): number | undef
   return ledgersRoot ? Entity.getUnder(ledger, ledgersRoot.id)?.id : undefined;
 }
 
-// 'Category', 'Division', or any other business-defined grouping flows
-// through the same, single generic Hierarchy branch below — only
-// Consolidated/Item/Location are structural literals here.
+// Every grouping of the business flows through the same generic branch
+// below; only Consolidated/Item/Location are axes of their own.
 export type MatrixAxis = 'Item' | 'Location' | 'Consolidated' | (string & {});
 
 const CONSOLIDATED_KEY = 'Consolidated';
@@ -260,14 +259,14 @@ export function getProfitAndLossByAxis(
 
 export interface AxisValues {
   Item: string[];
-  Category: string[];
   Location: string[];
   [hierarchyName: string]: string[];
 }
 
-/** Which side each further hierarchy groups: items (Size, Packaging) or
- * locations (Division) — two axes of the same side never cross. Filled in
- * by getAxisValues, from how each hierarchy's values were reached. */
+/** Which side each grouping is on: items or locations — two axes of the
+ * same side never cross. Filled in by getAxisValues: what a grouping of
+ * the business's own records it groups; an application grouping by how
+ * its values were reached. */
 export type AxisGroups = Record<string, 'item' | 'location'>;
 
 export function getAxisValues(businessName: BusinessName, ledgerName: LedgerName, groups: AxisGroups = {}): AxisValues {
@@ -276,17 +275,16 @@ export function getAxisValues(businessName: BusinessName, ledgerName: LedgerName
   const balances = getLedgerBalances(businessName, ledgerName, undefined, undefined, true);
 
   const products = new Set<string>();
-  const categories = new Set<string>();
   const locations = new Set<string>();
-  const hierarchyNames = getBusinessHierarchy(businessName).map((g) => g.grouping);
+  const hierarchy = getBusinessHierarchy(businessName);
+  for (const g of hierarchy) if (g.groups) groups[g.grouping] = g.groups === 'Items' ? 'item' : 'location';
+  const hierarchyNames = hierarchy.map((g) => g.grouping);
   const hierarchyValues = new Map<string, Set<string>>(hierarchyNames.map((n) => [n, new Set<string>()]));
 
   for (const [id, balance] of balances.entries()) {
     if (!validIds.has(id) || balance === 0) continue;
     const item = resolveKey('Item', id, entityIndex);
     if (item !== CONSOLIDATED_KEY) products.add(item);
-    const category = resolveKey('Category', id, entityIndex);
-    if (category !== CONSOLIDATED_KEY) categories.add(category);
     const location = resolveKey('Location', id, entityIndex);
     if (location !== NO_LOCATION_KEY) locations.add(location);
     for (const name of hierarchyNames) {
@@ -299,7 +297,6 @@ export function getAxisValues(businessName: BusinessName, ledgerName: LedgerName
 
   const result: AxisValues = {
     Item: [...products].sort(),
-    Category: [...categories].sort(),
     Location: [...locations].sort(),
   };
   for (const [name, values] of hierarchyValues) result[name] = [...values].sort();
@@ -309,8 +306,8 @@ export function getAxisValues(businessName: BusinessName, ledgerName: LedgerName
 // --- the general report cube -----------------------------------------------------
 //
 // Every financial event is a journal posting to an account, and an
-// account resolves to an Item, a Location, a Category and any further
-// hierarchy (resolveKey above). So any report on sales, cost of goods sold
+// account resolves to an Item, a Location and each of the business's
+// groupings (resolveKey above). So any report on sales, cost of goods sold
 // or stock is: some measures, each a total over a set of accounts (or the
 // on-hand quantity of stock, possibly valued at a price), broken down by a
 // row axis and a column axis. getStockOnHandMatrix is one fixed instance;

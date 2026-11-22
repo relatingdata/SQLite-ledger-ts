@@ -36,6 +36,7 @@
     deleteHierarchyValue,
     deleteLocation,
     getHierarchy,
+    firstGroupingOf,
     getHierarchyTag,
     getLocationTypes,
     getOrgChartStructure,
@@ -69,7 +70,9 @@
     | 'set-department'
     | 'set-manager';
 
-  const DIVISION = 'Division';
+  // The business's first location grouping; until it has one, the first
+  // value added names the grouping instead.
+  let DIVISION = $state('');
   const UNASSIGNED_DEPT = '__unassigned_dept__';
   const UNASSIGNED_DIV = '__unassigned_div__';
 
@@ -115,7 +118,8 @@
     try {
       const biz = asBusinessName(businessName);
       const [chart, locs, hierarchy] = await Promise.all([getOrgChartStructure(businessName), listLocations(biz), getHierarchy(businessName)]);
-      const tags = await Promise.all(locs.map((l) => getHierarchyTag(l.name, DIVISION).catch(() => ({ parentName: null }))));
+      DIVISION = firstGroupingOf(hierarchy, 'Locations');
+      const tags = DIVISION ? await Promise.all(locs.map((l) => getHierarchyTag(l.name, DIVISION).catch(() => ({ parentName: null })))) : locs.map(() => ({ parentName: null }));
       const divisionByLocation = Object.fromEntries(locs.map((l, i) => [l.name, tags[i]!.parentName]));
       orgChart = chart;
       locations = locs;
@@ -312,8 +316,8 @@
     if (!name) { view = 'add-menu'; return; }
     busy = true; error = null;
     try {
-      await createHierarchyGrouping(businessName, DIVISION);
-      await createHierarchyValue(businessName, DIVISION, name);
+      if (DIVISION) await createHierarchyValue(businessName, DIVISION, name);
+      else await createHierarchyGrouping(businessName, name, 'Locations');
       await refresh();
       view = 'buckets';
     } catch (err) {

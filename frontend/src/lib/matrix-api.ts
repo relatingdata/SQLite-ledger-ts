@@ -165,7 +165,7 @@ function decodeProfitAndLoss(encoded: string): ProfitAndLoss {
   };
 }
 
-export type MatrixAxis = 'Item' | 'Category' | 'Location' | 'Consolidated' | (string & {});
+export type MatrixAxis = 'Item' | 'Location' | 'Consolidated' | (string & {});
 
 export interface StockOnHandCell {
   rowKey: string;
@@ -263,14 +263,13 @@ export const getCube = async (
 
 export interface AxisValues {
   Item: string[];
-  Category: string[];
   Location: string[];
   [hierarchyName: string]: string[];
 }
 
 export const getAxisValues = async (business: string, ledger: string): Promise<AxisValues> => {
   const rawRows = await matrixCallTable('getAxisValues', [business, ledger], (f) => f);
-  const result: AxisValues = { Item: [], Category: [], Location: [] };
+  const result: AxisValues = { Item: [], Location: [] };
   for (const { axis, value } of rawRows) {
     if (!(axis in result)) result[axis] = [];
     if (value !== '') result[axis].push(value);
@@ -283,7 +282,7 @@ export const getAxisValues = async (business: string, ledger: string): Promise<A
  * values in this ledger). */
 export const getAxes = async (business: string, ledger: string): Promise<{ values: AxisValues; groups: Record<string, string> }> => {
   const rawRows = await matrixCallTable('getAxisValues', [business, ledger], (f) => f);
-  const values: AxisValues = { Item: [], Category: [], Location: [] };
+  const values: AxisValues = { Item: [], Location: [] };
   const groups: Record<string, string> = {};
   for (const { axis, value, group } of rawRows) {
     if (!(axis in values)) values[axis] = [];

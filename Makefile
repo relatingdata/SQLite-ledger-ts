@@ -1,4 +1,4 @@
-.PHONY: all install clean seed seed-pivot-demo print-screen dev dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-unit test-unit-frontend test-unit-store test-unit-core test-unit-backend test-unit-calls check-unit-levels check-translations test-e2e test-e2e-tutorial test-e2e-tutorials test-e2e-tutorials-http test-storage-engine storage-engine-deps generator generate format-application-config test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs test-e2e-manufacturing-tutorial test-e2e-manufacturing-tutorial-browser test-e2e-manufacturing-full test-e2e-project-builder-tutorial test-e2e-project-builder-tutorial-browser test-e2e-project-builder-full reset-db manual programmer-manual historical-manual entity-tree-svg entity-tree-sample-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch proof-year-end check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles analyze-vocabulary strip-comments check-test-docs check-manual test-steps test-steps-browser test-one release check-manual-pictures check-step-tests
+.PHONY: all install clean seed seed-pivot-demo print-screen dev dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-unit test-unit-frontend test-unit-store test-unit-core test-unit-backend test-unit-calls check-unit-levels check-translations check-grouping-names test-e2e test-e2e-tutorial test-e2e-tutorials test-e2e-tutorials-http test-storage-engine storage-engine-deps generator generate format-application-config test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs test-e2e-manufacturing-tutorial test-e2e-manufacturing-tutorial-browser test-e2e-manufacturing-full test-e2e-project-builder-tutorial test-e2e-project-builder-tutorial-browser test-e2e-project-builder-full reset-db manual programmer-manual historical-manual entity-tree-svg entity-tree-sample-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch proof-year-end check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles analyze-vocabulary strip-comments check-test-docs check-manual test-steps test-steps-browser test-one release check-manual-pictures check-step-tests
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -159,6 +159,11 @@ test-unit-calls: test-unit-backend
 
 test-unit: test-unit-calls
 
+# No grouping a business names for itself (Division, Category, ...) is
+# named in the code (docs/pm-domain-reference.md).
+check-grouping-names:
+	cd backend && $(RUN_SCRIPT) ../scripts/check-grouping-names.ts
+
 # Every menu, screen and frontend text in every language
 # (docs/pm-translations.md).
 check-translations: generate
@@ -176,7 +181,7 @@ test: generate
 # one failing gate never hides another; `make test`, the pre-commit hook
 # (githooks/pre-commit) and CI (.github/workflows/check.yml) all run this.
 # See docs/pm-build-and-tooling.md, "Gates".
-MANUAL_GATES = check-translations check-unit-levels check-backend-types check-docs-coverage check-docs-staleness check-test-docs check-function-inventory check-cycles check-schema-table-count check-unused check-no-python check-journal-staging-only check-step-tests check-manual-pictures
+MANUAL_GATES = check-translations check-grouping-names check-unit-levels check-backend-types check-docs-coverage check-docs-staleness check-test-docs check-function-inventory check-cycles check-schema-table-count check-unused check-no-python check-journal-staging-only check-step-tests check-manual-pictures
 check-manual:
 	@fail=0; for g in $(MANUAL_GATES); do \
 	  $(MAKE) -s $$g || { echo "GATE FAILED: $$g"; fail=1; }; \

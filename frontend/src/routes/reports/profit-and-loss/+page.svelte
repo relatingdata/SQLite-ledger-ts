@@ -5,7 +5,7 @@
   import { formatAmount } from '$lib/format';
   import FromToDateFields from '$lib/components/FromToDateFields.svelte';
   import { translations } from '$lib/state.svelte';
-  import { getProfitAndLossByAxis, getAxisValues, MatrixApiError, type ProfitAndLossByAxisNode, type MatrixAxis, type AxisValues } from '$lib/matrix-api';
+  import { getProfitAndLossByAxis, getAxes, MatrixApiError, type ProfitAndLossByAxisNode, type MatrixAxis, type AxisValues } from '$lib/matrix-api';
   import AxisPLNode from '$lib/components/AxisPLNode.svelte';
 
   // Unified axis dropdown — see docs/pm-frontend-reference.md.
@@ -13,20 +13,23 @@
   let innerSelection = $state('Item');
 
   let axisValues: AxisValues | null = $state(null);
+  let axisGroups: Record<string, string> = $state({});
   let fromDate = $state('');
   let toDate = $state('');
   let nodes: ProfitAndLossByAxisNode[] = $state([]);
   let loading = $state(true);
   let error = $state('');
 
-  // Hierarchy-redundancy guard — see docs/pm-frontend-reference.md.
-  const ITEM_HIERARCHY: Exclude<MatrixAxis, 'Consolidated'>[] = ['Category', 'Item'];
-  let furtherHierarchies = $derived((axisValues ? Object.keys(axisValues).filter((k) => !['Item', 'Category', 'Location'].includes(k)) : []) as Exclude<MatrixAxis, 'Consolidated'>[]);
-  let locationHierarchy = $derived(['Location', ...furtherHierarchies] as Exclude<MatrixAxis, 'Consolidated'>[]);
-  let groupableAxes = $derived(['Item', 'Category', ...locationHierarchy] as Exclude<MatrixAxis, 'Consolidated'>[]);
+  // Hierarchy-redundancy guard — see docs/pm-frontend-reference.md: Item
+  // and the item groupings on one side, Location and the location
+  // groupings on the other.
+  const groupingsOn = (side: string) => (axisValues ? Object.keys(axisValues).filter((k) => !['Item', 'Location'].includes(k) && axisGroups[k] === side) : []) as Exclude<MatrixAxis, 'Consolidated'>[];
+  let itemHierarchy = $derived(['Item', ...groupingsOn('item')] as Exclude<MatrixAxis, 'Consolidated'>[]);
+  let locationHierarchy = $derived(['Location', ...groupingsOn('location')] as Exclude<MatrixAxis, 'Consolidated'>[]);
+  let groupableAxes = $derived([...itemHierarchy, ...locationHierarchy] as Exclude<MatrixAxis, 'Consolidated'>[]);
   function opposingHierarchyAxes(axis: Exclude<MatrixAxis, 'Consolidated'> | 'Consolidated'): (Exclude<MatrixAxis, 'Consolidated'> | 'Consolidated')[] {
-    if (locationHierarchy.includes(axis as never)) return ['Consolidated', ...ITEM_HIERARCHY];
-    if (ITEM_HIERARCHY.includes(axis as never)) return ['Consolidated', ...locationHierarchy];
+    if (locationHierarchy.includes(axis as never)) return ['Consolidated', ...itemHierarchy];
+    if (itemHierarchy.includes(axis as never)) return ['Consolidated', ...locationHierarchy];
     return ['Consolidated', ...groupableAxes];
   }
 
@@ -59,7 +62,7 @@
   onMount(async () => {
     if (session.current) {
       try {
-        axisValues = await getAxisValues(session.current.businessName, session.current.ledgerName);
+        ({ values: axisValues, groups: axisGroups } = await getAxes(session.current.businessName, session.current.ledgerName));
       } catch {
         /* the dropdowns still work with just the four, real, group-by headings if this fails — the specific-value lists are a convenience, not a requirement */
       }

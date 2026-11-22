@@ -45,6 +45,7 @@
     onCancelReassignManager,
     selectedKey = null,
     onSelect = () => {},
+    groupLabel = '',
   }: {
     nodes: OrgChartBox[];
     onAddChild: (node: OrgChartBox) => void;
@@ -60,6 +61,8 @@
     onCancelReassignManager: () => void;
     selectedKey?: string | null;
     onSelect?: (node: OrgChartBox) => void;
+    /** The name of the location grouping the group boxes are values of. */
+    groupLabel?: string;
   } = $props();
 
   const byKey = $derived(new Map(nodes.map((n) => [n.key, n])));
@@ -68,7 +71,7 @@
 
   function kindLabel(kind: OrgChartBoxKind): string {
     const map: Record<OrgChartBoxKind, string> = {
-      division: 'Division',
+      division: groupLabel || 'Group',
       location: 'Location',
       department: 'Department',
       employee: 'Employee',
