@@ -1,10 +1,9 @@
 # Application Configuration as Entities
 
-The frontends are to be generated from a small amount of configuration
-kept as entities, not from stored source code. That configuration lives in
-git as one ASCII file, `application/application.entities` (about 170 KB,
-about 25 KB compressed): the current state of the entities, with no history
-and nothing else. The words it refers to (labels, titles) are the existing
+Part of the web frontend is generated from configuration kept as
+entities. The configuration is one ASCII file in git,
+`application/application.entities` (about 170 KB, 29 KB compressed):
+the current state of the entities, with no history. The words it refers to (labels, titles) are the existing
 vocabulary and translation entities, by key.
 
 ## What it holds
@@ -44,7 +43,8 @@ build output, ignored by git, written by `make generate`.
   OTP 25 installed here), into `generator/deps/`.
 - `app-entities` reads the ASCII form into a store and answers: a node at a
   path, its things in order, its kind, a relation's value or target.
-- `app-view` resolves variants (below); `app-lisp` prints configuration as Lisp.
+- `app-view` resolves variants (below); `app-lisp` prints configuration
+  as Lisp; `app-css` writes the styles (below).
 - `app-svelte` holds the templates. Each is an ordinary function run while
   generating: it takes a screen's configuration and returns its page. They
   share smaller functions (a field, a column's header and cell, a money
@@ -60,9 +60,8 @@ build output, ignored by git, written by `make generate`.
 
 ### Templates
 
-43 of the 81 routes are generated (the superseded P&L variants Old P&L,
-New P&L, New New P&L and the drag-and-drop P&L Pivot were retired; the
-tutorials' P&L checks now run on Profit and Loss). Each screen names its template:
+43 of the 81 routes are generated. Each screen names its template, or
+takes its base screen's (Variants, below):
 
 | Template | Screens | Reads |
 |---|---|---|
@@ -242,11 +241,10 @@ hand-written page is affected. Templates emit class names only.
 
 ### Checking the generated screens
 
-The tutorials' browser path is the test: `make test-e2e-tutorial-browser`
-(Retail) passes all 75 steps with the same UI results as the hand-written
-pages, Cash Purchase, Cash Sale, Purchase Order and Stock Transfer going
-through their generated pages; the other generated screens are checked by
-`svelte-check`.
+The step runner's browser path drives the generated pages the
+tutorials and standalone tests use (Cash Purchase, Cash Sale, Purchase
+Order, Stock Transfer, the reports); `every-page-opens` opens every
+page, and `svelte-check` (`make check-frontend`) checks them all.
 
 ## The ASCII form (`backend/src/entities/entities-text.ts`)
 

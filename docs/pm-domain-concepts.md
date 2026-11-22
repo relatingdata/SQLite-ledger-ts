@@ -1,33 +1,25 @@
 # Domain Concepts: Services, Projects, Staff Scheduling, Gantt Charts
 
-A direct, honest answer to the question "where does the app model
-X?" for four related domain topics people reasonably expect a ledger/
-ERP app to have a dedicated entity for. For each, this states plainly
-what exists today, where it lives, and what does not exist — so
-answering this question never again requires reading source code from
-scratch.
+Where the app models four things people expect an ERP to have, and
+what it does not have.
 
 ## Sale and purchase of services (non-inventory items)
 
-There is **no separate "Service" entity type**. A service is a Stock
-Receipt or Stock Dispatch line with its quantity tracking turned off.
+There is no Service entity. A service is a Stock Receipt or Stock
+Dispatch line without a quantity.
 
 - **Where**: the Stock Receipt (`frontend/src/routes/stock/stock-receipt/`)
   and Stock Dispatch (`frontend/src/routes/stock/stock-dispatch/`) pages
-  each have an `isService` checkbox ("This is a service — no physical
-  stock quantity to track"). Toggling it on sends `item_qty: undefined`
-  to the backend (`stageOrderReceipt`/`stageOrderDispatch`) instead of a
-  count.
-- **What actually changes**: nothing about the account posting — the
-  real money/value leg still posts normally against whatever account
-  the line names. Only the *quantity* leg is skipped: no `-QTY`-suffixed
-  pseudo-posting, no COGS quantity movement, nothing added to any
-  item's on-hand count.
-- **What this means for reports**: a service line is invisible to
-  inventory reports (`getInventoryListing`, `getStockMovementReport`,
-  reorder/stock-out-risk) by design — there is no stock to list — but
-  shows up normally in every financial report (Trial Balance, P&L,
-  Balance Sheet, Sales Report) exactly like a physical item would.
+  have an `isService` checkbox ("This is a service — no physical stock
+  quantity to track"). Ticked, the page sends `item_qty: undefined` to
+  `stageOrderReceipt` or `stageOrderDispatch`.
+- **What changes**: the money and tax legs post as usual. There is no
+  `-QTY` posting, no cost of goods sold and no change to any item's
+  quantity on hand.
+- **In reports**: a service is in no inventory report
+  (`getInventoryListing`, `getStockMovementReport`, below-reorder) and
+  in every financial one (Trial Balance, P&L, Balance Sheet, Sales
+  Report).
 
 Tests (*Testing: Unit*, "Running the tests"):
 - "a service dispatch (no item, no item_qty, no unit_cost) skips COGS and quantity movement entirely — matches the exact worked example: 10 hours @ 150.00 with 10% tax" (`backend/test/db.test.ts`)
@@ -35,111 +27,63 @@ Tests (*Testing: Unit*, "Running the tests"):
 
 ## Projects
 
-Two, genuinely separate mechanisms both answer to the word "project" in
-this app, and neither replaced the other.
+Two mechanisms answer to "project".
 
-### The original, account-name-only "project"
+### A project as an expense account
 
-A project is just the *name of an Expense Chart-of-Accounts account* —
-whatever account a business already uses for, say, "Downtown
-Renovation" or "Client X Consulting." Unchanged by the Project Builder
-work below.
+`clockInToProject`, `clockOutOfProject` and
+`getOpenProjectClockForEmployee` (`backend/src/db-journal.ts`;
+dispatched by `call-dispatch/projects.ts` as `clockInToProject`,
+`clockOutOfProject` and `getOpenProjectClock`) take a project as the
+name of an Expense account (`projectExpenseAccount: AccountName`). The
+page is `frontend/src/routes/projects/`: pick an employee and an
+account, clock in or out.
 
-- **Where**: `backend/src/db-journal.ts` — `clockInToProject`,
-  `clockOutOfProject`, `getOpenProjectClockForEmployee`. Dispatched via
-  `call-dispatch/projects.ts` (`clockInToProject`/`clockOutOfProject`/
-  `getOpenProjectClock`). Frontend: `frontend/src/routes/projects/`
-  (171 lines — pick an employee, pick a project/account, clock in or
-  out; nothing else).
-- **How it's modeled**: the employee is treated as a vendor selling
-  their own time. Clocking in stages a real Purchase Order against the
-  chosen expense account (`projectExpenseAccount: AccountName` — a real
-  account name, not a project id). Clocking out computes hours worked ×
-  the employee's configured wage rate and posts that as a real cost
-  against the project account.
-- **Clock state**: a child entity under the employee
-  (`Clocked In — <PO reference> — <project account> — <timestamp>`,
-  tagged `Active`), not a new table — the same append-only entity-graph
-  pattern used throughout this app, not a bespoke "project" schema.
-- **What this means**: "assign staff to a project" works, in the narrow
-  sense of "an employee can clock time against a named expense
-  account and that cost posts for real." Used on its own, there is no
-  project record with its own start/end dates, budget, status, or site
-  — the account name *is* the project's only identity.
+- The employee is a vendor selling their time: clocking in stages a
+  purchase order against the account; clocking out posts hours ×
+  the employee's wage rate against it.
+- The open clock is a child entity of the employee, `Clocked In — <PO
+  reference> — <project account> — <timestamp>`, related to `Active`.
+- There is no project record: no dates, budget, status or site.
 
-### Live Project — a real project entity, built for Project Builder
+### Live Project
 
-`clockInToProject`'s own `projectExpenseAccount` parameter is still
-just an account name with no runtime check that it belongs to anything
-— but since the Project Builder work (see `docs/pm-project-builder.md`
-for the full mechanism), a real **Live Project** entity now exists too,
-and the two compose: a Live Project's own, automatically provisioned
-Expense account is exactly the kind of account name `clockInToProject`/
-`clockPlantIn` already take, so real labour/plant time clocked against
-a Live Project lands as a real cost on it, with zero change to either
-clock function's own signature.
+A Live Project (*Project Builder*) is an entity under the business's
+`Live Projects` root (`PER_BUSINESS_ROOTS`, `db.ts`), with `Client`,
+`Requested Start`, `Target Completion Date`, `Schedule Risk`, `Profit
+Center` and `Project Expense Account`, and `Milestone` children
+(`Plans Submission`, `Inspection`, `Invoicing`, each with a `Due Date`).
+Accepting a Project Proposal (a quotation with recipe lines) creates
+one, with its own Profit Center and Expense account.
+
+The two meet at the account: `clockInToProject` and `clockPlantIn`
+take the Live Project's `Project Expense Account`, so time clocked
+against it is the project's cost (`getProjectCostReport`).
+`clockInToProject` does not check that an account belongs to a project.
 
 - **Where**: `backend/src/db-projects.ts` (`createLiveProject`,
   `getLiveProject`, `listLiveProjects`, `createMilestone`,
   `getMilestones`, `getResourceBookings`, `findNextAvailableWindow`,
   `scheduleProjectRecipeLines`, `checkMilestoneAchievability`,
-  `provisionProjectProfitCenter`, `getProjectCostReport`). Dispatched
-  via `call-dispatch/projects.ts` and `call-dispatch/plant.ts`/
+  `provisionProjectProfitCenter`, `getProjectCostReport`), dispatched
+  by `call-dispatch/projects.ts`, `call-dispatch/plant.ts` and
   `call-dispatch/prototypes.ts`.
-- **A real entity, not an account name**: `PER_BUSINESS_ROOTS`'s own
-  `Live Projects` root (`db.ts`) — a Live Project carries its own
-  `Client`/`Requested Start`/`Target Completion Date`/`Schedule Risk`/
-  `Profit Center`/`Project Expense Account` attributes, and its own
-  child `Milestone` entities (`Plans Submission`/`Inspection`/
-  `Invoicing`, each with its own `Due Date` and possible `Schedule
-  Risk`). It is created automatically when a multi-line Project
-  Proposal (a widened Quotation, see below) is accepted.
-- **What this means**: a Live Project has a real start/target-
-  completion date, a real set of Milestones, a real dedicated Profit
-  Center and Expense account comparing its quoted price to its actual
-  labour/plant cost, and a real, computed Schedule Risk when a genuine
-  resource double-booking pushes its completion past what the client
-  wanted — everything the plain, account-name-only mechanism above
-  deliberately does not have. See `docs/pm-project-builder.md` for the
-  Recipe/Plant/Skill/Prototype/contention mechanism this is built on,
-  and the Project Builder tutorial chapter for a full, worked example.
 
 ## Staff allocation / scheduling beyond project clock-in
 
-Separately from project clocking, `backend/src/db-stock.ts`'s
-location-scheduling functions (`setEmployeeSchedule`/
-`getEmployeeSchedule`, `call-dispatch/locations.ts`) let a location
-record which employees are rostered on, and when — a real, working
-capability, but scoped to *location* staffing (who's on shift at a
-store/warehouse), not to *project* staffing. The two systems don't
-share any data: an employee's project clock-in and their location
-schedule are entirely independent facts today.
+`setEmployeeSchedule` and `getEmployeeSchedule` (`db.ts`, dispatched
+by `call-dispatch/locations.ts`) record when an employee works at a
+location. They share nothing with project clocking: an employee's
+clock-ins and location schedule are separate facts.
 
 ## Gantt charts, task dependencies, multi-project overviews
 
-**Still no Gantt chart, task-dependency graph, or screen that shows
-more than one project/employee at a time.** What changed: Live
-Project's own `findNextAvailableWindow`/`getResourceBookings`
-(`db-projects.ts`, see above and `docs/pm-project-builder.md`) IS a
-real, working cross-project awareness — it reads every OTHER live
-project's own real Labour/Plant bookings for a named resource before
-resolving a new one, and pushes a genuine conflict into the future
-rather than ignoring it. That is real resource contention across
-projects, computed on demand; it is not a Gantt-style timeline, has no
-notion of a task or a dependency edge between two tasks, and has no UI
-of its own — the Project Builder tutorial's own narration (never a
-rendered chart) is how this is currently seen.
+There is no Gantt chart, no task or dependency between tasks, and no
+screen showing more than one project or employee at a time.
+`getResourceBookings` and `findNextAvailableWindow` do look across
+projects: a resource booked on another live project pushes a new
+booking later. That has no screen of its own.
 
-`docs/construction-project-management-plan.md` is a **design document
-only** — a deliberately honest scoping of what a real construction/
-multi-site project-management extension (sites, phases, subcontractors,
-dependent task schedules, progress billing) would take, written against
-this app's real, current primitives. It proposes modeling sites/tasks/
-budgets as child entities (the same name-encodes-data pattern this app
-already uses for BOM components), task dependencies as one link-entity
-per edge, and computing the critical path in TypeScript rather than SQL.
-**None of it is implemented.** If a future request asks for Gantt
-charts or project scheduling, that design doc — not this chapter — is
-the starting point for scoping the work; this chapter exists only to
-make clear, without reading either the doc or the source, that the
-capability itself doesn't exist yet.
+`docs/construction-project-management-plan.md` is a design, not
+implemented: sites, tasks and budgets as child entities, a dependency
+as one link entity per edge, the critical path computed in TypeScript.

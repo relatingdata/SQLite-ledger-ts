@@ -1,21 +1,18 @@
 # System Overview
 
-This manual describes **the system as it stands today**, with the
-minimum background a programmer needs to reimplement any part of it.
-It is deliberately short. Design rationale, rejected approaches, and
-the real incidents that led to a given decision all live in the
-separate **Historical Design & Decision Log** (`make historical-manual`)
-— this manual states what is true now; that one explains how it got
-that way.
+This manual describes the system as it is, with what a programmer
+needs to reimplement any part of it. Why it is so, what was rejected
+and what went wrong on the way are in the **Historical Design &
+Decision Log** (`make historical-manual`).
 
 ## What this is
 
-A double-entry ledger application (branded "Better Brighter
-Multi-Ledger") over a deliberately minimal SQLite schema: one
-`entities` table carrying the entire structural tree (businesses,
-accounts, locations, items, vocabulary, users — everything), plus
-small, typed extension tables (`account`, `translation`, `journal`/
-`journal_line`) for the data that doesn't fit the tree shape. See Part
+A double-entry ledger application ("Better Brighter Multi-Ledger") on
+a small SQLite schema: the `entities` table holds the whole tree
+(businesses, accounts, locations, items, vocabulary, translations,
+users), and `account`, `journal` and `journal_line` hold balances and
+postings, with `journal_entry_staging` for entries being built
+(*Build, Run & Tooling*, "The four permanent tables"). See Part
 II, "The Entity Model," for the one mechanism everything else in this
 system is built on.
 
@@ -40,29 +37,22 @@ system is built on.
   backend's default driver is still `sql`, in-process better-sqlite3:
   under `gleam` the tutorials fail on database locks (see "The Core
   Middleware", "The storage engine").
-- Both are real npm workspaces (`backend`, `frontend`, `e2e`) under one
-  root `package.json`; `make install` installs all three with one
-  command.
+- **Terminal UI** — `tui/`, Svelte on sveltui, another client of
+  `/api/call` (*Testing: The Test-Runner*, "`--path text`", for its
+  state).
+- `backend`, `frontend` and `tui` are npm workspaces of the root
+  `package.json`; `make install` installs all three.
 
 ## Where to find the rest of the real specification
 
-This manual intentionally does **not** restate what the application
-does from a user's point of view, or what each screen is for — that is
-the **User Manual**'s job (`docs/user-manual.md`, built via `make
-manual`), which this Programmer's Manual treats as the real,
-authoritative **operational and functional specification**: what the
-system is for, what each screen does, and the full setup-through-
-year-end Tutorial that exercises it end to end. Where this manual
-describes *how* something is implemented, the User Manual is the
-place that says *what it is for* and *what it should do* — read the
-relevant User Manual chapter first when implementing or changing
-user-facing behavior, then use this manual for the mechanism.
+What the application does for its user, and what each screen is
+for, is in the **User Manual** (`docs/user-manual.md`, `make manual`),
+the functional specification. This manual says how it is built. For a
+change a user will see, read the User Manual chapter first, then this
+manual for the mechanism.
 
-Flagged, open item: the User Manual has not yet had the same
-current-state accuracy pass this Programmer's Manual just had. It
-should get one — confirm every screen and workflow it describes still
-matches the live application — before it's fully trusted as the
-functional spec on its own.
+The User Manual has not yet been checked against the application the
+way this manual has.
 
 ## Everyday entry points
 
@@ -76,6 +66,5 @@ make programmer-manual          # this manual
 make historical-manual          # the full design/decision archive
 ```
 
-Every real, everyday command for this project goes through `make`,
-from the repository root — see "Build, Run & Tooling" for the full
-target reference.
+Every command goes through `make`, from the repository root (*Build,
+Run & Tooling*).
