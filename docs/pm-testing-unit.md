@@ -79,8 +79,8 @@ of the backend), `cube.test.ts`, `call-dispatch.test.ts`, `auth.test.ts`,
 core middleware), and `memory-entity-driver.test.ts`; the step runner's
 own tests are `backend/scripts/step-runner.test.ts`. Each test makes
 its own uniquely named business with the fixtures below and reads or
-writes nothing it did not create. No business is seeded, so there is no
-shared business to touch.
+writes nothing it did not create. The one seeded business, `admin`
+(`schema/00-core.sql`), is used by no test.
 
 ### Why real fixtures, not fakes
 

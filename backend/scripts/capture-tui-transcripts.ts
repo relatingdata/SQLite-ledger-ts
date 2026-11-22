@@ -7,7 +7,7 @@
 // own screenshots are captured fresh on every real run of
 // test-e2e-tutorial-browser.
 //
-// Drives the real TUI (tui/src/cli.tsx) live via @microsoft/tui-test
+// Drives the built TUI (tui/dist/src/cli.mjs, from tui/sveltui-build) live via @microsoft/tui-test
 // against the real "Tutorial Wine Retail Business" (built fresh by
 // `make test-e2e-tutorial`, the fast --path api run of the same, real,
 // shared tutorial fixture the web chapter's own screenshots come from —
@@ -58,7 +58,7 @@ async function returnToMenu(terminal: TuiTest) {
 
 async function main() {
   const terminal = await TuiTest.ephemeral('tui-capture');
-  await terminal.run('npx', ['tsx', 'src/cli.tsx'], { cwd: '../tui', rows: 32, cols: 100 });
+  await terminal.run('bun', ['--conditions', 'browser', 'dist/src/cli.mjs'], { cwd: '../tui', rows: 32, cols: 100 });
   await sleep(1000);
 
   await terminal.getByText('Log in').expect({ timeout: 15_000 });

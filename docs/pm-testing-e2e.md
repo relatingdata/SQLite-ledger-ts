@@ -572,7 +572,7 @@ a unit test checks an exact expected value.
 
 1. `make reset-db`: a new database from `backend/schema/00-core.sql`
    and `30-coa-links.sql` plus `seedRemainingData()` (`db-seed.ts`),
-   with no business.
+   with no business but the seeded `admin`.
 2. The simulation: it creates Wine Retail Business and trades for a
    month through the functions the frontend calls (never raw SQL). See `docs/simulation-prompt.md` for the full
    specification of what it models (realistic carton-based purchasing

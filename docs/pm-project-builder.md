@@ -1,22 +1,15 @@
-
 # Recipe, Plant, Skill, Prototype, Live Project, Milestone, and the scheduling/contention engine
 
-This chapter documents the mechanism behind the Project Builder
-tutorial (`docs/user-manual-ch5-project-builder-tutorial.md`,
-`make test-e2e-project-builder-tutorial`). It generalizes the widened,
-Stage-1 Bill of Materials mechanism (`docs/pm-domain-reference.md`'s
-own BOM section) from a Material-only manufacturing recipe into a
-"Recipe" that can also carry Labour (an employee or external
-contractor's own time) and Plant (hired or owned equipment's own
-time), then builds a real Project/Milestone/scheduling layer on top of
-it — all additive, with zero change to Retail's or Manufacturing's own
-BOM usage.
+This chapter describes what the Project Builder tutorial
+(`docs/user-manual-ch5-project-builder-tutorial.md`, `make
+test-e2e-project-builder-tutorial`) exercises: a bill of materials
+whose lines can be Labour and Plant as well as Material, and live
+projects scheduled from those lines. Retail and Manufacturing use the
+same bill of materials with Material lines only.
 
-## Recipe — BOM widened, not replaced
+## Recipe: a bill of materials with Labour and Plant lines
 
-`stageBomComponent`'s input (`backend/src/db.ts`) gained four optional
-fields, all defaulting to the Material-only shape every pre-existing
-caller already used:
+`stageBomComponent` (`backend/src/db.ts`) takes:
 
 ```ts
 export interface BomComponentInput {
@@ -29,160 +22,125 @@ export interface BomComponentInput {
   durationHours?: number;
   scheduledStart?: string;
   scheduledEnd?: string;
-  priceMinor?: number; // the per-line quoted/costed price
+  priceMinor?: number; // the line's quoted price
 }
 ```
 
-`postBomComponents`/`getBomComponents` write and read these the same,
-additive way Quantity/Unit already were — one more `Entity.setAttr`
-per field, only when present. A Material line (Manufacturing's own
-usage, `docs/user-manual-ch4-manufacturing-tutorial.md`) never sets
-`kind`/`durationHours`/`scheduledStart`/`priceMinor` and is completely
-unaffected. A Labour or Plant line's own `componentItem` is not a real
-Item at all — it is the name of the real employee/contractor (Labour)
-or Plant item (Plant) the line books time against.
+`postBomComponents` writes each field that is present as an attribute
+of the line (`Entity.setAttr`), and `getBomComponents` reads them back.
+A Material line sets none of `kind`, `durationHours`, `scheduledStart`
+or `priceMinor`. A Labour line's `componentItem` names an employee or
+contractor, and a Plant line's names a Plant item; neither is an item.
+Staging the same `componentItem` again replaces its line.
 
-`deleteBomComponent(assembly, component)` removes one recipe line: it
-clears the line's `BOM` tag and removes its `BOM — {component}` link.
+`deleteBomComponent(assembly, component)` removes one line: it clears
+the line's `BOM` tag and removes its `BOM — {component}` link.
 
 Tests (*Testing: Unit*, "Running the tests"):
 - "stageBomComponent/postBomComponents/getBomComponents: a real Bill of Materials, built on setEntityLink, per the wine-bar-assemblies-plan design" (`backend/test/db.test.ts`)
 - "stageBomComponent/postBomComponents/getBomComponents: Recipe widening — Labour and Plant lines carry a real kind/duration/schedule, Material stays the default" (`backend/test/db.test.ts`)
 
-## Plant — hired/owned equipment as a clockable resource
+## Plant: equipment with an hourly rate
 
-A new, per-business root, `Plant` (`PER_BUSINESS_ROOTS`, `db.ts`), same
-shape as `Items`/`Locations`.
+`Plant` is a per-business root (`PER_BUSINESS_ROOTS`, `db.ts`), like
+`Items` and `Locations`.
 
 - `createPlantItem(name, business, hourlyRateMinor, ownedOrHired,
-  userId, hireVendor?)` — `ownedOrHired` is `'Owned' | 'Hired'`;
-  `hireVendor` is only meaningful for `'Hired'`.
-- `getPlantItem(name)` / `listPlant(business)`.
+  userId, hireVendor?)`: `ownedOrHired` is `'Owned' | 'Hired'`;
+  `hireVendor` applies to `'Hired'`.
+- `getPlantItem(name)`, `listPlant(business)`.
 - `clockPlantIn(plantName, projectExpenseAccount, business, ledger,
-  userId)` / `clockPlantOut(plantName, business, ledger, userId)` /
-  `getOpenPlantClock(plantName)` (`backend/src/db-journal.ts`) — a
-  direct structural copy of `clockInToProject`/`clockOutOfProject`,
-  substituting the Plant item's own `Hourly Rate` for an employee's own
-  `wage_minor_per_hour`. Posts a real Purchase Order at clock-in and a
-  real receipt (hours × hourly rate) at clock-out, exactly like the
-  employee version.
-- `call-dispatch/plant.ts` exposes all of the above, role-gated like
-  every other mutating call in this rollout.
+  userId)`, `clockPlantOut(plantName, business, ledger, userId)` and
+  `getOpenPlantClock(plantName)` (`backend/src/db-journal.ts`) work as
+  `clockInToProject` and `clockOutOfProject` do, with the Plant item's
+  `Hourly Rate` in place of the employee's `wage_minor_per_hour`: a
+  purchase order at clock-in, and its receipt (hours × rate) at
+  clock-out.
+- `call-dispatch/plant.ts` dispatches them, with a role check on every
+  call that changes data.
 
 Tests (*Testing: Unit*, "Running the tests"):
 - "createPlantItem/getPlantItem/listPlant: a real, per-business Plant root, same shape as Items/Locations" (`backend/test/db.test.ts`)
 - "clockPlantIn/clockPlantOut/getOpenPlantClock: Plant's own clock, a direct structural copy of the real Employee clock-in/out" (`backend/test/db.test.ts`)
 
-## Skill — a named taxonomy tagged onto a contact with a real rate
+### Clock entities and account names that contain " — "
 
-A lazy, idempotent, global `Skills` root (same idiom as
-`db-quotations.ts`'s own `ensureQuotationsRoot`) under the
-`Application` root — not per-business, since the same skill name
-(`Electrical — Licensed`, `Framing`, ...) is meaningful across every
-business.
+An open clock is an entity named `Clocked In — <po reference> — <project
+expense account> — <clocked-in-at>`. A project expense account
+(`<project> — Labour & Plant`) contains " — " itself, so
+`getOpenProjectClockEntity` takes the reference from the second part,
+the time from the last, and joins everything between as the account
+name.
 
-- `ensureSkill(name, userId)` / `listSkills()`.
-- `tagSkill(contactName, skillName, rateMinorPerHour, userId)` /
-  `untagSkill(contactName, skillName, userId)` / `getSkills(contactName)`
-  — Shape B (`setEntityLink`) + Shape A (`Entity.setAttr`) composed
-  exactly the way BOM already does for its own assembly→component link,
-  just tagged `'Skill'` instead of `'BOM'`, carrying a real, pairing-
-  specific `Rate` (one contact can be tagged with several skills, each
-  at its own rate — a licensed electrician and a general labourer are
-  not paid the same for the same hour).
-- `call-dispatch/plant.ts` exposes `ensureSkill`/`listSkills`/
-  `tagSkill`/`untagSkill`/`getSkills` alongside Plant's own entries.
+Its test is listed in *The Journal API*, with the clock functions.
 
-Tagging a skill is currently informational/reporting-facing — nothing
-in the scheduling engine below reads a Recipe line's resource name back
-against its tagged skills to validate that, say, only a
-`Electrical — Licensed`-tagged contact can be booked on an
-`Electrical — Licensed` line. A Recipe's Labour line names a real
-contact directly; enforcing a skill match is explicitly out of this
-round's scope.
+## Skill: a contact's skill, with a rate
+
+`Skills` is one root under `Application`, made when first needed, since
+a skill's name (`Electrical — Licensed`, `Framing`) means the same in
+every business.
+
+- `ensureSkill(name, userId)`, `listSkills()`.
+- `tagSkill(contactName, skillName, rateMinorPerHour, userId)`,
+  `untagSkill(contactName, skillName, userId)`, `getSkills(contactName)`:
+  a `Skill` link from the contact to the skill (`setEntityLink`, as BOM
+  links an assembly to a component), carrying the pair's `Rate`. One
+  contact can have several skills, each at its own rate.
+- `call-dispatch/plant.ts` dispatches them.
+
+Nothing reads skills when scheduling: a Labour line names a contact,
+and any contact can be booked on it.
 
 Tests (*Testing: Unit*, "Running the tests"):
 - "ensureSkill/listSkills/tagSkill/untagSkill/getSkills: a real, pairing-specific rate per contact+skill, on top of the same setEntityLink shape BOM already uses" (`backend/test/db.test.ts`)
 
-## Project Proposal Prototypes — a reusable library of Recipe templates
+## Project Proposal Prototypes: recipe templates
 
-A new per-business root, `Project Proposal Prototypes`
-(`PER_BUSINESS_ROOTS`, `typeBusinessPrototypeRootName`), holding named
-templates (`Small Dwelling`/`Medium Dwelling`/`Large Dwelling`, ...) —
-`backend/src/db-prototypes.ts`. Named after, but not implemented with,
-this app's own existing product prototype/instance vocabulary
-(`defineProductShape`/`ensureProductInstance`, `db.ts`) — same naming
-spirit only; a Prototype reuses Recipe's own BOM mechanism verbatim,
-staged under the prototype's own entity instead of an assembly item.
+`Project Proposal Prototypes` is a per-business root
+(`PER_BUSINESS_ROOTS`, `typeBusinessPrototypeRootName`) of named
+templates (`Small Dwelling`, `Medium Dwelling`, …),
+`backend/src/db-prototypes.ts`. A prototype's lines are bill-of-materials
+lines staged under the prototype's entity. (Unrelated to
+`defineProductShape`/`ensureProductInstance` in `db.ts`.)
 
-- `createPrototype(name, business, userId)` / `listPrototypes(business)`.
+- `createPrototype(name, business, userId)`, `listPrototypes(business)`.
 - `addPrototypeLine(prototypeName, business, kind, resourceOrItemName,
   quantity, unit, priceMinor, userId, durationHours?, scheduledStart?)`
-  / `getPrototypeLines(prototypeName)` — a direct call-through to
-  `stageBomComponent`/`postBomComponents`/`getBomComponents`.
+  and `getPrototypeLines(prototypeName)` call `stageBomComponent`,
+  `postBomComponents` and `getBomComponents`.
 - `instantiateProjectProposal(prototypeName, reference, client,
   business, ledger, headerItem, transdate, userId,
-  targetCompletionDate?)` — creates a brand-new, ordinary Quotation
-  (`createQuotation`, unmodified) under a real, required header Item
-  (`headerItem` — the overall job's own line-item identity on the
-  ledger; the real commitment detail lives in the copied Recipe lines,
-  quoted at 1 × the sum of every line's own `priceMinor`), then copies
-  every one of the prototype's own lines onto it — including each
-  line's own `scheduledStart`, copied verbatim. Two proposals
-  instantiated from the same prototype therefore ask for the exact same
-  resources on the exact same dates unless a caller edits the copy
-  afterward with `addQuotationLine` — this is deliberate: it is exactly
-  how the tutorial engineers a real, reproducible double-booking
-  without hand-crafting one.
+  targetCompletionDate?)` creates a quotation (`createQuotation`) for
+  one `headerItem` at the sum of the lines' `priceMinor`, and copies
+  every line onto it, `scheduledStart` included. Two proposals from one
+  prototype therefore ask for the same resources on the same dates
+  unless a line is changed with `addQuotationLine`; the tutorial relies
+  on this for its double-booking.
 - `updatePrototypeLine(prototypeName, business, resourceOrItemName,
-  userId, newDurationHours?, newPriceMinor?)` — a bounded, explicit,
-  human-driven revision of one named line. Per direct instruction, this
-  is never automatic learning from project profitability: nothing here
-  reads a completed project's own real margin and decides to call this
-  on its own. It only ever changes *future* instantiations; any
-  Quotation already instantiated and accepted keeps its own, already-
-  copied lines untouched.
-- `call-dispatch/prototypes.ts` exposes all of the above.
+  userId, newDurationHours?, newPriceMinor?)` changes one line of the
+  prototype. Quotations made from it before keep their copies. Nothing
+  calls it automatically.
+- `call-dispatch/prototypes.ts` dispatches them.
 
 Tests (*Testing: Unit*, "Running the tests"):
 - "Project Proposal Prototypes: a reusable library instantiated into a real Quotation, refined via updatePrototypeLine — which only ever changes FUTURE instantiations, never a past, already-copied one" (`backend/test/db.test.ts`)
 
-## Quotation widened into a multi-line Project Proposal
-
-`db-quotations.ts`'s own, deliberately real "no new SQL table, no
-JSON, no raw SQL UPDATE" constraint (see its own header comment) meant
-the only way to attach genuine, multi-line detail to a Quotation was to
-reuse an existing mechanism, not invent a second one:
+## A quotation with recipe lines is a Project Proposal
 
 - `addQuotationLine(reference, kind, resourceOrItemName, quantity,
-  unit, priceMinor, userId, durationHours?, scheduledStart?)` /
-  `getQuotationLines(reference)` — attaches a Recipe-shaped child line
-  directly under the Quotation's own existing entity, via the exact
-  same `stageBomComponent`/`postBomComponents`/`getBomComponents` calls
-  BOM and Prototype lines both use, parameterized by the quotation's
-  own `reference` instead of an assembly item. A plain, line-less
-  Quotation/RFQ (every Retail caller) never calls this and is
-  completely unaffected.
-- `acceptQuotation(reference, userId, projectDetails?)` — additively
-  widened. When the Quotation carries real Recipe lines **and** the
-  caller opts in with `projectDetails: { projectName, targetCompletionDate
-  }`, accepting also:
-  1. Creates the real Live Project (`createLiveProject`, below) under
-     its OWN name — deliberately never reusing the Quotation's own
-     `reference` for this, since a Live Project and its originating
-     Quotation are two separate, same-business entities and sharing one
-     bare name between them would be exactly the kind of unscoped-
-     resolution collision `typeBusinessLiveProjectsRootName`'s own
-     comment warns against.
-  2. Creates an `Invoicing` Milestone due on `targetCompletionDate`.
-  3. Provisions a dedicated Profit Center + Expense account
-     (`provisionProjectProfitCenter`, Stage 5, below).
-  4. Copies every Recipe line onto the Live Project and runs
-     `scheduleProjectRecipeLines`/`checkMilestoneAchievability` (below)
-     for its real, as-accepted schedule.
-  A caller that omits `projectDetails`, or a plain, line-less
-  Quotation/RFQ, triggers none of this — purely the original status
-  flip every pre-existing caller already relies on.
+  unit, priceMinor, userId, durationHours?, scheduledStart?)` and
+  `getQuotationLines(reference)` stage and read bill-of-materials lines
+  under the quotation's entity. A quotation or RFQ without lines is
+  unchanged.
+- `acceptQuotation(reference, userId, projectDetails?)` sets the status
+  to `accepted`. When the quotation has lines and `projectDetails`
+  (`{ projectName, targetCompletionDate }`) is given, it also:
+  1. creates a Live Project named `projectName` (not the quotation's
+     reference: the two are different entities of one business);
+  2. creates an `Invoicing` milestone due on `targetCompletionDate`;
+  3. calls `provisionProjectProfitCenter` (below);
+  4. copies the lines onto the project, then runs
+     `scheduleProjectRecipeLines` and `checkMilestoneAchievability`.
 
 Tests (*Testing: Unit*, "Running the tests"):
 - "addQuotationLine/getQuotationLines: a Quotation widened into a real, multi-line Project Proposal — Material/Labour/Plant lines all round-trip through the exact same Stage-1 BOM mechanism, staged under the quotation's own reference, not an assembly item" (`backend/test/db.test.ts`)
@@ -190,42 +148,31 @@ Tests (*Testing: Unit*, "Running the tests"):
 
 ## Live Project and Milestone
 
-`backend/src/db-projects.ts`. A new per-business root, `Live Projects`
-(`PER_BUSINESS_ROOTS`, `typeBusinessLiveProjectsRootName`) — a real
-entity, genuinely distinct from both the pre-existing, account-name-
-only "project" `clockInToProject` already took (`docs/pm-domain-
-concepts.md`'s "Projects" section) and the pre-existing "Projects"
-Vocabulary label.
+`backend/src/db-projects.ts`. `Live Projects` is a per-business root
+(`PER_BUSINESS_ROOTS`, `typeBusinessLiveProjectsRootName`). A Live
+Project is an entity, unlike the account name that `clockInToProject`
+calls a project (*Domain Concepts*, "Projects"), and unlike the
+"Projects" Vocabulary label.
 
 - `createLiveProject(name, business, client, requestedStart,
-  targetCompletionDate, userId)` — sets `Client`/`Requested Start`/
-  `Target Completion Date` attributes.
+  targetCompletionDate, userId)` sets `Client`, `Requested Start` and
+  `Target Completion Date`, and refuses a name the business already has.
 - `getLiveProject(name)` returns `{ name, client, requestedStart,
   targetCompletionDate, scheduleRisk?, profitCenter?,
-  projectExpenseAccount? }` — the latter three are undefined until
-  `provisionProjectProfitCenter`/`checkMilestoneAchievability` actually
-  run.
+  projectExpenseAccount? }`; the last three are set by
+  `checkMilestoneAchievability` and `provisionProjectProfitCenter`.
 - `listLiveProjects(business)`.
-- `createMilestone(projectName, milestoneType, dueDate, userId, label?)`
-  — `milestoneType` is `'Plans Submission' | 'Inspection' | 'Invoicing'`;
-  a Milestone is a real child entity of the Project, carrying its own
-  `Milestone Type`/`Due Date`/possible `Schedule Risk`.
+- `createMilestone(projectName, milestoneType, dueDate, userId, label?)`:
+  `milestoneType` is `'Plans Submission' | 'Inspection' | 'Invoicing'`.
+  A milestone is a child of the project, with `Milestone Type`, `Due
+  Date` and possibly `Schedule Risk`.
 - `getMilestones(projectName)`.
 
 Tests (*Testing: Unit*, "Running the tests"):
 - "createLiveProject/getLiveProject/listLiveProjects: a real Project entity, distinct from the pre-existing "Projects" Vocabulary label and from clockInToProject's own account-name-only "project"" (`backend/test/db.test.ts`)
 - "createMilestone/getMilestones: real construction-stage gates, Plans Submission/Inspection/Invoicing" (`backend/test/db.test.ts`)
 
-## The scheduling/contention engine — auto-reschedule into the future, never block
-
-The real overlap idiom this whole engine generalizes already existed,
-for a different purpose: `setEmployeeSchedule`'s own
-`s.starts_at < other.ends_at && other.starts_at < s.ends_at`
-(`db.ts`) checks whether one employee's two shifts, on the same day,
-overlap. `findNextAvailableWindow` is the exact same inequality, lifted
-from time-of-day ranges to date ranges, and from "this employee's other
-shift" to "this resource's Labour/Plant commitments across every OTHER
-live Project in the business":
+## Scheduling: a conflict moves the booking later, never refuses it
 
 ```ts
 export function findNextAvailableWindow(
@@ -237,124 +184,59 @@ export function findNextAvailableWindow(
 ): ScheduleResolution; // { start, end, pushedOut, conflictingProject? }
 ```
 
-- `getResourceBookings(resourceName, business, excludeProject?)` — every
-  real, currently-scheduled Labour/Plant line for a named resource,
-  across every project in the business except `excludeProject` (so a
-  project's own, not-yet-finalized lines never conflict with
-  themselves).
-- `findNextAvailableWindow` scans forward from `desiredStart`, jumping
-  straight to the end of whichever booking it hits (not a blind day-by-
-  day loop), until it finds a genuinely clear window. **It never
-  refuses or blocks** — per direct, repeated instruction, a real
-  conflict always resolves by moving the window into the future, never
-  by failing the request.
-- `scheduleProjectRecipeLines(projectName, business, userId)` runs every
-  real Labour/Plant line (Material lines are left untouched) through
-  `findNextAvailableWindow`, re-stages each one's real, resolved
-  `scheduledStart`/`scheduledEnd` via the same `stageBomComponent` call
-  that set it in the first place (a re-stage of the same
-  `componentItem` replaces its line in place — the same idiom BOM
-  already uses for a revised quantity), and returns every resolved
-  line, including whether and by which other project it was pushed out.
-- `checkMilestoneAchievability(projectName, userId)` walks the
-  project's own resolved lines, takes the latest `scheduledEnd` as the
-  real completion date, and — **only if that date now falls after the
-  project's own `Target Completion Date`** — sets a real, human-
-  readable `Schedule Risk` message on both the Project and its
-  `Invoicing` Milestone (or its last Milestone, if none is typed
-  `Invoicing`). This is a warning, never a block: the project is still
-  fully, genuinely scheduled; the business simply now has a real,
-  computed fact that a client's wanted date will be missed, and why.
-  Clearing a prior risk is left to the caller (`Entity.clearAttr`) —
-  re-running this never needs to "undo" anything, since a project whose
-  lines now all resolve on time simply never has the attribute set.
+- `getResourceBookings(resourceName, business, excludeProject?)`: every
+  scheduled Labour and Plant line naming the resource, in every project
+  of the business but `excludeProject`, so a project never conflicts
+  with itself.
+- `findNextAvailableWindow` starts at `desiredStart` and, while the
+  window overlaps a booking (`start < other end && other start < end`,
+  the test `setEmployeeSchedule` applies to shifts), moves it to the
+  end of that booking. It always returns a window.
+- `scheduleProjectRecipeLines(projectName, business, userId)` passes
+  each Labour and Plant line (not Material) through
+  `findNextAvailableWindow`, stages the line again with its resolved
+  `scheduledStart` and `scheduledEnd`, and returns each line with
+  whether it was moved and by which project.
+- `checkMilestoneAchievability(projectName, userId)` takes the latest
+  `scheduledEnd` as the completion date. When that is after the
+  project's `Target Completion Date`, it sets `Schedule Risk` on the
+  project and on its `Invoicing` milestone (or its last milestone). The
+  project stays scheduled. It never clears a risk set before
+  (`Entity.clearAttr` does).
 
-`acceptQuotation`'s own `projectDetails` path (above) is the one real,
-current caller of `scheduleProjectRecipeLines`/
-`checkMilestoneAchievability` — accepting a Project Proposal always
-schedules it for real, against whatever every other already-accepted
-Live Project in the business is holding.
+`acceptQuotation` with `projectDetails` is the caller of both.
 
 Tests (*Testing: Unit*, "Running the tests"):
 - "findNextAvailableWindow/scheduleProjectRecipeLines/checkMilestoneAchievability: a real Plant double-booking across two live Projects is auto-rescheduled into the future, never blocked, and warns only when a Milestone becomes unachievable" (`backend/test/db.test.ts`)
 
-## Stage 5 — per-project cost-vs-price tracking via Profit Centers
+## A project's cost against its price
 
-`provisionProjectProfitCenter(projectName, business, userId)` — called
-automatically by `acceptQuotation`'s `projectDetails` path, and exposed
-directly (`call-dispatch/projects.ts`) for a Live Project created some
-other way:
+`provisionProjectProfitCenter(projectName, business, userId)`, called by
+`acceptQuotation` and dispatched by `call-dispatch/projects.ts`:
 
-1. `createProfitCenter(business, \`${projectName} — Profit Center\`,
-   userId)` — the existing, unmodified Profit Center mechanism, zero
-   new reporting logic.
-2. `resolvePostingRoot('Expense', userId, business, profitCenterName)`
-   + `Entity.ensureUnder(\`${projectName} — Labour & Plant\`,
-   expenseGroup.id, userId)` — a real, dedicated Expense account,
-   properly classified under that Profit Center's own Expense group via
-   the SAME, already-proven mechanism every other Profit-Center-scoped
-   posting (Sales/COGS/Inventory) already uses.
-3. Both names are written back onto the Project as its own
-   `Profit Center`/`Project Expense Account` attributes
-   (`getLiveProject`'s own `profitCenter`/`projectExpenseAccount`
-   fields).
+1. `createProfitCenter(business, "<project> — Profit Center", userId)`;
+2. `resolvePostingRoot('Expense', userId, business, profitCenterName)`,
+   then `Entity.ensureUnder("<project> — Labour & Plant", …)`: an
+   Expense account under that profit center's Expense group;
+3. sets the project's `Profit Center` and `Project Expense Account`.
 
-`clockInToProject`/`clockPlantIn` take that real `projectExpenseAccount`
-name directly — zero change to either function's own signature; a
-Live Project's own expense account is simply the kind of account name
-they already accepted. `getProjectCostReport(projectName)` compares the
-real, live balance of that account (the project's actual labour+plant
-cost) against the sum of every Recipe line's own `priceMinor` (the
-quoted total), returning `{ quotedTotalMinor, actualCostMinor,
-marginMinor }`. Material-line cost is deliberately **not** included —
-Recipe Material lines flow through the ordinary, pre-existing PO/
-receipt/Inventory path, not yet routed through a project's own Profit
-Center; left for a future round, per this plan's own stated scope.
-
-The actual cost is read with `getAccountBalanceMinor(account)` (`db.ts`):
-the account's stored balance, or 0 for an account never posted to.
+`clockInToProject` and `clockPlantIn` take that account as their
+`projectExpenseAccount`. `getProjectCostReport(projectName)` returns
+`{ projectName, quotedTotalMinor, actualCostMinor, marginMinor }`: the
+sum of the lines' `priceMinor`, the account's balance
+(`getAccountBalanceMinor`, `db.ts`: the stored balance, or 0 for an
+account never posted to, taken as a positive number), and the
+difference. Material lines are bought through purchase orders into
+Inventory, so their cost is not in it.
 
 Tests (*Testing: Unit*, "Running the tests"):
 - "provisionProjectProfitCenter/getProjectCostReport: a real Project's own Profit Center isolates its real labour/plant cost from every other business activity, compared against the Recipe lines' own quoted price" (`backend/test/db.test.ts`)
 
-### A real bug found and fixed while building this: project expense account names containing " — "
+## Not implemented
 
-`provisionProjectProfitCenter`'s own expense-account naming convention
-(`\`${projectName} — Labour & Plant\``) genuinely contains the same
-`" — "` separator a clock entity's own name uses to encode its three
-fields (`Clocked In — <po reference> — <project expense account> —
-<clocked-in-at>`, `db-journal.ts`). `getOpenProjectClockEntity`'s
-original parsing did a naive, fixed 4-way `split(' — ')`, which
-silently misparsed the account name once it carried its own `" — "` —
-`clockedInAt` ended up as a fragment of the account's own name (not a
-real date), producing `NaN` hours worked and a `NOT NULL` constraint
-failure on the resulting stock receipt the moment the Project Builder
-tutorial's own `clockOutOfProject`/`clockPlantOut` steps first tried a
-real project-scoped account name. Fixed by splitting from both ends
-(`poReference` is always the second segment; `clockedInAt` is always
-the last; everything in between, rejoined with `" — "`, is the real
-account name) — correct for any account name, not just ones with zero
-em dashes of their own. A new, permanent unit test
-(`backend/test/db.test.ts`, "a real project expense account whose own
-name contains..."`) locks this in by exercising the real `provisionProjectProfitCenter`-produced
-account name directly, for both the Employee and Plant clock paths.
-
-## Testing
-
-See `docs/pm-testing-e2e.md`'s own "Project Builder tutorial" section
-for the tutorial fixture, the three new `make` targets, and the "full"
-tier's computed invariants.
-
-## Deliberately deferred, not part of this round
-
-- Tiered Pricing (Standard/Express/Opportunity price points).
-- A skill-match check between a Recipe Labour line's own resource name
-  and that contact's tagged Skills.
-- Routing Recipe Material-line cost through a project's own Profit
-  Center (currently Material flows through the ordinary PO/receipt
-  path, untracked against the project).
-- A bespoke, Retail-style golden-figure volume simulation for Project
-  Builder (the "full" tier uses computed invariants instead, per the
-  user's own "lighter now" answer).
-- Any Gantt-style timeline or task-dependency UI (see
-  `docs/pm-domain-concepts.md`'s own "Gantt charts" section).
+- Tiered prices (Standard, Express, Opportunity).
+- Checking a Labour line's contact against its skills.
+- Material cost in a project's profit center.
+- A simulation with fixed expected figures: the full tier checks
+  computed invariants (*Testing: The Test-Runner*, "Full / volume — the Project Builder cycle simulation").
+- A Gantt chart or task dependencies (*Domain Concepts*, "Gantt charts").

@@ -125,11 +125,8 @@ web-frontend: generate
 
 frontend: web-frontend
 
-# The real, Ink-based terminal frontend (tui/) — a second, real client
-# of the exact same backend API, not a mock or a demo. Needs its own
-# real terminal (stdin/stdout), so it's never part of `dev`/`dev-verbose`
-# alongside the backend+web frontend the way those two are paired —
-# run `make backend` in one terminal, `make text-frontend` in another.
+# The terminal UI (tui/), built and run in this terminal; it needs the
+# backend running (`make backend` in another terminal).
 text-frontend:
 	cd tui && $(RUN_NPM_SCRIPT) dev
 
@@ -177,7 +174,7 @@ test-e2e: reset-db
 # needed, since runStepViaApi calls the real backend functions directly.
 # This fixture creates its own, real "Tutorial Wine Retail Business"
 # from scratch and genuinely never wants any other demo business
-# pre-seeded alongside it (boot seeds no business).
+# pre-seeded alongside it (boot seeds only `admin`).
 # Which middleware serves the three API-path tutorial targets below:
 # `core` (the default) is the simplified middleware - two stores, three
 # instance globals, four calls (backend/src/core/, docs/pm-core-
@@ -1207,6 +1204,7 @@ tutorial-section-user-manual: test-e2e-tutorial-browser
 # web path's own, separate run.
 tutorial-section-user-manual-tui: test-e2e-tutorial ensure-servers
 	@rm -f $(HOME)/.sql-ledger-ts-tui/session.json
+	cd tui && $(RUN_NPM_SCRIPT) build
 	cd backend && $(RUN_SCRIPT) scripts/capture-tui-transcripts.ts
 	cd docs && pandoc user-manual-ch3b-tutorial-tui.md -o ../sql-ledger-ts_Tutorial_Section_TUI.pdf \
 	  --pdf-engine=xelatex -V documentclass=book -V geometry:margin=1in \
@@ -1225,6 +1223,7 @@ tutorial-section-user-manual-tui: test-e2e-tutorial ensure-servers
 # capture run actually reads from.
 tutorial-section-user-manual-manufacturing-tui: test-e2e-manufacturing-tutorial ensure-servers
 	@rm -f $(HOME)/.sql-ledger-ts-tui/session.json
+	cd tui && $(RUN_NPM_SCRIPT) build
 	cd backend && $(RUN_SCRIPT) scripts/capture-manufacturing-tui-transcripts.ts
 	cd docs && pandoc user-manual-ch4b-manufacturing-tutorial-tui.md -o ../sql-ledger-ts_Manufacturing_Tutorial_Section_TUI.pdf \
 	  --pdf-engine=xelatex -V documentclass=book -V geometry:margin=1in \

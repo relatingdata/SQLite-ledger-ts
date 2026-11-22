@@ -57,17 +57,7 @@ if (!alreadyInitialized) {
 
   db.exec(readSchema('00-core.sql'));
 
-  const coaLinksSql = readSchema('30-coa-links.sql');
-  const filteredCoaLinksSql = coaLinksSql
-    .split('\n')
-    .filter((line) => {
-      const match = line.match(/WHERE name = '((?:[^'\\]|\\.)*)'\)/);
-      if (!match) return true; // not a real, single-entity-lookup line — keep it as-is
-      const entityName = match[1].replace(/''/g, "'");
-      return !!db.prepare(`SELECT 1 FROM current_entities WHERE name = ?`).get(entityName);
-    })
-    .join('\n');
-  db.exec(filteredCoaLinksSql);
+  db.exec(readSchema('30-coa-links.sql'));
 }
 
 // journal_entry_staging is the only staging table (docs/pm-journal-api.md,

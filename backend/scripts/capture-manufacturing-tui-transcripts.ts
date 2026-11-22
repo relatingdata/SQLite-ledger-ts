@@ -6,7 +6,7 @@
 // never a throwaway: `make tutorial-section-user-manual-manufacturing-tui`
 // (Makefile) runs this on every real build.
 //
-// Drives the real TUI (tui/src/cli.tsx) live via @microsoft/tui-test
+// Drives the built TUI (tui/dist/src/cli.mjs, from tui/sveltui-build) live via @microsoft/tui-test
 // against the real "Tutorial Window & Door Manufacturing" business
 // (built fresh by `make test-e2e-manufacturing-tutorial`, the fast
 // --path api run of shared-fixtures/manufacturing-tutorial-steps.csv —
@@ -78,7 +78,7 @@ async function main() {
   // not ephemeral()'s ClientOptions — passing them to ephemeral() (as
   // this script's own first draft, and the retail capture script, both
   // did) is silently a no-op.
-  await terminal.run('npx', ['tsx', 'src/cli.tsx'], { cwd: '../tui', rows: 44, cols: 100 });
+  await terminal.run('bun', ['--conditions', 'browser', 'dist/src/cli.mjs'], { cwd: '../tui', rows: 44, cols: 100 });
   await sleep(1000);
 
   await terminal.getByText('Log in').expect({ timeout: 15_000 });
