@@ -1854,8 +1854,11 @@ function ledgerEntityId(business: string, ledger: string): number | undefined {
   return ledgersRoot ? Entity.getUnder(ledger, ledgersRoot.id)?.id : undefined;
 }
 
-/** The stock of an item at a location as cost layers, oldest first. */
-export function stockCostLayers(business: BusinessName, ledger: LedgerName, itemName: ItemName, locationName: LocationName): CostLayer[] {
+/** The stock of an item at a location as cost layers, oldest first. Stock
+ * transferred in arrives as the layers it left its source with, so its
+ * oldest units keep their own cost. With `beforeJournalId`, the layers as
+ * they stood just before that journal. */
+export function stockCostLayers(business: BusinessName, ledger: LedgerName, itemName: ItemName, locationName: LocationName, beforeJournalId?: number): CostLayer[] {
   const quantityAccountId = resolveItemLocationQuantityAccountId(itemName, locationName);
   if (quantityAccountId === undefined) return [];
   const itemInventory = Entity.getUnder(itemName, resolveBusinessCoaAccountId(business, 'Inventory'));
@@ -1863,23 +1866,24 @@ export function stockCostLayers(business: BusinessName, ledger: LedgerName, item
   const ledgerId = ledgerEntityId(business, ledger) ?? -1;
   const lines = db
     .prepare(
-      `SELECT j.reference AS reference, jo.account_id AS account, jo.amount_minor AS amount
+      `SELECT j.reference AS reference, jo.journal_id AS journal, jo.account_id AS account, jo.amount_minor AS amount
        FROM journal_occurrences jo
        JOIN journal j ON j.id = jo.journal_id
        WHERE jo.ledger_id = ? AND jo.account_id IN (?, ?)
        ORDER BY jo.transdate, jo.journal_id`
     )
-    .all(ledgerId, quantityAccountId, valueAccountId ?? -1) as { reference: string; account: number; amount: number }[];
+    .all(ledgerId, quantityAccountId, valueAccountId ?? -1) as { reference: string; journal: number; account: number; amount: number }[];
   // One movement per business event: a purchase's value (its invoice) and
   // its quantity (REF-RECV-<item>), a sale's quantity (REF-DISPATCH-<item>)
   // and its cost (REF-COGS), a transfer's quantity (REF) and value
   // (REF-VALUE) are posted as separate journals of one reference.
   const stem = (reference: string) => reference.replace(/-(VALUE|COGS|RECV-.*|DISPATCH-.*)$/, '');
-  const byEvent = new Map<string, { quantity: number; value: number }>();
+  const byEvent = new Map<string, { quantity: number; value: number; journals: number[] }>();
   for (const line of lines) {
     const key = stem(line.reference);
     let m = byEvent.get(key);
-    if (!m) byEvent.set(key, (m = { quantity: 0, value: 0 }));
+    if (!m) byEvent.set(key, (m = { quantity: 0, value: 0, journals: [] }));
+    if (!m.journals.includes(line.journal)) m.journals.push(line.journal);
     if (line.account === quantityAccountId) m.quantity += line.amount;
     else m.value += line.amount;
   }
@@ -1890,10 +1894,15 @@ export function stockCostLayers(business: BusinessName, ledger: LedgerName, item
     if (layers.length > 0) layers[layers.length - 1].value += value;
     else unplaced += value;
   };
-  for (const { quantity, value } of movements) {
+  for (const { quantity, value, journals } of movements) {
+    if (beforeJournalId !== undefined && journals.includes(beforeJournalId)) break;
     if (quantity > 0) {
-      layers.push({ quantity, value: unplaced + value });
+      const source = transferSource(itemName, quantityAccountId, journals);
+      const arrived = source ? takeLayers(stockCostLayers(business, ledger, itemName, source.location, source.journal), quantity) : [];
+      const received = arrived.length > 0 ? arrived : [{ quantity, value: 0 }];
+      received[0].value += unplaced + value - valueOfLayers(arrived);
       unplaced = 0;
+      layers.push(...received);
     } else if (quantity < 0) {
       place(valueOfLayers(takeLayers(layers, -quantity)) + value);
     } else {
@@ -1901,6 +1910,27 @@ export function stockCostLayers(business: BusinessName, ledger: LedgerName, item
     }
   }
   return layers;
+}
+
+/** Where stock arriving in these journals came from: the other location
+ * whose quantity account for the same item the same journal took it out
+ * of (a transfer), and that journal; undefined for any other arrival. */
+function transferSource(itemName: ItemName, quantityAccountId: number, journals: number[]): { location: LocationName; journal: number } | undefined {
+  const marks = journals.map(() => '?').join(', ');
+  const out = db
+    .prepare(
+      `SELECT e.name AS name, jo.journal_id AS journal FROM journal_occurrences jo
+       JOIN current_entities e ON e.id = jo.account_id
+       WHERE jo.journal_id IN (${marks}) AND jo.account_id <> ? AND jo.amount_minor < 0`
+    )
+    .all(...journals, quantityAccountId) as { name: string; journal: number }[];
+  const prefix = `${itemName} — `;
+  for (const row of out) {
+    if (row.name.startsWith(prefix) && row.name.endsWith(' — Qty')) {
+      return { location: asLocationName(row.name.slice(prefix.length, -' — Qty'.length)), journal: row.journal };
+    }
+  }
+  return undefined;
 }
 
 /** What `quantity` of an item leaving a location costs, first in, first

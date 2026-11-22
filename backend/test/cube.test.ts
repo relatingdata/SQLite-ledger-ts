@@ -138,6 +138,25 @@ test('parseCubeMeasure: rejects what it cannot read', () => {
 
 // First in, first out: what a sale costs is what its units were bought at,
 // oldest first, at the location they leave; a transfer carries that cost.
+test('transferred stock arrives as the layers it left with: its oldest units keep their own cost at the new location', () => {
+  const fifo = fx.freshBusiness('FIFO Layers Co');
+  const shop = fx.freshLocation(fifo.business, 'Layers Shop', { bottle_capacity: 100, carton_capacity: 20 });
+  const store = fx.freshLocation(fifo.business, 'Layers Store', { bottle_capacity: 100, carton_capacity: 20 });
+  const gin = fx.uniqueName('Layers Gin');
+  db.createItem(gin, 'Items', fx.userId, fifo.business);
+  const buy = (quantity: number, unitPriceMinor: number, date: string) =>
+    db.completeCashPurchase({ business: fifo.business, ledger: fifo.actualLedger, locationName: shop.name, vendorName: db.asProviderName('Cash'), lines: [{ itemName: gin, quantity, unitPriceMinor, taxMinor: 0 }], taxAccount: db.asAccountName('Sales Tax Payable'), paymentMethod: 'cash', transdate: date } as any, fx.userId);
+  buy(4, 1000, '2027-03-01');
+  buy(6, 1300, '2027-03-02');
+  const layers = (location: string) => db.stockCostLayers(fifo.business, fifo.actualLedger, db.asItemName(gin), db.asLocationName(location));
+  // 7 move: the 4 at $10 and 3 of the 6 at $13, as two layers, not 7 at a blended $11.29.
+  db.transferItems(fifo.business, fifo.actualLedger, db.asItemName(gin), db.asLocationName(shop.name), db.asLocationName(store.name), 7, 'LAYERS-XFER', fx.userId, '2027-03-03');
+  assert.deepEqual(layers(store.name), [{ quantity: 4, value: 4000 }, { quantity: 3, value: 3900 }]);
+  assert.deepEqual(layers(shop.name), [{ quantity: 3, value: 3900 }]);
+  // 5 sold at the store cost the 4 at $10 and 1 at $13.
+  assert.equal(db.fifoCostMinor(fifo.business, fifo.actualLedger, db.asItemName(gin), db.asLocationName(store.name), 5), 4000 + 1300);
+});
+
 test('a POS sale costs its units first in, first out, and a transfer carries their cost', () => {
   const fifo = fx.freshBusiness('FIFO Co');
   const shop = fx.freshLocation(fifo.business, 'FIFO Shop', { bottle_capacity: 100, carton_capacity: 20 });

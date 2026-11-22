@@ -23,27 +23,112 @@ same purchase and sale screens simply ask which location.
 
 ## What stock costs: first in, first out
 
-Every time stock arrives with a price — a cash purchase, a purchase on
-credit, a delivery against a purchase order — that delivery is kept as a
-**layer**: so many units at so much each, at that location.
+The prices you pay change: the same bag of ice costs $1.00 in March and
+$1.30 in April. When you sell a bag, the application has to decide which
+price it cost you, because that is the sale's cost of goods sold and it
+decides your profit. It uses **first in, first out** (FIFO): stock is
+assumed to leave in the order it arrived, so the oldest stock goes first,
+at the price it was bought at.
 
-When stock leaves — a sale, a transfer to another location, a write-off —
-it is taken from the **oldest** layer first, at the price that layer was
-bought at. This is called *first in, first out* (FIFO).
+### Layers
 
-> **Example.** The stall buys 10 bags at $1.00, then 10 more at $1.30, and
-> sells 12. The cost of those 12 is 10 × $1.00 + 2 × $1.30 = $12.60. The 8
-> bags left are valued at $1.30 each, $10.40 in all.
+Every delivery that arrives with a price (a cash purchase, a purchase on
+credit, a delivery against a purchase order) is kept as a **layer**: so
+many units at so much each, at that location. A location's stock of an
+item is its layers, oldest first. Stock leaving (a sale, a transfer, a
+write-off) is taken from the oldest layer until it is used up, then from
+the next.
 
-- **Transfers** between locations carry their layers with them. If 9 bags
-  leave Home — 8 bought at $1.30 and 1 at $1.60 — they arrive at the Stall
-  as those same two layers, not as 9 bags at a blended price.
-- **Write-offs** (broken, lost or expired stock) are costed the same way:
+> **Example: one location, three events.**
+>
+> | Event | Layers afterwards (oldest first) | Cost of what left |
+> |---|---|---|
+> | Buy 10 bags at $1.00 | 10 at $1.00 | |
+> | Buy 10 bags at $1.30 | 10 at $1.00; 10 at $1.30 | |
+> | Sell 12 bags | 8 at $1.30 | 10 × $1.00 + 2 × $1.30 = **$12.60** |
+>
+> The sale's cost of goods sold is $12.60, not 12 × the latest price
+> ($15.60) and not 12 × the average price ($13.80). The 8 bags left are
+> worth $10.40, and that is exactly the balance of the location's
+> Inventory account.
+
+### Transfers carry their layers
+
+Each location has its own layers. A transfer takes stock from the oldest
+layers where it leaves, and it arrives as those **same layers**, at the
+same prices, not as one batch at a blended price. So the oldest stock is
+still the first to go at its new home too.
+
+> **Example: the stall restocks from home.** Home holds 8 bags at $1.30
+> and then buys 5 more at $1.60. It sends 9 to the Stall: the 8 at $1.30
+> and 1 at $1.60, $12.00 in all. Home keeps 4 at $1.60 ($6.40). The Stall
+> now holds two layers, 8 at $1.30 and 1 at $1.60, so when it sells 8 the
+> cost is 8 × $1.30 = $10.40, and its last bag is still worth $1.60.
+
+The value moves with the stock: the transfer posts $12.00 out of Home's
+Inventory account and into the Stall's, so each location's books show
+what its own shelves hold. A transfer is never income: no sale, no
+profit, just stock and its cost changing places.
+
+### Part of a layer
+
+When only part of a layer leaves, it takes its share of that layer's
+cost, rounded to the cent; the units left behind carry the rest, so the
+last unit out takes any rounding and the layer comes to exactly what was
+paid for it.
+
+> 3 bags cost $1.00 together. Selling 2 costs $0.67; the last bag then
+> costs $0.33, and $0.67 + $0.33 = $1.00.
+
+### Write-offs and stock found
+
+- **Write-offs** (broken, lost or expired stock) are costed the same way,
   oldest first.
-- **Stock found** at a count during the year is valued at the price of the
-  most recent delivery.
-- Nothing extra is stored for any of this. The layers are read back from
-  the journal itself, so they always agree with the Inventory account.
+- **Stock found** at a count during the year, that the books did not
+  hold, is valued at the price of the most recent delivery.
+
+### Stock with no cost recorded
+
+Stock can arrive with no price on it: a delivery recorded as a quantity
+only, or stock whose cost was entered separately as a general journal
+entry against the item's Inventory account. Such a layer holds the units
+but no value.
+
+- In the **original middleware** (the screens), when none of a location's
+  layers holds any value, a sale is costed at the item's registered unit
+  cost (its preferred provider's price, see Chapter 2) instead; with no
+  registered cost either, the sale has no cost of goods sold. A transfer
+  of such stock moves no value.
+- In the **new middleware**, stock with no cost recorded leaves at no
+  cost.
+
+So record the price with the delivery (a purchase, or a receipt against a
+purchase order) whenever you can: the layers are then right from the
+start, at every location.
+
+### Where you see it
+
+- **Cost of goods sold** on the Profit and Loss, and *Margin* in *Sales
+  and Margin*, are the first-in, first-out cost of the units sold, at the
+  location they left, so the margin is right per location.
+- **What it cost** in *General Ledger → New Stock on Hand* is the value of
+  the layers each location still holds.
+- **The Inventory account** of an item at a location always equals the
+  value of its layers there. Nothing extra is stored: the layers are read
+  back from the journal itself, so they cannot drift from the books.
+
+### At the year end
+
+The year-end stock take replaces the layers with one average cost, as
+described in "The year-end stock take" below. From then on, stock
+received later forms new layers on top of that one.
+
+> **Why first in, first out?** It matches how most businesses sell (the
+> oldest stock first, before it dates or spoils), it leaves the stock you
+> still hold valued at your most recent prices, and every cost can be
+> traced back to the delivery it came from. FIFO is one of the usual ways
+> of working out the cost of trading stock; check with your accountant
+> how your business must value its stock for tax.
 
 ## Storage space: how much room is left
 
@@ -169,12 +254,13 @@ a form into journal entries and records. There are two. The new one is
 used by the step runner and by a backend started with `MIDDLEWARE=core`;
 the web and terminal screens otherwise still use the original one.
 
-Both cost stock first in, first out. In the original middleware this
+Both cost stock first in, first out, and in both a transfer carries its
+layers to the location it arrives at. In the original middleware this
 covers point-of-sale sales (cash sales included) and transfers between
 locations. Write-offs, deliveries against sales orders, and sales of items
 set up in sizes or other variants still use the item's registered unit
-cost (its preferred provider's price), and so does any stock that arrived
-with no cost recorded.
+cost (its preferred provider's price), and so does stock that arrived
+with no cost recorded ("Stock with no cost recorded", above).
 The year-end count is available through the new middleware's calls —
 `getStockTakeSheet`, `confirmStockCount` and `completeYearEndStockTake` —
 ready for a terminal or phone screen; those screens are still to be built.

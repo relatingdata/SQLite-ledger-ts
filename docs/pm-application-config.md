@@ -170,16 +170,12 @@ of goods sold; `getCube` tells them apart by where the account sits.
 
 ### First in, first out (default middleware)
 
-`stockCostLayers` and `fifoCostMinor` (`backend/src/db-stock.ts`) read an
-item's stock at a location back from the journal as the layers it arrived
-in, oldest first, each at its cost, the same way the core middleware does
-(`core/ops.ts`). The journals of one event share a reference stem (a
-purchase's invoice and `-RECV-<item>`, a sale's `-DISPATCH-<item>` and
-`-COGS`, a transfer and its `-VALUE`), so they count as one movement. A POS
-sale costs its lines from these layers before dispatching them, and a
-transfer carries the cost of the units it moves to the other location.
-Where the layers hold no value (stock received with no cost posted), the
-preferred item source's unit cost is used, as before.
+`stockValue` and the cost of goods sold in these cubes are first in,
+first out: `stockCostLayers` and `fifoCostMinor` (`backend/src/db-stock.ts`)
+read an item's stock at a location back from the journal as the layers it
+arrived in, oldest first, each at its cost, a transferred-in batch arriving
+as the layers it left with. The rules, a worked example and how the two
+middlewares compare are in *Stock API*, "First-in, first-out cost".
 `make seed-pivot-demo` adds a demo business, Pivot Demo Wines, with three
 wines bought at two prices and sold unevenly at three shops.
 

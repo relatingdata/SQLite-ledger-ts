@@ -374,41 +374,118 @@ does the same.
 
 ## First-in, first-out cost (original middleware)
 
-**`stockCostLayers(business, ledger, item, location)`** reads an item's
-stock at a location back from the journal as cost layers, oldest first,
-the same way the core middleware's `stockLayers` does (`core/ops.ts`).
-Nothing extra is stored. The lines read are those on the item-location
-quantity account (`<item> — <location> — Qty`) and its Inventory value
-account (`<item> — <location>` under the item's own Inventory account), in
-the ledger.
+What stock leaving a location costs is worked out first in, first out
+(FIFO), per item and per location. Nothing extra is stored: no layer
+table, no cost column. The layers are read back from the journal every
+time, so they cannot drift from the Inventory balance they explain. The
+core middleware does the same in `stockLayers`/`costOf` (`core/ops.ts`,
+*Core middleware*); the two are kept to the same rules, listed under
+"The two middlewares", below.
 
-- **One movement per event.** An event's journals share a reference stem:
-  a purchase's invoice `REF` and its receipt `REF-RECV-<item>`; a sale's
-  `REF-DISPATCH-<item>` and `REF-COGS`; a transfer's `REF` and
-  `REF-VALUE`. So these count as one movement, as in the core.
-- **Building the layers.** A quantity in starts a layer at the value
-  posted with it, and a quantity out takes the oldest layers first. Value
-  with no quantity goes to the newest layer, or waits for the next one in.
-- **Always in step with the books.** The layers always add up to the
-  location's Inventory balance.
+### The two accounts read
 
-**`fifoCostMinor(business, ledger, item, location, quantity)`** is what
-that quantity leaving costs. When the layers hold no value (stock received
-with no cost posted), it uses `getItemUnitCostMinor` (the preferred
-source's unit cost), or returns null when neither is known.
+For an item at a location, `stockCostLayers` reads the lines of the
+ledger on two accounts, ordered by date, then journal:
 
-**Used by:**
-- `completePosSale` works out every line's cost before dispatching any of
-  them, and several lines of one item take successive layers.
-- `transferItems` works out the cost before moving the quantity, then
-  posts that value out of one location and into the other.
+- the **quantity account**, `<item> — <location> — Qty`, a child of the
+  item (`resolveItemLocationQuantityAccountId`); and
+- the **value account**, `<item> — <location>`, under the item's own
+  Inventory account in the business's chart (provisioned by
+  `ensureItemLocationInventoryAccount`).
 
-Write-offs, stock dispatch against sales orders, and combination lines
-still use `getItemUnitCostMinor`.
+No quantity account means no stock there yet: no layers.
 
-**Tests:** `backend/test/cube.test.ts`, "a POS sale costs its units first
-in, first out, and a transfer carries their cost".
+### Movements
 
+One business event posts several journals, one reference stem shared:
+
+| Event | Quantity journal | Value journal |
+|---|---|---|
+| Purchase (cash or on credit) | `REF-RECV-<item>` | `REF` (its invoice) |
+| POS or cash sale | `REF-DISPATCH-<item>` | `REF-COGS` |
+| Transfer (`transferItems`) | `REF` | `REF-VALUE` |
+
+`stem(reference)` strips `-VALUE`, `-COGS`, `-RECV-…` and `-DISPATCH-…`,
+and the lines of one stem add up to one **movement**: a quantity and a
+value, and the journals it came from.
+
+### Building the layers
+
+The movements are walked in order, keeping a list of layers, oldest
+first, each `{ quantity, value }` in minor units:
+
+1. **Quantity in.** A new layer at the value posted with it. When the
+   stock was transferred in (`transferSource` finds, in the movement's own
+   journals, a negative line on the same item's quantity account at
+   another location), the units arrive as the **source's layers**: the
+   source's layers as they stood just before that journal
+   (`stockCostLayers(…, beforeJournalId)`), with the transferred quantity
+   taken from them oldest first. Any difference between that and the value
+   the transfer posted (none, as `transferItems` posts exactly that cost)
+   goes to the first layer that arrived.
+2. **Quantity out.** `takeLayers` takes the oldest layers first. A whole
+   layer goes at its own value; part of one takes
+   `round(value × units / quantity)` and leaves the rest, so a layer
+   always adds up to exactly what it cost. The value posted with it
+   (normally the negative of what was taken) and the value taken are
+   placed as below.
+3. **Value with no quantity** (a general journal entry on the value
+   account, the difference after a quantity out) goes to the newest
+   layer, or, with no layer yet, waits for the next quantity in.
+
+So the layers always add up to the location's Inventory balance.
+
+> **Example (the unit test below).** Buy 4 at $10.00 and 6 at $13.00 at
+> the shop: `[4 @ $40.00, 6 @ $78.00]`. Transfer 7 to the store: the shop
+> keeps `[3 @ $39.00]`; the store holds `[4 @ $40.00, 3 @ $39.00]`, not
+> `[7 @ $79.00]`. Selling 5 at the store costs $40.00 + $13.00 = $53.00.
+
+### The cost of stock leaving
+
+`fifoCostMinor(business, ledger, item, location, quantity)` is the value
+of `takeLayers(stockCostLayers(…), quantity)`. When the location's layers
+hold no value at all (stock received as a quantity only, or its cost
+posted to the item's Inventory account rather than the location's), it
+falls back to `quantity × getItemUnitCostMinor(item)` (the preferred item
+source's unit cost); with no unit cost either, `null`, and the caller
+posts no value.
+
+### Callers
+
+- `completePosSale` costs every line before dispatching any of them; two
+  lines of one item at one location take successive layers (the cost of
+  `before + quantity` minus the cost of `before`). A combination line
+  (sizes, variants) uses `getItemUnitCostMinor`.
+- `transferItems` costs the transfer before moving the quantity, then
+  posts that value out of the source's value account and into the
+  destination's, as `REF-VALUE`, only when it is above 0. The Stock
+  Transfer screen, the terminal's Transfer Items, the step runner and the
+  restocking flow all call it.
+- The cube's `stockValue` measure (*New Stock on Hand*, `getCube` in
+  `db-matrix-reports.ts`) is the value of the layers still held.
+
+Still at the registered unit cost (`getItemUnitCostMinor`), not FIFO:
+`receiveItems` for a combination receipt, `dispatchItems` (delivery
+against a sales order), combination transfers, and `openStorageContainer`.
+`writeOffItems` and `completeStockTake` take the unit cost from their
+caller.
+
+### The two middlewares
+
+| Rule | Original (`db-stock.ts`) | Core (`core/ops.ts`) |
+|---|---|---|
+| Layers read from the journal, oldest first | yes | yes |
+| A transfer arrives as the source's layers | yes (`transferSource`) | yes (the entry's `From Location` relation) |
+| Part of a layer, rounded, the rest left behind | yes | yes |
+| Value with no quantity goes to the newest layer | yes | yes |
+| Layers with no value at all | the preferred source's unit cost | no cost |
+| Stock found at a count | the caller's unit cost | the newest layer's unit cost (`costOfFound`) |
+| Year-end count merges the layers into one average | not yet | yes (`YEAR_END_COUNT` entries) |
+| Write-offs | the caller's unit cost | first in, first out |
+
+Tests:
+- "a POS sale costs its units first in, first out, and a transfer carries their cost" (`backend/test/cube.test.ts`)
+- "transferred stock arrives as the layers it left with: its oldest units keep their own cost at the new location" (`backend/test/cube.test.ts`)
 
 ## Item sources
 
