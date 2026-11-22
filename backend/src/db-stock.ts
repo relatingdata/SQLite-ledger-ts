@@ -1384,7 +1384,7 @@ export function completeStockTake(
   business: BusinessName,
   ledger: LedgerName,
   varianceExpenseAccount: AccountName,
-  /** @deprecated See docs/stock-api-reference.md § Stock takes. */
+  /** @deprecated Unused: each line resolves its own Inventory account. See docs/pm-stock-api.md, "Stock takes". */
   inventoryAccount: string,
   unitCostMinorByItem: Record<string, number>,
   userId: UserId

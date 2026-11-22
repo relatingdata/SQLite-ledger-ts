@@ -194,7 +194,7 @@ it). A dialog the page opens (a confirm before a delete) is accepted.
 - `runStepViaApi(step, screens)` runs one step against the live backend
   and reports failure when its verify does not hold.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "parseCsvLine: plain fields" (`backend/scripts/step-runner.test.ts`)
 - "parseCsvLine: quoted fields with embedded commas" (`backend/scripts/step-runner.test.ts`)
 - "parseCsvLine: doubled quotes inside a quoted field" (`backend/scripts/step-runner.test.ts`)
@@ -1124,10 +1124,9 @@ every item is created.
 
 ### Full / volume — the Manufacturing cycle simulation
 
-Per the user's own "lighter now" answer (a bespoke, Retail-style golden-
-figure volume simulation for Manufacturing, mirroring the Wine Retail
-Business one below, is explicitly deferred, future work), this chapter's
-own "full" tier is `backend/scripts/simulate-manufacturing-cycles.ts` —
+A golden-figure volume simulation for Manufacturing, like the Wine
+Retail Business one below, is not built yet. This chapter's "full"
+tier is `backend/scripts/simulate-manufacturing-cycles.ts` —
 a real, looped simulation (3 repeated purchase/assemble/sell cycles
 against one fresh db), verified entirely via computed invariants, never
 a hardcoded dollar figure: the Trial Balance balances; no on-hand
@@ -1204,10 +1203,9 @@ name containing `" — "`, not just a disposable verify-then-delete script.
 
 ### Full / volume — the Project Builder cycle simulation
 
-Per the user's own "lighter now" answer (a bespoke, Retail-style
-golden-figure volume simulation for Project Builder, mirroring the Wine
-Retail Business one below, is explicitly deferred, future work), this
-chapter's own "full" tier is
+A golden-figure volume simulation for Project Builder, like the Wine
+Retail Business one below, is not built yet. This chapter's "full"
+tier is
 `backend/scripts/simulate-project-builder-cycles.ts` — a real, looped
 simulation (3 repeated overlapping-project-pair cycles, each in its own
 non-overlapping two-year date window, against one fresh db), verified
@@ -1330,7 +1328,7 @@ row's verify, `entity_named_exists`.
 
 ### The tests
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "business-setup-divisions" (`shared-fixtures/tests/business-setup-divisions.csv`)
 - "cash-sale-storage-origin" (`shared-fixtures/tests/cash-sale-storage-origin.csv`)
 - "contact-addresses-by-keyboard" (`shared-fixtures/tests/contact-addresses-by-keyboard.csv`)

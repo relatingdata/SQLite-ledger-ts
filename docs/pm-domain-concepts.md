@@ -29,7 +29,7 @@ Receipt or Stock Dispatch line with its quantity tracking turned off.
   shows up normally in every financial report (Trial Balance, P&L,
   Balance Sheet, Sales Report) exactly like a physical item would.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "a service dispatch (no item, no item_qty, no unit_cost) skips COGS and quantity movement entirely — matches the exact worked example: 10 hours @ 150.00 with 10% tax" (`backend/test/db.test.ts`)
 - "a service receipt (no item_qty) skips the quantity movement, still posts the monetary and tax legs correctly" (`backend/test/db.test.ts`)
 

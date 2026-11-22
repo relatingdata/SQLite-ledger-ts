@@ -5,55 +5,41 @@ stock and space", below.
 
 ## Two design decisions the whole file rests on
 
-**1. Quantity and monetary value are two independent facts, not a
-debit/credit pair of each other.** Money is naturally double-entry —
-it always has a from and a to. A physical unit arriving has no such
-natural counter-item in the books. Monetary movements keep using the
-existing balanced staging/posting mechanism unchanged; quantity
-movements are posted by `commitStagedQuantityMovement` without the
-balance check — still an ordinary `journal`/
-`journal_line` row, so there is a full audit trail, but never forced
-through a zero-sum check that only makes sense for money. (Whether
-this still holds cleanly in practice is Open Question 1, below.)
+**1. Quantity and money are two separate facts.** Money is
+double-entry: it always has a from and a to. A unit arriving has no
+natural counter-item, so quantity movements are posted by
+`commitStagedQuantityMovement` without the balance check. They are
+still ordinary `journal`/`journal_line` rows, with the same audit
+trail. (Open Question 1, below, asks whether this still holds.)
 
 **2. Orders live under `Orders`, not under Chart of Accounts.**
-Reports only ever walk the real chart, so nothing posted for an order
-leaks into a real financial statement. Placing an order posts to that
-order's own Qty and Value accounts; fulfilling it posts the opposite.
-**The order's remaining balance *is* the back-order quantity** — no
-separate status field anywhere, the same way a bank balance is just a
-number, not a number plus a flag.
+Reports walk only the chart, so nothing posted for an order reaches a
+financial statement. Placing an order posts to its own Qty and Value
+accounts; fulfilling it posts the opposite. **The order's remaining
+balance is the back-order quantity**: there is no status field.
 
 ## Quantity movements
 
 `postQuantityMovement` posts a single quantity movement against one
 account, creating the account first if it has never been posted to.
 
-`stageQuantityMovementLine` stages one quantity-movement line into the
-same `journal_entry_staging` table the ordinary financial path uses —
-exposed separately from `postQuantityMovement` (which stages and
-posts in one call for the common single-location case) so a genuinely
-two-sided movement, a transfer between two locations, can stage both
-lines under **one shared reference** and post once as one balanced
-entry, rather than two postings that merely happen to net to zero.
+`stageQuantityMovementLine` stages one quantity line into
+`journal_entry_staging`, the table the money path uses too, so a
+two-sided movement (a transfer's two locations) stages both lines under
+**one reference** and posts once.
 
-Resolving an account by name: a product entity always, structurally,
-descends from `Items`; its Sales/COGS/Inventory accounts never do
-(they live under Sales Revenue/Cost of Goods Sold/Inventory). When one
-name resolves to more than one entity, prefer the one whose ancestor
-chain reaches `Items` — the reliable way to tell the product itself
-from its same-named financial accounts. This name-based fallback is
-used only when the caller doesn't already know the exact account id;
-every account scoped under a specific item or location (On Order,
-Units Sold, the storage-capacity leaves) has a simple, non-globally-
-unique name, so passing the id explicitly is what keeps posting
-correct.
+Resolving an account by name: a product descends from `Items`; its
+Sales, COGS and Inventory accounts never do. When a name resolves to
+more than one entity, the one under `Items` is the product. That
+fallback is only for callers without the account id: the accounts under
+an item or a location (On Order, Units Sold, the storage leaves) have
+names that repeat, so callers pass their id.
 
 `postStagedQuantityMovement` posts every line staged under a
 reference through `commitStagedQuantityMovement` (*The Journal API*,
 "The three posting paths").
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "quantity movements carry a real, queryable location — receive, dispatch, and transfer (both legs) each record where it actually happened, not just updating the current-state snapshot" (`backend/test/db.test.ts`)
 - "true double-entry quantity tracking: a real "on order" account for receipts and a real "units sold" account for dispatches — the genuine counteritem, not derived arithmetic, per direct confirmation" (`backend/test/db.test.ts`)
 
@@ -62,44 +48,32 @@ Tests:
 `Location.timezone` is a real IANA identifier, never a fixed UTC
 offset.
 
-**Location types are Vocabulary words**, user-extensible through
-`createLocationType`, never a fixed, built-in list — the same proven
-pattern as `listAddressTypes`/`ensureAddressType`: a dedicated
-"Location Types" container entity, listing its own direct children
-(not derived from which entities already have a type link, which would
-make a brand-new type unable to appear until first assigned).
+**Location types are Vocabulary words**, added with
+`createLocationType`, like `listAddressTypes`/`ensureAddressType`: the
+children of a "Location Types" container, so a new type is listed
+before anything has it.
 
-**`setLocation`**: a location's plain data (city, shelving/floor-area
-capacity, timezone) is ordinary per-entity data on `contact`, the
-general-purpose table every party's details live on, not a dedicated
-location table. `location_type` and `is_billing_address` are "kind"
-tags, recorded as a named relationship record (`Location Type —
-{location} → {marker}`) — this deliberately never touches the
-location's own `relation_id` slot, already used by its "Belongs To
-Division" link. **Exactly one billing address at a time**: setting a
-new one removes every other "Is Billing Address" record first.
+**`setLocation`**: a location's data (city, capacities, timezone) is
+on `contact`, the table every party's details live on. `location_type`
+and `is_billing_address` are relationship records (`Location Type —
+{location} → {marker}`), leaving the location's `relation_id` to its
+Division link. **One billing address at a time**: setting one removes
+every other "Is Billing Address" record first.
 
-**`setLocation`/`getLocation` are both scoped by `business` directly
-in the SQL that selects the row** (via `resolveBusinessLocationsRootId`
-and a `parent_id = <that root>` filter), never a bare, unscoped
-name lookup followed by a check applied afterward — a location name is
-only unique *within* a business, not globally, so an unscoped lookup
-can silently resolve to an unrelated, same-named location (or even a
-same-named business, e.g. one literally called `"admin"`) belonging to
-someone else entirely. When `business` is omitted, both fall back to
-the first globally-matching row by bare name — callers that know which
-business they mean should always pass it.
+**`setLocation`/`getLocation` select the row within the business**
+(`resolveBusinessLocationsRootId`, then `parent_id` = that root). A
+location's name is unique only within its business, so an unscoped
+lookup could find another business's location of the same name. With
+no `business`, both take the first row of that name anywhere, so a
+caller that knows the business passes it.
 
-**`todayAtLocation`** returns the correct calendar day right now at a
-specific location, using that location's own IANA timezone, never the
-server's — SQLite has no working timezone support (no ICU extension;
-`datetime()`/`strftime()` silently return `NULL` for a named zone).
-Luxon, backed by Node's complete IANA data, handles this correctly,
-including seasonal transitions (Sydney and Brisbane, sharing a long
-border, are an hour apart every southern-hemisphere summer, since NSW
-observes daylight saving and Queensland never does).
+**`todayAtLocation`** is today's date at the location, in its own IANA
+timezone, not the server's. SQLite has no timezone support
+(`datetime()` returns `NULL` for a named zone), so Luxon works it out,
+daylight saving included: Sydney and Brisbane are an hour apart in the
+southern summer.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "Locations: per-location stock, exactly one billing address, warehouse-direct dispatch for large orders, same-city transfers, and below-reorder reporting" (`backend/test/db.test.ts`)
 - "getLocation/setLocation: two real locations sharing the exact same name under two different real businesses stay genuinely distinct" (`backend/test/db.test.ts`)
 - "createAndConfigureLocation: real, atomic, balanced Storage Capacity Remaining/Installed accounts, created as part of location creation itself, never a single-sided posting" (`backend/test/db.test.ts`)
@@ -107,9 +81,9 @@ Tests:
 ## Moving stock and space
 
 Receipt, dispatch and transfer each run in one `db.transaction`, so
-their quantity, space and value postings land together or not at all;
-a write-off posts its value entry and its quantity entry one after the
-other, outside a transaction:
+their quantity, space and value postings land together or not at all.
+A write-off posts its value entry, then its quantity entry, with no
+transaction around both:
 
 - **`receiveItems`** refuses a quantity that is not positive, an
   unknown item or location, and a service item. It moves the quantity
@@ -127,9 +101,12 @@ other, outside a transaction:
   leaf against Cost of Goods Sold and reverses the unit count.
 - **`transferItems`** refuses locations in different cities and more
   than is on hand at the source. It posts one two-line quantity entry
-  (source down, destination up) and moves space at both locations; for
-  a combination it moves the value and the count from the source's
-  combination to the destination's.
+  (source down, destination up), moves space at both locations, and
+  moves the value: at first-in-first-out cost between the two
+  locations' Inventory accounts, as `REF-VALUE`, when that cost is
+  above 0 ("First-in, first-out cost", below); for a combination, the
+  value and the count from the source's combination to the
+  destination's, at the unit cost.
 - **`writeOffItems`** refuses a quantity that is not positive. It debits
   the write-off expense and credits the item's Inventory account for
   quantity × unit cost, moves the quantity against **Write-off**, and,
@@ -141,7 +118,7 @@ other, outside a transaction:
   space between Remaining and Occupied by the item quantity, divided by
   the package size for a carton location. It never touches Installed.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "stock write-offs (breakage/spoilage): a real dual-effect transaction, reducing quantity on hand AND recognizing the actual loss in the GL, not just an adjustment with no accounting consequence" (`backend/test/db.test.ts`)
 - "ensureLocationCapacityAccount: a real, one-time opening balance from the location's own static capacity, retail tracks bottles, warehouse tracks carton-equivalents" (`backend/test/db.test.ts`)
 - "adjustLocationCapacity: a real, direct check of the capacity math, retail (1:1 bottles) and warehouse (real, per-item carton conversion)" (`backend/test/db.test.ts`)
@@ -155,19 +132,15 @@ Tests:
 
 ## Item-location levels and capacity status
 
-**`getLocationCapacityStatus`** returns a location's current total
-quantity on hand, checked against its configured capacity — purely
-informational, never checked/blocked anywhere (`docs/TODO.md`). The
-carton-equivalent quantity is computed per product using that
-product's own preferred-vendor `package_quantity`, not a flat
-bottles-per-carton figure, since that genuinely varies (wine/spirits
-at 12, beer at 24). `preferredProviderPackageQuantity` (private)
-supplies that conversion — there is no exchange-rate table;
-`item_source.package_quantity` *is* the carton-to-bottles rate,
-one-directional (a carton broken open becomes bottles; bottles are
-never reassembled). A retail outlet (with `bottle_capacity` set) tracks
-in bottles; a warehouse (only `carton_capacity`) tracks in
-carton-equivalents using the item's own factor.
+**`getLocationCapacityStatus`** is a location's total quantity on
+hand against its capacity, for information: nothing is refused for
+being over it (`docs/TODO.md`). A retail outlet (`bottle_capacity`
+set) counts bottles; a warehouse (only `carton_capacity`) counts
+cartons, each item's bottles divided by its preferred source's
+`package_quantity` (`preferredProviderPackageQuantity`, 12 when it has
+none: wine and spirits 12, beer 24). That is the one carton-to-bottle
+rate, and it goes one way: an opened carton becomes bottles, bottles
+never become a carton again.
 
 **`setItemLocationLevelDetails`** (min/max/reorder/shelf-side/rack/
 shelf-level) takes `business`/`ledger`/`userId` as optional, explicit
@@ -180,18 +153,15 @@ is chosen on `/session`, and again on every load (`+layout.svelte`).
 Without it, `Session.Business` throws and the call fails with a 500 — the
 step runner's API path, and any caller that does not log in through the
 frontend, must pass the business explicitly.
-`setItemLocationLevels` is the narrower, UI-facing wrapper that accepts
-the same levels by their camelCase field names.
+`setItemLocationLevels` takes the minimum, maximum and reorder levels
+by their camelCase names, as the stock listing's inputs send them.
 
-One naming quirk worth knowing:
-`ensureLocationCapacityAccount` resolves a business's own `Locations`
-root via the shared `resolveBusinessLocationsRootId` helper rather than
-assuming the root is always named plain `"Locations"` — the bundled
-Wine Retail Business's own seed data names its root `"Wine Retail
-Business Locations"` instead, a pre-existing, tolerated irregularity
-in that one business's seed data, not a bug in this function.
+`ensureLocationCapacityAccount` finds a business's locations root with
+`resolveBusinessLocationsRootId` rather than by the name `"Locations"`:
+the Wine Retail Business's seed data names its root `"Wine Retail
+Business Locations"`.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "getLocationCapacityStatus: a real location's own, current real stock checked against its own, real configured capacity — found to be purely informational and never enforced anywhere, per docs/TODO.md" (`backend/test/db.test.ts`)
 
 ## POS terminals
@@ -215,70 +185,52 @@ location's `{location} Terminals` container (both only when missing);
 Contact) by one level: a terminal's own currency, when set, wins over
 all of them.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "createPosTerminal/setTerminalCurrency/getEffectiveSaleCurrency: a real, direct, border-business scenario - two real terminals, one location, two different currencies" (`backend/test/db.test.ts`)
 
 ## Stock listing and the movement report
 
-**`getInventoryListing`/`countInventoryListing`** list every
-item/location combination with stock tracked, ordered item then
-location, paginated (`limit`, `offset`); `countInventoryListing` is
-scoped to the current session's own business, never a bare, global
-count across every business.
+**`getInventoryListing`/`countInventoryListing`** list every item and
+location with stock, item then location, a page at a time (`limit`,
+`offset`); `countInventoryListing` counts within the session's
+business.
 
-**`getInventoryListingByLocation`** is the same data grouped by
-location, optionally tagged with a named-Hierarchy group
-(`hierarchyName` — e.g. `"Division"`, or any other real, business-
-chosen hierarchy; never hardcoded, so a location's `group` is `null`
-unless a caller explicitly asks for one). Deliberately not paginated —
-read a location at a time; the number of locations stays small even as
-the catalogue grows. Takes `business` as an optional, explicit
-parameter — falls back to the ambient session context only when
-omitted, the same pattern as `setItemLocationLevelDetails` above, and
-for the same reason (no live HTTP route in this application
-establishes that ambient context itself). `getBelowReorderStock` and
-`getStockOutRiskReport` are both built directly on top of this
-function's own output.
+**`getInventoryListingByLocation`** is the same, grouped by location,
+each tagged with its group in the grouping `hierarchyName` asks for
+(`"Division"`, or any other; `group` is `null` when none is asked). It
+is not paged: there are few locations. `business` is optional and falls
+back to the session's, as for `setItemLocationLevelDetails` above.
+`getBelowReorderStock` and `getStockOutRiskReport` are built on it.
 
-**Business-scoping is not yet complete end to end**: `getItemLocation`
-(min/max/reorder levels, shelf position) and `getLocationCapacityStatus`
-still have no `business` parameter of their own, so if two different
-businesses genuinely share both an item name and a location name,
-either one's figures could still come from the wrong business — a
-narrower, real, currently open gap, distinct from (and already fixed
-ahead of) the broader unscoped-lookup bug class documented throughout
-this chapter.
+**Not yet scoped by business**: `getItemLocation` (levels, shelf
+position) and `getLocationCapacityStatus` take no `business`, so two
+businesses with an item and a location of the same names could read
+each other's figures. This is an open gap.
 
-**`allItemCategories`/`allPreferredProviders`** (private) fetch every
-item's category or preferred vendor in one query each, to avoid a
-query per row on a report that can have thousands (measured: the
-naive per-row version took ~4 seconds for one month of data).
-`allItemCategories` is a thin wrapper over the fully generic
-`getHierarchyAssignments('Category')` (`db.ts`) — the same bulk
-tag-lookup every hierarchy-backed screen uses, not a dedicated
-Category query.
+**`allItemCategories`/`allPreferredProviders`** (private) read every
+item's category or preferred vendor in one query each, so a report of
+thousands of rows makes no query per row (per row took about 4 seconds
+for a month). `allItemCategories` is `getHierarchyAssignments('Category')`
+(`db.ts`).
 
-**`getStockMovementReport`** reports stock's physical journey
-(received, transferred, sold), groupable by vendor/category and,
-optionally, by a named-Hierarchy group for each row's location (the
-same `hierarchyName` convention as `getInventoryListingByLocation`
-above) — built from the same `journal_line.location_id` the
-receive/dispatch/transfer functions already populate, never a
-separate, parallel log. Two distinct locations sharing one journal
-entry is structurally what a transfer's two legs are (one location's
-count decreasing, the other's increasing) — matched by `journal_id`
-directly. A single location's own line is a receipt when its quantity
-is positive and a dispatch when negative — the sign itself is the
-structural distinction, never a reference-string pattern. Sales
-postings for the date range are fetched once and keyed by (invoice
-reference, Sales account name) to avoid a per-row query — a Sales
-account named `Sales - X (Bottle)` is reduced to `X`, the plain item
-name a dispatch's quantity row already carries.
+**`getStockMovementReport`** is stock's physical journey (received,
+transferred, sold), from the quantity lines on the per-location
+quantity accounts (`<item> — <location> — Qty`) in the date range. A
+journal with lines at two locations is a transfer, from the one whose
+count fell to the one whose count rose; a journal at one location is a
+receipt when the quantity is positive and a sale when negative. Rows
+carry each item's category and preferred vendor, and, with
+`hierarchyName`, each location's group. Sales for the range are read
+once, keyed by invoice reference and Sales account (`Sales - X
+(Bottle)` is read as `X`).
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "getStockMovementReport: the real, physical journey of stock — purchases into a warehouse, a real transfer on to a retail outlet, and a real sale, each correctly enriched with its own real category, division, and vendor" (`backend/test/db.test.ts`)
 - "getInventoryListing/countInventoryListing: a real, paginated listing of every item/location combination with stock" (`backend/test/db.test.ts`)
 - "getInventoryListingByLocation: groups the same real stock data by real location, tagging each with its real group where one exists" (`backend/test/db.test.ts`)
+- "stock-listing-by-division" (`shared-fixtures/tests/stock-listing-by-division.csv`)
+- "stock-listing-over-capacity" (`shared-fixtures/tests/stock-listing-over-capacity.csv`)
+- "stock-movement-by-grouping" (`shared-fixtures/tests/stock-movement-by-grouping.csv`)
 
 ## The Storage Space Report
 
@@ -336,7 +288,7 @@ currency:
   unit cost, a second entry moves `units × cost` from the container
   tier's Inventory account to the unit tier's at that location.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "convertStorageSpace: a real, balanced conversion between storage combinations - never single-sided, and a real, undefined reverse direction genuinely refuses" (`backend/test/db.test.ts`)
 - "openStorageContainer: opening a carton is two, real, independent space movements - never a rate-linked conversion, and genuinely never requires one to be defined" (`backend/test/db.test.ts`)
 - "openStorageContainer: a dozen 12-bottle cartons (144 bottles) moves directly into its own, real, bottle-tier Inventory account, with no contra accounting of any kind - the same real dollar value, just re-tagged, per direct instruction" (`backend/test/db.test.ts`)
@@ -483,7 +435,7 @@ caller.
 | Year-end count merges the layers into one average | not yet | yes (`YEAR_END_COUNT` entries) |
 | Write-offs | the caller's unit cost | first in, first out |
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "a POS sale costs its units first in, first out, and a transfer carries their cost" (`backend/test/cube.test.ts`)
 - "transferred stock arrives as the layers it left with: its oldest units keep their own cost at the new location" (`backend/test/cube.test.ts`)
 
@@ -508,69 +460,59 @@ the `item_source` view (`backend/src/db.ts`):
 - `setItemSourceLeadTime(item, vendor, days)` sets a source's lead time
   (below).
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "a item can be sourced from multiple manufacturer/vendor combinations, and preference is never derived from price" (`backend/test/db.test.ts`)
 - "addOrUpdateItemSource/getItemPriceForCurrency: a real, direct, dual-currency pricing scenario - one real product, two real, independently-set prices" (`backend/test/db.test.ts`)
 - "getItemPriceForCurrency: a real, combination-specific price wins over the base item price, per direct instruction (a cold beer costs more than a warm one)" (`backend/test/db.test.ts`)
+- "purchase-order-known-suppliers" (`shared-fixtures/tests/purchase-order-known-suppliers.csv`)
 
 ## Reorder, lead times, and stock-out risk
 
-**`getBelowReorderStock`** lists every (item, location) at or below
-its reorder level — the real trigger for "time to order," distinct
-from the floor *min* level (which says something has already gone
-wrong).
+**`getBelowReorderStock`** lists every item and location at or below
+its reorder level: time to order. The *min* level is lower: below it,
+something has already gone wrong.
 
 **`setItemSourceLeadTime`/`getItemLeadTimes`** hold a lead time in
-days for one item from one vendor, with no new tables or columns —
-encoded in a named link-entity (`{item} — Lead Time: {vendor} (14
-days)`).
+days for one item from one vendor, as a link entity named `{item} —
+Lead Time: {vendor} (14 days)`.
 
-**`getStockOutRiskReport`** answers: will this item run out before a
-fresh order placed today could arrive? Recent consumption (a
-deliberately short trailing window) is compared against the shortest
-lead time among the item's known vendors.
+**`getStockOutRiskReport`**: will the item run out before an order
+placed today could arrive? Recent consumption, over a short trailing
+window, against the shortest lead time among the item's vendors.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "setItemSourceLeadTime/getItemLeadTimes/getStockOutRiskReport: will this genuinely run out before a fresh order could arrive?" (`backend/test/db.test.ts`)
+- "restock-retail-outlet" (`shared-fixtures/tests/restock-retail-outlet.csv`)
 
 ## Stock takes
 
-**`createStockTake`** creates a sheet for one location: one line per
-item currently on record there, snapshotting expected quantity and
-`shelf_side`/`rack`/`level`, ordered the way someone walks the floor
-(not alphabetically). A stock take is a "Stock Take" entity under the
-location, one per event; each line is a child entity, `relation_id`
-pointing at the item. `counted` starts empty. Takes `business` as an
-optional, explicit parameter for the same reason noted above for
-`getInventoryListingByLocation`, which it calls internally.
+**`createStockTake`** creates a sheet for one location: a line per item
+on record there, with its expected quantity and
+`shelf_side`/`rack`/`level`, in the order someone walks the floor. A
+take is a "Stock Take" entity under the location; each line is a child
+whose `relation_id` is the item, and `counted` starts empty. `business`
+is optional, as for `getInventoryListingByLocation`, which it calls.
 
 **`recordStockTakeCount(take, item, counted)`** records one line's
 count on a draft take, by renaming the line to `… counted:{n}`. A
 completed take, a negative count or an item not on the sheet is
 refused.
 
-**`completeStockTake`** treats every counted line's variance as a
-genuine loss or gain, never a silent correction — posts the variance
-to the ledger and moves the item's per-location quantity account to
-what was counted (the quantity against **Count Adjustment**, and the
-storage space with `adjustLocationCapacity`), then renames the take
-from `— draft` to `— completed`. A shortage debits the variance expense
-and credits inventory; an overage is the reverse. Lines never counted
-are left untouched. A counted line needs a unit cost in
-`unitCostMinorByItem`, or the take is refused. Its `inventoryAccount`
-parameter is unused (each line resolves its own per-location Inventory
-account).
+**`completeStockTake`** posts each counted line's variance as a loss or
+a gain, and moves the item's per-location quantity to what was counted
+(against **Count Adjustment**, the space with
+`adjustLocationCapacity`), then renames the take from `— draft` to `—
+completed`. A shortage debits the variance expense and credits the
+location's Inventory account; an overage is the reverse. Lines never
+counted are left alone. A counted line needs a unit cost in
+`unitCostMinorByItem`, or the take is refused. The `inventoryAccount`
+parameter is unused.
 
-Two fixed bugs shaped its current shape: each product's variance now
-uses its own reference (not one reference shared by every product in
-the stock take — `stageLine` upserts on `(reference, account)`, which
-used to silently collapse every product's line into the last one
-whenever more than one product shared a variance-expense account);
-and the quantity side now has its own counter-account, **Count
-Adjustment** (it used to stage a single, unbalanced line with no
-counter-item, unlike every other movement).
+Each item's variance has its own reference: `stageLine` upserts on
+`(reference, account)`, so items sharing a variance account under one
+reference would collapse into one line.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "stock take sheets: ordered by shelf_side/rack (alphabetically, as free text) then level numerically (top to bottom), and completing posts genuine loss/gain variance while leaving uncounted lines untouched" (`backend/test/db.test.ts`)
 - "completeStockTake: multiple real, different products sharing the same variance expense account in one real stock take must all post, keeping debit == credit" (`backend/test/db.test.ts`)
 - "completeStockTake and writeOffItems: the real quantity-movement journal entry itself must be balanced (debit == credit), not just the dollar-value side" (`backend/test/db.test.ts`)
@@ -578,53 +520,39 @@ Tests:
 
 ## Lots
 
-**`receiveLot`** records a specific batch of an item arriving, with
-its own expiration date — `postQuantityMovement` is still the source
-of truth for "how much do we have"; lots answer "which batches,
-expiring when." A lot is a child entity under the item, never a
-separate table; mutable state (`quantity_on_hand`, `cost_basis_minor`)
-lives in that entity's own `detail_json`.
+**`receiveLot`** records a batch of an item arriving, with its
+expiration date. How much is on hand is still the quantity accounts';
+lots say which batches, expiring when. A lot is a child of the item,
+its `quantity_on_hand` and `cost_basis_minor` in its `detail_json`.
 
-**`consumeFromLots`** draws from an item's lots oldest-expiring first
-(FIFO-by-expiration) — rejects consuming more than is on hand across
-all lots combined rather than silently going negative, and returns
-which lots were drawn from and how much. The `id ASC` tiebreaker
-matters for lots sharing a `NULL` expiration (a currency lot never
-expires; `entity_id` is monotonic with creation order, so it still
-means acquisition order).
+**`consumeFromLots`** draws from the lots that expire first (this is
+separate from the first-in, first-out cost above), refuses more than
+all the lots hold, and returns what it drew from each. Lots with no
+expiration date go in the order they were made (`id`).
 
 **`getExpiringStock`** returns lots expiring within a window or
 already expired (negative `days_until_expiration`). Lots with no
 expiration date are never included.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "lot/expiration tracking: consumption is genuinely FIFO by expiration date, not receipt order, and the expiring-stock report only shows what actually still has quantity" (`backend/test/db.test.ts`)
 
 ## Orders
 
-**`createSystemEntity`** is a lightweight entity for internal
-bookkeeping (an order's own Qty and Value entities, a bootstrap
-category) — bypasses the normal `entity_entry` audit-trail machinery
-since these are never edited or renamed, only created once.
+**`createSystemEntity`** makes an entity for internal bookkeeping (an
+order's Qty and Value entities, a bootstrap category) without the
+`entity_entry` audit trail, as these are created once and never edited.
 
 **`placeOrder`** creates the order's Qty and Value entities under
-`Orders` (parented by name so multiple orders don't collide) and posts
-the committed quantity/value to them — **purely informational;
-nothing here touches a real account.** Qty's relation carries the
-vendor and Value's carries the item (the same "relation is a separate,
-lateral tag" mechanism used for COGS and CoA-prototype tagging).
-Delivery/dispatch instructions use the generic Location dimension on
-the Qty leaf, since the relation slots are already taken.
+`Orders`, named for the order, and posts the committed quantity and
+value to them. **No real account is touched.** Qty's relation is the
+vendor and Value's the item; where it is to be delivered is the
+Location dimension on the Qty leaf.
 
-**`fulfillOrder`** reduces the order's Qty and Value memo balances by
-exactly what was fulfilled — **whatever remains is the back order**,
-read directly, never stored separately. References include the
-`fulfillingReference` (the receipt/dispatch doing the fulfilling) so
-they're unique per call — a fixed bug: the naming used to assume
-exactly one fulfilment per order, but partial fulfilment (a back order
-closed over several separate receipts) is explicitly supported, and
-reusing the same reference on a second partial fulfilment used to
-silently corrupt `journal_line`.
+**`fulfillOrder`** takes exactly what was fulfilled off the order's Qty
+and Value balances: **what remains is the back order**. Its references
+include the `fulfillingReference` (the receipt or dispatch), so an
+order fulfilled by several receipts gets a reference for each.
 
 **`getOrderStatus`** returns the remaining committed quantity/value on
 an order: zero means fully fulfilled; anything else is the open back

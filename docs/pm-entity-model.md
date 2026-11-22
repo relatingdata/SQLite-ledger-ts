@@ -106,7 +106,7 @@ Entity names are globally unique in this system — a type-marker name
 must not collide with any other real entity's name anywhere in the
 tree.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "setRelationship/getRelationship/getEntitiesWithRelationship: the real relationship-type pattern, confirmed the same shape as an ordinary relation_id tag, not a special case" (`backend/test/db.test.ts`)
 
 ## The primitive set (`backend/src/primitives.ts`)
@@ -250,9 +250,8 @@ before it is trusted as a parent; `create` allocates a new one
 directly against `entity_entry`, the same low-level, trigger-backed
 mechanism `createEntity` uses — a `TypeDescriptor` with
 `validNames`/`validate` rejects a bad name before any allocation
-happens. Scoped-not-global uniqueness (two siblings under the same
-parent can't share a name; the same name is fine under a different
-parent) is enforced natively.
+happens. Scoped uniqueness (*Core Domain Reference*, "Scoped
+uniqueness") is enforced by the schema.
 
 Roughly three dozen `TypeDescriptor` constants exist
 (`typeBusinessName`, `typeLocationEntityName`,
@@ -278,7 +277,7 @@ tool should stay generic: the Entity Tree Editor's own `createEntity`
 call-dispatch entry (`call-dispatch/entities.ts`, an administrator may
 create any kind) and `primitives.ts`'s own `Entity.create`.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "create<T>: the real, generic, typed-descriptor creation primitive - genuinely preserves the Springfield principle (scoped, not global, uniqueness)" (`backend/test/db.test.ts`)
 
 ### Primitive implementation notes
@@ -412,7 +411,7 @@ entity parent (`Storage Origin Types`, `Text Direction Types`):
 `setItemStorageOrigin`/`getItemStorageOrigin`,
 `setLanguageDirection`/`getLanguageDirection` (`backend/src/db.ts`).
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "Category: an arbitrarily deep, generic Hierarchy of pure tags (setHierarchyParent) — never a real position in the Items catalog, and never mistaken for an item" (`backend/test/db.test.ts`)
 - "ensureItemSalesCogsAccounts: posts flat, directly under Sales Revenue/Cost of Goods Sold — Category is a real, optional reporting tag (setHierarchyParent), never real account structure" (`backend/test/db.test.ts`)
 - "setLanguageDirection/getLanguageDirection: a real, generic RTL property any language can have, per direct instruction (Hebrew/Arabic on par with every other language, not a hardcoded special case)" (`backend/test/db.test.ts`)
@@ -471,7 +470,7 @@ structural parent with one leaf per combination, named `"{headerName}
 Accounts," not "is a leaf" — nothing currently prevents posting
 directly to a structural header node once it has leaves underneath.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "createBusiness: real, optional secondary currencies each get a real, automatic "Cash at Bank ({currency})" account, correctly tagged and immediately postable to — a genuinely ordinary business omits this entirely" (`backend/test/db.test.ts`)
 - "nominateBankAccount/buildBankCurrencyStructure: a real, single bank account in one real currency collapses to one, plain, postable "Cash at Bank" account - no header, no further structure" (`backend/test/db.test.ts`)
 - "nominateBankAccount/buildBankCurrencyStructure: more than one real bank/currency combination genuinely becomes a real header, with one real, postable leaf per ticked combination" (`backend/test/db.test.ts`)
@@ -492,7 +491,7 @@ Inventory Catalog/Listing reports for those). Reachable via the
 `getBusinessConfigurationReport` dispatch key (`call-dispatch/businesses.ts`,
 via `POST /api/call`).
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "addFinancialStatementNote/getFinancialStatementNotes: a real, free-text disclosure genuinely belongs to one specific business, never the shared, global Business Reports list itself" (`backend/test/db.test.ts`)
 - "getBusinessConfigurationReport: everything a real business's own setup actually captured - name, addresses, phones, owner/partners, banking, currencies, divisions, locations, categories - deliberately never item details" (`backend/test/db.test.ts`)
 
@@ -538,7 +537,7 @@ The guiding distinction is whether a past value is worth keeping (an
 entity's own name or structural position: yes; an account-number
 correction: generally not), not one blanket rule applied everywhere.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "entities are append-only: renaming closes out the old row and appends a replacement under the same id, full history preserved" (`backend/test/db.test.ts`)
 - "a renamed-away-from name can be reused immediately for an unrelated new entity" (`backend/test/db.test.ts`)
 - "renaming a parent never orphans its children — a childs parent_id keeps resolving correctly with zero other changes" (`backend/test/db.test.ts`)
@@ -772,13 +771,12 @@ reading an entity's tree position, its relation, and its contact
 fields, then joining against whatever additional tables
 (`journal_line`, `account`) a particular report needs.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "businesses and ledgers list correctly" (`backend/test/db.test.ts`)
 
 ### `EntityDriver` / `entityDriver` — the one seam entity storage goes through
 
-Per `/root/.claude/plans/stateful-snacking-adleman.md` ("Isolate entity
-storage behind one driver interface"): `primitives.ts`'s `Entity`
+`primitives.ts`'s `Entity`
 object (the real public surface everything above calls) does not touch
 SQL directly any more. Every one of its methods — `create`, `get`,
 `getUnder`, `rename`, `reparent`, `relate`, `revoke`, `children`,
@@ -870,7 +868,7 @@ own entity resolution was converted for exactly this reason — see
 `combination_ids` exception or any of the self-join sites just
 described.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "MemoryEntityDriver: create/children/rename/reparent/relate/descendants/revoke/getMany/findAll/findByNameContaining — one flowing scenario, matching entities.sld test-indexed-lookups.scm" (`backend/test/memory-entity-driver.test.ts`)
 - "MemoryEntityDriver: a fresh instance replays the shared kaappi_wal op log and sees every prior write — the real "process restart" proof" (`backend/test/memory-entity-driver.test.ts`)
 
@@ -928,10 +926,8 @@ runtime check (`validate`, for a structural kind like "is this a live
 descendant of Items") and an optional `validNames()` (for a
 Vocabulary-backed kind like Location Type, checked against before
 insertion). `create`/`createEntityRaw` are the generic creation
-primitives: both enforce scoped-not-global uniqueness (two siblings
-under the same parent can't share a name; the same name is fine under
-a different parent — a business, a division, a location, and an
-employee can all genuinely be "Springfield" at once). `createEntityRaw`
+primitives: both enforce scoped uniqueness (*Core Domain Reference*,
+"Scoped uniqueness"). `createEntityRaw`
 additionally enforces case-insensitive uniqueness specifically under
 the global Vocabulary (so "Tax" and "tax" can never silently fragment
 into two words), and gives every real word created under the global
@@ -948,7 +944,7 @@ side, so a name repeated per parent (a business's own "Hierarchies")
 could only be found via a mangled, business-prefixed name or resolved
 ambiguously to whichever row a global lookup happened to return first.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "the bootstrap tree loads with exactly one root" (`backend/test/db.test.ts`)
 - "creating an entity by name works and rejects duplicates" (`backend/test/db.test.ts`)
 - "creating an entity with a nonexistent parent is rejected" (`backend/test/db.test.ts`)
@@ -1089,7 +1085,7 @@ preconditions (no current structural children, no live entity still
 referencing it laterally); steps (2) and (4) are domain-specific
 guards with no counterpart in the general spec.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "setEntityLink/getEntityLink/deleteEntityLink: a real, pure link between two entities that never touches the source entity's own relation_id, unlike setRelationship" (`backend/test/db.test.ts`)
 
 ### Departments and the Org Chart: a real, worked `setEntityLink` example
@@ -1185,7 +1181,7 @@ newer `setEntityLink` mechanism — a link record is a child of the
 are structurally different record shapes, not interchangeable despite
 both ending up as "one fact about an employee."
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "createAndConfigureDepartment: real Chart of Accounts subtree, created once, idempotent on a second call" (`backend/test/db.test.ts`)
 - "deleteDepartment: a department that has been posted to stays undeletable, a clean one deletes (and its two placeholder leaves with it)" (`backend/test/db.test.ts`)
 - "deleteDepartment: refuses while a real Employee is still assigned to it, exactly like revokeEntity's own incoming-links guard elsewhere" (`backend/test/db.test.ts`)
@@ -1241,7 +1237,7 @@ a scanned UPC directly to its exact combination's `combination_ids`
 array, in one lookup — never requiring a cashier to manually pick each
 dimension.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "The real Hierarchy/Product cartesian mechanism - the full, settled, flat combination_ids design, built and verified end to end" (`backend/test/db.test.ts`)
 - "getBusinessHierarchy/getBusinessProductShapes: real, business-scoped listing functions, for the frontend to actually use this mechanism through" (`backend/test/db.test.ts`)
 - "climbInstanceTree/getCombinationByUpc: a real, scanned barcode resolves directly to its own, exact combination, climbing back up to the real Product root, per direct instruction" (`backend/test/db.test.ts`)
@@ -1267,7 +1263,7 @@ at), replacing the retired `journal_line.division_id` tag entirely.
 `getLocationForAccount`/`getHierarchyGroupForAccount` are the read-side
 structural replacements for that same retired tag.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "ensureItemTier: the confirmed product/tier/leaf design (docs/multi-dimensional-reporting.md §10) — each real tier its own, distinct, sellable item, the base product name genuinely untouched, no shared-parent corruption across multiple tiers" (`backend/test/db.test.ts`)
 - "ensureItemTierLocationLeaf: location becomes structural, the same real pattern already proven for tier — a real, new, distinct leaf per (tier, location), never re-parenting the shared tier-level item, avoiding the exact bug that broke an earlier tier-restructuring attempt" (`backend/test/db.test.ts`)
 
@@ -1298,7 +1294,7 @@ Profit Center" link — deliberately *not* via the generic
 link-record name with no parent disambiguation, which is ambiguous
 here for exactly the same three-times-recurring-name reason.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "Profit Centers (Phase A, docs/profit-centers-design.md): a business starts with none, creating one is real and rejects a duplicate, and getProfitCenters is scoped per business" (`backend/test/db.test.ts`)
 - "Profit Centers (Phase A): Sales Revenue/COGS/Inventory leaves nest under a real, named Profit Center grouping node, directly under the exact, same shared headers — zero change at all when no profitCenter is passed" (`backend/test/db.test.ts`)
 
@@ -1341,7 +1337,7 @@ real further work (prototype copying) beyond a bare root.
 needs both from day one, and sets the fresh Actual ledger as the
 business's starting active ledger (`setActiveLedger`).
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "createBusiness: a brand-new business gets both a real Actual ledger AND a real Budget ledger for the financial year, immediately postable to, using the already-shared Chart of Accounts — no separate CoA setup needed" (`backend/test/db.test.ts`)
 - "createBusiness: a real, forced failure partway through genuinely rolls back everything - never a partially-created business left behind" (`backend/test/db.test.ts`)
 - "createBusiness copies the chart of accounts without the contacts under it: the Cash provider under Accounts Payable stays the one, global provider" (`backend/test/db.test.ts`)

@@ -51,33 +51,32 @@ double-entry design:
   and the Trial Balance directly, rather than trusting the originating
   screen's own account of what happened.
 
-## Unit tests — `make test`
+## Running the tests
 
-```
-make test
-```
+Every chapter lists the tests of what it describes, under "Tests":
+each line is a test's title and its file. `make check-test-docs` keeps
+those lists true: every test is listed somewhere, and every listed test
+exists. What kind of test a line names is told by its file, and so is
+how to run it:
 
-Runs the backend (`backend/test/*.test.ts` and the step runner's
-tests, Node's own built-in test runner) and frontend
-(`frontend/test/*.test.ts`) suites, then `make check-manual`, which
-fails when the Programmer's Manual and the code disagree (*Build, Run
-& Tooling*, "Gates"). Fast (a few
-seconds), exercises individual functions against small, synthetic
-scenarios constructed to prove one thing at a time — e.g. "a
-multi-currency entry must balance independently per currency," or
-"`allocatePayment` must actually move Cash and Bank, not just record
-that a payment happened."
+| File | Kind | Run by |
+|---|---|---|
+| `backend/test/*.test.ts`, `backend/scripts/*.test.ts` | backend unit tests, Node's built-in test runner | `make test` |
+| `frontend/test/*.test.ts` | frontend unit tests (logic, not rendered components) | `make test` |
+| `storage_engine/test/*_test.gleam` | the storage engine's own Gleam tests | `make test-storage-engine` |
+| `shared-fixtures/tests/*.csv` | standalone step-runner tests, each on a fresh database | `make test-steps` (in `make test`), `make test-steps-browser`; see *Testing: The Test-Runner*, "Standalone tests" |
 
-**Current count**: 287 backend tests (among them `test/core.test.ts`:
-23 and `test/core-api.test.ts`: 3, the core middleware and its frontend
-API — see "The Core Middleware"), 24 frontend tests, all passing. Re-run `make test` rather than trusting
-this count going forward.
+`make test` runs the backend and frontend unit tests, then the
+standalone tests without a browser, then `make check-manual` (*Build,
+Run & Tooling*, "Gates"). It prints how many tests passed. `make test-one TEST="part of a
+title"` runs only the backend tests whose titles hold it.
 
-Unit tests are the right tool for proving a specific mechanism is
-correct in isolation. They are the *wrong* tool for catching a bug
-that only shows up once large-scale, interrelated data exists — see
-the next chapter for why the full simulation exists as a separate,
-necessary check.
+Unit tests prove one mechanism at a time, against small scenarios built
+for it: "a multi-currency entry must balance independently per
+currency", "`allocatePayment` must move Cash and Bank, not just record
+a payment". They cannot catch a bug that shows only once a large,
+interrelated set of data exists: that is what the full simulation is
+for (next chapter).
 
 ## The fixture framework — `backend/test/fixtures.ts`
 

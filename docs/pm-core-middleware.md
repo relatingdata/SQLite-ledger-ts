@@ -264,7 +264,7 @@ lines are the record it is checked against.
   lines do.
 - `entities_test`: a live name is unique under its parent, a rename to its own name is allowed, a rename onto another entity's live name is refused. `storage_engine_test` is the runner (`main`).
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "a_balanced_pair_is_ok_test" (`storage_engine/test/accounting_test.gleam`)
 - "an_unbalanced_pair_is_rejected_with_the_real_shortfall_test" (`storage_engine/test/accounting_test.gleam`)
 - "no_lines_at_all_is_rejected_test" (`storage_engine/test/accounting_test.gleam`)

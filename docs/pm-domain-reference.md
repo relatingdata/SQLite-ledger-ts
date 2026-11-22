@@ -83,7 +83,7 @@ preference uses.
 - `setOwnPageSize` / `setOwnNumberFormat` / `setOwnDateFormat` — personal display preferences.
 - `hashPassword` / `verifyPassword` (`password.ts`, shared with self-registered customer accounts in `db.ts` to avoid a circular import) — every stored password goes through this; never stored or compared as plain text.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "password hashing: correct password verifies, wrong password is rejected" (`backend/test/auth.test.ts`)
 - "two hashes of the same password are different (salted), but both verify correctly" (`backend/test/auth.test.ts`)
 - "the bootstrap admin user exists with Administrator role and the documented default password" (`backend/test/auth.test.ts`)
@@ -195,7 +195,7 @@ not a hard lock: an old ledger stays postable forever for real
 corrections, only restricted to a smaller role set once it's no longer
 current (see the ledger rollover design in the Historical log).
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "provisionBusinessAdminUser gives a new business a real, dedicated admin user with Business Admin only in that one business, never any global role" (`backend/test/auth.test.ts`)
 - "requireRole accepts a real, global role as before, and ALSO accepts Business Admin held in the session's current business — but requireGlobalRole never does" (`backend/test/auth.test.ts`)
 - "Developer role, the global Employees/Manufacturers branches, and item_source all exist exactly once — the migration that restores these on an existing database is idempotent" (`backend/test/db.test.ts`)
@@ -215,17 +215,14 @@ is set and rejects with 401 if not.
 
 ## Scoped uniqueness, and the physical (product × location) recording grid
 
-Two names, sibling and non-sibling, follow one rule:
-
-```sql
-CREATE UNIQUE INDEX entities_name_current ON entities(parent_id, name)
-WHERE deleted_at IS NULL;
-```
-
-Two direct siblings under the same parent can't share a name; the
-same name is fine under a different parent or at a different tree
-depth — a company, a division, a location, and an employee can all
-correctly be named "Springfield" at once.
+Two live siblings under the same parent can't share a name; the same
+name is fine under a different parent or at a different depth: a
+company, a division, a location and an employee can all be named
+"Springfield" at once. The trigger `entities_name_unique`
+(`backend/schema/00-core.sql`) enforces it, before every insert into
+`entities`, against the current rows only (`current_entities`), so a
+renamed entity's earlier row keeps its old name. A partial unique
+index cannot express "current row", which is why it is a trigger.
 
 Only **product** and **location** map to a real, physical, posted-to
 account. Division, category, and any other business-defined Hierarchy
@@ -255,7 +252,7 @@ to any further lateral classification with zero new structural code —
 a region, a brewer, or any other lateral fact about a product or
 location.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "createEntityRaw: scoped, not global, uniqueness — the exact, same real rule everywhere else in the entity tree, verified specifically for Vocabulary and its own real translations" (`backend/test/db.test.ts`)
 
 ## Money: integer minor units, never floating-point
@@ -329,7 +326,7 @@ its quantity-tracking account name are often the identical string but
 are not the same *kind* — `ItemName` is cast to `AccountName`
 explicitly, visibly, at the exact point it's staged as a posting line.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "a real business can genuinely be named "Equity" (or "Asset", "Chart of Accounts", "Hierarchies", any other real, structural word this codebase itself already uses) - per direct instruction: a business name and a real, structural CoA category/root name share no real namespace at all, so no real collision should ever be possible" (`backend/test/db.test.ts`)
 
 ## Language-neutral translation
@@ -361,7 +358,7 @@ language ("Setup" and "Configuration" both translate to
 scoped-uniqueness constraint and logs it as a flagged collision for
 further review rather than crashing or silently resolving it.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "languages list and localized_text fallback/override work end to end" (`backend/test/db.test.ts`)
 - "French works as a genuine, complete third language — no special-casing needed for a third language to work at all" (`backend/test/db.test.ts`)
 
@@ -413,7 +410,7 @@ documented in code comments at their fix sites:
   returns `sourceId`/`targetId`), the same bug class already fixed
   several times elsewhere in this codebase, applied here too.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "a new entity has no contact until one is set" (`backend/test/db.test.ts`)
 - "setContact then getContact round-trips correctly" (`backend/test/db.test.ts`)
 - "setContact is a full replace, not a partial merge — calling it again with fewer fields clears the rest" (`backend/test/db.test.ts`)
@@ -465,7 +462,7 @@ independent copy even when the values coincidentally match (no
 structural sharing mechanism exists today — each `addTypedAddress`
 call always creates an independent record).
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "addTypedAddress/getTypedAddresses/addTypedPhone/getTypedPhones: multiple, genuinely typed addresses and phones per entity, zero new tables — reusing parent_id + relation_id + contact recursively" (`backend/test/db.test.ts`)
 - "createProvider genuinely tags the new contact as a real Provider type, per docs/contact-types-and-translations.md" (`backend/test/db.test.ts`)
 - "a real contact can genuinely hold more than one real type at once - a Provider later also registered as a Customer keeps both, per docs/contact-types-and-translations.md" (`backend/test/db.test.ts`)
@@ -566,7 +563,7 @@ tree-builder for any hierarchy — plain structural nesting
 (`parent_id`), a named relationship, or, in the genuine edge case
 above, both at once.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "setHierarchyParent/getHierarchyParent/getHierarchyChildren/getHierarchyAncestorChain: the generic, reusable hierarchy-link mechanism (docs/multi-dimensional-reporting.md) — a real, reversible up/down index per named hierarchy, never touching an entity's own relation_id, and never a "dimension" in the matrix-stock-report/drag-and-drop sense" (`backend/test/db.test.ts`)
 - "getLocationForAccount/getHierarchyGroupForAccount: the real, structural replacement for journal_line.division_id — walking a real account to its own, real, structural location and hierarchy group, not reading a separate tag" (`backend/test/db.test.ts`)
 
@@ -647,7 +644,7 @@ aging), never a fixed 30/60/90 for every account.
   line of that counterparty's posted invoices, manual and POS, newest
   first.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "payment_terms_days persists per customer/vendor, since account management practice genuinely varies (30/60/90 for one, 7/14/21 for another, cash only for a third)" (`backend/test/db.test.ts`)
 - "getAgingBuckets derives 1x/2x/3x buckets from a single term, matching real variation across customers" (`backend/test/db.test.ts`)
 - "getCreditStatus: a real customer/vendor's own real balance checked against their own real, configured credit limit" (`backend/test/db.test.ts`)
@@ -713,7 +710,7 @@ Reading invoices:
   invoice line recorded for a non-invoice posting by `recordInvoiceLine`
   (*The Journal API*); `invoice.ts` prints it.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "real multi-line invoices: header + lines, due date derived from the counterparty's own payment terms, posting creates the actual GL entry" (`backend/test/db.test.ts`)
 - "Credit Note reverses an invoice correctly — the same mechanism run in reverse, not a parallel schema" (`backend/test/db.test.ts`)
 - "Credit Invoice (restocks) vs Credit Note (does not) — matching SQL-Ledger's real distinction, applied per-line based on whether restocking was actually requested" (`backend/test/db.test.ts`)
@@ -746,9 +743,10 @@ it, the same mechanism every other invoice uses); any discrepancy
 found is recorded directly in the invoice's description so it's
 visible to whoever reviews the draft.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "e-invoicing: a real, posted invoice exports as a real UBL 2.1 document, and a real, incoming one round-trips back through a genuinely separate ledger as a draft, never auto-posted" (`backend/test/db.test.ts`)
 - "e-invoicing: a real 3-way match catches a genuine mismatch between a purchase order and an incoming e-invoice" (`backend/test/db.test.ts`)
+- "e-invoice-export-and-import" (`shared-fixtures/tests/e-invoice-export-and-import.csv`)
 
 ## Picking, packing, dispatch, and restocking
 
@@ -786,7 +784,7 @@ transfer reference must be distinct per product within a run, since
 `journal.reference` must be unique per (business, ledger) and a shared
 base reference across products in the same run would collide.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "picking/packing/dispatch: a real order becomes a real, shelf-ordered picking list, requires every real line ticked off before it can dispatch, and reduces real, physical stock at the exact location it was actually picked from" (`backend/test/db.test.ts`)
 - "restocking retail outlets from warehouses: the same real, shelf-ordered picking and refuse-until-complete pattern, but a real internal transfer, not an invoice — a real, distinct reference per real line, since a shared reference across different real products in the same run would genuinely collide" (`backend/test/db.test.ts`)
 
@@ -838,7 +836,7 @@ no match, never a fuzzy search or a NULL-UPC coincidence.
 `getCombinationByUpc` is the combination-aware counterpart (see
 "Barcode scanning" in `pm-entity-model.md`).
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "completePosSale: the real, live, end-to-end border scenario - two real terminals, one real location, one real product, sold in two different, real currencies" (`backend/test/db.test.ts`)
 - "POS terminal: a complete register sale posts the invoice, dispatches stock from the exact location sold at, and allocates payment atomically, with change due calculated correctly" (`backend/test/db.test.ts`)
 - "completePosSale honors an explicit transdate instead of always using the real current date — the actual bug that broke every backdated/simulated sale" (`backend/test/db.test.ts`)
@@ -886,7 +884,7 @@ login:
 - `completePosSale` refuses to sell on account to a customer whose
   status is `pending` or `rejected`.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "customer self-registration: a customer is a customer — same contact invoices already use, pending until staff verifies, and the real gate blocks on-account selling until then" (`backend/test/db.test.ts`)
 - "registerCustomer genuinely tags the new contact as a real Customer type, per docs/contact-types-and-translations.md" (`backend/test/db.test.ts`)
 
@@ -945,7 +943,7 @@ There is no separate posting mechanism for "a cash transaction" versus
 "an on-account one": by the time any of these reach the journal, the
 difference between them is already gone.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "completeCashPurchase: a real, immediate cash purchase posts a genuine invoice to the vendor's own AP account, then a genuine payment that nets it straight back to zero" (`backend/test/db.test.ts`)
 
 ## Employee payroll and timecards
@@ -991,7 +989,7 @@ location's own shifts, which are the ones about to be replaced).
 its `opens_at` and `closes_at`, Monday first; `getScheduleAtLocation(location)`
 lists every employee's shifts at that location, by day.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "payEmployeeWages: a real employee treated as AP — real Medicare levy withheld from their own pay, real superannuation as a genuine, separate employer cost, hourly or salaried" (`backend/test/db.test.ts`)
 - "Location open hours and employee weekly scheduling, built entirely on the real entity tree — no new table, each real record is its own, real, named child entity" (`backend/test/db.test.ts`)
 
@@ -1009,7 +1007,7 @@ a location never nominated is rejected, not silently allowed through.
 `getBusinessHomeCurrency(business)` reads the business's `Home
 Currency` attribute, or `null` when none was set.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "a business nominates one real home currency, stored as an attribute of the business - per multicurrency-design.md, "Where currency lives, and precedence"" (`backend/test/db.test.ts`)
 - "a location nominates a real SET of currencies it trades in, not a single value - per multicurrency-design.md, "Where currency lives, and precedence"" (`backend/test/db.test.ts`)
 - "the fully worked example from multicurrency-design.md: a real sale through a real, nominated-currency location posts every real leg (Revenue, Tax, COGS, Cash) to its own, real, currency-tagged sibling, never converted, genuinely balancing entirely within its own real currency group" (`backend/test/db.test.ts`)
@@ -1039,7 +1037,7 @@ Product Instance. `getCurrencyExchangeRate(business, from, to, side)`
 reads the buy or sell rate: 1 for a self-pair, `null` when the pair,
 either currency or the rate was never set.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "Currency exchange is genuinely a cartesian product (From x To), never one rate per currency - per direct instruction: N currencies means N*N ordered pairs, N of them trivial self-pairs always exactly 1, leaving N*(N-1) real, distinct, independently-configurable buy/sell rates" (`backend/test/db.test.ts`)
 
 ## Cash flow — bank account registration, cash position, and forecasting
@@ -1083,7 +1081,7 @@ Three layers, per `docs/cash-flow-and-growth-planning.md`:
    overdraft limit (an in-place update of `account`, plan step 4 in
    `docs/engine-single-writer-plan.md`).
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "registerBankAccount/getBankAccounts/getCashPosition: Layer 1 of the real, dedicated cash-flow/growth-planning design — real, registered bank accounts scoped correctly to one real business, grouped by real currency, with honest overdraft headroom" (`backend/test/db.test.ts`)
 - "getCashFlowForecast: Layer 2 of the real, dedicated cash-flow/growth-planning design — anticipated AR receipts, committed AP payments, and genuinely recurring cash movements, never one-off historical postings" (`backend/test/db.test.ts`)
 - "getCashFlowForecast: Layer 3 — a real, honest first-shortfall date and amount, evaluated against the real, arranged overdraft limit, never a bare "goes negative" check" (`backend/test/db.test.ts`)
@@ -1132,7 +1130,7 @@ word under the exact same language) is flagged to a log file
 worked around with a suffix, and never halts any other, unrelated
 translation.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "the system default display language lives on Application, reachable before any session exists, and setting it preserves append-only history" (`backend/test/db.test.ts`)
 
 ## The "active" ledger
@@ -1194,7 +1192,7 @@ note: manufacturers and providers are global entities, never part of
 any one business's own scoped subtree, so the page needs a second,
 separate, unscoped fetch for them.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "getEntityTree(businessName): scoped to one business's own subtree - a real regression guard for the business-lookup condition (a business entity sits under "Businesses", never at parent_id NULL)" (`backend/test/db.test.ts`)
 
 ## Reporting periods — a real financial-year start date and frequency
@@ -1252,7 +1250,7 @@ for a genuine correction). This is additive period *awareness*, not a
 new period-locking subsystem; a harder lock was not part of what was
 asked for and would be a materially larger, separate feature.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "createBusiness + getReportingPeriods: a real financial-year start date and frequency, understood well enough to compute real quarter/month boundaries — omitted entirely, a business behaves exactly as before" (`backend/test/db.test.ts`)
 
 ## Entity tree performance: two real indexes, measured before and after
@@ -1434,16 +1432,11 @@ larger than the Insert/Enter/Escape/Delete idiom retrofit this was
 found during) — flagged here for whoever next touches Location-to-
 Hierarchy tagging.
 
-Verified: `tsc --noEmit` clean (backend and frontend), `svelte-check`
-0 errors, backend unit tests 233/233, frontend unit tests all passing,
-API-path and browser-path tutorial e2e 62/62 each.
 
 ## revokeEntity's incoming-links guard, and the name-based delete wrappers it unlocked
 
-Built as shared primitive #4 of the Insert/Enter/Escape/Delete keyboard
-idiom (`/root/.claude/plans/stateful-snacking-adleman.md`): every
-screen the plan converts gets real Delete-key capability, which meant
-first confirming `revokeEntity` (db.ts) is actually safe to wire up
+Every screen with the Insert/Delete keys deletes through `revokeEntity`,
+which meant first confirming `revokeEntity` (db.ts) is actually safe to wire up
 everywhere, not just the two checks it already had (live children,
 live journal postings).
 
@@ -1559,15 +1552,8 @@ shape carries the entity id `revokeEntity` needs directly:
   English identity translation. Reached via the `deleteVocabularyWord`
   dispatch entry (`call-dispatch/i18n.ts`, via `POST /api/call`).
 
-Verified: `tsc --noEmit` clean (backend and frontend), `svelte-check`
-0 errors, backend unit tests 223/223 plus 4 new regression tests (227
-total; a pre-existing, unrelated `step-runner.test.ts` flake —
-confirmed present on unmodified code too, same error, same test —
-left untouched, out of scope), frontend unit tests all passing,
-API-path tutorial e2e 62/62, browser-path tutorial e2e run and
-confirmed separately.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "revokeEntity refuses to delete an entity with children" (`backend/test/db.test.ts`)
 - "revokeEntity deletes an item tagged into a category: its own Category link record never blocks it" (`backend/test/db.test.ts`)
 - "revokeEntity works for a genuinely childless, unposted entity" (`backend/test/db.test.ts`)

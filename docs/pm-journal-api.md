@@ -88,7 +88,7 @@ a third path:
    `Recurrence`/`createRecurringJournal` below for what *was* a real
    gap here (now fixed) and what's still open.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "staging + posting a balanced entry works end to end and clears staging" (`backend/test/db.test.ts`)
 - "posting an unbalanced entry is rejected and leaves staging untouched" (`backend/test/db.test.ts`)
 - "an account is vivified on first post and gets a real balance" (`backend/test/db.test.ts`)
@@ -211,7 +211,7 @@ resolution used throughout `db.ts`, with its own documented global
 fallback for an account genuinely outside this business's own CoA
 mirror (AR/AP, a counterparty name).
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "createRecurringJournal rejects an entry that does not balance at its start date" (`backend/test/db.test.ts`)
 - "createRecurringJournal vivifies any account with no BALANCE yet, same guarantee as ordinary posting" (`backend/test/db.test.ts`)
 - "a recurring journal correctly affects Trial Balance for its ledger, across all its occurrences" (`backend/test/db.test.ts`)
@@ -230,7 +230,7 @@ An invoiced sale or purchase is an invoice (`createInvoice`, then
 journal logic for Cash Purchase, Cash Sale and POS Sale lives in
 `db.ts` (`completeCashPurchase`, `completePosSale`).
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "a realistic set of transactions — cash purchase, cash sale, AR sale, a receipt against it, AP purchase, a payment against it — all post correctly and the full chain (balances, trial balance, balance sheet, P&L) reflects every one of them" (`backend/test/db.test.ts`)
 - "AR Sale form: staging and posting creates the correct Debit AR / Credit Sales Revenue entry" (`backend/test/db.test.ts`)
 - "AR Receipt form: staging and posting creates the correct Debit Cash / Credit AR entry, reducing the customer balance" (`backend/test/db.test.ts`)
@@ -254,7 +254,7 @@ fulfils the order, moves the quantity, and posts the monetary side
 through `postJournalEntry`. Then it drops the form. A Purchase Order's
 `location` is delivery instructions, not a per-line detail.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "complete end-to-end lifecycle: purchase order -> receipt -> sales order -> dispatch/invoice -> cash collected -> vendor paid, every account balance verified at each step" (`backend/test/db.test.ts`)
 - "a partial receipt against a purchase order leaves a genuine, correctly-sized back order" (`backend/test/db.test.ts`)
 - "a real Purchase Order still knows its real vendor and item after posting — carried by its own real journal entry, no per-order entity of any kind" (`backend/test/db.test.ts`)
@@ -267,7 +267,7 @@ Tests:
 which project, posting the running labor cost against that project's
 expense account as time passes.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "clockInToProject/clockOutOfProject and clockPlantIn/clockPlantOut: a real project expense account whose own name contains " — " (provisionProjectProfitCenter's own `${projectName} — Labour & Plant` naming) round-trips correctly — a real, found-and-fixed bug: the clock entity's own name encodes po_reference/account/clockedInAt positionally, separated by the same " — ", and a naive 4-way split silently misparsed clockedInAt as a fragment of the account's own name once the account name carried its own " — "" (`backend/test/db.test.ts`)
 
 ## Period-lock functions
@@ -284,7 +284,7 @@ level, the same way every other ledger-scoped query in this file does
 (`getLedgerDateRange`, `getJournalEntry`, `reverseJournalEntry`); a
 lookup that skips it will never find the ledger at all.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "closing a period rejects normal posting into it, and reopening lifts that immediately for a correction" (`backend/test/db.test.ts`)
 - "quantity movements and recurring journal start dates are also protected by a closed period, not just ordinary posting" (`backend/test/db.test.ts`)
 
@@ -294,7 +294,7 @@ Removes one staged line by reference/business/ledger/account — used
 when a person changes their mind about one line before posting the
 rest.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "removeStagedLine removes exactly one line" (`backend/test/db.test.ts`)
 
 ## `JournalSummary` / `listJournalEntries` / `countJournalEntries` / `JournalDetail` / `getJournalEntry`
@@ -311,7 +311,7 @@ business's home currency) tells the caller which formatting applies.
 One journal entry spanning more than one currency produces one row
 per currency here, never a single, blended total.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "getJournalEntry returns full line detail with account numbers" (`backend/test/db.test.ts`)
 - "a recurring journal expands into the correct number of occurrences, each showing in listJournalEntries" (`backend/test/db.test.ts`)
 - "getLedgerDateRange: reports the real, earliest and latest transdate of what has actually been posted" (`backend/test/db.test.ts`)
@@ -335,7 +335,7 @@ Posts a balanced, opposite entry against the original, then marks it
    **new reversal row**, pointing back at the **original**'s
    `journal.id`.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "reversing a posted entry creates a new entry with every line negated, and the net effect on balances is exactly zero" (`backend/test/db.test.ts`)
 - "reversing a nonexistent occurrence is rejected clearly" (`backend/test/db.test.ts`)
 - "reversing the same occurrence twice is rejected clearly — the real bug this prevents silently corrupted journal_line by attaching a second reversals lines to the first one, since the reversal reference is deterministic" (`backend/test/db.test.ts`)
@@ -349,7 +349,7 @@ It records one line of narrative detail (description, quantity, unit
 price, amount, tax) under `Invoice Lines`, keyed by business, ledger
 and reference, which `getInvoiceLine` reads back for printing.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "invoice_line records genuinely per-line tax, never assumed uniform — one line exempt, another at a different rate entirely" (`backend/test/db.test.ts`)
 - "an ordinary General Journal posting records no invoice_line at all — it has no invoice concept" (`backend/test/db.test.ts`)
 
@@ -378,7 +378,7 @@ business genuinely does not have to have any groups at all). Setting
 it here too keeps a location created through this screen just as
 reachable from Business Setup as one created directly through it.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "stageLocation/postLocation: the location form is held as a staged form - the location, and its own balanced capacity accounts, only appear once posted, never at stage time" (`backend/test/db.test.ts`)
 
 ## Quotations (AR) and RFQs (AP) — `backend/src/db-quotations.ts`
@@ -446,7 +446,7 @@ variant of it), generated from `application/application.entities` with
 the `transaction` template: a drafting form plus a list with Mark sent,
 Accept and Reject actions.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "a Quotation (AR) is, from the moment it is drafted, a real future-dated journal entry and a real On Order posting — accepting it is a pure status flip, nothing new gets posted" (`backend/test/db.test.ts`)
 - "an RFQ (AP) is the same real future-dated journal entry and On Order posting, and rejecting one reverses both — never leaving a half-posted trace" (`backend/test/db.test.ts`)
 
@@ -472,7 +472,7 @@ A response is `ok,value1,...` (one line, a `row`) or `ok`, a header line and one
 - `encodeGenericTree`/`decodeGenericTree`: a cube tree (name, account id, own and total amounts by key, children), recursively.
 - `encodeProfitAndLoss` (`call-dispatch/reports.ts`): a Profit and Loss report as one row, its income and expense trees encoded with `encodeCategoryTree`.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "callRouter: a call to an unknown function is a 404, never evaluated" (`backend/test/call-dispatch.test.ts`)
 - "the call-dispatch codecs: every decode is the exact inverse of its encode, including commas, quotes and empty values" (`backend/test/call-dispatch.test.ts`)
 - "the wire codec keeps a value with line breaks on one line: an XML document goes out and comes back whole" (`backend/test/call-dispatch.test.ts`)

@@ -431,6 +431,9 @@ RTL mirroring here needs an explicit override because absolute
 left/right positioning does not automatically flip with `dir="rtl"`
 the way `text-align` or `flex-direction` do.
 
+Tests (*Testing: Unit*, "Running the tests"):
+- "installation-check" (`shared-fixtures/tests/installation-check.csv`)
+
 ## Smaller files: short design notes
 
 - **`setup/users/+page.svelte`**: per `docs/user-business-role-matrix-design.md`,
@@ -612,6 +615,9 @@ behaviour in `frontend/src/lib/screen-runtime.ts` it calls:
   credit column by its sign; a contra amount is shown in parentheses;
   the status line says whether Assets = Liabilities + Equity.
 
+Tests (*Testing: Unit*, "Running the tests"):
+- "purchase-order-known-suppliers" (`shared-fixtures/tests/purchase-order-known-suppliers.csv`)
+
 ## `frontend/src/routes/reports/stock-movement/+page.svelte` — the Stock Movement report
 
 Grouping names offered are never hardcoded to one privileged
@@ -627,6 +633,9 @@ subtotals first, detail on demand. Transfers have no group/provider of
 their own, so grouping by location falls back to the destination,
 since that's the receiving side a person actually cares about
 grouping by.
+
+Tests (*Testing: Unit*, "Running the tests"):
+- "stock-movement-by-grouping" (`shared-fixtures/tests/stock-movement-by-grouping.csv`)
 
 ## `frontend/src/lib/components/HierarchyGroupTreePicker.svelte` — the nested group picker
 
@@ -654,6 +663,9 @@ function runs on the same tick as the outlet selection change, before
 Svelte has recomputed `suggestions` for the newly-selected outlet —
 reading it there would use the stale, previous value.
 
+Tests (*Testing: Unit*, "Running the tests"):
+- "restock-retail-outlet" (`shared-fixtures/tests/restock-retail-outlet.csv`)
+
 ## `frontend/src/routes/reports/compare/+page.svelte` — the period comparison report
 
 A net income total can genuinely be negative (a net loss) — shown
@@ -680,7 +692,7 @@ overlap; an empty chart lays out to nothing, zero by zero. It has no
 Svelte or DOM dependency, so `frontend/test/org-chart-layout.test.ts`
 tests it directly.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "layoutOrgChart: no two boxes ever overlap, and depth strictly matches containment" (`frontend/test/org-chart-layout.test.ts`)
 - "layoutOrgChart: a managerId pointing outside the chart (or to a box that got filtered out) is simply ignored, never a crash" (`frontend/test/org-chart-layout.test.ts`)
 - "layoutOrgChart: a dangling parentId (parent not present in this box set) is treated as a root, not dropped" (`frontend/test/org-chart-layout.test.ts`)
@@ -717,6 +729,10 @@ here; locations with no group fall under an explicit "(No group)"
 group rather than being silently dropped. Every group and every
 location starts collapsed — totals first, detail on demand, the same
 pattern already proven on the P&L report.
+
+Tests (*Testing: Unit*, "Running the tests"):
+- "stock-listing-by-division" (`shared-fixtures/tests/stock-listing-by-division.csv`)
+- "stock-listing-over-capacity" (`shared-fixtures/tests/stock-listing-over-capacity.csv`)
 
 ## `frontend/src/routes/session/+page.svelte` — the Business/Ledger/Profit Center picker
 
@@ -815,6 +831,9 @@ hard constraint. See `docs/pm-domain-reference.md` ("Reporting
 periods") for why no backend changes to `closeBooks`/
 `rolloverToNewPeriod` themselves were needed.
 
+Tests (*Testing: Unit*, "Running the tests"):
+- "year-end-close-and-rollover" (`shared-fixtures/tests/year-end-close-and-rollover.csv`)
+
 ## `frontend/src/routes/setup/vocabulary/+page.svelte` — per-business word-choice overrides
 
 The current business's structural entity id is resolved once from the
@@ -885,6 +904,9 @@ language doesn't have this particular word yet. English being a real
 translation target removes the need for any English-specific special
 case elsewhere in this screen.
 
+Tests (*Testing: Unit*, "Running the tests"):
+- "help-text-in-german" (`shared-fixtures/tests/help-text-in-german.csv`)
+
 ## `frontend/src/routes/post/+page.svelte` — the General Journal posting screen
 
 **CoA prototype filtering**: the account dropdown used to show every
@@ -916,6 +938,11 @@ Delete only removes the row when there's nothing for it to do
 natively: the account dropdown (not a text field at all), or a text
 field that's currently empty.
 
+Tests (*Testing: Unit*, "Running the tests"):
+- "general-journal-one-side-per-line" (`shared-fixtures/tests/general-journal-one-side-per-line.csv`)
+- "general-journal-own-chart-of-accounts" (`shared-fixtures/tests/general-journal-own-chart-of-accounts.csv`)
+- "general-journal-account-currency" (`shared-fixtures/tests/general-journal-account-currency.csv`)
+
 ## `frontend/src/routes/contacts/+page.svelte` — the Customers/Providers screen
 
 **Contact fields** that still live directly on the contact record are
@@ -943,6 +970,11 @@ exactly as it was — customers and providers ARE genuinely the same kind
 of record — but which one is shown by default is now clear from the
 person's own immediate perspective, rather than left for them to pick
 out of four lists every time.
+
+Tests (*Testing: Unit*, "Running the tests"):
+- "contacts-focus" (`shared-fixtures/tests/contacts-focus.csv`)
+- "contact-addresses-by-keyboard" (`shared-fixtures/tests/contact-addresses-by-keyboard.csv`)
+- "contact-persons" (`shared-fixtures/tests/contact-persons.csv`)
 
 ## `frontend/src/routes/reports/profit-and-loss/+page.svelte` — the two-axis P&L breakdown
 
@@ -987,6 +1019,9 @@ itself would also assign).
 `groupableAxes` (themselves `$derived` from `axisValues`), so a further
 hierarchy such as Division becomes selectable as soon as the axis
 values load.
+
+Tests (*Testing: Unit*, "Running the tests"):
+- "profit-and-loss-by-division-and-category" (`shared-fixtures/tests/profit-and-loss-by-division-and-category.csv`)
 
 ## `frontend/src/lib/components/TypedList.svelte` — the generic typed sub-list
 
@@ -1055,10 +1090,9 @@ genuinely differ per screen.
 
 ## `frontend/src/lib/components/SelectableListEditor.svelte` — the shared flat-list+Insert/Delete shell
 
-Built as shared primitive #3 of the Insert/Enter/Escape/Delete
-keyboard-idiom plan (`/root/.claude/plans/stateful-snacking-adleman.md`),
-for every FLAT (non-tree) entity-table configuration screen the plan
-converts (`bank-accounts`, `hierarchy`'s groupings/values lists,
+The shell of the Insert/Enter/Escape/Delete keys for every flat
+(non-tree) entity-table configuration screen (`bank-accounts`,
+`hierarchy`'s groupings/values lists,
 `translations`' words/languages lists, `locations`' main list). It
 generalizes `TypedList.svelte`'s own Insert/Delete toolbar shape
 (itself kept untouched, since its three existing callers —
@@ -1326,6 +1360,10 @@ balanced Storage Capacity accounts — before resolving, so the Form
 component's submit button stays disabled for the full duration, never
 resolving early.
 
+Tests (*Testing: Unit*, "Running the tests"):
+- "location-addresses-by-keyboard" (`shared-fixtures/tests/location-addresses-by-keyboard.csv`)
+- "location-type-added-on-the-fly" (`shared-fixtures/tests/location-type-added-on-the-fly.csv`)
+
 ## `frontend/src/lib/components/CashTransaction.svelte` — the shared Cash Purchase/Sale screen
 
 This is the one real screen behind both "Cash Purchase" and "Cash
@@ -1377,6 +1415,9 @@ Sale/Purchase to the "Cash" party, right up until the instant it's
 paid off — see "Cash Sale and Cash Purchase" in
 `docs/pm-domain-reference.md` for the full picture, including the
 diagram.
+
+Tests (*Testing: Unit*, "Running the tests"):
+- "cash-sale-storage-origin" (`shared-fixtures/tests/cash-sale-storage-origin.csv`)
 
 ## `frontend/src/routes/setup/business-setup/+page.svelte` — org chart: groups, locations, employees
 
@@ -1444,6 +1485,11 @@ schedule for), never competing with the main tree navigation's
 Insert/Delete. After saving a schedule, the employee is reloaded fresh
 so `fullEmployeeSchedule` and the additional-locations list both
 reflect the just-saved change rather than stale local state.
+
+Tests (*Testing: Unit*, "Running the tests"):
+- "business-setup-divisions" (`shared-fixtures/tests/business-setup-divisions.csv`)
+- "employee-second-location-schedule" (`shared-fixtures/tests/employee-second-location-schedule.csv`)
+- "hr-pay-hourly-and-salaried" (`shared-fixtures/tests/hr-pay-hourly-and-salaried.csv`)
 
 ## `frontend/src/routes/items/+page.svelte` — the Items catalog tree
 
@@ -1579,6 +1625,9 @@ shell — the same split as Business Setup's own `handleInsert`/
 decision. `hintText` is the dynamic keyboard-hint text shown below the
 tree — `TreeEditor` only renders it; this page alone knows what
 Insert/Delete actually do for the current selection.
+
+Tests (*Testing: Unit*, "Running the tests"):
+- "items-categories-insert-delete" (`shared-fixtures/tests/items-categories-insert-delete.csv`)
 
 ## `frontend/src/routes/+layout.svelte` — the app shell: menu, sections, keyboard nav, clock
 
@@ -1717,7 +1766,7 @@ format) — again never `Intl.DateTimeFormat` locale inference, for the
 same reasoning as `formatAmount`, and again takes `dateFormat` as a
 required parameter for the same testability reason.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "formatAmount applies each explicit pattern directly — never Intl locale inference" (`frontend/test/format.test.ts`)
 - "formatAmount respects a currency's real ISO 4217 precision when an explicit unit code is given — zero-decimal, three-decimal, and the ordinary two-decimal default all correct" (`frontend/test/format.test.ts`)
 - "formatAmount's unit-code mechanism generalizes beyond currency — any unit with its own real precision, same lookup" (`frontend/test/format.test.ts`)
@@ -1808,6 +1857,9 @@ for the same reason: a list backed by a count endpoint provides it, a
 list that doesn't yet simply omits it and falls back to the plain
 Newer/Older behavior this already had.
 
+Tests (*Testing: Unit*, "Running the tests"):
+- "invoices-source-filter-and-pages" (`shared-fixtures/tests/invoices-source-filter-and-pages.csv`)
+
 ## `frontend/src/lib/entityTree.ts` — filtering the entity tree down to real products
 
 **`isDescendantOf`** walks an entity's `parent_id` chain to determine
@@ -1857,7 +1909,7 @@ product itself and returns only its own internal sub-accounts instead,
 which is the bug that was found live in the Purchase Order page's own
 Item dropdown.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "isDescendantOf correctly identifies real ancestry, not just any postable leaf" (`frontend/test/entityTree.test.ts`)
 - "filterToItems excludes every non-product leaf, and does NOT require is_postable_account — real items never have that flag set at all" (`frontend/test/entityTree.test.ts`)
 - "filterToItems still finds a tagged item once mergeContactDetail has given it its own "Contact" attribute-holder child — the real stock/po tutorial regression" (`frontend/test/entityTree.test.ts`)
@@ -1944,7 +1996,7 @@ auto-expansion removes that whole class of surprise.
   only right when it's actually needed; this is the exact historical
   bug class this project hit before.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "an empty row is empty and not filled" (`frontend/test/journalGrid.test.ts`)
 - "a row needs both an account and a nonzero amount to count as filled" (`frontend/test/journalGrid.test.ts`)
 - "debit/credit totals only count active (filled) rows" (`frontend/test/journalGrid.test.ts`)

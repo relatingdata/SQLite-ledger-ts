@@ -45,7 +45,7 @@ or Plant item (Plant) the line books time against.
 `deleteBomComponent(assembly, component)` removes one recipe line: it
 clears the line's `BOM` tag and removes its `BOM — {component}` link.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "stageBomComponent/postBomComponents/getBomComponents: a real Bill of Materials, built on setEntityLink, per the wine-bar-assemblies-plan design" (`backend/test/db.test.ts`)
 - "stageBomComponent/postBomComponents/getBomComponents: Recipe widening — Labour and Plant lines carry a real kind/duration/schedule, Material stays the default" (`backend/test/db.test.ts`)
 
@@ -69,7 +69,7 @@ shape as `Items`/`Locations`.
 - `call-dispatch/plant.ts` exposes all of the above, role-gated like
   every other mutating call in this rollout.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "createPlantItem/getPlantItem/listPlant: a real, per-business Plant root, same shape as Items/Locations" (`backend/test/db.test.ts`)
 - "clockPlantIn/clockPlantOut/getOpenPlantClock: Plant's own clock, a direct structural copy of the real Employee clock-in/out" (`backend/test/db.test.ts`)
 
@@ -101,7 +101,7 @@ against its tagged skills to validate that, say, only a
 contact directly; enforcing a skill match is explicitly out of this
 round's scope.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "ensureSkill/listSkills/tagSkill/untagSkill/getSkills: a real, pairing-specific rate per contact+skill, on top of the same setEntityLink shape BOM already uses" (`backend/test/db.test.ts`)
 
 ## Project Proposal Prototypes — a reusable library of Recipe templates
@@ -144,7 +144,7 @@ staged under the prototype's own entity instead of an assembly item.
   copied lines untouched.
 - `call-dispatch/prototypes.ts` exposes all of the above.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "Project Proposal Prototypes: a reusable library instantiated into a real Quotation, refined via updatePrototypeLine — which only ever changes FUTURE instantiations, never a past, already-copied one" (`backend/test/db.test.ts`)
 
 ## Quotation widened into a multi-line Project Proposal
@@ -184,7 +184,7 @@ reuse an existing mechanism, not invent a second one:
   Quotation/RFQ, triggers none of this — purely the original status
   flip every pre-existing caller already relies on.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "addQuotationLine/getQuotationLines: a Quotation widened into a real, multi-line Project Proposal — Material/Labour/Plant lines all round-trip through the exact same Stage-1 BOM mechanism, staged under the quotation's own reference, not an assembly item" (`backend/test/db.test.ts`)
 - "acceptQuotation: accepting a multi-line Project Proposal with real projectDetails creates the real Live Project and an Invoicing Milestone, and schedules every Labour/Plant line — a plain, line-less Quotation (Retail's own shape) is completely unaffected" (`backend/test/db.test.ts`)
 
@@ -212,7 +212,7 @@ Vocabulary label.
   `Milestone Type`/`Due Date`/possible `Schedule Risk`.
 - `getMilestones(projectName)`.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "createLiveProject/getLiveProject/listLiveProjects: a real Project entity, distinct from the pre-existing "Projects" Vocabulary label and from clockInToProject's own account-name-only "project"" (`backend/test/db.test.ts`)
 - "createMilestone/getMilestones: real construction-stage gates, Plans Submission/Inspection/Invoicing" (`backend/test/db.test.ts`)
 
@@ -275,7 +275,7 @@ current caller of `scheduleProjectRecipeLines`/
 schedules it for real, against whatever every other already-accepted
 Live Project in the business is holding.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "findNextAvailableWindow/scheduleProjectRecipeLines/checkMilestoneAchievability: a real Plant double-booking across two live Projects is auto-rescheduled into the future, never blocked, and warns only when a Milestone becomes unachievable" (`backend/test/db.test.ts`)
 
 ## Stage 5 — per-project cost-vs-price tracking via Profit Centers
@@ -314,7 +314,7 @@ Center; left for a future round, per this plan's own stated scope.
 The actual cost is read with `getAccountBalanceMinor(account)` (`db.ts`):
 the account's stored balance, or 0 for an account never posted to.
 
-Tests:
+Tests (*Testing: Unit*, "Running the tests"):
 - "provisionProjectProfitCenter/getProjectCostReport: a real Project's own Profit Center isolates its real labour/plant cost from every other business activity, compared against the Recipe lines' own quoted price" (`backend/test/db.test.ts`)
 
 ### A real bug found and fixed while building this: project expense account names containing " — "
