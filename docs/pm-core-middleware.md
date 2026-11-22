@@ -37,8 +37,9 @@ whose name is the value), another entity, or the entity `Active` for yes.
 `relate(thing, relation, target)`, `copy(prototype, under)` and
 `post(reference, lines, options)`. `post` refuses an entry in the Global
 Business, on or before the ledger's `Locked Through` date, naming an
-account outside the instance's ledger, or whose lines do not add up to zero
-within each unit. Refusals are `Refused`; a missing name is `NotFound`.
+account outside the instance's ledger, whose lines do not add up to zero
+within each unit, or whose reference the ledger already has. Refusals are
+`Refused`; a missing name is `NotFound`.
 
 **Global first, local on first use.** `Application` sits beside
 `Businesses` and holds the prototypes and defaults: vocabulary, menus,
@@ -110,13 +111,13 @@ and every quantity unit each adding up to zero on their own.
   by all of them.
 - Cost of stock leaving (a sale's cost of goods sold, a transfer, a
   write-off, stock missing at a count) is first in, first out, per item and
-  location. Nothing extra is stored: the layers are read back from the
-  journal, each entry that brings a quantity into On Hand with value into
-  Inventory being one layer at the cost it was bought at. A transfer arrives
-  at its destination as the very layers that left the source. Stock found
-  at a count during the year is valued at the latest layer's unit cost.
-  Value posted with no quantity stays with the newest layer, so the layers
-  always add up to the Inventory account.
+  location, from layers read back from the journal (`stockLayers`,
+  `costOf`): each entry that brings quantity into On Hand with value into
+  Inventory is one layer, a transfer arrives as the source's layers (its
+  `From Location` relation), and stock found at a count is valued at the
+  newest layer's unit cost (`costOfFound`). The rules, and how they compare
+  with the original middleware's, are in *Stock API*, "First-in, first-out
+  cost".
 - The year-end stock take (`stockTake` with `StockTakeOptions.yearEnd`) is
   the count the year's accounts rest on. It is recorded even when it agrees
   with the books (with the count as its `Counted` relation, and marked
@@ -252,17 +253,13 @@ It holds two schemas:
 updated on every post), not part of the append-only record; the journal
 lines are the record it is checked against.
 
-**Tests** (`make test-storage-engine`, 38 tests):
-- `accounting_test`: the per-currency balance rule.
-- `ledger_test`: posting, reversal and renaming through the actor.
-- `core_test`: the four calls and the core's refusals.
-- `constraints_test`: against the file itself. Raw UPDATE and DELETE of
-  entities, journal headers and journal lines are refused by the triggers
-  and change nothing, in both schemas. A rename keeps the old row. A
-  reference posts once. `reversal_of` is set once. An entry whose euro
-  lines do not balance writes nothing, even though its home-currency
-  lines do.
-- `entities_test`: a live name is unique under its parent, a rename to its own name is allowed, a rename onto another entity's live name is refused. `storage_engine_test` is the runner (`main`).
+The engine's tests, by file: `accounting_test` (the per-currency balance
+rule), `ledger_test` (posting, reversal and renaming through the actor),
+`core_test` (the four calls and the core's refusals), `constraints_test`
+(raw UPDATE and DELETE refused by the triggers in both schemas, a
+reference posted once, `reversal_of` set once, an entry unbalanced in one
+currency writes nothing) and `entities_test` (names unique under their
+parent). `storage_engine_test` is the runner (`main`).
 
 Tests (*Testing: Unit*, "Running the tests"):
 - "a_balanced_pair_is_ok_test" (`storage_engine/test/accounting_test.gleam`)
@@ -344,34 +341,32 @@ through the engine as well. Neither is done yet.
 - Menu access by role, recurring entries, and translations beyond a single
   relation per language.
 
-## Unit tests (`backend/test/core.test.ts`)
+## Tests
 
-- "the ice trader: a business, one item, and two entries"
-- "the null product is one simple posting account under a header"
-- "using locations adds the second dimension, and nothing else changes"
-- "the Global Business creates businesses and never trades"
-- "users and roles belong to a business"
-- "lookup is local first; renaming is renaming the local instance"
-- "a relation holds a value, another entity, or yes; setting one touches no other"
-- "an entry must add up to zero within each unit, and a refused entry leaves nothing behind"
-- "the journal holds only the entry and its date, the account and the amount"
-- "an entry cannot name an account of another business or ledger"
-- "a locked ledger refuses dates on or before the lock"
-- "a service item is ordered and sold, never stocked"
-- "buying and selling on credit, tax, and payment"
-- "an order is a commitment; a delivery related to it releases it"
-- "write-off, stock-take and reversal"
-- "stock leaves first in, first out, at the cost each receipt was bought at"
-- "the year-end stock take averages the cost of what is held, and the new ledger starts from it"
-- "the year-end count is per item per location, confirmed by hand or automatically"
-- "a count confirmed after the new year opened corrects both ledgers"
-- "wages: hourly or salaried, with the two rates as relations of the business"
-- "closing the books, then a new ledger with its own accounts"
-- "copy makes an independent instance of a prototype"
-- "reopening the store rebuilds the same state from the two tables"
-
-## Unit tests (`backend/test/core-api.test.ts`)
-
-- "the frontend API refuses a call without a session, an unknown function, and a wrong password"
-- "the session holds the user, the business and the ledger; a form never has to send them"
-- "every function's values are in the order of its screen's fields in screens.csv"
+Tests (*Testing: Unit*, "Running the tests"):
+- "the ice trader: a business, one item, and two entries" (`backend/test/core.test.ts`)
+- "the null product is one simple posting account under a header" (`backend/test/core.test.ts`)
+- "using locations adds the second dimension, and nothing else changes" (`backend/test/core.test.ts`)
+- "the Global Business creates businesses and never trades" (`backend/test/core.test.ts`)
+- "users and roles belong to a business" (`backend/test/core.test.ts`)
+- "lookup is local first; renaming is renaming the local instance" (`backend/test/core.test.ts`)
+- "a relation holds a value, another entity, or yes; setting one touches no other" (`backend/test/core.test.ts`)
+- "an entry must add up to zero within each unit, and a refused entry leaves nothing behind" (`backend/test/core.test.ts`)
+- "the journal holds only the entry and its date, the account and the amount" (`backend/test/core.test.ts`)
+- "an entry cannot name an account of another business or ledger" (`backend/test/core.test.ts`)
+- "a locked ledger refuses dates on or before the lock" (`backend/test/core.test.ts`)
+- "a service item is ordered and sold, never stocked" (`backend/test/core.test.ts`)
+- "buying and selling on credit, tax, and payment" (`backend/test/core.test.ts`)
+- "an order is a commitment; a delivery related to it releases it" (`backend/test/core.test.ts`)
+- "write-off, stock-take and reversal" (`backend/test/core.test.ts`)
+- "stock leaves first in, first out, at the cost each receipt was bought at" (`backend/test/core.test.ts`)
+- "the year-end stock take averages the cost of what is held, and the new ledger starts from it" (`backend/test/core.test.ts`)
+- "the year-end count is per item per location, confirmed by hand or automatically" (`backend/test/core.test.ts`)
+- "a count confirmed after the new year opened corrects both ledgers" (`backend/test/core.test.ts`)
+- "wages: hourly or salaried, with the two rates as relations of the business" (`backend/test/core.test.ts`)
+- "closing the books, then a new ledger with its own accounts" (`backend/test/core.test.ts`)
+- "copy makes an independent instance of a prototype" (`backend/test/core.test.ts`)
+- "reopening the store rebuilds the same state from the two tables" (`backend/test/core.test.ts`)
+- "the frontend API refuses a call without a session, an unknown function, and a wrong password" (`backend/test/core-api.test.ts`)
+- "the session holds the user, the business and the ledger; a form never has to send them" (`backend/test/core-api.test.ts`)
+- "every function's values are in the order of its screen's fields in screens.csv" (`backend/test/core-api.test.ts`)

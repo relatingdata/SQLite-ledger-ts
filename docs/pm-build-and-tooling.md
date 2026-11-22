@@ -31,6 +31,7 @@
 
 | Target | What it does |
 |---|---|
+| `make release` | Refuses while anything is uncommitted; otherwise pushes `main` and writes `dist/sql-ledger-ts-<commit>.zip` of the committed files (`git archive`). |
 | `make backend-verbose` | The backend alone, with `DB_VERBOSE=1`. |
 | `make test-one TEST=…` | Only the backend tests whose title contains `TEST`. The tests share one database, so a test that fails alone may need the whole file. |
 | `make sim-golden` / `make check-sim-unchanged` | Record the simulation's PASS/FAIL lines in `backend/test/golden/simulation-results.txt`, and compare a fresh run against them, before and after a rename. |
