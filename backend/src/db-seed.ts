@@ -8,21 +8,11 @@ import { Entity } from './primitives.js';
 // individual call sites throughout this file.
 const SEED_USER_ID: UserId = asUserId(1);
 
-// Per direct, absolute instruction: NO demo/seed business, and NO
-// non-English language's translated text, has any presence in the
-// application's own basic initial data load any more - both are real
-// content that belongs in a separately-run, real test-runner script
-// instead (see `scripts/simulate-wine-retail-month.ts` and
-// `scripts/load-translations.ts`), never baked into what boots by
-// default. The four real Wine Retail Business seed functions that
-// used to live here (migrateForWineRetailDemoData,
-// migrateForWineRetailCompany, seedWineRetailEmployees,
-// migrateForWineRetailUpcs, each gated on a real SEED_DEMO_BUSINESSES
-// flag), and the real, unconditional `shared-fixtures/translations.csv`
-// loader (loadTranslationsFromSharedCsv), have been removed entirely
-// from this file - not merely gated off. Everything else below this
-// point is real, permanent, structural seed data (vocabulary/menu/
-// business-type scaffolding), unaffected by this change.
+// No business and no non-English text is seeded: both come from the step
+// runner's fixtures and `scripts/simulate-wine-retail-month.ts`. Everything
+// below is permanent, structural seed data: vocabulary, menu and
+// business-type scaffolding (docs/pm-domain-reference.md, "Application
+// vocabulary vs. sample business data").
 
 // ---------------------------------------------------------------------------
 // Real, permanent seed data — deliberately NOT "migrations" any more.

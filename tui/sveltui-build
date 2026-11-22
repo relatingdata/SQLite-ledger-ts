@@ -35,13 +35,19 @@ async function build() {
   }
 
   // SvelTUI framework files - compile together with app
+  // compiled into dist/node_modules/@rlabs-inc/sveltui/src, read from
+  // wherever the package is installed (tui/node_modules, or the
+  // workspace root's when it is hoisted).
   const sveltUIPath = 'node_modules/@rlabs-inc/sveltui/src'
+  const sveltUISource = join(dirname(Bun.resolveSync('@rlabs-inc/sveltui/package.json', cwd)), 'src')
+  const sourceOf = new Map()
   const sveltUIPatterns = ['**/*.svelte', '**/*.svelte.ts', '**/*.ts', '**/*.js']
   for (const pattern of sveltUIPatterns) {
     const glob = new Glob(pattern)
-    for await (const file of glob.scan({ cwd: join(cwd, sveltUIPath) })) {
+    for await (const file of glob.scan({ cwd: sveltUISource })) {
       if (file.includes('test/')) continue
       files.push(join(sveltUIPath, file))
+      sourceOf.set(join(sveltUIPath, file), join(sveltUISource, file))
     }
   }
 
@@ -53,7 +59,7 @@ async function build() {
   // Compile each file
   for (const file of files) {
     try {
-      const source = await Bun.file(file).text()
+      const source = await Bun.file(sourceOf.get(file) ?? file).text()
       const outPath = join('dist', file)
       await $`mkdir -p ${dirname(outPath)}`
 

@@ -1,4 +1,4 @@
-.PHONY: all install clean seed seed-pivot-demo print-screen dev dev-no-demo dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-e2e test-e2e-tutorial test-e2e-tutorials test-e2e-tutorials-http test-storage-engine storage-engine-deps generator generate format-application-config test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs test-e2e-manufacturing-tutorial test-e2e-manufacturing-tutorial-browser test-e2e-manufacturing-full test-e2e-project-builder-tutorial test-e2e-project-builder-tutorial-browser test-e2e-project-builder-full reset-db manual programmer-manual historical-manual entity-tree-svg entity-tree-sample-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch proof-year-end check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers ensure-servers-no-demo stop-servers check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles analyze-vocabulary strip-comments check-test-docs check-manual test-steps test-steps-browser test-one release check-manual-pictures check-step-tests
+.PHONY: all install clean seed seed-pivot-demo print-screen dev dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-e2e test-e2e-tutorial test-e2e-tutorials test-e2e-tutorials-http test-storage-engine storage-engine-deps generator generate format-application-config test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs test-e2e-manufacturing-tutorial test-e2e-manufacturing-tutorial-browser test-e2e-manufacturing-full test-e2e-project-builder-tutorial test-e2e-project-builder-tutorial-browser test-e2e-project-builder-full reset-db manual programmer-manual historical-manual entity-tree-svg entity-tree-sample-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch proof-year-end check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles analyze-vocabulary strip-comments check-test-docs check-manual test-steps test-steps-browser test-one release check-manual-pictures check-step-tests
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -84,19 +84,6 @@ dev: generate
 	  wait \
 	)
 
-# Historically started a backend with SEED_DEMO_BUSINESSES=false to
-# get only the one, real, dummy "admin" business, no Wine Retail
-# Business pre-populated. That flag, and all demo-business seeding at
-# boot, has since been removed entirely (per
-# docs/api-e2e-readiness-and-seed-separation-plan.md) — the
-# application's own basic initial data load (schema/00-core.sql) now
-# NEVER contains a demo business, so plain `make dev` already gives
-# you exactly this. Kept as a documented alias so old muscle memory
-# still works. To build a real demo business on top of this, use the
-# real, in-process scripts/simulate-wine-retail-month.ts (or drive it
-# through the UI/API yourself) — never schema seeding.
-dev-no-demo: dev
-
 # The two, genuinely foreign demo businesses this project once seeded
 # at boot (BMW M GmbH / Peugeot Citroën Sochaux SNC via the deleted
 # 20-demo-bmw-peugeot.sql, and Ditta Italiana Srl / Schweizer KMU AG
@@ -132,8 +119,7 @@ backend-verbose:
 # bare `frontend` for symmetry with `text-frontend` below, now that
 # there are genuinely two, real, separate frontends against the one,
 # same backend (see docs/tui-design.md). `frontend` itself stays as a
-# real, working alias so old muscle memory still works — same pattern
-# as `dev-no-demo: dev` above.
+# real, working alias.
 web-frontend: generate
 	cd frontend && $(RUN_NPM_SCRIPT) dev
 
@@ -191,11 +177,7 @@ test-e2e: reset-db
 # needed, since runStepViaApi calls the real backend functions directly.
 # This fixture creates its own, real "Tutorial Wine Retail Business"
 # from scratch and genuinely never wants any other demo business
-# pre-seeded alongside it. Historically needed SEED_DEMO_BUSINESSES=
-# false to avoid a real demo-seed bug in migrateForWineRetailDemoData;
-# that whole code path (and flag) is gone now — boot never seeds a
-# demo business at all — so there is nothing left to guard against
-# here.
+# pre-seeded alongside it (boot seeds no business).
 # Which middleware serves the three API-path tutorial targets below:
 # `core` (the default) is the simplified middleware - two stores, three
 # instance globals, four calls (backend/src/core/, docs/pm-core-
@@ -246,7 +228,7 @@ CORE_HTTP_PID = $(PID_DIR)/core-http-backend.pid
 test-e2e-tutorials-http: reset-db
 	@mkdir -p $(PID_DIR)
 	@echo "starting a backend for the core frontend API on port $(CORE_HTTP_PORT)..."
-	@( cd backend && PORT=$(CORE_HTTP_PORT) MIDDLEWARE=core SEED_DEMO_BUSINESSES=false setsid nohup $(RUN_SCRIPT) src/server.ts > /tmp/sql-ledger-ts-core-http.log 2>&1 < /dev/null & echo $$! > $(CORE_HTTP_PID) )
+	@( cd backend && PORT=$(CORE_HTTP_PORT) MIDDLEWARE=core setsid nohup $(RUN_SCRIPT) src/server.ts > /tmp/sql-ledger-ts-core-http.log 2>&1 < /dev/null & echo $$! > $(CORE_HTTP_PID) )
 	@for i in $$(seq 1 40); do curl -sf http://localhost:$(CORE_HTTP_PORT)/api/health > /dev/null 2>&1 && break; sleep 1; done
 	@status=0; for f in tutorial manufacturing-tutorial project-builder-tutorial; do \
 	  ( cd backend && STEP_RUNNER_API_URL=http://localhost:$(CORE_HTTP_PORT) MIDDLEWARE=core $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/$$f-steps.csv --path api --non-interactive ) || status=1; \
@@ -385,34 +367,11 @@ test-e2e-project-builder-full: reset-db
 	@echo "Running the real, looped Project Builder simulation (3 overlapping project-pair cycles) with computed-invariant checks..."
 	cd backend && $(RUN_SCRIPT) scripts/simulate-project-builder-cycles.ts
 
-# The real, CSV-driven tutorial fixture's own text-frontend path —
-# step-runner.ts --path text, driving a real tui/src/cli.tsx process
-# via @microsoft/tui-test, the same way test-e2e-tutorial-browser's
-# --path ui drives a real browser. Purely generic (runStepViaText,
-# backend/scripts/step-runner.ts): no per-screen driver code, no
-# screen_name-keyed registry — the exact, same screen_name and
-# positional field list screens.csv already carries for --path
-# api/--path ui drives the TUI too, dispatching only on field_type and
-# on the presence of field_selector/submit_selector (never their web-
-# specific values). The former tui/test/smoke.test.ts (a separate,
-# hand-written script with its own hardcoded per-screen sequences) and
-# its own `make test-tui` target are gone — this is the one, real way
-# the TUI gets tested now, the same way the web frontend only has one.
-#
-# Unlike test-e2e-tutorial-browser, this one is NOT yet proven over the
-# whole fixture: it depends on the TUI's own on-screen menu label
-# matching a row's screen_name exactly, which isn't true for every row
-# today (see "Known gap: TUI screen granularity doesn't match
-# screens.csv", docs/pm-testing-e2e.md) - a real, confirmed, pre-
-# existing data mismatch between screens.csv's own screen_names and
-# the TUI's menu labels, not a step-runner limitation. tutorial-
-# steps.control.csv's own `skip` column is also shared across
-# api/ui/text alike, with no way yet to skip a row for `text` only
-# without also skipping it for the other two, already-working paths -
-# so `--only 1` is deliberate here, not a stand-in for "run everything".
-# See docs/tui-design.md and docs/pm-testing-e2e.md.
+# The tutorial's first step (Login) through the terminal UI: builds tui/
+# and runs step-runner.ts --path text (docs/pm-testing-e2e.md, "`--path
+# text` — driving the terminal UI", which says why only one step runs).
 test-e2e-tutorial-text: reset-db
-	@echo "Running the real, augmented tutorial fixture's one, proven --path text step..."
+	cd tui && $(RUN_NPM_SCRIPT) build
 	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path text --non-interactive --only 1
 
 # The one, real, test-runner-driven way every non-English translation
@@ -531,17 +490,6 @@ ensure-storage-engine: storage-engine-deps
 	  ( cd $(CURDIR)/storage_engine && STORAGE_ENGINE_DB_PATH=$(STORAGE_ENGINE_DB_PATH) STORAGE_ENGINE_PORT=$(STORAGE_ENGINE_PORT) setsid nohup gleam run > /tmp/sql-ledger-ts-storage-engine.log 2>&1 < /dev/null & echo $$! > $(STORAGE_ENGINE_PID) ); \
 	  for i in $$(seq 1 30); do [ "$$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 http://localhost:$(STORAGE_ENGINE_PORT)/entities)" != "000" ] && break; sleep 1; done; \
 	fi
-
-# Historically a distinct, SEED_DEMO_BUSINESSES=false detached-server
-# variant of ensure-servers, for driving the real UI path against a
-# database with only the one, real, dummy "admin" business. Now that
-# boot itself never seeds any demo business at all (that whole flag
-# and code path were removed per direct instruction), there is no
-# longer any real difference between the two — kept as a documented
-# alias so existing targets (test-e2e-tutorial-browser, step-runner's
-# own `--path ui`, etc.) that depend on it by name keep working.
-ensure-servers-no-demo: ensure-servers
-	@true
 
 stop-servers:
 	@if [ -f $(BACKEND_PID) ]; then \
@@ -850,7 +798,7 @@ test-one:
 # Real, confirmed second bug, found directly while this exact branch
 # finally started running on every real invocation (it never had before -
 # a real backend simply was never already running when reset-db ran, until
-# ensure-servers-no-demo started leaving one up between runs): a plain
+# ensure-servers started leaving one up between runs): a plain
 # `pkill -9 -f "tsx watch src/server.ts"` matches against every real
 # process's own, full command line - including the real shell CURRENTLY
 # RUNNING this very recipe line, since make passes the whole recipe
@@ -861,7 +809,7 @@ test-one:
 # Fixed generically, once, in scripts/safe-pkill.sh (walks each real
 # candidate's own ancestor/descendant chain, never kills this recipe's
 # own real shell or anything above or below it) - used here and by
-# ensure-servers-no-demo/stop-servers below, replacing the three further,
+# ensure-servers/stop-servers, replacing the three further,
 # real, same-shaped, latent instances of this exact bug found alongside
 # it.
 reset-db:

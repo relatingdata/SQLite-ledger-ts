@@ -3,7 +3,6 @@
 // unevenly at three shops. Run with `make seed-pivot-demo` while the
 // servers are stopped or running; it adds to the dev database.
 // Full documentation: docs/pm-application-config.md.
-process.env.SEED_DEMO_BUSINESSES = 'false';
 const db = await import('../src/db.ts');
 const userId = db.asUserId(1);
 const business = db.asBusinessName('Pivot Demo Wines');

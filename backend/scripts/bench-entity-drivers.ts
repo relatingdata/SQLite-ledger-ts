@@ -113,7 +113,7 @@ async function main(): Promise<void> {
 
   // Real, found-this-session gotcha: db.ts's own module-load side effect
   // (seedRemainingData(), db.ts:106) runs UNCONDITIONALLY on every fresh
-  // import, regardless of SEED_DEMO_BUSINESSES, and is a backfill/
+  // import and is a backfill/
   // migration step — it's allowed to genuinely create a few new
   // entities the FIRST time it meets an older db snapshot that predates
   // some since-added vocabulary/translation entry. If kaappi_wal was

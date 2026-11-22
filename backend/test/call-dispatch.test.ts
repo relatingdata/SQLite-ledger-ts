@@ -6,7 +6,6 @@ import os from 'node:os';
 import path from 'node:path';
 
 process.env.DB_PATH = path.join(os.tmpdir(), `sql-ledger-ts-call-dispatch-test-${process.pid}-${Date.now()}.sqlite`);
-process.env.SEED_DEMO_BUSINESSES = 'false';
 const dispatch = await import('../src/call-dispatch.ts');
 
 test('callRouter: a call to an unknown function is a 404, never evaluated', () => {

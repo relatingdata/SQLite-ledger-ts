@@ -1271,8 +1271,8 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
  *
  * This genuinely can't reach every screen yet: it depends on the TUI's
  * own on-screen menu label matching `screen_name` exactly, which isn't
- * true for every row today (see "Known gap: TUI screen granularity
- * doesn't match screens.csv" in docs/pm-testing-e2e.md — General
+ * true for every row today (see "`--path text` — driving the terminal UI"
+ * in docs/pm-testing-e2e.md — General
  * Journal's "Stage Journal Line"/"Post Journal Entry" rows are real,
  * separate screen_names that don't match the TUI's own single
  * "General Journal" menu label, for one). Fails loudly either way —
@@ -1310,6 +1310,7 @@ export async function runStepViaText(terminal: TuiTest, step: Step, screens: Map
       // standalone Enter every TUI screen now uses uniformly.
       await press(terminal, 'Enter');
     }
+    if ((await terminal.text()).includes('RUNTIME ERROR')) return { ok: false, error: 'The terminal UI stopped with a runtime error.' };
     if (step.verify) {
       const verifyFn = VERIFY_REGISTRY[step.verify];
       if (!verifyFn) return { ok: false, error: `No real verify registry entry for "${step.verify}".` };
@@ -1429,23 +1430,21 @@ async function main() {
   }
   if (path === 'ui') await ensureUiPage();
 
-  // A persistent TuiTest session, parallel to how `ui` reuses one
-  // Playwright `page` across steps — one real, long-lived TUI process,
-  // driven step by step, rather than a fresh process per row. Runs the
-  // real tui/src/cli.tsx (npx tsx), never importing its TypeScript
-  // source directly - the exact, same "drive a real, separately-
-  // running process" rule `ui` already follows for the browser
-  // frontend. See docs/tui-design.md - "--path text".
+  // One TUI process for the whole run, as `ui` keeps one Playwright page:
+  // the built terminal UI (tui/dist/src/cli.mjs, from `tui/sveltui-build`),
+  // run as a separate process. It must show its Log in panel, or the run
+  // fails here.
   let textTerminal: TuiTest | undefined;
   async function ensureTextTerminal(): Promise<TuiTest> {
     if (!textTerminal) {
       textTerminal = TuiTest.ephemeral('step-runner-text');
-      await textTerminal.run('npx', ['tsx', 'src/cli.tsx'], {
+      await textTerminal.run('bun', ['--conditions', 'browser', 'dist/src/cli.mjs'], {
         cwd: join(__dirname, '../../tui'),
         cols: 100,
         rows: 40,
         timeouts: { text: 10_000 } as any,
       });
+      await textTerminal.getByText('Log in').expect();
     }
     return textTerminal;
   }

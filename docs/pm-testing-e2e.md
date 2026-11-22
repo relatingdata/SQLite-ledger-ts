@@ -1,17 +1,14 @@
 # Testing: The Test-Runner, the Tutorial Fixture, and Full-Volume Simulation
 
-This chapter covers everything above the unit-test level: the Step
-Runner (the one real testing *and* data-loading tool for this
-application), the Tutorial/minimal fixture built on it, and the
-Full/volume simulation with its full-year data-generation extension.
+This chapter covers everything above the unit-test level: the step
+runner, the tutorials built on it, the simulations, and the standalone
+tests.
 
-## The Step Runner — the one, unified testing and data-loading tool
+## The Step Runner
 
-This is the one and only testing and data-loading tool for this
-application, replacing any bespoke, one-off Playwright script or
-hand-written seeding script. Per the project's own standing rule, no
-`.ts` or raw Playwright script outside this mechanism is used to load
-data — everything goes through the step runner.
+The step runner (`backend/scripts/step-runner.ts`) is the one tool for
+both end-to-end testing and loading data: no other Playwright script or
+seeding script exists.
 
 ### The underlying idea
 
@@ -20,11 +17,9 @@ file, extending the established `shared-fixtures/*.csv` convention.
 Each step can run three ways: a direct backend function call
 (`--path api`, fast, no browser), a driven Playwright browser action
 (`--path ui`, proving the web UI works, producing screenshots), or a
-driven `@microsoft/tui-test` terminal action (`--path text`, proving
-the TUI — `tui/` — works) — the same step either way, so the paths
-can never silently drift apart. See "`--path text` — driving the real
-TUI" below for how new this third path is today: one screen proven,
-most not yet wired.
+driven `@microsoft/tui-test` terminal action (`--path text`, the
+terminal UI in `tui/`; see "`--path text` — driving the terminal UI"
+for its state). The step is the same on every path.
 
 **The core separation (Page Object Model + data-driven tests)**: how
 to drive a screen is defined once, per screen, in a registry — never
@@ -122,18 +117,9 @@ covers). A `screenshot` name with a `/` in it is relative to `docs/`
 (`manual-images/m_login`, a picture for the manuals); a bare name goes
 to `--screenshot-dir`.
 
-**A real, current limitation, found wiring up `--path text`**: `skip`
-is one, path-agnostic boolean — there is no way for a row to say
-"skip under `--path text` only," without also skipping it for the
-already-working `api`/`ui` paths. Since `--path text`'s own generic
-driver (below) only reaches as far as the TUI's own on-screen labels
-and step shapes actually match this fixture's rows — `Login` today,
-confirmed live — `tutorial-steps.csv`'s own control file is
-deliberately left untouched rather than risk breaking
-`test-e2e-tutorial`/`test-e2e-tutorial-browser` — a full `--path text`
-run over the whole fixture isn't attempted yet; only `--only 1`
-(`make test-e2e-tutorial-text`) is. A skip column per path would be
-needed before a wider `--path text` run is worth attempting here.
+`skip` applies to every path: a row cannot be skipped on `--path text`
+only, which is one reason `make test-e2e-tutorial-text` runs only step
+1 (`--only 1`).
 
 ### The CLI
 
@@ -157,7 +143,7 @@ step-runner <data.csv> [--screens screens.csv] [options]
                                docs/manual-images-tutorial/ that the User Manual itself references)
   --verify NAME               (single-step mode) the check to run after this step
   --screenshot NAME           (single-step mode) the screenshot name for this step
-  --verify-via-recording      start the Admin recording feature right after a UI-path Login
+  --verify-via-recording      start recording right after a UI-path Login
                                step, compare every later UI-path, data-kind step's values
                                against what the backend actually recorded, report mismatches
   --timing-file FILE          write one CSV row per step (index, screen, path, ms, ok, error)
@@ -191,8 +177,9 @@ it). A dialog the page opens (a confirm before a delete) is accepted.
   registry, an `api_function` with no `API_REGISTRY` entry, and a
   data-submitting screen with no `api_function` at all (it would do
   nothing). A correct fixture has none.
-- `runStepViaApi(step, screens)` runs one step against the live backend
-  and reports failure when its verify does not hold.
+- `runStepViaApi(step, screens)` runs one step in-process, through its
+  `API_REGISTRY` entry, and reports failure when its verify does not
+  hold.
 
 Tests (*Testing: Unit*, "Running the tests"):
 - "parseCsvLine: plain fields" (`backend/scripts/step-runner.test.ts`)
@@ -261,26 +248,21 @@ backend function directly, in-process. **`--path api` issues no real
 HTTP request at all** — it is a deliberate shortcut around the real
 HTTP shape, for testing speed.
 
-The real HTTP layer (what a genuine browser session actually produces)
-is the Express app (`backend/src/server.ts`): `cors()` → `attachUser`
-→ `recordingMiddleware` → almost everything through one single,
-generic endpoint, `POST /api/call` (`backend/src/routes/call.ts`),
-mounted with a plain-text body parser, not `express.json()` — there is
-no JSON body parser anywhere in this app any more. The body is one
-ASCII-CSV line, `screenName,value1,value2,...` (optionally followed by
-more lines for a caller-variable-length array argument — "line items").
-The dispatcher looks the screen name up in `BACKEND_FUNCTIONS`
-(`backend/src/call-dispatch/*.ts`, one file per domain) and calls that
-function directly with the positional values; each function enforces
-its own auth/role gate internally (`requireAuth`/`requireRole`/
-`requireGlobalRole` from `call-dispatch.ts`), since the `/api/call`
-mount itself carries no blocking auth middleware (some screens are
-genuinely public, e.g. customer self-registration). The only other real
-routers left are `/api/recording` (`routes/recording.ts`) and
-`/api/health`. A logged-in `POST /api/call` with body
-`createLedger,Wine Retail Business,Budget 2027` is the true shape of
-"a backend action" today — not a REST-style per-resource path with a
-JSON body.
+The HTTP layer, which a browser session uses, is the Express app
+(`backend/src/server.ts`): `cors()` → `attachUser` →
+`recordingMiddleware`, then `POST /api/call` (`backend/src/routes/call.ts`)
+with a plain-text body parser; there is no JSON body parser. The body
+is one CSV line, `functionName,value1,value2,...`, followed by more
+lines for a variable-length argument (line items). The dispatcher looks
+the name up in `BACKEND_FUNCTIONS` (`backend/src/call-dispatch/*.ts`,
+one file per domain) and calls it with the positional values; each
+function makes its own auth and role check (`requireAuth`,
+`requireRole`, `requireGlobalRole` from `call-dispatch.ts`), since the
+mount itself blocks nothing (customer self-registration is public). The
+other mounts are `/api/core/call` (the core middleware, below),
+`/api/recording` (`routes/recording.ts`) and `/api/health`. A logged-in
+`POST /api/call` with body `createLedger,Wine Retail Business,Budget 2027`
+is what a backend action looks like.
 
 ### The core middleware path: the frontend API
 
@@ -299,41 +281,32 @@ reading the database directly. `CoreApiClient` sends the calls to
 (`make test-e2e-tutorials-http`). So on the core, `--path api` tests the
 real request shape after all.
 
-### The two paths test genuinely different surfaces — and must assert differently
+### The api and ui paths assert at different moments
 
-A critical, settled design point: `--path api` and `--path ui` are not
-two ways of testing the same moments.
+- **`--path api`**: every row is a call that stands alone. A
+  `Stage Journal Line` row calls `stageJournalLine` (its `API_REGISTRY`
+  entry), and the staged line is stored when it returns, so a check
+  between rows can read it (`getStagedLines`).
+- **`--path ui`**: the General Journal page (`/post`) keeps the lines
+  in the page until Save; the server gets no call for an unbalanced
+  entry. On Save the page calls `stageLine` once a line and then
+  `postJournalEntry`. So a `Stage Journal Line` row on this path only
+  fills the builder row and inserts it (no `submit_selector`), and
+  nothing is checked before the `Post Journal Entry` row, which clicks
+  Save.
+- Both end with the same posted entry: present, balanced, its lines on
+  the right accounts for the right amounts.
 
-- **`--path api` (direct HTTP replay)**: every row IS independently
-  real. A `Stage Journal Line` row really calls `BACKEND_FUNCTIONS.stageLine`
-  (via `POST /api/call` with body `stageLine,...`), and the server
-  really holds it durably the moment that call returns — valid to
-  assert mid-sequence server state here (`getStagedLines`, itself a
-  `/api/call` dispatch entry, not a separate GET route).
-- **`--path ui` (driving the live browser)**: nothing is real, and
-  nothing should be asserted, until the one final "Save" click. The
-  real General Journal page holds every line being built only in
-  client-side state — the server receives *zero* calls for an
-  unbalanced, incomplete entry, and all of `stageLine` ×N
-  + `postJournalEntry` fire together, back to back (each its own
-  `POST /api/call`), only on Save.
-  Any `Stage Journal Line` row's UI action is "fill the builder row,
-  press insert" (no submit, no network call expected); only the final
-  `Post Journal Entry` row carries a `submit_selector`.
-- **Both paths must converge on one thing**: the final, posted result
-  — the entry exists, is balanced, and its lines hit the correct
-  accounts for the correct amounts.
+### The recording feature records nothing today
 
-### The Admin recording feature — ⚠️ records nothing today
-
-`recordingRouter` (`routes/recording.ts`, behind `requireAuth`, so any
-logged-in user): `GET /api/recording` answers `isRecording(user)`;
+`recordingRouter` (`routes/recording.ts`, behind `requireAuth`):
+`GET /api/recording` answers `{ recording: isRecording(user) }`;
 `POST /api/recording/start` calls `startRecording(user, username)`,
 which opens `<username>.recording` for appending and writes an opening
-comment line, and answers 409 when that user is already recording;
+comment line (409 when that user is already recording);
 `POST /api/recording/stop` calls `stopRecording(user)`, which writes a
-closing comment line and closes the file, and answers 409 when nothing
-was being recorded.
+closing comment line and closes the file (409 when nothing was being
+recorded).
 
 While a user is recording, `recordingMiddleware` (`recording.ts`)
 appends one row per successful (2xx) request that carries an
@@ -342,134 +315,73 @@ appends one row per successful (2xx) request that carries an
 params, query or JSON body (`REAL_FIELD_SOURCE_OVERRIDES` names the
 exceptions), blank when absent.
 
-**What does not work:** the frontend sends `X-Screen-Name` only from
-`request(path, init, screenName)` (`frontend/src/lib/api.ts`), and no
-call passes a screen name; every screen now uses `POST /api/call`,
-whose body is CSV text, not JSON. So a recording holds only its two
-comment lines, and `--verify-via-recording` (`step-runner.ts`) reports
-every UI step as unmatched. Making it work needs the call functions to
-send the screen name and `recordRequest` to read the call's positional
-values.
+The frontend sends `X-Screen-Name` only from `request(path, init,
+screenName)` (`frontend/src/lib/api.ts`), which only `/health` uses,
+and no call passes a screen name; every screen uses `POST /api/call`,
+whose body is CSV, not JSON. So a recording holds only its two comment
+lines, and `--verify-via-recording` (`step-runner.ts`) reports every UI
+step as unmatched. Making it work needs the call functions to send the
+screen name and `recordRequest` to read the call's positional values.
 
 ### `runStepViaUi` fails loudly when a screen has no UI wiring
 
-If `screens.csv` gives a screen no UI wiring at all for the step it's
-running (no `ui_path`/`open_selector`/`submit_selector`, and no field with
-a `field_selector` — only `api_function` is set), `runStepViaUi` returns
-`ok: false` rather than falling through every `if` untouched and reporting
-success. A UI path that silently does nothing is a worse failure mode than
-an honest error, since `--fallback-to-api` and plain runs need the truth
-to react to.
+A screen with none of `ui_path`, `open_selector`, `submit_selector` or a
+field's `field_selector` (only `api_function` set) makes `runStepViaUi`
+return `ok: false`, rather than doing nothing and reporting success, so
+`--fallback-to-api` and plain runs see it.
 
-### `--path text` — driving the real TUI, purely generically
+### `--path text` — driving the terminal UI
 
-A third path, parallel to `--path ui`: `runStepViaText`
-(`backend/scripts/step-runner.ts`) drives a real, separately-running
-`tui/src/cli.tsx` process via `@microsoft/tui-test`'s `TuiTest` client
-— never importing `tui/src` TypeScript directly, the same "drive the
-real process" rule `--path ui` already follows for the browser. One
-persistent `TuiTest` session is opened lazily (`ensureTextTerminal`,
-mirroring `ensureUiPage`) and reused across every step in a run, since
-the TUI is a single, long-lived, stateful terminal process, not a
-per-request HTTP call.
+`runStepViaText` (`backend/scripts/step-runner.ts`) drives the terminal
+UI as a separate process through `@microsoft/tui-test`'s `TuiTest`
+client, as `--path ui` drives the browser. `ensureTextTerminal` starts
+one process for the whole run, the built TUI (`bun --conditions
+browser dist/src/cli.mjs` in `tui/`, built by `tui/sveltui-build`),
+and fails unless its Log in panel appears.
 
-**There is no per-screen driver code, and no `screen_name`-keyed
-registry** — a design point worth stating as plainly as the "two
-paths test genuinely different surfaces" one above. `runStepViaText`
-is one, generic function, reusing exactly the same `screen_name` and
-positional field list (`position`/`field_name`/`field_type`) every
-other path already uses, plus the PRESENCE (never the web-specific
-value) of two columns that mechanism already has:
+There is no per-screen driver code. `runStepViaText` uses the same
+`screen_name` and positional fields as the other paths, and only the
+presence of two web columns:
 
-- A field with a blank `field_selector` has no real on-screen TUI
-  input either — the exact, same skip rule `runStepViaUi` already
-  applies (a position that only ever fed `api_function`, never a real
-  UI field on the web path either).
-- A screen with no real `submit_selector` is an intermediate "add one
-  line" action, driven by the TUI's own, uniform Insert/Enter/Escape/
-  Delete idiom (Insert opens the line-item sub-form; its own fields,
-  typed and Enter-confirmed in position order, finalize with the
-  line-item sub-form's own last field — no separate key). A screen
-  WITH a real `submit_selector` and no real fields of its own (e.g.
-  "Post Journal Entry") is a pure finalize action — one, standalone
-  Enter, now standardized across every TUI screen (see
-  `docs/tui-design.md`).
-- `select`/`select_value`/`search_and_select` fields are driven by
-  on-screen text search (`findItemByText`,
-  `backend/scripts/text-driver-helpers.ts`) rather than a Playwright
-  locator.
+- A field with a blank `field_selector` is skipped, as on the `ui` path.
+- A screen with no `submit_selector` adds one line: `i` opens the line
+  form and Enter on its last field adds the line. A screen with a
+  `submit_selector` and no fields of its own (`Post Journal Entry`) is
+  one Enter.
+- `select`, `select_value` and `search_and_select` fields are chosen by
+  moving down to a highlighted line containing the value
+  (`findItemByText`, `backend/scripts/text-driver-helpers.ts`).
 
-Getting to the right screen in the first place
-(`navigateMenuGenerically`, same module) is equally generic: it
-searches the Menu's own top-level sections by on-screen text for a
-match on `screen_name`, never a hardcoded Down-count naming a specific
-screen.
+`navigateMenuGenerically` (same module) finds the screen by searching
+each top-level Menu section for an item whose text matches
+`screen_name`, and throws when none does. A step fails when the screen
+shows the TUI's runtime-error banner.
 
-`runStepViaText` fails loudly — the same, real design `runStepViaUi`
-already uses — rather than silently reporting success: a picker
-search that never finds the named value, or `navigateMenuGenerically`
-exhausting every top-level section, both throw a real, specific error
-naming what it was looking for.
+`make test-e2e-tutorial-text` builds the TUI and runs the tutorial's
+first step (`Login`) only.
 
-**Honest, current status**: `Login` runs end to end from this generic
-mechanism alone, with zero screen-specific code, confirmed live
-against a real backend and a real `tui/src/cli.tsx` process (`make
-test-e2e-tutorial-text`) — it fails loudly within 10s with no backend
-running, and passes against a real one. Running the *whole*, 75-step
-fixture through `--path text` (not yet wired into any Makefile target,
-since most of it isn't expected to pass) confirms the mechanism itself
-works exactly as designed, and shows precisely where it currently
-can't go further — see "Known gap: TUI screen granularity doesn't
-match `screens.csv`" below.
+**Current status: it fails.** The TUI stops at start-up with a Svelte
+runtime error: `@rlabs-inc/sveltui` 0.1.7 does not run on the Svelte
+that the workspace installs (5.56.8, pinned by `frontend/`), and the
+TUI's own range (`^5.38.7`) resolves to that copy. `test-e2e-tutorial-text`
+is in no gate and not in CI.
 
-### Known gap: TUI screen granularity doesn't match `screens.csv`
+Past `Login`, `screens.csv` (written against the web screens) does not
+match the TUI's screens:
 
-`screens.csv`'s own `screen_name`s and field lists were written
-against the web frontend's own screen boundaries, which don't always
-match the TUI's — the one real thing stopping the generic `--path
-text` driver above from reaching further than `Login` today. Concrete,
-confirmed examples (the first two found live, running the whole
-fixture through `--path text`; the rest found by inspection):
+- `Select Business` picks a business only; the TUI's `ChooseBusiness`
+  picks a business and a ledger (`onChosen(businessName, ledgerName)`).
+- `Create Business` has six fields; the TUI's `NewBusinessWizard` asks
+  for more (reporting frequency, partners, …).
+- `Create Purchase Order` is one call (`createPurchaseOrderInCartons`);
+  the TUI's `PurchaseOrder.svelte` stages and then posts
+  (`stagePurchaseOrder`, `postPurchaseOrder`).
+- `Stage Journal Line` and `Post Journal Entry` have the TUI's General
+  Journal shape, but the Menu item is "General Journal", which matches
+  neither name.
 
-- **`Select Business`**: its one real value in `tutorial-steps.csv`
-  (`"admin"`) is a placeholder — this row is a genuine no-op for
-  `--path api`/`--path ui` too, since no business exists yet on a
-  fresh database (`screen_kind: session`, no `api_function`). For
-  `--path text`, the generic driver tries to find a picker item named
-  `"admin"` on the real Choose Business screen and, correctly,
-  fails to find one. The TUI's own `ChooseBusiness` screen also picks
-  a business *and* a ledger together in one screen (`App.tsx`'s
-  `onChosen(businessName, ledgerName)`) — no `screens.csv` row carries
-  a ledger value for this screen at all.
-- **`Create Business`**: the TUI's own `NewBusinessWizard` has more
-  real steps (financial year start date, reporting frequency, …) than
-  `screens.csv`'s flat field list for this row has values for — a
-  generic, position-by-position driver runs out of real values before
-  the wizard's own real steps are done.
-- **Purchase Order**: `screens.csv`'s `"Create Purchase Order"` row
-  calls `createPurchaseOrderInCartons` (one combined, carton-based
-  create) against the web's `/stock/po` screen — but the TUI's own
-  `PurchaseOrder.tsx` screen stages then posts in two separate backend
-  calls (`stagePurchaseOrderSimple`/`postPurchaseOrderSimple`,
-  matching `screens.csv`'s *separate* `"Stage Purchase Order"`/
-  `"Post Purchase Order"` rows instead, which have no UI wiring of
-  their own at all).
-- **General Journal**: `"Stage Journal Line"` (one row per line) and
-  `"Post Journal Entry"` (one final row) already match the TUI's own
-  General Journal screen's real shape (type a reference once, Insert
-  N lines, then Post) — reachable by the generic mechanism in
-  principle — but the TUI's own on-screen menu label is "General
-  Journal," which matches neither CSV `screen_name`, so
-  `navigateMenuGenerically` can't find either one by text search.
-
-None of this is a `step-runner.ts` limitation to code around — it's
-`shared-fixtures/screens.csv`/`tutorial-steps.csv`'s own row design
-(written against the web frontend first) genuinely not lining up with
-the TUI's own screens and menu labels for several rows yet. Closing
-this gap is a real, further change to that shared fixture data (likely
-renaming/restructuring a handful of rows so one `screen_name` serves
-both frontends identically) or to the TUI screens' own step shapes —
-not more code in the generic driver itself.
+Closing this is a change to the fixture rows or to the TUI screens, not
+to the driver.
 
 ### Structural verification, not golden figures — the ledger-isolation checks
 
@@ -533,352 +445,91 @@ the API path, rather than calling a backend function 1:1:
   Hierarchy tag here, exactly like Division — never a real position in
   the Items catalog tree. See `docs/pm-frontend-reference.md`.
 
-### Honest, current status
+### Current limits
 
-- Positional, command-free design (data/screen-registry/control
-  files, `--lint`, `--pretty`) is fully implemented and working, both
-  paths. 14 unit/integration tests
-  (`backend/scripts/step-runner.test.ts`), all passing.
-- `runStepViaUi` fails honestly (rather than silently reporting
-  success) when a screen has none of the four UI columns set — only a
-  subset of the tutorial's screen types currently have real UI wiring
-  (`ui_path`/`open_selector`/`field_selector`/`submit_selector`); the
-  rest are API-only today. `--fallback-to-api` covers this gap for
-  automated runs.
-- A known, confirmed UI bug (not a selector problem): creating two
-  locations back-to-back can leave the "+ New Location" button
-  unresponsive for ~30s after the first creation; the API-path
-  fallback correctly refuses to duplicate the already-created location
-  rather than making it worse, but does not repair the location's own
-  possibly-incomplete capacity structure.
-- `runStepViaUi` cannot yet distinguish a submission the browser
-  aborted client-side (`net::ERR_ABORTED`) from one that still left
-  correct server-side state — both have been observed to leave correct
-  state, but the function can't currently tell the difference itself.
-- The web interface (`/dev/step-runner`) and full UI wiring for every
-  screen type remain future work.
-- `--path text` is a purely generic driver (no per-screen code) and is
-  proven end to end for exactly one screen (`Login`) — see "`--path
-  text` — driving the real TUI, purely generically" above. Reaching
-  further needs `shared-fixtures/screens.csv`/`tutorial-steps.csv`'s
-  own row design brought in line with the TUI's own screens and menu
-  labels (see "Known gap: TUI screen granularity doesn't match
-  `screens.csv`"), and a real per-path `skip` mechanism before a
-  full-fixture `--path text` run is attempted.
-- The mixed-mode control file example (switching `--path` mid-run) is
-  not yet proven end to end — the API and UI paths do not currently
-  share browser session state, so a run that starts `api` and
-  switches to `ui` mid-sequence finds no logged-in session in the
-  freshly-launched browser.
-- A confirmed application gap, surfaced by the tutorial's POS steps:
-  no screen sets a persistent retail price on an item, so a POS sale with none ever
-  set defaults to $0.00; the only way to get a non-zero price today is typing it
-  directly into the cart line every time. The same gap applies per-currency: the
-  cart's default price doesn't distinguish currency even with a foreign-currency
-  terminal active, so a USD sale needs its own manually-typed price too.
+- Every screen the tutorials and standalone tests drive in the browser
+  has UI wiring; a screen without it fails (above) unless
+  `--fallback-to-api` is given.
+- A control file that switches `--path` mid-run does not carry the
+  login across: the `api` path and the browser do not share a session,
+  so a run that starts `api` and switches to `ui` finds the browser
+  logged out.
+- No screen sets an item's retail price (`retail_price_minor`), so a
+  POS sale of an item defaults to 0.00 unless a price is typed into the
+  cart line, in every currency.
 
-### Known gap: "Wine Retail Business"'s legacy Locations root
+### Selectors: click a header, not a toolbar that holds rows
 
-The "Wine Retail Business" demo fixture seeds its locations under a
-legacy, combined-name root (`"Wine Retail Business Locations"`, one
-entity) predating the modern per-business root convention
-(`PER_BUSINESS_ROOTS`: a plain `"Locations"` child of the business).
-`getOrganizationChart`'s `businessLocationNames` lookup and
-`setLocation`/`createEntity`'s "Locations child of this business"
-lookup both only recognize the modern shape, so for this one business
-the Business Setup tree shows no groups/locations at all, and
-creating or saving a location against it fails outright. Not fixed —
-migrating this large, pre-existing demo dataset is its own, separate,
-riskier undertaking. No test uses this business: Business Setup is
-tested against businesses the tests create (`business-setup-divisions`,
-`employee-second-location-schedule`, and the tutorial,
-`make test-e2e-tutorial-browser`).
+A bare CSS selector in an action sequence (no `key:`, `select:` or
+`maybe-click:` prefix) is `page.locator(action).click()`
+(`runActionSequence`), a click at the centre of the element. The
+Insert/Enter/Escape/Delete toolbar (`.card.list` in
+`routes/editor/+page.svelte`, `role="toolbar"` in
+`SelectableListEditor.svelte`) contains its rows, so once the list is
+long the centre is a row: the click selects that row, and on `/editor`
+the Edit panel's selects then come before the New form's, so
+`select >> nth=0` fills the wrong one. So an `open_selector` that only
+needs focus clicks a non-interactive child, such as
+`.card.list th:first-child;;key:Insert` (`Create Provider`,
+`Create Customer`): the header focuses the toolbar and is never a row.
 
-### Known gap: a bare-selector click in `open_selector` targets the center of its element, not a safe empty spot
-
-The Insert/Enter/Escape/Delete idiom's toolbar shell — both the
-hand-rolled `.card.list` div in `routes/editor/+page.svelte` and
-`SelectableListEditor.svelte`'s own `role="toolbar"` div — wraps its
-*rows*, not just its own empty chrome: `<div role="toolbar"
-tabindex="0" ...><table>...rows...</table></div>`. `runActionSequence`
-(`backend/scripts/step-runner.ts`) resolves a bare CSS selector (no
-`key:`/`select:`/`maybe-click:` prefix) as `page.locator(action).click()`
-— a real Playwright click at the *center of that element's bounding
-box*, not a `.focus()`. While the list behind the toolbar is empty or
-short, that center lands on blank padding (or the legend/hint text),
-which isn't itself clickable, so focus still lands on the toolbar div
-(the nearest focusable ancestor) exactly as intended, and Insert fires
-on the right handler. Once the list is long enough that the click
-center falls on an actual data row, the row's own `onclick` fires
-instead — in `editor/+page.svelte` this silently selects a real entity,
-which (since `selectedId != null`) mounts the Edit panel's own `Parent`/
-`Relation` `<select>` elements *ahead of* the New-entity form's, so a
-page-wide selector like `select >> nth=0` for a `screens.csv` field
-starts resolving to the wrong element entirely.
-
-This is exactly what broke `Create Provider`/`Create Customer`
-(`shared-fixtures/screens.csv`, `/editor`) the first time they were
-converted: by the point those two steps run in `tutorial-steps.csv`
-(deep into the tutorial, with the full entity tree already built),
-`[role="toolbar"][aria-keyshortcuts];;key:Insert` reliably clicked an
-existing row (observed: "Business Type") instead of empty space. With
-the wrong `Parent` select filled, `newParent` on the real New-entity
-form stayed empty, so `createNew()` fell through to plain
-`createEntity` (the `call-dispatch/entities.ts` dispatch key, via
-`POST /api/call`) instead of `createProvider`/`createCustomer` — silently creating a
-plain entity that never shows up as a provider, which only surfaced
-several steps later as an unrelated-looking `selectOption` timeout on
-`/items`' own provider dropdown. Fixed by pointing the `open_selector`
-at a genuinely non-interactive, stable spot instead —
-`.card.list th:first-child;;key:Insert` (a table header cell; clicking
-it still focuses the toolbar div via nearest-focusable-ancestor, but it
-can never be an actual data row).
-
-The same underlying fragility exists in principle wherever
-`SelectableListEditor`'s own `[role="toolbar"]` div is targeted by a
-bare-selector click in an `open_selector` while its list is non-empty —
-`hierarchy`/`translations`/`users`/`bank-accounts` never hit it only
-because every `screens.csv` row exercising their Insert forms happens
-while that particular list is still empty or short enough that the
-center-click lands clear of a row, not because the component itself is
-immune. A future fixture addition against one of those screens, once
-its list has real rows, should either reuse this same
-`<container> <non-interactive-child>` pattern (a legend, a header, or
-similar) instead of the bare toolbar selector, or scope the click to an
-element guaranteed to stay outside the row area.
-
-### Known gap (fixed): an inline Enter/Escape panel needs real focus on its own field, not whatever element opened it
-
-`StructureTreeNode.svelte`'s inline "Move…" picker (a sibling `<div
-class="move-panel">`, rendered only while `movingKey === node.key`, not
-a child of the `.node` div containing the "Move…" button that opens it)
-originally relied on keyboard focus already being somewhere inside the
-panel by the time Enter/Escape was pressed — it never moved focus there
-itself. In practice, after clicking "Move…", focus stays on that button
-(a real DOM sibling of the panel, so an Enter/Escape keydown bubbling
-from it can never reach the panel's own `onkeydown` handler at all); the
-event bubbles instead through `.node`'s own
-`onkeydown={(e) => { if (e.key === 'Enter') onSelect(node); }}`, so
-Enter was silently treated as "select this node" rather than "confirm
-the move." This reproduced identically for a real user clicking
-"Move…", selecting a destination from the dropdown with a mouse, and
-pressing Enter without an intervening Tab/click into the `<select>` —
-not a test-only artifact. Confirmed live (both via a standalone
-Playwright repro script against the dev servers and via the "Move Main
-Street Cellar To Division (ui)"/"Move Head Office To Division (ui)"
-`tutorial-steps.csv` steps, both of which failed with zero
-`/api/hierarchy/parent` network calls logged) that `document.activeElement`
-stayed the "Move…" `<button>` even after `selectOption()` set the
-`<select>`'s value. Fixed by giving the `<select>` a `bind:this` and
-adding an `$effect` that calls `.focus()` on it whenever
-`movingKey === node.key` becomes true — the same "auto-focus a freshly
-opened form's field" pattern used elsewhere, which both correctly
-improves the real-keyboard-user experience (the idiom's whole premise)
-and makes the panel's own `onMovePanelKeydown` the thing that actually
-receives Enter/Escape, regardless of exactly where the opening click
-left focus. The general lesson for any future Insert/Enter/Escape panel
-that isn't a strict DOM descendant of whatever button opens it: moving
-focus into the panel on open is not optional UX polish, it is what
-makes the panel's own keydown handler reachable at all.
+An inline panel opened by a button that is not its ancestor must move
+focus into itself on opening, or Enter and Escape go to the button's
+handlers instead. `StructureTreeNode.svelte`'s Move panel focuses its
+`<select>` when it opens (`moveSelectEl?.focus()`).
 
 ## Tutorial / minimal — `tutorial-steps.csv`
 
-The Tutorial fixture (`shared-fixtures/tutorial-steps.csv` +
-`tutorial-steps.control.csv`) drives a complete, from-scratch business
-lifecycle through the step runner — 62 steps at present, matching
-`docs/user-manual-ch3-tutorial.md`'s own chapter exactly. It genuinely
-runs across *two* real ledgers, not one: a single-item "Ice" stall
-trades for its first two months (one location, no divisions, **no
-category at all** — not even a "General" catch-all, via the real
-"Create Item No Category" screen/`addUncategorizedItem`, proving the
-system can genuinely operate with zero hierarchy), posts a real rent
-expense, then genuinely closes its books — visiting all three of its
-real Trial Balance/Profit and Loss/Balance Sheet report screens
-afterward, captured as real screenshots (`ice_trial_balance_after_close`,
-`ice_profit_and_loss_after_close`, `ice_balance_sheet_after_close`),
-not just API-level checks — and rolls over into a new ledger
-(`Actual 2027-28`) before a further capital injection funds growing
-into the full, multi-location wine retailer (via the Business
-Structure popup, now a step-by-step wizard — see
-`pm-frontend-reference.md`) — Head Office, an employee, two further
-items, a provider, a Purchase Order, a Cash Purchase, a Stock
-Transfer, two POS sales, a phoned-in Cash Sale to a named customer,
-and Storage/Container stock movements, all now posted into
-`Actual 2027-28`. It creates its own "Tutorial Wine Retail Business"
-from scratch and does not depend on, or interact with, any other demo
-business.
+The Tutorial fixture (`shared-fixtures/tutorial-steps.csv` and
+`tutorial-steps.control.csv`) builds one business from nothing, "Tutorial
+Wine Retail Business", in the order of the User Manual's Chapter 3
+(`docs/user-manual-ch3-tutorial.md`). It includes `common/business.csv`
+and `common/bank-account.csv` and then runs in two ledgers:
 
-**`Check Balance Sheet Balanced`** (`balance_sheet_balanced` in
-`VERIFY_REGISTRY`) is the newest verify — a thin wrapper on
-`getBalanceSheet`'s own `balanced` flag, mirroring
-`trial_balance_balanced`'s shape, added specifically so a real
-Balance Sheet screenshot could exist in the manual (it never did
-before this).
+1. **`Actual`**: a one-item Ice stall at one location, with no
+   category and no division (`Create Item No Category`), so the system
+   is shown working with no hierarchy at all. It records the owner's
+   capital, trades, pays rent, closes its books (`Close Books`) and
+   shows the Trial Balance, Profit and Loss and Balance Sheet after the
+   close (`ice_trial_balance_after_close`,
+   `ice_profit_and_loss_after_close`, `ice_balance_sheet_after_close`).
+2. **`Actual 2027-28`**, after `Create Ledger` and `Rollover To New
+   Period`: the business grows into a wine retailer through the
+   Business Structure popup (Head Office, divisions, departments,
+   employees, categories) and trades: items, a provider and a customer,
+   a purchase order, cash purchases and sales, a transfer, two POS
+   sales, and Storage and Container movements.
 
-**A real, confirmed regression found and fixed while adding the above**:
-`screens.csv`'s "Create Item" browser wiring (`select >> nth=0` for
-category) was stale against `items/+page.svelte`'s current tree-based
-UI, which has had no category `<select>` at all since that page's
-rewrite — any UI-path run of this step would genuinely hang. Confirmed
-directly by running it against a live browser session, not assumed.
-"Create Item No Category"'s own wiring was built and verified the same
-way (a real, live, isolated browser-driven check, not just the API
-path) before being trusted. The old, single "Create Item" (with a
-category) screen no longer exists at all: `items/+page.svelte`'s tree
-UI has no combined "new category + item in it" action any more, so
-creating a brand-new category is now its own real, separate screen
-(**`Create Category`** — Insert with nothing selected, via the shared
-`[role="toolbar"][aria-keyshortcuts]` selector, disambiguated from the
-top nav's own, unrelated `[role="toolbar"]` — see below) followed by
-**`Create Item Under <X> Category`** (select the category's own tree
-node by name, then Insert). Both are now real, live, browser-verified,
-and exercise Amber Ale (Beer) and Highland Single Malt (Whiskey, the
-category the Business Structure popup created a step earlier) in the
-fixture.
+Its checks are structural (next section) plus the P&L by item,
+division and category.
 
-**A second, deeper, real regression found while getting a genuinely
-clean browser-path run** (not merely assumed clean from an earlier
-session's commit message — the Makefile passes no
-`--fallback-to-api`, so a UI failure hard-fails rather than masking,
-and this run had in fact not been exercised cleanly in some time):
-business-scoping `getEntityTree(businessName)` (`backend/src/db.ts`,
-dispatched via `call-dispatch/entities.ts`'s `getEntityTree`) looked a business up via
-`WHERE name = ? AND parent_id IS NULL` — but no real business entity
-is ever a top-level, `parent_id IS NULL` row; every one sits under the
-real `"Businesses"` entity (the same, established pattern every other
-business lookup in `db.ts` already uses:
-`parent_id = (SELECT id FROM current_entities WHERE name = 'Businesses')`).
-The scoped query therefore matched no business, ever, and silently
-returned `[]` for every real business — confirmed directly via a live
-browser session reading its own fetched entities, not assumed. Fixed
-in `getEntityTree` itself, with a new regression test
-(`backend/test/db.test.ts`, "getEntityTree(businessName): scoped to
-one business's own subtree"). This had a second, real consequence:
-`items/+page.svelte`'s manufacturers/providers pickers derive from the
-same `entities` array the category/item tree uses — but manufacturers
-and providers are genuinely **global** entities (vendors live once,
-system-wide, never nested under any one business — see
-`api.ts`'s `createProvider`/`createCustomer`), so scoping `entities`
-to the business silently emptied both dropdowns. Fixed by fetching a
-second, separate, unscoped `globalEntities` alongside the business-
-scoped `entities`, used only for the manufacturers/providers filters.
+Rules the fixture follows, each for a reason found on the `ui` path:
 
-**Two further, real, pre-existing selector regressions found by the
-same clean-run effort**, both from earlier, unrelated session work
-that shifted a page's own `<select>` DOM order without updating
-`screens.csv`'s positional selectors: Close Books'
-`retainedEarningsAccount` (`select >> nth=0` → `nth=1`, after
-`setup/yearend/+page.svelte` gained its own "Reporting period"
-`<select>` ahead of it), and Set Item Cost and Pack Size's
-`providerName` (`select >> nth=2` → `nth=1`, once accounted for
-correctly against `items/+page.svelte`'s real, always-rendered
-"Add a source" form).
+- **`Create Ledger` is an `api`-kind screen.** No screen creates a
+  ledger on its own: the year-end page's rollover creates it
+  (`resolveRollover`). The API path needs the ledger first, so the
+  step calls `createLedgerSimple` on every path.
+- **`Switch Session` runs again after the rollover, with its `ledger`
+  field.** The trading screens have no ledger field (blank
+  `field_selector`; they read `session.current.ledgerName`), so the
+  session must point at `Actual 2027-28`. Choosing the ledger
+  explicitly (`select >> nth=1`) avoids racing the page's own default.
+- **A report checked as of a date gives that date.** The checks after
+  Close Books give `asOfDate` `2027-06-30`: a blank date is "all time"
+  for the verify but today's date in the page's date input, and a
+  Balance Sheet before the close date leaves out the closing entry.
+- **A screenshot of a screen with no `submit_selector` waits for the
+  network to be idle** (`runStepViaUi`), since such a report renders
+  after its last field changes, with nothing to wait on.
+- **`maybe-click:`** clears a state an earlier step left: after a POS
+  sale `/pos` shows the receipt until "New sale" is clicked, so `POS
+  Sale`'s `open_selector` starts with `maybe-click:` on that button.
 
-**A real, live-state bug in `/pos` itself**, not a selector problem:
-after a successful sale, the page shows a "Sale complete" receipt
-view in place of the register form (including its location `<select>`)
-until "New sale" is clicked — which silently blocked the fixture's own
-second, back-to-back POS Sale step. Fixed with a new, small
-`runActionSequence` primitive, `maybe-click:<selector>` (clicks only
-if the element is visible within a short, real wait, otherwise a true
-no-op — never fails a step when the element genuinely isn't there),
-wired into POS Sale's own `open_selector`.
-
-**`Create Ledger` has no real UI wiring, by design, not by omission**:
-no standalone "create a ledger" screen exists anywhere in the app —
-the only place a new ledger is ever created is inline, inside the
-Rollover screen's own flow (`setup/yearend/+page.svelte`'s
-`resolveRollover` calls `createLedger` itself when "new ledger" is
-chosen). The API path still needs this step on its own first (the
-API-only `rolloverToNewPeriodSimple` doesn't create the ledger
-itself); `tutorial-steps.control.csv` pins this one row's own `path`
-column to `api`, overriding `--path ui` for just this step, rather
-than inventing UI wiring for a screen that doesn't and shouldn't
-exist.
-
-**Genuinely trading in a second ledger, both paths**: every ordinary
-trading screen (Cash Purchase, Cash Sale, POS Sale, Transfer Items,
-Create Purchase Order, Receive Into Storage, Open Container) now takes
-an explicit `ledger` field in `screens.csv`/the data file — on the API
-path this is simply passed straight through (`a.ledger || 'Actual'`,
-the same fallback already used throughout `step-runner.ts`'s
-`API_REGISTRY`); on the UI path, these screens have no ledger
-field/selector of their own at all (blank `field_selector`) because
-the real screens themselves always read `session.current.ledgerName`
-directly. The fixture instead submits the real **Switch Session**
-screen a *second* time, right after the rollover — not a no-op: the
-real `/session` page defaults its ledger `<select>` to
-`getActiveLedger(business)`, which the rollover itself just moved to
-the new ledger, so re-submitting this one real screen is what
-genuinely points every later UI-driven trading screen at
-`Actual 2027-28` instead of `Actual`. `screens.csv`'s own "Switch
-Session" row now has an explicit second field (`ledger`, its own
-`select >> nth=1`) so this choice is driven deliberately rather than
-left to the page's own async default and a fixed timing margin — found
-directly: without it, a race between the dropdown's own
-`getActiveLedger` network call and the step runner's next click could
-leave the session pointed at the old ledger.
-
-**A real screenshot-capture bug, found by actually looking at the
-rendered manual, not just at the step runner's own ✅**: the three
-post-close report screenshots (`ice_trial_balance_after_close`,
-`ice_profit_and_loss_after_close`, `ice_balance_sheet_after_close`)
-were, for a time, genuinely capturing the app's own bootstrap/loading
-splash (the "Better Brighter Multi-Ledger" screen with its spinner),
-not the report — the Profit and Loss and Balance Sheet pages fetch and
-render reactively after the last field change, with no submit button
-to wait on, and `runStepViaUi`'s existing 200ms-per-field margin
-wasn't always enough for that fetch-and-render to finish before the
-screenshot fired. Found only by rendering the rebuilt PDF to images
-and reading every page — the step runner's own ✅ never notices a
-screenshot is wrong, only that the step didn't throw. Fixed by adding
-a real `page.waitForLoadState('networkidle', { timeout: 5000 })`
-immediately before any screenshot of a `screen_kind: 'data'` screen
-that has no `submit_selector` (`runStepViaUi`, `step-runner.ts`) —
-scoped to exactly that case so ordinary submit-driven screens (which
-already have their own 2000ms post-submit margin) aren't slowed down.
-
-**A second, genuinely unbalanced Balance Sheet, caught the same way**:
-once the screenshot bug above was fixed, the real, rendered Balance
-Sheet screenshot showed **"Assets ≠ Liabilities + Equity"** in red —
-not a display bug, a real, correct report telling the truth about a
-fixture mistake. `tutorial-steps.csv`'s "Check Trial Balance Balanced"
-and "Check Balance Sheet Balanced" rows (right after Close Books) both
-left their `asOfDate` field blank, so the UI's `<input type=date>`
-fell back to its own default, the real wall-clock date the fixture
-happened to run on (e.g. `2026-10-25`) — which sits *before* this
-business's own fictional close date, `2027-06-30`. Queried as of a
-date before the close, the Balance Sheet correctly excludes the
-future-dated Close Books entry and its Retained Earnings line
-entirely, so Equity understates Assets by exactly the period's net
-income. The automated `balance_sheet_balanced`/`trial_balance_balanced`
-verifies never caught this because they pass `a.asOfDate || undefined`
-straight to `getBalanceSheet`/`getTrialBalance` — `undefined` means
-"no cutoff, all time," which *does* legitimately include the close
-entry regardless of today's real date, so the verify and the UI
-screenshot were silently checking two different things. Fixed by
-giving both rows an explicit `"2027-06-30"` `asOfDate` in
-`tutorial-steps.csv`, so the screenshot shows the same, real, as-of
-state the narrative describes (Trial Balance now also genuinely shows
-a closed **Retained Earnings** line instead of the still-open Sales/
-Rent accounts).
-
-**A real, invented-number documentation bug, found while explaining
-the (now-correct) screenshots**: the manual's own prose claimed a
-"$1,000.00 gross profit… $900.00 net income" for the Ice stall — but
-the real, live Profit and Loss has always said **$1,900.00** net
-income (a real $2,000.00 in Ice sales, less $100.00 of rent). The
-$900 figure assumed Ice's $1,000.00 purchase cost was expensed as
-Cost of Goods Sold; it genuinely isn't — `completeCashPurchase`
-(`backend/src/db.ts`) books a cash purchase straight to the item's own
-Inventory account (an asset), and `completePosSale`'s own COGS leg
-(`getItemUnitCostMinor`) is skipped entirely whenever an item has no
-registered unit cost, which Ice deliberately never gets (see "Opening
-with one location and one item" above). So Ice's $1,000.00 sits
-unexpensed in Inventory on the Balance Sheet for this whole first
-year, and the real net income is pure Sales less Rent. The prose (and
-the Close Books/post-close paragraphs around it) now says $1,900.00
-and explains why, rather than asserting an unverified number.
+The Ice stall's net income is $1,900.00 ($2,000.00 of sales less
+$100.00 rent): `completeCashPurchase` books the purchase to the item's
+Inventory account, and `completePosSale` posts no cost of sales for an
+item with no unit cost, which Ice never has. Its $1,000.00 stays in
+Inventory.
 
 ```
 make test-e2e-tutorial            # fast — API path only, no browser
@@ -886,32 +537,18 @@ make test-e2e-tutorial-browser    # same fixture, driven through a real browser
 make test-e2e-tutorial-docs       # both of the above, plus every manual they feed, rebuilt
 ```
 
-The first two reset the database first (`reset-db`), since the
-fixture always starts from a clean slate. `test-e2e-tutorial-browser`
-depends on `ensure-servers` (reuses already-healthy backend/frontend
-dev servers, starting whichever one isn't already up).
-`test-e2e-tutorial-docs` is the one, real composition of three,
-already-existing targets — `test-e2e-tutorial` (the fast API path),
-`tutorial-section-user-manual` (which itself depends on
-`test-e2e-tutorial-browser`, then rebuilds the Chapter 3 PDF from the
-screenshots that run just captured), and `check-docs-coverage` (which
-regenerates `docs/programmer-manual.md` before checking it) — so the
-one target that runs the Tutorial is also the one that brings every
-manual it feeds back up to date from that exact, same, fresh run,
-never a separate, easy-to-forget manual step afterward. Chapter 3 of
-the user manual says its own screenshots are "real and current,
-captured directly from a live, passing run of this exact tutorial" —
-true only once this target (or its two underlying pieces) actually
-runs.
+The first two reset the database first (`reset-db`).
+`test-e2e-tutorial-browser` also needs the servers (`ensure-servers`
+reuses healthy ones and starts the others). `test-e2e-tutorial-docs`
+runs `test-e2e-tutorial`, then `tutorial-section-user-manual` (which
+runs `test-e2e-tutorial-browser` and rebuilds the Chapter 3 PDF from
+its screenshots), then `check-docs-coverage` (which regenerates
+`docs/programmer-manual.md`), so the manual's screenshots come from the
+run.
 
-**Known gap**: the Tutorial fixture still covers only a fraction of
-the User Manual's own Chapter 3 walkthrough — a Division, a Warehouse
-created through Business Setup, an Employee, a location's own static
-capacity, an item's own cost/price/pack size, a Purchase Order's own
-full lifecycle, and the owner's opening-capital entry are either
-partially or not yet expressed, mostly because no screen type or field
-existed yet to express them. See `docs/realistic-tutorial-e2e-plan.md`
-for the itemized remaining gap.
+Chapter 3 describes more than the fixture does: no step sets a
+location's capacity, creates a warehouse through Business Setup, or
+receives a purchase order (`docs/realistic-tutorial-e2e-plan.md`).
 
 ## Full / volume — the Wine Retail Business simulation
 
@@ -919,9 +556,8 @@ for the itemized remaining gap.
 make test-e2e
 ```
 
-This is the answer to "does the whole system actually work together
-correctly against large-scale data" — not a smoke test, a correctness
-check against **exact, deterministic expected results**.
+The month-long simulation checks the whole system against exact,
+deterministic figures.
 
 ### Why exact numbers, not ranges
 
@@ -934,12 +570,11 @@ a unit test checks an exact expected value.
 
 `make test-e2e` runs, in order:
 
-1. `make reset-db` — a clean, empty database, reinitialized from
-   `backend/schema/00-core.sql`/`30-coa-links.sql` plus the unconditional
-   TypeScript seeding in `seedRemainingData()` (`db-seed.ts`).
-2. The simulation — a full month of real trading for Wine Retail
-   Business, posted through the same functions the real frontend
-   calls (never raw SQL). See `docs/simulation-prompt.md` for the full
+1. `make reset-db`: a new database from `backend/schema/00-core.sql`
+   and `30-coa-links.sql` plus `seedRemainingData()` (`db-seed.ts`),
+   with no business.
+2. The simulation: it creates Wine Retail Business and trades for a
+   month through the functions the frontend calls (never raw SQL). See `docs/simulation-prompt.md` for the full
    specification of what it models (realistic carton-based purchasing
    with per-category carton sizes, cold-chain routing for sparkling
    wine and lager/stout beer, vendor bills actually paid on net terms,
@@ -988,29 +623,16 @@ from opening stock have no COGS account, hence 209 against 212. The
 three customer returns are credit notes that reverse the original sale's
 own Sales account, which is why income is below the sales report's total.
 
-If `make test-e2e` reports every one of these as `PASS`, the system's
-core accounting behavior — per-product revenue and COGS recognition,
-cash movement on both the sales and vendor-payment sides, a genuinely
-balancing Trial Balance and Balance Sheet, and a correct sales report
-— is all working together correctly against substantial data.
-
-The ledger-scoped figures above (Cash and Bank, in particular) must be
-read via `getTrialBalance`, not `account.balance_minor` directly —
-that column is an intentionally cross-business running total
-(documented at `getBusinessReports` in `db.ts`), since `Cash and Bank`
-is one shared entity across every business in the app, not one per
-business.
+Cash and Bank is read through `getTrialBalance` for the ledger, not
+from `account.balance_minor`, which sums every business's postings to
+that shared account (*Testing: Unit*, "Shared accounts").
 
 ### If a check fails
 
-- **An unintentional regression**: investigate directly — query the
-  current data, don't assume either the old or new number is right
-  without checking.
-- **A deliberate change**: re-run `make test-e2e`, read off the new
-  values, and update **both** `verify-simulation.ts` and this table
-  together. A verification script checked against stale expected
-  values is worse than no verification, since it gives false
-  confidence.
+- **Not intended**: find the cause in the data; neither the old nor
+  the new figure is right until explained.
+- **Intended**: run `make test-e2e`, and update `verify-simulation.ts`
+  and this table together with the new figures.
 
 ### Full-year simulation data generation — `make demo-full-year`
 
@@ -1018,8 +640,7 @@ business.
 make demo-full-year
 ```
 
-Builds on the same month-long simulation to produce a fuller, year-
-shaped demo dataset, run in order:
+A fuller demo dataset, built in order:
 
 1. `reset-db`.
 2. The same one-month simulation (`simulate-wine-retail-month.ts`).
@@ -1031,34 +652,8 @@ shaped demo dataset, run in order:
 5. `verify-db-consistency.ts` — checks balanced entries, no orphans,
    referential integrity.
 
-Kept as its own target, deliberately separate from `test-e2e` — it
-changes the exact figures `verify-simulation.ts` checks against. Run
-it when a fuller dataset is wanted to explore or demo against, not as
-part of routine verification.
-
-### Language/i18n testing demo businesses
-
-Four additional demo businesses exist specifically to exercise the
-application's translation mechanism against non-English sample data,
-separately from the core vocabulary-vs-sample-data architecture (see
-the Domain Reference chapter) — each one's own account and product
-names are genuinely written in its own language:
-
-| Demo business | Modeled language/country |
-|---|---|
-| BMW M GmbH | German — Germany |
-| Peugeot Citroën Sochaux SNC | French — France |
-| Ditta Italiana Srl | Italian — Italy |
-| Schweizer KMU AG | German — Switzerland |
-
-No test uses them: each test builds the business it needs (a test of
-translated text, `help-text-in-german`, gives its own words their
-German translations). Current gap: their sample data isn't yet cleanly
-separated the way it once was as its own SQL file — the German BMW /
-French Peugeot/Ditta/Schweizer demo data and the per-language
-vocabulary/translations it depends on are both seeded together in
-TypeScript (`seedRemainingData()`, `backend/src/db-seed.ts`), not split
-into separate files at all any more.
+It is not part of `test-e2e`: it changes the figures
+`verify-simulation.ts` checks.
 
 ### A minimal, backend-only business-lifecycle proof
 
@@ -1066,20 +661,16 @@ into separate files at all any more.
 make proof-year-end
 ```
 
-A minimal, fast, backend-only proof of a complete business lifecycle:
-locations of each type, staff, an assembly, a full
-order→receive→transfer→sell→stocktake→year-end-close cycle. No
-browser — this is the right level to prove a lifecycle like this at.
+`backend/scripts/proof-year-end-lifecycle.ts`, backend only: locations
+of each type, staff, an assembly, and order, receive, transfer, sell,
+stock take and year-end close.
 
 ## Manufacturing tutorial — a second, real business
 
-A wholly separate real business ("Tutorial Window & Door Manufacturing"),
-proving the same `step-runner.ts`/`screens.csv` mechanism, and the Recipe-
-widened BOM (`stageBomComponent`/`postBomComponents`/`getBomComponents` —
-see Part 3's domain reference), work identically for a genuinely
-different kind of business, not just the Retail one above. Narrated for
-the person using the application in
-`docs/user-manual-ch4-manufacturing-tutorial.md`.
+A second business, "Tutorial Window & Door Manufacturing", run by the
+same step runner, exercising the bill of materials
+(`stageBomComponent`, `postBomComponents`, `getBomComponents`). The
+User Manual narrates it in `docs/user-manual-ch4-manufacturing-tutorial.md`.
 
 ```
 make test-e2e-manufacturing-tutorial          # fast — API path only, no browser
@@ -1087,56 +678,35 @@ make test-e2e-manufacturing-tutorial-browser  # same fixture, driven through a r
 make test-e2e-manufacturing-full              # the "full" tier — see below
 ```
 
-Fixture files: `shared-fixtures/manufacturing-tutorial-steps.csv` +
-`.control.csv` — the exact, same positional-CSV shape as the Retail
-tutorial's own `tutorial-steps.csv`, read by the exact, same
-`step-runner.ts`. New `API_REGISTRY` entries this fixture needed:
-`ensureItemInventoryAccountSimple` (provisions a real, Balance-Sheet-
-classified Inventory account for an item — see the note below),
-`setBomComponentSimple` (the exact, real, Material-only
-`stageBomComponent`/`postBomComponents` pair the pre-existing, unmodified
-`items/+page.svelte` "Bill of Materials" UI card already calls — this
-chapter needed zero frontend changes), and `receiveStockQuantitySimple`/
-`dispatchStockQuantitySimple` (`db-stock.ts`'s own `receiveItems`/
-`dispatchItems`, called one line at a time). New `VERIFY_REGISTRY`
-entries: `bom_components_recorded`, `stock_on_hand_nonnegative`.
+Fixture: `shared-fixtures/manufacturing-tutorial-steps.csv` and its
+control file. Its `API_REGISTRY` entries: `ensureItemInventoryAccountSimple`,
+`setBomComponentSimple` (the `stageBomComponent`/`postBomComponents`
+pair the Items page's Bill of Materials card calls), and
+`receiveStockQuantitySimple`/`dispatchStockQuantitySimple`
+(`receiveItems`/`dispatchItems`, one line at a time). Its verifies:
+`bom_components_recorded`, `stock_on_hand_nonnegative`.
 
-The fixture simulates assembly itself as a real stock dispatch (raw
-materials out of "Raw Materials Store") plus a real stock receive
-(finished assemblies into "Finished Goods Store"), using these same,
-existing `receiveItems`/`dispatchItems` functions — deliberately never a
-new "Assemble" posting action. A real reclassification journal entry per
-assembly moves its own, real, BOM-computed cost from the consumed raw
-materials' own accounts into the assembly's own account, using the exact,
-same "an item is itself a real, postable account" convention
-`db-journal.ts`'s own `postOrderReceipt`/`postOrderDispatch` already use
-(`asAccountName(staged.item)`).
+Assembly is a dispatch of raw materials from "Raw Materials Store" and a
+receipt of finished assemblies into "Finished Goods Store", with a
+journal entry per assembly moving the BOM cost from the materials'
+accounts to the assembly's (an item is a postable account,
+`asAccountName(staged.item)`, as in `postOrderReceipt` and
+`postOrderDispatch`). There is no separate assemble action.
 
-**A real, confirmed gap, found live while building this chapter, and its
-fix**: posting a journal line directly to a bare item name, before that
-item has ever been given a real Chart-of-Accounts parent, still succeeds
-— the name resolves to the item entity itself, and the entry still posts
-and still balances the Trial Balance — but that entity was never parented
-under the business's own CoA "Inventory" node, so the posted value never
-reaches the Balance Sheet's own Asset walk (Trial Balance balances;
-Assets stop reconciling to Liabilities + Equity). The fix: call `db.ts`'s
-own `ensureItemInventoryAccount(itemName, userId, undefined, business)`
-once, immediately after creating an item and before its first real $
-posting — the exact, real mechanism POS/Purchase-Order flows already rely
-on. Calling it late, after a bad posting has already happened, does not
-retroactively fix it — it only creates a second, duplicate, differently-
-parented entity of the same name, which is worse. Both this fixture and
-`simulate-manufacturing-cycles.ts` (below) call it up front, right after
-every item is created.
+Each item gets its Inventory account (`ensureItemInventoryAccount(itemName,
+userId, undefined, business)`) right after it is created and before
+anything is posted to it. A line posted to an item with no account
+parent still balances the Trial Balance, but the item is not under the
+business's Inventory, so the Balance Sheet stops balancing; calling it
+afterwards makes a second entity of the same name rather than fixing
+the first. The fixture and `simulate-manufacturing-cycles.ts` both call
+it first.
 
 ### Full / volume — the Manufacturing cycle simulation
 
-A golden-figure volume simulation for Manufacturing, like the Wine
-Retail Business one below, is not built yet. This chapter's "full"
-tier is `backend/scripts/simulate-manufacturing-cycles.ts` —
-a real, looped simulation (3 repeated purchase/assemble/sell cycles
-against one fresh db), verified entirely via computed invariants, never
-a hardcoded dollar figure: the Trial Balance balances; no on-hand
+`backend/scripts/simulate-manufacturing-cycles.ts` runs three
+purchase, assemble and sell cycles on one new database and checks
+computed invariants, not fixed figures: the Trial Balance balances; no on-hand
 quantity anywhere ever goes negative; each raw material's own real
 leftover buffer stock, after 3 cycles, exactly matches
 `(purchased − consumed) × cycles`, computed from the same, real BOM
@@ -1148,12 +718,9 @@ tsx backend/scripts/simulate-manufacturing-cycles.ts`.
 
 ## Project Builder tutorial — a third, real business
 
-A third, wholly separate real business ("Tutorial Dwelling
-Construction"), proving the same `step-runner.ts`/`screens.csv`
-mechanism, and the Recipe/Plant/Skill/Prototype/Live Project/Milestone/
-scheduling-contention engine (see `docs/pm-project-builder.md` for the
-full mechanism), work together end to end. Narrated for the person
-using the application in
+A third business, "Tutorial Dwelling Construction", exercising
+recipes, plant, skills, prototypes, live projects, milestones and
+scheduling (*Project Builder*). The User Manual narrates it in
 `docs/user-manual-ch5-project-builder-tutorial.md`.
 
 ```
@@ -1162,10 +729,8 @@ make test-e2e-project-builder-tutorial-browser  # same fixture, driven through a
 make test-e2e-project-builder-full              # the "full" tier — see below
 ```
 
-Fixture files: `shared-fixtures/project-builder-tutorial-steps.csv` +
-`.control.csv` (93 steps) — the exact, same positional-CSV shape every
-other tutorial fixture uses, read by the exact, same `step-runner.ts`.
-New `API_REGISTRY` entries this fixture needed: `createPlantItemSimple`/
+Fixture: `shared-fixtures/project-builder-tutorial-steps.csv` and its
+control file (87 steps). Its `API_REGISTRY` entries: `createPlantItemSimple`/
 `ensureSkillSimple`/`tagSkillSimple`/`setEmployeeWageSimple` (Plant and
 Skill setup); `createPrototypeSimple`/`addPrototypeLineSimple`/
 `updatePrototypeLineSimple` (the Prototype library); `instantiateProjectProposalSimple`/
@@ -1192,31 +757,11 @@ Project A a positive margin and Project B a negative one
 Medium Dwelling template's own Tower Crane line is confirmed via
 `prototype_line_updated`.
 
-**A real, found-and-fixed bug surfaced by actually running this
-fixture**: `getOpenProjectClockEntity` (`backend/src/db-journal.ts`)
-parsed a clock entity's own name (`Clocked In — <po reference> —
-<project expense account> — <clocked-in-at>`) with a naive, fixed 4-way
-`split(' — ')` — which silently misparsed the moment a real project
-expense account name (`provisionProjectProfitCenter`'s own
-`${projectName} — Labour & Plant` naming convention) contained its own
-`" — "`, producing `NaN` hours worked and a `NOT NULL` constraint failure
-on `clockOutOfProject`/`clockPlantOut`. Fixed by parsing from both ends
-(`poReference` is always the second segment, `clockedInAt` always the
-last, everything in between is the real account name) rather than a fixed
-positional split — see `docs/pm-project-builder.md` for the full account.
-Locked in with a permanent unit test in `backend/test/db.test.ts`
-exercising both the Employee and Plant clock paths against a real account
-name containing `" — "`, not just a disposable verify-then-delete script.
-
 ### Full / volume — the Project Builder cycle simulation
 
-A golden-figure volume simulation for Project Builder, like the Wine
-Retail Business one below, is not built yet. This chapter's "full"
-tier is
-`backend/scripts/simulate-project-builder-cycles.ts` — a real, looped
-simulation (3 repeated overlapping-project-pair cycles, each in its own
-non-overlapping two-year date window, against one fresh db), verified
-entirely via computed invariants, never a hardcoded dollar figure: the
+`backend/scripts/simulate-project-builder-cycles.ts` runs three cycles
+of an overlapping pair of projects, each cycle in its own two-year
+window, on one new database, and checks computed invariants: the
 Trial Balance balances; every Profit Center's own totals reconcile to its
 own project's postings only; a real Schedule Risk is raised exactly where
 a real resource double-booking was engineered in that cycle, and nowhere

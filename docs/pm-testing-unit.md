@@ -1,33 +1,26 @@
 # Testing: Unit, Sanity, and Compile-Level
 
-Two genuinely different kinds of testing exist in this project. This
-chapter covers everything below the browser: the testing pyramid's
-lower levels, the unit-test suite, its fixture framework, and the
-compile/type/lint checks. The test-runner, the Tutorial fixture, and
-the full-volume/full-year simulation are covered in the next chapter.
+This chapter covers the tests below the browser: the unit tests, their
+fixtures, and the compile and structural checks. The step runner, the
+tutorials and the simulations are in *Testing: The Test-Runner*.
 
 ## The testing pyramid — pick the lowest level that can prove it
 
-Before reaching for Playwright/browser testing, always ask whether the
-thing being tested is provably backend-only. If so, reproduce and
-verify it at the lowest possible level:
+Test a behaviour at the lowest level that can show it:
 
-1. **Database level.** Raw SQL directly against the real schema —
-   `INSERT`/`UPDATE` statements hitting real tables, checking that
-   views and triggers produce the right result. No TypeScript. The
-   fastest, most isolated layer.
-2. **Backend function level.** Calling `db.ts`/`db-stock.ts` functions
-   directly — no HTTP, no browser. Milliseconds, not minutes.
-3. **HTTP/API level.** Real requests against the real Express routes.
-4. **Browser/E2E level (Playwright).** Reserved for what is genuinely,
-   irreducibly about the UI itself — layout, RTL mirroring, translation
-   rendering, interactive widgets.
+1. **Database**: SQL against the schema, checking what its views and
+   `INSTEAD OF` triggers produce.
+2. **Backend function**: calling `db.ts`, `db-stock.ts` and the other
+   modules directly, with no HTTP (milliseconds a test).
+3. **HTTP**: requests to the Express server (`backend/src/server.ts`),
+   as the step runner's `api` path makes them.
+4. **Browser**: the step runner's `ui` path, which drives the pages with
+   Playwright, for what only the screen can show (layout, right-to-left
+   mirroring, translations, interactive widgets). There are no
+   hand-written Playwright specs (`check-step-tests`).
 
-**Shared ASCII fixtures across every level.** When one scenario needs
-testing at more than one level, every level reads the exact same,
-small, named ASCII fixture (`shared-fixtures/*.csv`, read identically
-by backend scripts and Playwright tests) — never a separate, per-level
-copy of "similar enough" test data.
+A scenario tested at more than one level uses the same data: the step
+runner's CSV files in `shared-fixtures/` run unchanged on every path.
 
 ## The one non-negotiable check every transaction must pass
 
@@ -80,63 +73,53 @@ for (next chapter).
 
 ## The fixture framework — `backend/test/fixtures.ts`
 
-`test/db.test.ts` is the application's single backend unit-test file.
-Every test creates its own, uniquely-named, real business, then
-layers on only the specific fixtures it needs — the one absolute
-rule: **no test anywhere in this suite reads or writes the shared
-`'admin'` business, or any other globally-seeded business or
-account.**
+The backend unit tests are `backend/test/*.test.ts`: `db.test.ts` (most
+of the backend), `cube.test.ts`, `call-dispatch.test.ts`, `auth.test.ts`,
+`application-config.test.ts`, `core.test.ts` and `core-api.test.ts` (the
+core middleware), and `memory-entity-driver.test.ts`; the step runner's
+own tests are `backend/scripts/step-runner.test.ts`. Each test makes
+its own uniquely named business with the fixtures below and reads or
+writes nothing it did not create. No business is seeded, so there is no
+shared business to touch.
 
 ### Why real fixtures, not fakes
 
-Every helper in `fixtures.ts` is a thin, named wrapper around a real
-`db.ts` production function — never a cut-down, test-only substitute:
+Every helper in `fixtures.ts` calls the production function itself,
+never a test-only substitute:
 
-- **`freshBusiness(hint, opts?)`** calls the real `createBusiness` —
-  the exact function the setup wizard itself calls — and returns the
-  real `{ business, actualLedger, budgetLedger }` it creates. `hint`
-  becomes a readable name prefix (`'Equity'`, `'Tier/Leaf Test'`); the
-  final name carries a collision-free suffix (a counter plus a few
-  random characters), so two tests run in any order, or concurrently,
-  can never collide on the same business name.
-- **`freshLocation`**, **`freshItem`**, **`freshHierarchyValue`** are
-  the same pattern one level down: each calls the real
-  `createAndConfigureLocation`, `createItem`, or
-  `ensureHierarchyGrouping`/`ensureHierarchyValue`, pre-filled with
-  sensible, overridable defaults (a location defaults to an ordinary
-  retail outlet in Adelaide; `freshItem` always creates the item flat,
-  directly under the business's `Items` root — the same, real,
-  category-free path `createItem` always uses — since Category is a
-  separate, optional `Hierarchy` tag now, never a required real
-  position in the Items catalog tree; a test that specifically needs a
-  tagged category calls `freshHierarchyValue(business, 'Category',
-  hint)` and tags the item itself with `setHierarchyParent`).
+- **`freshBusiness(hint, opts?)`** calls `createBusiness`, as the New
+  Business screen does, and returns `{ business, actualLedger,
+  budgetLedger }`. The name is `hint` plus a unique suffix
+  (`uniqueName`), so tests never collide in any order.
+- **`freshLocation`**, **`freshDepartment`**, **`freshEmployee`**,
+  **`freshItem`**, **`freshHierarchyValue`** call
+  `createAndConfigureLocation` (a retail outlet in Adelaide unless
+  overridden), `createAndConfigureDepartment`, `createEmployee`,
+  `createItem` (directly under the business's `Items` root), and
+  `ensureHierarchyGrouping`/`ensureHierarchyValue`. A test that needs a
+  categorised item makes a `Category` value with `freshHierarchyValue`
+  and tags the item with `setHierarchyParent`.
 - **`getAccountBalance`**, **`findChild`**, **`findByName`**,
-  **`coaCategoryRoot`** are read-side helpers — thin wrappers around
-  one repeated query shape (walk `Businesses → <business> → Chart of
-  Accounts → <category>`, or find one named child in a
-  `getEntityTree()` result).
-- **`withBusinessSession(biz, fn)`** runs `fn` with `biz` as the
-  current session context, for the small number of functions
-  (`setItemLocationLevels` and similar) that read
-  `Session.Business`/`Session.UserId`/`Session.Ledger` directly rather
-  than taking them as explicit parameters.
+  **`coaCategoryRoot`** read: an account's `balance_minor` and currency,
+  a named child in a `getEntityTree()` result, and a business's chart
+  category (`Businesses` › business › `Chart of Accounts` › category).
+- **`withBusinessSession(biz, fn)`** runs `fn` inside a session context
+  for `biz` (`runInSessionContext`), for functions that read
+  `Session.Business`, such as `setItemLocationLevels` and
+  `createStockTake`.
 
-### The one isolation hazard: the Chart-of-Accounts prototype fallback
+### Shared accounts
 
-A business created **without** a `coaPrototype` gets a genuinely empty
-Chart of Accounts. A prototype-tagged account name like `'Cash and
-Bank'` or `'Sales Revenue'` then falls back, by a documented
-`COALESCE` in `post_journal_entry`'s own trigger (`schema/00-core.sql`
-and `copyChartOfAccountsInto`'s comments in `db.ts`), to the **one,
-single, global template copy** — shared across every other business
-that also omitted a prototype. A fixture business that will stage or
-post to any such named account must pass `coaPrototype: 'English CoA'`
-(the built-in prototype every demo business already uses) for true
-per-test isolation. `freshBusiness` defaults to `'English CoA'` for
-exactly this reason; a test passes `coaPrototype: undefined` only when
-it exercises nothing but bare entity-tree/structural mechanics, with
-no named financial account anywhere in it.
+A business's chart copies its groups and its prototype's leaves, but
+universal leaves such as `Cash and Bank` are one entity shared by every
+business (*The Entity Model*, "Chart of Accounts"). Their postings are
+kept apart by business and ledger, but their `account.balance_minor`
+is the sum over all businesses. So a test checks a shared account
+through a ledger-scoped read (`getTrialBalance`, `getBalanceSheet`,
+`getLedgerBalances`), and uses `getAccountBalance` only for an account
+of its own business. `freshBusiness` uses the `English CoA` prototype
+unless `coaPrototype` is given; `coaPrototype: undefined` gives a chart
+of groups and universal leaves only.
 
 ### The database-connection ordering hazard
 
@@ -148,26 +131,24 @@ SQLite connection opens against the right, isolated file:
 ```ts
 const tmpDbPath = path.join(os.tmpdir(), `sql-ledger-ts-test-${process.pid}-${Date.now()}.sqlite`);
 process.env.DB_PATH = tmpDbPath;
-process.env.SEED_DEMO_BUSINESSES = 'false';
 
 const db = await import('../src/db.ts');
 const fx = makeFixtures(db);
 ```
 
-A static, eager `import { ... } from '../src/db.ts'` at the top of
-`fixtures.ts` itself would race that assignment and silently reconnect
-to the wrong database (or none), depending on module-resolution
-timing — so `fixtures.ts` instead takes the already-imported module in
-as a plain argument (`DbModule = typeof import('../src/db.ts')`), and
-every test file repeats the same `DB_PATH`-then-dynamic-import
-sequence for its own, independent temp database. `after(() => ...)`
-deletes the temp `.sqlite`/`-wal`/`-shm` files once the file's tests
-finish.
+Static imports run before any statement, so an `import` of `db.ts` at
+the top of a test file or of `fixtures.ts` would open the default
+database. `fixtures.ts` therefore takes the module as an argument
+(`DbModule = typeof import('../src/db.ts')`), and every test file sets
+`DB_PATH` and then imports dynamically, each with its own temporary
+database; any other module that opens the database (`primitives.ts`,
+`auth.ts`) is imported the same way. `after(() => ...)` deletes the
+`.sqlite`, `-wal` and `-shm` files.
 
 ### A worked example
 
 ```ts
-test('a business can genuinely be named "Equity" ... ', () => {
+test('a business can be named "Equity" ...', () => {
   const biz = fx.freshBusiness('Equity');
   const loc = fx.freshLocation(biz.business, 'Main Store');
   const { itemName } = fx.freshItem(biz.business, 'Widget');
@@ -179,25 +160,26 @@ test('a business can genuinely be named "Equity" ... ', () => {
 });
 ```
 
-Nothing here is shared with any other test in the file: the business,
-location, and item names are all freshly suffixed, so this test can
-run first, last, or concurrently with every other test and never
-observe — or cause — a collision.
+The business, location and item are this test's own, so it can run in
+any order with the others. (`Cash and Bank` is shared, so a real test
+would read it through a ledger-scoped report; see "Shared accounts".)
 
 ## Compile-level and sanity checks
 
 ```
-make check-backend-types     # tsc --noEmit over backend/
+make check-backend-types     # tsc over backend/src and every backend script
 make check-frontend          # svelte-check over frontend/
-make check-unused            # knip — unused exports/files/deps
-make check-db-consistency    # verify-db-consistency.ts — balanced entries, no orphans, referential integrity
+make check-unused            # tsc noUnusedLocals over src/, test/ and the step runner
+make check-db-consistency    # verify-db-consistency.ts against a database
 make check-function-inventory
 make check-docs-coverage
 make check-no-python
-make check-cycles            # import-cycle check
+make check-cycles            # import cycles are exactly the listed ones
 make check-schema-table-count
+make knip                    # backend exports nothing imports, files nothing reaches
 ```
 
-These are the project's current compile-time/structural safety net —
-no runtime data involved, fast, and run before any slower suite. None
-of them require a database, a browser, or a running server.
+All but `check-db-consistency`, which reads a database, need no
+database, browser or server. `knip` is a report, not a gate: it exits
+non-zero while it finds anything. `make check-manual` runs the ones that
+are manual gates (*Build, Run & Tooling*, "Gates").

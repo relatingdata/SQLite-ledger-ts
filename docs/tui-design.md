@@ -421,7 +421,7 @@ running, and passes against a real one.
 beyond `Login`, the mechanism depends on `screens.csv`'s own
 `screen_name`s and field lists matching the TUI's own on-screen menu
 labels and step sequences exactly — and for several rows, they don't
-(see "Known gap: TUI screen granularity doesn't match `screens.csv`"
+(see *Testing: The Test-Runner*, "`--path text` — driving the terminal UI"
 in `docs/pm-testing-e2e.md`). Running the full, 75-step fixture
 confirms this concretely: step 2, `Select Business`, fails because its
 one real value (`"admin"`, a placeholder — this row is a no-op for

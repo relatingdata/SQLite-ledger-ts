@@ -122,8 +122,8 @@ const TOP_LEVEL_SECTION_COUNT = 12;
  * and either opens the match or backs out and tries the next section.
  * Throws, rather than guessing, if `screenLabel` isn't found in any of
  * them — most commonly because the TUI's own on-screen menu label
- * doesn't actually match `screenLabel` (see "Known gap: TUI screen
- * granularity doesn't match screens.csv", docs/pm-testing-e2e.md). */
+ * doesn't actually match `screenLabel` (see "`--path text` — driving the terminal UI",
+ * docs/pm-testing-e2e.md). */
 export async function navigateMenuGenerically(terminal: TuiTest, screenLabel: string): Promise<void> {
   await terminal.getByText('Menu — ').expect();
   for (let section = 0; section < TOP_LEVEL_SECTION_COUNT; section++) {
@@ -138,6 +138,6 @@ export async function navigateMenuGenerically(terminal: TuiTest, screenLabel: st
     await terminal.getByText('Menu — ').expect();
   }
   throw new Error(
-    `navigateMenuGenerically: no menu item matching "${screenLabel}" found in any of the ${TOP_LEVEL_SECTION_COUNT} top-level Menu sections. Most likely the TUI's own on-screen label for this screen doesn't match screen_name exactly — see "Known gap: TUI screen granularity doesn't match screens.csv" in docs/pm-testing-e2e.md.`
+    `navigateMenuGenerically: no menu item matching "${screenLabel}" found in any of the ${TOP_LEVEL_SECTION_COUNT} top-level Menu sections. Most likely the TUI's own on-screen label for this screen doesn't match screen_name exactly — see "--path text — driving the terminal UI" in docs/pm-testing-e2e.md.`
   );
 }

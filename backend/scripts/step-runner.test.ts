@@ -19,7 +19,6 @@ function tempDir(): string {
 // then fails with "already exists under this real, same parent."
 const tmpDbPath = join(tmpdir(), `sql-ledger-ts-step-runner-test-${process.pid}-${Date.now()}.sqlite`);
 process.env.DB_PATH = tmpDbPath;
-process.env.SEED_DEMO_BUSINESSES = 'false';
 
 const { parseCsvLine, loadScreens, loadSteps, lintSteps, runStepViaApi } = await import('./step-runner.ts');
 const { getEntityTree } = await import('../src/db.ts');

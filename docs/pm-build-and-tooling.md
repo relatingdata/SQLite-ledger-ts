@@ -5,11 +5,11 @@
 | Target | What it does |
 |---|---|
 | `make install` | Fresh install for both backend and frontend — always removes `node_modules`/lockfiles first (a recurring `ERESOLVE` conflict from a stale install) |
+| `make clean` | Removes `node_modules`, the lockfiles, `frontend/.svelte-kit`, the built PDFs and the assembled manuals |
 | `make dev` | Starts backend (`:3001`) and frontend (`:5173`) together, one `Ctrl+C` stops both |
 | `make dev-verbose` | The same, with `DB_VERBOSE=1` — every SQL statement the backend executes is printed live |
-| `make dev-no-demo` | The same, with `SEED_DEMO_BUSINESSES=false` — only the one, dummy "My Business," no Wine Retail/BMW/Peugeot/Ditta/Schweizer demo data |
 | `make web-frontend` | The real, browser (SvelteKit) frontend alone — `make frontend` stays as a working alias to it, for old muscle memory |
-| `make text-frontend` | The real, Ink-based terminal frontend (`tui/`) alone — a second, real client of the exact same backend API; needs its own real terminal, so never bundled into `dev`/`dev-verbose` the way backend+web are paired there. See `docs/tui-design.md`. |
+| `make text-frontend` | The terminal UI (`tui/`, on sveltui), built and run in the current terminal, so not part of `dev`. It currently stops at start-up (*Testing: The Test-Runner*, "`--path text` — driving the terminal UI"). |
 | `make test` | Backend unit tests (Node's built-in test runner) + frontend tests — see the Testing: Unit chapter — then the standalone step-runner tests on the API path (`make test-steps`), then `make check-manual` ("Gates", below) |
 | `make test-steps` / `make test-steps-browser` | The standalone tests in `shared-fixtures/tests/`, on the API path or in the browser, each on a fresh database (`scripts/run-step-tests.ts`; `TEST=a,b` runs only those) — see the Testing: E2E chapter, "Standalone tests" |
 | `make test-e2e` / `make demo-full-year` | Full/volume simulation and full-year data generation — see the Testing: E2E chapter |
@@ -138,15 +138,11 @@ view, trigger, and entity-creation statement) and `30-coa-links.sql`
 (linking every business to its Chart of Accounts prototype). `db.ts`
 loads both, in that order, on every fresh database.
 
-Per-language vocabulary/translations and the German BMW / French
-Peugeot/Ditta/Schweizer demo ledger data no longer live in separate
-SQL files at all — both moved into TypeScript, seeded unconditionally
-on every module load by `seedRemainingData()` (`backend/src/db-seed.ts`,
-called from `db.ts`). This also means `seedRemainingData()` is a real
-backfill step, not a one-time fresh-db seed: it runs on every import,
-so it can genuinely add a few new entities (a since-added vocabulary
-word, say) to an *existing*, non-fresh database too — worth knowing
-before assuming a database's entity count is frozen between runs.
+`seedRemainingData()` (`backend/src/db-seed.ts`, called from `db.ts`)
+then seeds the vocabulary, menu and business-type scaffolding, and no
+business. It runs on every load, not only on a new database, so it can
+add an entity that was added to the seed since (a new vocabulary word)
+to an existing database.
 
 ## This project ships no Python and no stray TypeScript/Playwright loaders
 
@@ -177,13 +173,6 @@ a `pkill -f "tsx watch src/server.ts"` / `pkill -f "vite dev"`
 fallback — killing only the top-level pid would leave `tsx watch`'s
 own spawned child `node` process running, orphaned, still bound to the
 port.
-
-`make ensure-servers-no-demo` is the same pattern for driving the UI
-path against a database with only "My Business" seeded — it checks
-the already-running backend's own environment
-(`/proc/<pid>/environ`) for `SEED_DEMO_BUSINESSES=false` and, if that
-can't be confirmed, stops and restarts the backend rather than risk
-running a no-demo test against a wrongly-seeded one.
 
 ## Gates: the manual and the code may not differ
 

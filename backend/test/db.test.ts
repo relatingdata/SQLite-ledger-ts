@@ -8,7 +8,6 @@ import { makeFixtures } from './fixtures.ts';
 
 const tmpDbPath = path.join(os.tmpdir(), `sql-ledger-ts-test-${process.pid}-${Date.now()}.sqlite`);
 process.env.DB_PATH = tmpDbPath;
-process.env.SEED_DEMO_BUSINESSES = 'false';
 
 const db = await import('../src/db.ts');
 const stagedForms = await import('../src/staged-forms.ts');
