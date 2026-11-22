@@ -823,6 +823,15 @@ export function resolveBusinessLocationsRootId(businessName: string): number | u
   return legacy?.id;
 }
 
+// The business's own location of this name, never a same-named entity
+// elsewhere (each location has a same-named node under Chart of Accounts >
+// Storage). See docs/pm-domain-reference.md, "Locations are found under
+// their business".
+export function resolveBusinessLocationId(businessName: string, locationName: string): number | undefined {
+  const locationsRootId = resolveBusinessLocationsRootId(businessName);
+  return locationsRootId ? Entity.getUnder(locationName, locationsRootId)?.id : undefined;
+}
+
 export function getOrganizationChart(businessName: BusinessName): OrganizationChart {
   const businessRows = getEntitiesWithRelationship('Belongs To Business').filter((r) => r.target === businessName);
   const locationRows = getEntitiesWithRelationship('Belongs To Group');
@@ -1952,7 +1961,7 @@ export function ensureItemLocationInventoryAccount(itemName: ItemName, locationN
   const locationAccount = `${itemName}${tier ? ` (${tier})` : ''} — ${locationName}`;
   const existing = Entity.getUnder(locationAccount, baseId);
   const row = existing ?? Entity.create(locationAccount, baseId, userId);
-  if (!existing) setHierarchyParent(locationAccount, 'Location', locationName, userId);
+  if (!existing) setHierarchyParent(locationAccount, 'Location', locationName, userId, row.id, business ? resolveBusinessLocationId(business, locationName) : undefined);
   return { inventoryAccount: locationAccount, inventoryAccountId: row.id };
 }
 
@@ -1991,16 +2000,7 @@ export function ensureItemLocationQuantityAccount(itemName: ItemName, locationNa
   const row = existing ?? Entity.create(quantityAccount, itemId, userId);
   if (!existing) {
     setAccountCurrency(quantityAccount, unit, row.id);
-    // A location's own name can collide, by name alone, with an entirely
-    // different entity elsewhere in the tree (e.g. the "Storage" subtree's
-    // own, same-named capacity-account node for that same location — a
-    // real, confirmed collision, found directly) — a bare
-    // setHierarchyParent(..., locationName, userId) with no explicit
-    // target id can silently resolve to the wrong one. When the business
-    // is known, resolve the real Location entity unambiguously, scoped to
-    // that business's own real Locations root, and pass its id directly.
-    const locationsRootId = business ? resolveBusinessLocationsRootId(business) : undefined;
-    const locationId = locationsRootId ? Entity.getUnder(locationName, locationsRootId)?.id : undefined;
+    const locationId = business ? resolveBusinessLocationId(business, locationName) : undefined;
     setHierarchyParent(quantityAccount, 'Location', locationName, userId, row.id, locationId);
   }
   return { quantityAccount, quantityAccountId: row.id };
@@ -2026,6 +2026,14 @@ function ensureBusinessRoot(businessName: BusinessName, rootName: string, userId
 export function ensureHierarchyGrouping(businessName: BusinessName, groupingName: string, userId: UserId): { id: number; name: string } {
   const hierarchyRoot = ensureBusinessRoot(businessName, 'Hierarchy', userId);
   return Entity.getUnder(groupingName, hierarchyRoot.id) ?? Entity.create(groupingName, hierarchyRoot.id, userId);
+}
+
+// The business's own value of this grouping, or undefined; never creates.
+export function resolveHierarchyValueId(businessName: string, groupingName: string, valueName: string): number | undefined {
+  const businessId = Entity.get(businessName, 'Businesses')?.id;
+  const hierarchyRoot = businessId ? Entity.getUnder('Hierarchy', businessId) : undefined;
+  const grouping = hierarchyRoot ? Entity.getUnder(groupingName, hierarchyRoot.id) : undefined;
+  return grouping ? Entity.getUnder(valueName, grouping.id)?.id : undefined;
 }
 
 export function ensureHierarchyValue(businessName: BusinessName, groupingName: string, valueName: string, userId: UserId): { id: number; name: string } {
@@ -5382,8 +5390,8 @@ export function createAndConfigureLocation(businessName: BusinessName, locationN
     ensureLocationCapacityAccount(businessName, getActiveLedger(businessName) ?? asLedgerName('Actual'), asLocationName(locationName), userId);
     if (group && groupingName) {
       ensureHierarchyGrouping(businessName, groupingName, userId);
-      ensureHierarchyValue(businessName, groupingName, group, userId);
-      setHierarchyParent(locationName, groupingName, group, userId);
+      const value = ensureHierarchyValue(businessName, groupingName, group, userId);
+      setHierarchyParent(locationName, groupingName, group, userId, entity.id, value.id);
       setRelationship(group, 'Belongs To Business', businessName, userId);
     }
     setRelationship(locationName, 'Belongs To Group', group || locationName, userId);

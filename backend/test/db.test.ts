@@ -13,6 +13,7 @@ process.env.SEED_DEMO_BUSINESSES = 'false';
 const db = await import('../src/db.ts');
 const stagedForms = await import('../src/staged-forms.ts');
 const { createUser } = await import('../src/auth.ts');
+const { Entity } = await import('../src/primitives.ts');
 const fx = makeFixtures(db);
 
 after(() => {
@@ -219,6 +220,33 @@ test('deleteLocation: name-based wrapper resolves the real entity and reuses rev
   const plain = fx.freshLocation(biz.business, 'LocationDeleteTest Plain Outlet');
   db.deleteLocation(biz.business, plain.name, fx.userId);
   assert.throws(() => db.deleteLocation(biz.business, plain.name, fx.userId), /No real location/);
+});
+
+test('a location is tagged as itself, never as its same-named Storage node: its Division and its per-location accounts point at the business\'s own location', () => {
+  const biz = fx.freshBusiness('LocationTagTest Co');
+  const division = fx.uniqueName('LocationTagTest Division');
+  const name = fx.uniqueName('LocationTagTest Outlet');
+  const entity = db.createAndConfigureLocation(
+    biz.business,
+    name,
+    { city: 'Adelaide', location_type: 'Retail', is_billing_address: false, bottle_capacity: 100, carton_capacity: null, timezone: 'Australia/Adelaide' },
+    fx.userId,
+    division,
+    'Division'
+  );
+  assert.equal(db.resolveBusinessLocationId(biz.business, name), entity.id);
+  const storageNode = db.ensureLocationStorageRoot(biz.business, name, fx.userId);
+  assert.notEqual(storageNode.id, entity.id, 'the Storage node shares the name but is another entity');
+
+  const divisionLink = Entity.getUnder(`${name} — Hierarchy: Division`, entity.id);
+  assert.ok(divisionLink, 'the Division link is a child of the location itself');
+  assert.equal(divisionLink!.relation_id, db.resolveHierarchyValueId(biz.business, 'Division', division));
+  assert.equal(Entity.getUnder(`${name} — Hierarchy: Division`, storageNode.id), undefined);
+
+  const item = fx.freshItem(biz.business, 'LocationTagTest Wine');
+  const { inventoryAccountId } = db.ensureItemLocationInventoryAccount(item.itemName, db.asLocationName(name), fx.userId, undefined, biz.business);
+  const locationLink = Entity.children(inventoryAccountId).find((c) => c.name.endsWith(' — Hierarchy: Location'));
+  assert.equal(locationLink?.relation_id, entity.id);
 });
 
 // --- Department / Employee org chart -------------------------------

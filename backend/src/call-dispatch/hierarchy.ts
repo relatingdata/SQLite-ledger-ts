@@ -18,8 +18,10 @@ import {
   NotFoundError,
   asBusinessName,
   asUserId,
+  resolveBusinessLocationId,
+  resolveHierarchyValueId,
 } from '../db.js';
-import { CallError, decodeShape, encodeShape, requireAuth, requireRole, row, table, type BackendCall } from '../call-dispatch.js';
+import { CallError, decodeShape, encodeShape, requireAuth, requireRole, row, sessionBusinessName, table, type BackendCall } from '../call-dispatch.js';
 
 export const hierarchyFunctions: Record<string, BackendCall> = {
   // Positional args: [0] business. Flattens HierarchyGroupingWithValues[]
@@ -93,7 +95,12 @@ export const hierarchyFunctions: Record<string, BackendCall> = {
     const [entityName, hierarchyName, parentName] = v;
     if (!entityName || !hierarchyName || !parentName) throw new CallError(400, 'entityName, hierarchyName and parentName are all required.');
     try {
-      setHierarchyParent(entityName, hierarchyName, parentName, asUserId(admin.id));
+      // A location is found under the session's business, never as a
+      // same-named node elsewhere (docs/pm-domain-reference.md).
+      const business = sessionBusinessName();
+      const entityId = business ? resolveBusinessLocationId(business, entityName) : undefined;
+      const targetId = business ? resolveHierarchyValueId(business, hierarchyName, parentName) : undefined;
+      setHierarchyParent(entityName, hierarchyName, parentName, asUserId(admin.id), entityId, targetId);
       return row(entityName, hierarchyName, parentName);
     } catch (err) {
       if (err instanceof ValidationError) throw new CallError(409, err.message);

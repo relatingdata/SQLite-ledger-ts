@@ -2,6 +2,7 @@
 // functions the frontend calls. Run: node --import tsx backend/scripts/simulate-wine-retail-month.ts
 // Full documentation: docs/pm-build-and-tooling.md ("Wine Retail Business simulation").
 import {
+  db,
   create,
   requireEntity,
   requireEntityById,
@@ -48,7 +49,6 @@ import {
   createInvoice,
   postInvoice,
   getHierarchyGroupForLocation,
-  getAccountsPostedTo,
   stagePurchaseOrder,
   postPurchaseOrder,
   stageAPPayment,
@@ -58,7 +58,6 @@ import {
   allocatePayment,
   getInvoiceOutstandingMinor,
   ensureItemSalesCogsAccounts,
-  ensureProductTierPart,
   stageBomComponent,
   postBomComponents,
   ensureItemLocationInventoryAccount,
@@ -69,6 +68,7 @@ import {
   nominateLocationCurrency,
   asBusinessName,
 } from '../src/db.js';
+import { Entity } from '../src/primitives.js';
 import { getItemLocation, createPosTerminal, setTerminalCurrency, setItemLocationLevels } from '../src/db-stock.js';
 import { fixtures } from '../../shared-fixtures/wine-retail.js';
 import { readCsv } from '../../shared-fixtures/csv.js';
@@ -77,6 +77,14 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 const __simDir = path.dirname(fileURLToPath(import.meta.url));
+
+// The names of the accounts a posted journal entry touched.
+function getAccountsPostedTo(reference: string): string[] {
+  const rows = db
+    .prepare(`SELECT DISTINCT jl.account_id AS accountId FROM journal_line jl JOIN journal j ON j.id = jl.journal_id WHERE j.reference = ?`)
+    .all(reference) as { accountId: number }[];
+  return Entity.getMany(rows.map((r) => r.accountId)).map((e) => e.name);
+}
 const pricingRows = readCsv(fs.readFileSync(path.join(__simDir, '../../shared-fixtures/pricing.csv'), 'utf-8'));
 const wholesaleCostBySubcategory = new Map(pricingRows.map((r) => [r.subcategory, Number(r.wholesaleCostMinor)]));
 const BUSINESS = process.env.SIM_BUSINESS ?? fixtures.business;

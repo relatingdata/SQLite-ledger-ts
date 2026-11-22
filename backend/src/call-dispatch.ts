@@ -94,14 +94,17 @@ export function requireGlobalRole(user: AuthenticatedUser | undefined, ...roles:
 // old middleware's own `req.businessName` being falsy.
 export function requireRole(user: AuthenticatedUser | undefined, ...roles: string[]): AuthenticatedUser {
   if (!user) throw new CallError(401, 'Not logged in.');
-  let businessName: ReturnType<typeof asBusinessName> | undefined;
-  try {
-    businessName = asBusinessName(Session.Business.name);
-  } catch {
-    // No real, current business selected in this request's session context.
-  }
-  if (userMayActAsRole(user, roles, businessName)) return user;
+  if (userMayActAsRole(user, roles, sessionBusinessName())) return user;
   throw new CallError(403, `Requires one of: ${roles.join(', ')}.`);
+}
+
+// The session's current business, or undefined when none is selected.
+export function sessionBusinessName(): ReturnType<typeof asBusinessName> | undefined {
+  try {
+    return asBusinessName(Session.Business.name);
+  } catch {
+    return undefined;
+  }
 }
 
 export function requireAuth(user: AuthenticatedUser | undefined): AuthenticatedUser {
