@@ -937,7 +937,7 @@ export interface ProfitAndLossByGroupNode extends ProfitAndLossByGroup {
 
 export function getProfitAndLossByHierarchyTree(businessName: BusinessName, ledgerName: LedgerName, hierarchyPath: string[], hierarchyName: string, fromDate?: string, toDate?: string): ProfitAndLossByGroupNode[] {
   const flat = getProfitAndLossByHierarchy(businessName, ledgerName, hierarchyPath, fromDate, toDate);
-  const groups = getHierarchyGroups(hierarchyName);
+  const groups = getHierarchyGroups(businessName, hierarchyName);
   const parentByName = new Map(groups.map((g) => [g.name, g.parentName]));
 
   const emptyProfitAndLoss: ProfitAndLoss = {

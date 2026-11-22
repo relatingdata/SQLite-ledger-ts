@@ -817,10 +817,7 @@ export function getHierarchy(rootName: string, relationshipType?: string, knownR
 export function resolveBusinessLocationsRootId(businessName: string): number | undefined {
   const businessId = Entity.get(businessName, 'Businesses')?.id;
   if (!businessId) return undefined;
-  const modern = Entity.getUnder('Locations', businessId);
-  if (modern) return modern.id;
-  const legacy = Entity.getUnder(`${businessName} Locations`, businessId);
-  return legacy?.id;
+  return Entity.getUnder('Locations', businessId)?.id;
 }
 
 // The business's own location of this name, never a same-named entity
@@ -1056,7 +1053,7 @@ export function createInvoice(input: InvoiceInput, userId: UserId): number {
   const ledgersRootId = Entity.getUnder('Ledgers', businessId)?.id;
   const ledgerId = ledgersRootId !== undefined ? Entity.getUnder(input.ledger, ledgersRootId)?.id : undefined;
   if (!ledgerId) throw new ValidationError(`No ledger named "${input.ledger}".`);
-  const counterpartyId = Entity.get(input.counterpartyName)?.id;
+  const counterpartyId = resolveCounterpartyId(input.counterpartyName);
   if (!counterpartyId) throw new ValidationError(`No customer/vendor named "${input.counterpartyName}".`);
   if (input.lines.length === 0) throw new ValidationError('An invoice needs at least one line.');
   if (input.referencesInvoiceId != null && !getInvoice(input.referencesInvoiceId)) {
@@ -1069,14 +1066,14 @@ export function createInvoice(input: InvoiceInput, userId: UserId): number {
     throw new ValidationError(`An invoice with reference "${input.reference}" already exists in ${input.ledger} — references must be unique within a ledger.`);
   }
 
-  const contact = getContact(input.counterpartyName);
-  const termDays = contact?.payment_terms_days ?? 30;
+  const terms = db.prepare(`SELECT payment_terms_days FROM contact WHERE entity_id = ?`).get(counterpartyId) as { payment_terms_days: number | null } | undefined;
+  const termDays = terms?.payment_terms_days ?? 30;
   const dueDate = db.prepare(`SELECT date(?, '+' || ? || ' days') AS d`).get(input.invoiceDate, termDays) as { d: string };
 
   return db.transaction((): number => {
   const invoicesRoot = ensureSystemInvoicesRoot(userId);
   const invoiceEntity = Entity.create(`${input.business} — ${input.ledger} — ${input.reference}`, invoicesRoot.id, userId);
-  Entity.relate(invoiceEntity.id, input.counterpartyName, userId);
+  Entity.relate(invoiceEntity.id, input.counterpartyName, userId, counterpartyId);
   const invoiceId = invoiceEntity.id;
   Entity.setDetailJson(
     invoiceId,
@@ -1580,6 +1577,7 @@ export function postInvoice(
     description: invoice.description || `${invoice.invoice_type} Invoice ${invoice.reference}`,
     transdate: invoice.invoice_date,
     account: asAccountName(counterpartyAccountOverride ?? invoice.counterparty),
+    accountId: counterpartyAccountOverride ? undefined : (Entity.get(id)?.relation_id ?? undefined),
     amount_minor: sign * total,
   });
   if (typeof revenueOrExpenseAccount === 'function') {
@@ -1680,9 +1678,10 @@ export function allocatePayment(
     const counterpartyLine = db
       .prepare(`SELECT jl.account_id AS accountId FROM journal_line jl JOIN journal j ON j.id = jl.journal_id WHERE j.reference = ? AND jl.amount_minor = ?`)
       .get(invoice.reference, sign * total) as { accountId: number } | undefined;
-    const counterpartyAccountName = (counterpartyLine ? Entity.get(counterpartyLine.accountId)?.name : undefined) ?? invoice.counterparty;
+    const counterpartyAccountId = counterpartyLine?.accountId ?? Entity.get(invoiceId)?.relation_id ?? undefined;
+    const counterpartyAccountName = (counterpartyAccountId != null ? Entity.get(counterpartyAccountId)?.name : undefined) ?? invoice.counterparty;
     stageLine({ reference: paymentReference, business: asBusinessName(invoice.business), ledger: asLedgerName(invoice.ledger), transdate: allocationDate, account: asAccountName(paymentAccount), amount_minor: sign * allocatedMinor });
-    stageLine({ reference: paymentReference, business: asBusinessName(invoice.business), ledger: asLedgerName(invoice.ledger), transdate: allocationDate, account: asAccountName(counterpartyAccountName), amount_minor: -sign * allocatedMinor });
+    stageLine({ reference: paymentReference, business: asBusinessName(invoice.business), ledger: asLedgerName(invoice.ledger), transdate: allocationDate, account: asAccountName(counterpartyAccountName), accountId: counterpartyAccountId, amount_minor: -sign * allocatedMinor });
     postJournalEntry(paymentReference, asBusinessName(invoice.business), asLedgerName(invoice.ledger), userId);
   }
 
@@ -3826,6 +3825,22 @@ export function createContact<TBrand extends string>(rootName: string, type: Typ
   return entity;
 }
 
+// Where customers, providers and employees are kept (createCustomer,
+// createProvider, createEmployee; Accounts Receivable and Vendors hold
+// older ones). An invoice's counterparty is found only
+// under these, never as a same-named entity elsewhere, such as the
+// vocabulary word "Cash Sale". See docs/pm-domain-reference.md, "Invoices".
+const COUNTERPARTY_ROOTS = ['Customers', 'Accounts Receivable', 'Vendors', 'Accounts Payable', 'Employees'];
+
+export function resolveCounterpartyId(name: string): number | undefined {
+  for (const rootName of COUNTERPARTY_ROOTS) {
+    const rootId = Entity.get(rootName)?.id;
+    const found = rootId != null ? Entity.getUnder(name, rootId) : undefined;
+    if (found) return found.id;
+  }
+  return undefined;
+}
+
 export function createProvider(name: string, userId: UserId): { id: number } {
   return createContact('Accounts Payable', typeProviderName, 'Provider', name, userId);
 }
@@ -4055,22 +4070,15 @@ export function getHierarchyLinksPointingAt(targetName: string): { entityName: s
     .map((l) => ({ entityName: l.entityName, hierarchyName: l.linkType.slice('Hierarchy: '.length) }));
 }
 
-export function getHierarchyGroups(hierarchyName: string): { name: string; parentName: string | null }[] {
-  const rows = db
-    .prepare(
-      `SELECT DISTINCT target.name AS group_name
-       FROM current_entities link
-       JOIN current_entities target ON target.id = link.relation_id
-       WHERE link.name LIKE '% — ' || ?`
-    )
-    .all(`Hierarchy: ${hierarchyName}`) as { group_name: string }[];
-  return rows.map((r) => {
-    const explicitParent = getHierarchyParent(r.group_name, hierarchyName);
-    if (explicitParent !== undefined) return { name: r.group_name, parentName: explicitParent };
-    const childParentId = Entity.get(r.group_name)?.parent_id;
-    const structuralParentName = childParentId != null ? Entity.get(childParentId)?.name : undefined;
-    return { name: r.group_name, parentName: structuralParentName ?? null };
-  });
+// The business's own values of one grouping, each with the value it is
+// tagged under (null at the top). See docs/pm-domain-reference.md,
+// "Hierarchies and multi-dimensional reporting".
+export function getHierarchyGroups(businessName: string, hierarchyName: string): { name: string; parentName: string | null }[] {
+  const businessId = Entity.get(businessName, 'Businesses')?.id;
+  const hierarchyRoot = businessId ? Entity.getUnder('Hierarchy', businessId) : undefined;
+  const grouping = hierarchyRoot ? Entity.getUnder(hierarchyName, hierarchyRoot.id) : undefined;
+  if (!grouping) return [];
+  return Entity.children(grouping.id).map((value) => ({ name: value.name, parentName: getHierarchyParent(value.name, hierarchyName) ?? null }));
 }
 
 export function getHierarchyAncestorChain(entityName: string, hierarchyName: string): string[] {

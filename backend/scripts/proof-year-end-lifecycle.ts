@@ -5,7 +5,7 @@
 // per the backend-first-testing skill - no browser, no Playwright,
 // direct function calls, checking every real balance/quantity along
 // the way, not just the final result.
-import { createBusiness, create, requireEntity, typeRootName, getTrialBalance, stageBomComponent, postBomComponents, getBomComponents, addOrUpdateItemSource, createItem, completePosSale, ensureProductInstance, ensureCombinationAccountLeaf, getItemPriceForCurrency, db, asBusinessName, asLedgerName, asAccountName, asLocationName, asProviderName, asItemName } from '../src/db.ts';
+import { createBusiness, create, requireEntity, requireEntityById, resolveBusinessLocationsRootId, typeRootName, getTrialBalance, stageBomComponent, postBomComponents, getBomComponents, addOrUpdateItemSource, createItem, completePosSale, ensureProductInstance, ensureCombinationAccountLeaf, getItemPriceForCurrency, db, asBusinessName, asLedgerName, asAccountName, asLocationName, asProviderName, asItemName } from '../src/db.ts';
 import {
   setLocation,
   placeOrder,
@@ -38,9 +38,9 @@ createBusiness(BIZ as any, '2026-27', USER as any);
 check('Business created', true);
 
 console.log(`\n=== 2. Locations - at least one of each real type ===`);
-create(requireEntity(`${BIZ} Locations`, typeRootName), typeRootName, 'Proof Retail Outlet', USER as any);
+create(requireEntityById(resolveBusinessLocationsRootId(BIZ)!, typeRootName), typeRootName, 'Proof Retail Outlet', USER as any);
 setLocation('Proof Retail Outlet', { city: 'Adelaide', location_type: 'Retail', is_billing_address: true, bottle_capacity: 200, carton_capacity: 20, timezone: 'Australia/Adelaide' } as any);
-create(requireEntity(`${BIZ} Locations`, typeRootName), typeRootName, 'Proof Warehouse', USER as any);
+create(requireEntityById(resolveBusinessLocationsRootId(BIZ)!, typeRootName), typeRootName, 'Proof Warehouse', USER as any);
 setLocation('Proof Warehouse', { city: 'Adelaide', location_type: 'Warehouse', is_billing_address: false, bottle_capacity: null, carton_capacity: 100, timezone: 'Australia/Adelaide' } as any);
 check('Retail outlet created', true);
 check('Warehouse created', true);

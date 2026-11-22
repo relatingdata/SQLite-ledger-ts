@@ -235,7 +235,7 @@ export const reportsFunctions: Record<string, BackendCall> = {
             asBusinessName(business),
             asLedgerName(ledger),
             hierarchyPath,
-            getHierarchyGroups(hierarchyNameRaw || hierarchyPath[hierarchyPath.length - 1]),
+            getHierarchyGroups(business, hierarchyNameRaw || hierarchyPath[hierarchyPath.length - 1]),
             group,
             fromDate || undefined,
             toDate || undefined

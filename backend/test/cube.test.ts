@@ -112,20 +112,10 @@ test('getCube: cost of goods sold per item and location, at what the units sold 
   assert.equal(c.get(`${red}|${north.name}`)!.sales - c.get(`${red}|${north.name}`)!.cogs, 1400);
 });
 
-// getSalesCogsMatrix (behind the retired Sales vs COGS screen) told sales
-// from cost of goods sold by a "Sales - " name prefix that per-item sales
-// accounts no longer carry, so every sale came out as negative cost of
-// goods sold. getCube tells them apart by where the account sits.
-test('getCube agrees with getStockOnHandMatrix, and corrects getSalesCogsMatrix', () => {
+test('getCube agrees with getStockOnHandMatrix', () => {
   const c = cube('Item', 'Location');
   for (const cell of matrix.getStockOnHandMatrix('Item', 'Location').cells.filter((x) => x.rowKey === red || x.rowKey === white)) {
     assert.equal(c.get(`${cell.rowKey}|${cell.colKey}`)?.quantity, cell.quantityBottles, `${cell.rowKey} at ${cell.colKey}`);
-  }
-  const old = matrix.getSalesCogsMatrix(biz.business, biz.actualLedger, undefined, undefined, 'Item', 'Location');
-  for (const cell of old.cells) {
-    const mine = c.get(`${cell.rowKey}|${cell.colKey}`);
-    assert.equal(cell.salesMinor, 0, 'the old matrix finds no sales');
-    assert.equal((mine?.cogs ?? 0) - (mine?.sales ?? 0), cell.cogsMinor, `the old matrix nets ${cell.rowKey}'s sales at ${cell.colKey} into its cost of goods sold`);
   }
 });
 

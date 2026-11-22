@@ -13,7 +13,6 @@ import {
   defineProductShape,
   getBusinessHierarchy,
   getBusinessProductShapes,
-  getHierarchyGroups,
   ValidationError,
   NotFoundError,
   asBusinessName,
@@ -42,13 +41,6 @@ export const hierarchyFunctions: Record<string, BackendCall> = {
       else for (const value of g.values) rows.push({ grouping: g.grouping, value });
     }
     return table(['grouping', 'value'], rows);
-  },
-  // Positional args: [0] hierarchyName.
-  getHierarchyGroups: (v, user) => {
-    requireAuth(user);
-    const [hierarchyName] = v;
-    if (!hierarchyName) throw new CallError(400, 'hierarchyName (name) is required.');
-    return table(['name', 'parentName'], getHierarchyGroups(hierarchyName));
   },
   // Positional args: [0] business. Each real product shape (a real,
   // ordered chain of [dimensionName, groupingName] pairs) is encoded via

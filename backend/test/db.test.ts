@@ -3323,6 +3323,36 @@ test('completePosSale: a real, immediate cash sale posts a genuine invoice to th
   assert.equal(cashLine.amount_minor, result.totalMinor, "Cash and Bank must be debited the real, full sale amount in the payment posting that immediately follows the invoice");
 });
 
+test('createInvoice: a customer named like a vocabulary word is the counterparty, and its balance is in Accounts Receivable', () => {
+  const biz = fx.freshBusiness('CounterpartyTest Co');
+  // The same name as a vocabulary word (as "Cash Sale" is also a screen
+  // title), created first, so a bare name lookup would find the word.
+  const customerName = fx.uniqueName('CounterpartyTest Word');
+  db.create(db.requireEntity('Vocabulary', db.typeRootName), db.typeVocabularyWordName, customerName, fx.userId);
+  const customer = { id: db.createCustomer(customerName, fx.userId).id };
+  const id = db.createInvoice(
+    {
+      invoiceType: 'AR',
+      business: biz.business,
+      ledger: biz.actualLedger,
+      reference: fx.uniqueName('CP-AR'),
+      counterpartyName: customerName,
+      invoiceDate: '2026-03-01',
+      lines: [{ description: 'Service', quantity: 1, unitPriceMinor: 5000, amountMinor: 5000, taxMinor: 0 }],
+    },
+    fx.userId
+  );
+  assert.equal(db.resolveCounterpartyId(customerName), customer.id);
+  db.postInvoice(id, 'Sales Revenue', 'Sales Tax Payable', fx.userId);
+  const posted = db.db.prepare(`SELECT jl.account_id FROM journal_line jl JOIN journal j ON j.id = jl.journal_id WHERE j.reference = ? AND jl.amount_minor = 5000`).get(db.getInvoice(id)!.reference) as { account_id: number };
+  assert.equal(posted.account_id, customer.id, 'the receivable is the customer\'s, not the vocabulary word\'s');
+  assert.equal(db.getBalanceSheet(biz.business, biz.actualLedger).balanced, true);
+  db.allocatePayment(id, `${db.getInvoice(id)!.reference}-PAY`, 5000, '2026-03-02', 'Cash and Bank', fx.userId, false);
+  const customerBalance = db.db.prepare(`SELECT COALESCE(SUM(amount_minor), 0) AS t FROM journal_line WHERE account_id = ?`).get(customer.id) as { t: number };
+  assert.equal(customerBalance.t, 0, 'the payment closes the customer\'s balance, not the word\'s');
+  assert.equal(db.getBalanceSheet(biz.business, biz.actualLedger).balanced, true);
+});
+
 test('postOnAccountInvoice: an on-account purchase receives its catalog items at the location and posts the invoice to the provider, in one call', () => {
   const biz = fx.freshBusiness('OnAccountTest Co');
   const store = fx.freshLocation(biz.business, 'OnAccountTest Store');
@@ -5182,12 +5212,13 @@ test('getProfitAndLossByHierarchy: "Consolidated per Division" — one real, ful
 
 test('getProfitAndLossByHierarchyTree: "Consolidated per Division per Location" — real groups nested under their own real parent, a genuinely empty node synthesized for a real, top-level group with no direct activity of its own', () => {
   const biz = fx.freshBusiness('PLTreeTest Co');
+  // The business's own Division values: a city, and two stores tagged under it.
   const city = fx.uniqueName('PLTreeTest City');
-  db.create(db.requireEntity('Application', db.typeRootName), db.typeRootName, city, fx.userId);
   const storeA = fx.uniqueName('PLTreeTest Store A');
   const storeB = fx.uniqueName('PLTreeTest Store B');
-  db.create(db.requireEntity(city, db.typeRootName), db.typeRootName, storeA, fx.userId);
-  db.create(db.requireEntity(city, db.typeRootName), db.typeRootName, storeB, fx.userId);
+  for (const value of [city, storeA, storeB]) db.ensureHierarchyValue(biz.business, 'Division', value, fx.userId);
+  db.setHierarchyParent(storeA, 'Division', city, fx.userId);
+  db.setHierarchyParent(storeB, 'Division', city, fx.userId);
   const outletA = fx.freshLocation(biz.business, 'PLTreeTest Outlet A', { city: storeA, bottle_capacity: 500, carton_capacity: 80 });
   db.setHierarchyParent(outletA.name, 'Division', storeA, fx.userId);
   const outletB = fx.freshLocation(biz.business, 'PLTreeTest Outlet B', { city: storeB, bottle_capacity: 500, carton_capacity: 80 });
@@ -5546,7 +5577,7 @@ test('getProfitAndLossByAxis: real, direct reproducibility — every real divisi
   db.stageLine({ reference: ref, business: biz.business, ledger: biz.actualLedger, transdate: today, account: db.asAccountName('Inventory'), amount_minor: -2000 });
   db.postJournalEntry(ref, biz.business, biz.actualLedger, fx.userId);
 
-  const originalPL = db.getProfitAndLossForHierarchyGroup(biz.business, biz.actualLedger, ['Location', 'Division'], db.getHierarchyGroups('Division'), division);
+  const originalPL = db.getProfitAndLossForHierarchyGroup(biz.business, biz.actualLedger, ['Location', 'Division'], db.getHierarchyGroups(biz.business, 'Division'), division);
   const newNewPLByDivision = getProfitAndLossByAxis(biz.business, biz.actualLedger, undefined, undefined, 'Division', 'Consolidated', division);
   const newNewPLByLocation = getProfitAndLossByAxis(biz.business, biz.actualLedger, undefined, undefined, 'Location', 'Consolidated', outlet.name);
 

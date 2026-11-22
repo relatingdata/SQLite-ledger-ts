@@ -56,7 +56,7 @@
   let originalRelation = $state('');
   let originalAccountnumber = $state('');
 
-  // Opts into the shared Esc-with-warning mechanism ($lib/dirty-state).
+  // Opts into the shared Esc-with-warning mechanism (hasUnsavedEdit, $lib/state.svelte).
   $effect(() => {
     hasUnsavedEdit.set(
       selectedId != null && (editName !== originalName || editParent !== originalParent || editRelation !== originalRelation || editAccountnumber !== originalAccountnumber)

@@ -83,9 +83,11 @@ Tests (*Testing: Unit*, "Running the tests"):
 ### `resolveStagedAccountId` / `commitStagedEntry`
 
 They resolve a staged entry's business and ledger ids, and each line's
-account: first by walking the business's Chart of Accounts, then, as a
-last resort for a business with no chart of its own, by the bare name,
-taking whichever matches first (a known weakness). They go through the
+account: first in the business's Chart of Accounts; then as a contact
+(`resolveCounterpartyId`, since contacts are not copied into a
+business's chart; *Core Domain Reference*, "Invoices — AR and AP share
+one mechanism"); then by the bare name, taking whichever matches
+first. They go through the
 entity driver (`Entity.get`, `getUnder`, `descendantsWithDepth`), not
 SQL on `current_entities`, so they work under every driver
 (`ENTITY_DRIVER=kaappi` writes no `current_entities` rows), and they

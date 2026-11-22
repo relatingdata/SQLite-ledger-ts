@@ -156,19 +156,15 @@ Tests (*Testing: Unit*, "Running the tests"):
 
 `resolveKey(axis, accountId, entityIndex)` (for Sales/COGS accounts) and `resolveItemKey(axis, itemName, locationName)` (for Stock on Hand items) are the two key-resolution functions. For an axis that isn't one of the two structural ones, resolution is tried first directly on the product/item itself (a hierarchy tag like "Category" or "Bottle Size" typically lives there), falling back to the product's resolved Location (a tag like "Division" more often lives there instead) — both via the same generic `getHierarchyParent` link every hierarchy uses.
 
-`loadEntityIndex()` is a one-time, in-memory snapshot of every entity's id/name/parent_id, used to walk each account's structural chain locally rather than one query per account — deliberately a standalone minimal equivalent rather than reusing `getEntityTree()` from `db.ts`, keeping this file's own dependencies self-contained. It still backs `resolveKey`'s `Item` axis and `getSalesCogsMatrix`'s own account enumeration, even though it's no longer used to walk a category chain.
+`loadEntityIndex()` is a one-time, in-memory snapshot of every entity's id/name/parent_id, used to walk each account's structural chain locally rather than one query per account — deliberately a standalone minimal equivalent rather than reusing `getEntityTree()` from `db.ts`, keeping this file's own dependencies self-contained. It backs `resolveKey`'s `Item` axis.
 
 `stripLocationSuffix` strips a trailing `" — LocationName"` suffix (the convention `ensureItemTierLocationLeaf` already uses) and a leading `"Sales - "`/`"COGS - "` prefix, so a product's Sales and COGS sides combine under the same Item key — the whole point of this report is comparing both sides for the same product, not listing them as separate unmatched rows.
 
 `locationForAccount` reads an account's Location via a separate, explicitly-named child entity (`"{account} — Hierarchy: Location"`) whose own `relation_id` points at the target location — the same structural link `ensureItemTierLocationLeaf` sets via `setHierarchyParent`/`setEntityLink`, re-implemented here as a direct query rather than importing `getLocationForAccount` from `db.ts`, to keep this file's dependencies self-contained.
 
-## `getSalesCogsMatrix`
-
-Sums every Sales Revenue/Cost of Goods Sold account's ledger-scoped balance (date-filtered, close entries excluded) and buckets each into a `(rowKey, colKey)` cell via `resolveKey`. Sales is credit-normal, so a positive display amount is the negated raw balance; COGS is debit-normal and used as-is.
-
 ## `getStockOnHandMatrix`
 
-Simpler than the Sales/COGS matrix: no date filtering at all, since stock on hand is always "right now." Per-unit cost is approximated: the quantity comes from each item's per-location quantity account, which carries no cost. Cost is instead taken from the preferred (or first available) vendor's current `item_source.price_minor`, **divided by `package_quantity`** to get a correct per-unit figure — `price_minor` is confirmed to be the whole package's price (e.g. a carton of 24), not a per-unit price; skipping that division would overstate inventory value by a whole package's worth. The same per-unit cost is used for both "last" and "average" cost fields, since no separate historical-average figure exists to distinguish them. `lastCostMinor`/`averageCostMinor` are only precisely meaningful for a cell representing a single item; once multiple distinct items share a cell (e.g. under "Consolidated"), the figure is indicative only.
+No date filter: stock on hand is always as of now. Per-unit cost is approximated: the quantity comes from each item's per-location quantity account, which carries no cost. Cost is instead taken from the preferred (or first available) vendor's current `item_source.price_minor`, **divided by `package_quantity`** to get a correct per-unit figure — `price_minor` is confirmed to be the whole package's price (e.g. a carton of 24), not a per-unit price; skipping that division would overstate inventory value by a whole package's worth. The same per-unit cost is used for both "last" and "average" cost fields, since no separate historical-average figure exists to distinguish them. `lastCostMinor`/`averageCostMinor` are only precisely meaningful for a cell representing a single item; once multiple distinct items share a cell (e.g. under "Consolidated"), the figure is indicative only.
 
 ## `getProfitAndLossByAxis` and `getAxisValues`
 
@@ -182,6 +178,9 @@ Tests (*Testing: Unit*, "Running the tests"):
 - "getProfitAndLossByAxis: real, direct reproducibility — every real division and every real location must exactly reproduce the original, division-filtered P&L (Sales AND COGS both), per direct, reported concern" (`backend/test/db.test.ts`)
 - "getProfitAndLossByAxis: a genuinely user-defined "Bottle Size" hierarchy - not one of the four, recommended default axes - works identically, through the same, real, generic mechanism" (`backend/test/db.test.ts`)
 
-## Open area
+## Pivot and drillable P&L
 
-`getSalesCogsMatrix` and `getProfitAndLossByAxis` is where a spreadsheet-style pivot and a drillable P&L statement coexist as two deliberately separate reports over the same axis-resolution mechanism — `getProfitAndLossByAxis` was added later, as a direct correction, after `getSalesCogsMatrix` alone didn't match the vertical, drillable layout the rest of the app's P&L already has. Neither replaces the other.
+`getCube` is the spreadsheet-style pivot (measures by a row and a column
+axis); `getProfitAndLossByAxis` is the drillable P&L statement grouped by
+two nested axes. Both resolve axes with `resolveKey`.
+

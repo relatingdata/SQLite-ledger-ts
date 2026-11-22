@@ -1,6 +1,7 @@
 # The manual and the code may not differ. Every push and pull request runs
 # the unit tests and every manual gate (`make test`, which ends with
-# `make check-manual`), and the storage engine's own suite.
+# `make check-manual`), the storage engine's own suite, and the Wine Retail
+# simulation against its exact expected figures (`make test-e2e`).
 # Documented in docs/pm-build-and-tooling.md, "Gates".
 name: check
 on:
@@ -26,3 +27,5 @@ jobs:
         run: make test
       - name: Storage engine tests
         run: make test-storage-engine
+      - name: Wine Retail simulation against its exact figures
+        run: make test-e2e

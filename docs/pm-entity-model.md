@@ -948,7 +948,7 @@ Steps 1 and 3 are the two withdrawal preconditions of
 `docs/storage-model-specification.md` §A.4; steps 2 and 4 are
 domain rules.
 
-### Departments and the Org Chart: a real, worked `setEntityLink` example
+### Departments and the Org Chart
 
 Departments (`ensureDepartmentsRoot`, `createDepartment`,
 `ensureDepartmentAccounts`, `createAndConfigureDepartment`,

@@ -167,29 +167,6 @@ function decodeProfitAndLoss(encoded: string): ProfitAndLoss {
 
 export type MatrixAxis = 'Item' | 'Category' | 'Location' | 'Consolidated' | (string & {});
 
-export interface MatrixCell {
-  rowKey: string;
-  colKey: string;
-  salesMinor: number;
-  cogsMinor: number;
-}
-
-export interface SalesCogsMatrix {
-  rowAxis: MatrixAxis;
-  colAxis: MatrixAxis;
-  cells: MatrixCell[];
-  totalSalesMinor: number;
-  totalCogsMinor: number;
-}
-
-export const getSalesCogsMatrix = async (business: string, ledger: string, rowAxis: MatrixAxis, colAxis: MatrixAxis, fromDate?: string, toDate?: string): Promise<SalesCogsMatrix> => {
-  const rawRows = await matrixCallTable('getSalesCogsMatrix', [business, ledger, rowAxis, colAxis, fromDate, toDate], (f) => f);
-  const totalSalesMinor = rawRows.length > 0 ? Number(rawRows[0].totalSalesMinor) : 0;
-  const totalCogsMinor = rawRows.length > 0 ? Number(rawRows[0].totalCogsMinor) : 0;
-  const cells = rawRows.filter((f) => f.rowKey !== '' || f.colKey !== '').map((f) => ({ rowKey: f.rowKey, colKey: f.colKey, salesMinor: Number(f.salesMinor), cogsMinor: Number(f.cogsMinor) }));
-  return { rowAxis, colAxis, cells, totalSalesMinor, totalCogsMinor };
-};
-
 export interface StockOnHandCell {
   rowKey: string;
   colKey: string;

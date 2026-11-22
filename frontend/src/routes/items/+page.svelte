@@ -194,16 +194,10 @@
   let manufacturers = $derived(globalEntities.filter((e) => globalEntities.find((p) => p.id === e.parent_id)?.name === 'Manufacturers'));
   let providers = $derived(globalEntities.filter((e) => globalEntities.find((p) => p.id === e.parent_id)?.name === 'Accounts Payable'));
 
-  // Legacy-root fallback, mirroring resolveBusinessLocationsRootId — see docs/pm-frontend-reference.md.
+  // The business's own Items root — see docs/pm-frontend-reference.md.
   const itemsRoot = () => {
     const biz = entities.find((e) => e.name === session.current?.businessName);
-    if (biz) {
-      const scoped =
-        entities.find((e) => e.name === 'Items' && e.parent_id === biz.id) ??
-        entities.find((e) => e.name === `${biz.name} Items` && e.parent_id === biz.id);
-      if (scoped) return scoped;
-    }
-    return entities.find((e) => e.name === 'Items');
+    return biz ? entities.find((e) => e.name === 'Items' && e.parent_id === biz.id) : undefined;
   };
 
   interface CategoryTreeNode {

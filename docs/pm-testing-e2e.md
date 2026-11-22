@@ -957,29 +957,36 @@ a unit test checks an exact expected value.
 | Check | Expected value |
 |---|---|
 | **Trial Balance @ 2027-03-28** | |
-| Total debit | $826,836.12 |
-| Total credit | $826,836.12 (must equal debit) |
-| Row count | 151 |
+| Total debit | $397,932.04 |
+| Total credit | $397,932.04 (must equal debit) |
+| Row count | 601 |
 | **Balance Sheet (all time)** | |
-| Total assets | $604,183.32 |
-| Total liabilities | $394,565.22 |
-| Total equity | $209,618.10 |
+| Total assets | $314,644.73 |
+| Total liabilities | $153,848.08 |
+| Total equity | $160,796.65 |
 | Balanced | true |
 | **Profit & Loss, 2027-03-01 to 2027-03-28** | |
-| Total income | $274,016.21 |
-| Total expenses | $164,425.92 |
-| Gross profit | $109,840.19 |
-| Net income | $109,590.29 |
-| Per-product income accounts | 72 |
-| Per-product-per-tier COGS accounts | 78 |
+| Total income | $131,123.69 |
+| Total expenses | $70,333.44 |
+| Gross profit | $60,838.05 |
+| Net income | $60,790.25 |
+| Per-product income accounts | 212 |
+| Per-product-per-tier COGS accounts | 209 |
 | **Cash movement** | |
-| Cash and Bank balance (ledger-scoped) | $188,614.90 |
-| Vendor (Boutique Wine Importers) balance | -$961,482.00 (partially paid, not zero, not never-paid) |
+| Cash and Bank balance (ledger-scoped) | $75,922.54 |
+| Vendor (Boutique Wine Importers) balance | -$141,181.20 (partially paid, not zero, not never-paid) |
 | **Sales Report, 2027-03-01 to 2027-03-28** | |
-| Detailed line count | 3,598 |
-| Category count | 18 |
-| Total quantity | 13,382 units |
-| Total amount | $812,646.50 |
+| Detailed line count | 1,385 |
+| Category count | 9 |
+| Total quantity | 4,986 units |
+| Total amount | $131,219.26 |
+
+Cost of goods sold is first in, first out (*The Stock API*, "The cost of
+stock leaving"). The opening stock is received as a quantity with no
+value, so the first sales from it cost nothing; three products sold only
+from opening stock have no COGS account, hence 209 against 212. The
+three customer returns are credit notes that reverse the original sale's
+own Sales account, which is why income is below the sales report's total.
 
 If `make test-e2e` reports every one of these as `PASS`, the system's
 core accounting behavior — per-product revenue and COGS recognition,

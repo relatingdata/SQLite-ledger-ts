@@ -42,7 +42,7 @@
   });
 
   let latestRequestId = 0;
-  // Same {@html}-reactivity fix as Balance Sheet — see docs/pm-frontend-reference.md.
+  // Split on {NAME} so the business name is inserted as text, not through {@html}.
   let introTemplate = $derived(translations.current["Any two ledgers in {NAME} side by side — Actual against a proposed budget, or two proposed budgets against each other. Not limited to whichever ledger you're currently in."] ?? "Any two ledgers in {NAME} side by side — Actual against a proposed budget, or two proposed budgets against each other. Not limited to whichever ledger you're currently in.");
   let introItems = $derived(introTemplate.split('{NAME}'));
   async function loadComparison() {

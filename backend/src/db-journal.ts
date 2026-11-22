@@ -15,6 +15,7 @@ import {
   asItemName,
   asLocationName,
   getContact,
+  resolveCounterpartyId,
   setHierarchyParent,
   setRelationship,
   recordInvoiceLine,
@@ -706,12 +707,9 @@ function resolveStagedAccountId(business: string, accountName: string): number |
       if (match) return match.id;
     }
   }
-  // Deliberately the same unscoped, unordered, no-disambiguation fallback
-  // the original trigger's own SQL had (`LIMIT 1`, no ORDER BY) — a known,
-  // pre-existing weakness (the one legacy business with no Chart of
-  // Accounts copy of its own), not something this conversion should "fix"
-  // by adding an ordering the original never had.
-  return Entity.get(accountName)?.id;
+  // Not in the business's chart: a customer, provider or employee (contacts
+  // are not copied into a business's chart), then any entity of that name.
+  return resolveCounterpartyId(accountName) ?? Entity.get(accountName)?.id;
 }
 
 interface CommitStagedEntryOptions {

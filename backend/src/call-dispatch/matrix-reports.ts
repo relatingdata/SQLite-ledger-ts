@@ -16,7 +16,7 @@
 // children array), but the encoder below is written genuinely recursively
 // anyway, matching the real, declared ProfitAndLossByAxisNode type rather
 // than assuming today's one-level-deep behavior.
-import { getSalesCogsMatrix, getStockOnHandMatrix, getAxisValues, getProfitAndLossByAxis, getCube, parseCubeMeasure, type MatrixAxis, type ProfitAndLossByAxisNode } from '../db-matrix-reports.js';
+import { getStockOnHandMatrix, getAxisValues, getProfitAndLossByAxis, getCube, parseCubeMeasure, type MatrixAxis, type ProfitAndLossByAxisNode } from '../db-matrix-reports.js';
 import { asBusinessName, asLedgerName } from '../db.js';
 import { CallError, encodeStringList, requireAuth, row, table, type BackendCall } from '../call-dispatch.js';
 import { encodeProfitAndLoss } from './reports.js';
@@ -48,26 +48,11 @@ export const matrixReportsFunctions: Record<string, BackendCall> = {
       cells.flatMap((c) => Object.entries(c.values).map(([measure, value]) => ({ rowKey: c.rowKey, colKey: c.colKey, measure, value })))
     );
   },
-  // Positional args: [0] business, [1] ledger, [2] rowAxis, [3] colAxis, [4] fromDate, [5] toDate.
-  // Table columns: rowKey,colKey,salesMinor,cogsMinor,totalSalesMinor,totalCogsMinor
-  // (totals denormalized onto every row — read from any row). Zero cells ->
-  // one sentinel row with rowKey='',colKey='' (resolveKey never returns
-  // an empty string for a real key) carrying totals (always 0 then).
-  getSalesCogsMatrix: (v, user) => {
-    requireAuth(user);
-    const [business, ledger, rowAxis, colAxis, fromDate, toDate] = v;
-    if (!business || !ledger || !rowAxis || !colAxis) throw new CallError(400, 'business, ledger, rowAxis and colAxis are all required.');
-    const m = getSalesCogsMatrix(asBusinessName(business), asLedgerName(ledger), fromDate || undefined, toDate || undefined, rowAxis as MatrixAxis, colAxis as MatrixAxis);
-    const cells =
-      m.cells.length > 0
-        ? m.cells.map((c) => ({ rowKey: c.rowKey, colKey: c.colKey, salesMinor: c.salesMinor, cogsMinor: c.cogsMinor, totalSalesMinor: m.totalSalesMinor, totalCogsMinor: m.totalCogsMinor }))
-        : [{ rowKey: '', colKey: '', salesMinor: 0, cogsMinor: 0, totalSalesMinor: m.totalSalesMinor, totalCogsMinor: m.totalCogsMinor }];
-    return table(['rowKey', 'colKey', 'salesMinor', 'cogsMinor', 'totalSalesMinor', 'totalCogsMinor'], cells);
-  },
   // Positional args: [0] rowAxis, [1] colAxis.
   // Table columns: rowKey,colKey,quantityBottles,valueAtCostMinor,lastCostMinor,
   // averageCostMinor,realizableValueMinor,totalValueAtCostMinor,totalRealizableValueMinor
-  // (totals denormalized, same sentinel-row convention as above).
+  // (totals denormalized onto every row; with no cells, one row with empty
+  // rowKey and colKey carries the totals).
   getStockOnHandMatrix: (v, user) => {
     requireAuth(user);
     const [rowAxis, colAxis] = v;

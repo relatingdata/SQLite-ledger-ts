@@ -116,11 +116,7 @@
     try {
       const treeEntities = await getEntityTree();
       const biz = treeEntities.find((e) => e.name === session.current!.businessName);
-      // Mirrors resolveBusinessLocationsRootId's legacy-root fallback — see docs/pm-frontend-reference.md.
-      const locationsId = biz
-        ? (treeEntities.find((e) => e.name === 'Locations' && e.parent_id === biz.id) ??
-          treeEntities.find((e) => e.name === `${session.current!.businessName} Locations` && e.parent_id === biz.id))?.id
-        : undefined;
+      const locationsId = biz ? treeEntities.find((e) => e.name === 'Locations' && e.parent_id === biz.id)?.id : undefined;
       await createEntity({ name: newLocationName.trim(), parentId: locationsId });
       await saveLocation(
         newLocationName.trim(),

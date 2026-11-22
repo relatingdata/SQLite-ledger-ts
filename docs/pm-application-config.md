@@ -156,17 +156,15 @@ bought at a cost and sold unevenly at two locations:
 - "getCube: swapping the axes transposes the cells, and Consolidated totals them"
 - "getCube: a period counts only the postings in it"
 - "getCube: cost of goods sold per item and location, at what the units sold cost"
-- "getCube agrees with getStockOnHandMatrix, and corrects getSalesCogsMatrix"
+- "getCube agrees with getStockOnHandMatrix"
 - "parseCubeMeasure: rejects what it cannot read"
 
 Stock measures count only the business's own locations. Cost of goods
 sold is posted per item and location when a POS sale is made, at what the
 units cost first in, first out (below), so margin shows per location.
 
-The retired Sales vs COGS screen's call, `getSalesCogsMatrix`,
-told sales from cost of goods sold by a "Sales - " name prefix that per-item
-sales accounts no longer carry, and so showed every sale as negative cost
-of goods sold; `getCube` tells them apart by where the account sits.
+`getCube` tells sales from cost of goods sold by where the account sits
+(under Sales Revenue or Cost of Goods Sold), not by its name.
 
 ### First in, first out (default middleware)
 

@@ -124,9 +124,9 @@ for (const e of employees.slice(0, 5)) {
 out += '\n';
 
 out += '### Locations — the real, business-specific sub-tree, not the generic root\n\n';
-out += 'A real, important structural note: `Locations` (the generic, top-level class above) has zero real, direct children in a live database. Every real, actual location lives reparented under its own business — e.g. `Wine Retail Business Locations` — confirmed directly, not assumed.\n\n';
+out += 'Each business has its own `Locations` root, with its locations under it.\n\n';
 for (const biz of childrenOfName('Businesses')) {
-  const locRoot = tree.find((e) => e.name === `${biz.name} Locations`);
+  const locRoot = tree.find((e) => e.name === 'Locations' && e.parent_id === biz.id);
   if (!locRoot) continue;
   const locs = childrenOfId(locRoot.id);
   out += `**${esc(locRoot.name)}** (${locs.length} real location${locs.length === 1 ? '' : 's'}):\n\n`;

@@ -450,7 +450,7 @@ suggested hierarchy names; a business can rename or drop either, or
 add others (region, bottle size, storage area). Everything takes the
 hierarchy name as a parameter:
 
-- `getHierarchyGroups(hierarchyName)`, `getHierarchyGroupForAccount(accountName, hierarchyName)`, `getHierarchyGroupForLocation(locationName, hierarchyName)`
+- `getHierarchyGroups(business, hierarchyName)` (the business's own values of the grouping, each with the value it is tagged under), `getHierarchyGroupForAccount(accountName, hierarchyName)`, `getHierarchyGroupForLocation(locationName, hierarchyName)`
 - `getProfitAndLossByHierarchy(business, ledger, hierarchyPath, ...)`, `getProfitAndLossForHierarchyGroup(business, ledger, hierarchyPath, groups, groupName, ...)`, `getProfitAndLossByHierarchyTree(business, ledger, hierarchyPath, hierarchyName, ...)`
 - `getLedgerBalancesByHierarchyStructural(business, ledger, hierarchyPath, fromDate?, toDate?, excludeCloseEntries?)` — resolves each account to its group by walking `hierarchyPath` (an ordered list of hierarchy names) one `getHierarchyParent` hop at a time; `['Location']` for a one-hop breakdown, `['Location', 'Division']` for a two-hop one.
 - `closeBooks`/`previewCloseBooks`/`computeCloseLines` take an explicit `hierarchyPath: string[] = []`; their result's informational summary field is `groupBreakdown`.
@@ -559,6 +559,17 @@ normally one account name (a lump-sum line), but can be a function
 instead, posting one line per `invoice_detail_line` to each product's
 own Sales/COGS leaf, so each product's revenue is kept apart.
 
+**The counterparty is found among the contacts.** `createInvoice` finds
+it with `resolveCounterpartyId(name)`, under `Customers`, `Accounts
+Receivable`, `Vendors`, `Accounts Payable` or `Employees`, never as a
+same-named entity elsewhere (`Cash Sale` is also a screen title in
+Vocabulary). The invoice is related to that id, and `postInvoice` and
+`allocatePayment` stage the counterparty line by that id, so the
+balance lands on the contact, which the Balance Sheet counts under
+Accounts Receivable or Payable. A staged line naming a contact is found
+the same way (`resolveStagedAccountId`, *The Journal API*). Payment
+terms are the contact's `payment_terms_days`, 30 when unset.
+
 `counterpartyAccountOverride` posts the counterparty side to another
 account instead of the customer's AR account; the invoice keeps its
 counterparty. `completePosSale` and `completeCashPurchase` do not use
@@ -574,6 +585,9 @@ after its posting succeeds.
 `getCustomerStatement` counts only allocations made by its "as of"
 date (`allocation_date`); `getInvoiceOutstandingMinor` counts every
 allocation, for the outstanding amount now.
+
+Tests (*Testing: Unit*, "Running the tests"):
+- "createInvoice: a customer named like a vocabulary word is the counterparty, and its balance is in Accounts Receivable" (`backend/test/db.test.ts`)
 
 Reading invoices:
 

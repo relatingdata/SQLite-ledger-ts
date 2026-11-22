@@ -81,12 +81,18 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 const __simDir = path.dirname(fileURLToPath(import.meta.url));
 
-// The names of the accounts a posted journal entry touched.
-function getAccountsPostedTo(reference: string): string[] {
+// The account a posted sale credited under Sales Revenue (a sale's Sales
+// and COGS accounts share a name, so it is found by ancestry, not name).
+function salesAccountPostedTo(reference: string): { name: string; id: number } | undefined {
   const rows = db
-    .prepare(`SELECT DISTINCT jl.account_id AS accountId FROM journal_line jl JOIN journal j ON j.id = jl.journal_id WHERE j.reference = ?`)
+    .prepare(`SELECT DISTINCT jl.account_id AS accountId FROM journal_line jl JOIN journal j ON j.id = jl.journal_id WHERE j.reference = ? AND jl.amount_minor < 0`)
     .all(reference) as { accountId: number }[];
-  return Entity.getMany(rows.map((r) => r.accountId)).map((e) => e.name);
+  for (const e of Entity.getMany(rows.map((r) => r.accountId))) {
+    for (let p = e.parent_id != null ? Entity.get(e.parent_id) : undefined; p; p = p.parent_id != null ? Entity.get(p.parent_id) : undefined) {
+      if (p.name === 'Sales Revenue') return { name: e.name, id: e.id };
+    }
+  }
+  return undefined;
 }
 const pricingRows = readCsv(fs.readFileSync(path.join(__simDir, '../../shared-fixtures/pricing.csv'), 'utf-8'));
 const wholesaleCostBySubcategory = new Map(pricingRows.map((r) => [r.subcategory, Number(r.wholesaleCostMinor)]));
@@ -900,11 +906,11 @@ async function main() {
         },
         USER
       );
-      // The original sale posts to a tier-specific Sales account (e.g. "Sales - X
-      // (Bottle)"); ensureItemSalesCogsAccounts without a tier would fall back to a
-      // different, tier-less "ghost" account, so look up the account the sale actually used.
-      const originalSalesAccounts = getAccountsPostedTo(original.reference).filter((n) => n.startsWith('Sales - '));
-      const salesAccount = originalSalesAccounts[0] ?? ensureItemSalesCogsAccounts(asItemName(line.itemName!), USER).salesAccount;
+      // The original sale posted to a tier-specific Sales account (e.g. "X
+      // (Bottle)" under Sales Revenue); reverse that same account.
+      const originalSales = salesAccountPostedTo(original.reference);
+      const fallback = ensureItemSalesCogsAccounts(asItemName(line.itemName!), USER, undefined, BUSINESS);
+      const salesAccount = originalSales ? { name: originalSales.name, id: originalSales.id } : { name: fallback.salesAccount, id: fallback.salesAccountId };
       // A spoiled return is never restocked — the financial reversal (crediting the
       // customer) happens, but the bottle doesn't become sellable stock again.
       //

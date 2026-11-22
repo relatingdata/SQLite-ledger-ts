@@ -23,21 +23,6 @@ function resolveLedgerEntityId(business: string, ledger: string): number | undef
 // Consolidated/Item/Location are structural literals here.
 export type MatrixAxis = 'Item' | 'Location' | 'Consolidated' | (string & {});
 
-export interface MatrixCell {
-  rowKey: string;
-  colKey: string;
-  salesMinor: number;
-  cogsMinor: number;
-}
-
-export interface SalesCogsMatrix {
-  rowAxis: MatrixAxis;
-  colAxis: MatrixAxis;
-  cells: MatrixCell[];
-  totalSalesMinor: number;
-  totalCogsMinor: number;
-}
-
 const CONSOLIDATED_KEY = 'Consolidated';
 const NO_LOCATION_KEY = '(No location)';
 
@@ -48,11 +33,8 @@ function loadEntityIndex(): Map<number, { name: string; parent_id: number | null
 }
 
 function stripLocationSuffix(name: string): string {
-  let n = name;
-  if (n.startsWith('Sales - ')) n = n.slice('Sales - '.length);
-  else if (n.startsWith('COGS - ')) n = n.slice('COGS - '.length);
-  const idx = n.indexOf(' — ');
-  return idx === -1 ? n : n.slice(0, idx);
+  const idx = name.indexOf(' — ');
+  return idx === -1 ? name : name.slice(0, idx);
 }
 
 function locationForAccount(accountName: string): string | undefined {
@@ -87,58 +69,6 @@ function resolveItemKey(axis: MatrixAxis, itemName: string, locationName: string
   const viaLocation = getHierarchyParent(locationName, axis);
   if (viaLocation) return viaLocation;
   return `No ${axis}`;
-}
-
-export function getSalesCogsMatrix(businessName: BusinessName, ledgerName: LedgerName, fromDate: string | undefined, toDate: string | undefined, rowAxis: MatrixAxis, colAxis: MatrixAxis): SalesCogsMatrix {
-  const entityIndex = loadEntityIndex();
-  const ledgerId = resolveLedgerEntityId(businessName, ledgerName) ?? -1;
-  // The original query's WITH RECURSIVE ancestors + current_entities joins
-  // did two jobs at once: (1) find every account entity descending from a
-  // "Sales Revenue"/"Cost of Goods Sold" entity, and (2) read each account's
-  // own name for the isSales check. Both are pure entity-graph work —
-  // accountIdsUnderNamed (below) does (1) in TypeScript via entityIndex
-  // (already loaded for resolveKey below), and entityIndex itself already
-  // carries every entity's name for (2) — so the SQL below needs no
-  // current_entities join at all, only account/journal_occurrences/journal.
-  const salesCogsIds = accountIdsUnderNamed(entityIndex, ['Sales Revenue', 'Cost of Goods Sold']);
-
-  const rows = db
-    .prepare(
-      `SELECT a.entity_id AS id, SUM(jo.amount_minor) AS balance_minor
-       FROM account a
-       JOIN journal_occurrences jo ON jo.account_id = a.entity_id
-       JOIN journal j ON j.id = jo.journal_id
-       WHERE jo.ledger_id = ?
-         AND (? IS NULL OR jo.transdate >= ?)
-         AND (? IS NULL OR jo.transdate <= ?)
-         AND j.reference NOT LIKE 'CLOSE-%'
-       GROUP BY a.entity_id`
-    )
-    .all(ledgerId, fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null) as { id: number; balance_minor: number }[];
-
-  const cellMap = new Map<string, MatrixCell>();
-  let totalSalesMinor = 0;
-  let totalCogsMinor = 0;
-
-  for (const r of rows) {
-    if (r.balance_minor === 0 || !salesCogsIds.has(r.id)) continue;
-    const name = entityIndex.get(r.id)?.name ?? '';
-    const isSales = name.startsWith('Sales - ');
-    const rowKey = resolveKey(rowAxis, r.id, entityIndex);
-    const colKey = resolveKey(colAxis, r.id, entityIndex);
-    const key = `${rowKey}\u0000${colKey}`;
-    if (!cellMap.has(key)) cellMap.set(key, { rowKey, colKey, salesMinor: 0, cogsMinor: 0 });
-    const cell = cellMap.get(key)!;
-    if (isSales) {
-      cell.salesMinor += -r.balance_minor;
-      totalSalesMinor += -r.balance_minor;
-    } else {
-      cell.cogsMinor += r.balance_minor;
-      totalCogsMinor += r.balance_minor;
-    }
-  }
-
-  return { rowAxis, colAxis, cells: [...cellMap.values()], totalSalesMinor, totalCogsMinor };
 }
 
 export interface StockOnHandCell {
@@ -253,10 +183,8 @@ export interface ProfitAndLossByAxisNode {
 }
 
 // Every entity id that is, or is a descendant of, an entity whose name is
-// one of `rootNames` — pure entity-graph work, no SQL. Shared by
-// plAccountIds (roots: Income/Expense) and getSalesCogsMatrix's own
-// Sales Revenue/Cost of Goods Sold lookup, same one-helper-not-two
-// discipline as every other shared shape in this rollout.
+// one of `rootNames` — pure entity-graph work, no SQL (plAccountIds:
+// Income/Expense).
 function accountIdsUnderNamed(entityIndex: Map<number, { name: string; parent_id: number | null }>, rootNames: string[]): Set<number> {
   const rootNameSet = new Set(rootNames);
   const rootIds = new Set<number>();
@@ -385,8 +313,8 @@ export function getAxisValues(businessName: BusinessName, ledgerName: LedgerName
 // hierarchy (resolveKey above). So any report on sales, cost of goods sold
 // or stock is: some measures, each a total over a set of accounts (or the
 // on-hand quantity of stock, possibly valued at a price), broken down by a
-// row axis and a column axis. getSalesCogsMatrix and getStockOnHandMatrix
-// are two fixed instances; getCube takes the measures as configuration.
+// row axis and a column axis. getStockOnHandMatrix is one fixed instance;
+// getCube takes the measures as configuration.
 
 /** A measure: what each cell totals.
  * - postings: the journal postings (in the period; or, with no fromDate, up

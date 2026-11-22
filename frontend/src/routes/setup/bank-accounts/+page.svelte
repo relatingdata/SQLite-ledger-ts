@@ -9,7 +9,6 @@
     getCashPosition,
     registerBankAccount,
     unregisterBankAccount,
-    getHierarchyGroups,
     getHierarchy,
     ApiError,
     type EntityNode,
@@ -39,12 +38,11 @@
         getCashPosition(session.current.businessName, session.current.ledgerName),
         getHierarchy(session.current.businessName),
       ]);
-      const groupsPerHierarchy = await Promise.all(hierarchy.map((h) => getHierarchyGroups(h.grouping)));
       if (requestId !== latestRequestId) return;
       entities = ents;
       bankAccounts = accounts;
       cashPosition = position;
-      groupNames = groupsPerHierarchy.flat().map((d) => d.name);
+      groupNames = hierarchy.flatMap((h) => h.values);
     } catch (e) {
       if (requestId !== latestRequestId) return;
       error = e instanceof ApiError ? e.message : 'Failed to load.';

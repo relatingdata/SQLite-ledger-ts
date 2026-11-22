@@ -481,8 +481,6 @@ Root
     - :Parameter Name=business
    getHierarchyAssignments :Call Client=getHierarchyAssignments
     - :Parameter Name=hierarchyName
-   getHierarchyGroups :Call Client=getHierarchyGroups
-    - :Parameter Name=hierarchyName
    getHierarchyLinksPointingAt :Call Client=getHierarchyLinksPointingAt
     - :Parameter Name="String(entityId)"
    getHierarchyTag :Call Client=getHierarchyTag
@@ -1967,7 +1965,7 @@ Root
     - :Heading Text="System default language"
     - :Field Bind=defaultLanguage Control=select Label=Configuration
     - :Action Handler=saveDefaultLanguage Label=Saving
-   "/setup/bank-accounts" :Screen "Calls getBankAccounts">/Root/Application/Calls/getBankAccounts "Calls getCashPosition">/Root/Application/Calls/getCashPosition "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getHierarchy">/Root/Application/Calls/getHierarchy "Calls getHierarchyGroups">/Root/Application/Calls/getHierarchyGroups "Calls registerBankAccount">/Root/Application/Calls/registerBankAccount "Calls unregisterBankAccount">/Root/Application/Calls/unregisterBankAccount Source="frontend/src/routes/setup/bank-accounts/+page.svelte" Title="Bank Accounts"
+   "/setup/bank-accounts" :Screen "Calls getBankAccounts">/Root/Application/Calls/getBankAccounts "Calls getCashPosition">/Root/Application/Calls/getCashPosition "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getHierarchy">/Root/Application/Calls/getHierarchy "Calls registerBankAccount">/Root/Application/Calls/registerBankAccount "Calls unregisterBankAccount">/Root/Application/Calls/unregisterBankAccount Source="frontend/src/routes/setup/bank-accounts/+page.svelte" Title="Bank Accounts"
     - :Heading Text="Bank Accounts"
     - :Heading Text="Current cash position"
     - :Column Label=Currency

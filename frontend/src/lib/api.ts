@@ -721,9 +721,6 @@ export interface HierarchyGroupRecord {
   parentName: string | null;
 }
 // Generic replacement for the former, privileged getDivisions() — see docs/pm-frontend-reference.md.
-export const getHierarchyGroups = (hierarchyName: string) =>
-  callTable('getHierarchyGroups', [hierarchyName], (f): HierarchyGroupRecord => ({ name: f.name, parentName: f.parentName || null }));
-
 export interface HierarchyGroupingWithValues {
   grouping: string;
   values: string[];

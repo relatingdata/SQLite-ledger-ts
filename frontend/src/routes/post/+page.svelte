@@ -102,7 +102,6 @@
 
     return accounts.filter((a) => {
       if (!a.is_postable_account || accounts.some((c) => c.parent_id === a.id)) return false;
-      if (a.name.startsWith('Sales - ') || a.name.startsWith('COGS - ')) return true;
       const accountPrototype = prototypeName(a.relation_id);
       if (accountPrototype == null || !allPrototypeNames.has(accountPrototype)) return true; // universal (e.g. customer/provider) or unrelated relation (e.g. an address/phone type — never expected here, but never hidden incorrectly either)
       return accountPrototype === currentPrototype;

@@ -1,0 +1,16 @@
+sequenceDiagram
+    participant Page as Screen (+page.svelte)
+    participant Api as api.ts (callRow / callTable)
+    participant Route as routes/call.ts (POST /api/call)
+    participant Dispatch as call-dispatch/*.ts entry
+    participant Db as db.ts function
+
+    Page->>Api: postOnAccountInvoice({...})
+    Api->>Route: text/csv body: name,values... then one line per line item
+    Route->>Dispatch: positional values, line items, user
+    Dispatch->>Dispatch: requireRole, check and brand the values
+    Dispatch->>Db: postOnAccountInvoice(input, userId)
+    Db-->>Dispatch: result (or ValidationError / NotFoundError)
+    Dispatch-->>Route: row(...) or table(...) (or CallError 4xx)
+    Route-->>Api: "ok,..." line, or header + rows, or "error,message"
+    Api-->>Page: parsed value, or throws ApiError

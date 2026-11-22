@@ -196,7 +196,9 @@ committed, pushed or merged unnoticed:
 - before every commit, in `githooks/pre-commit`, which `make install`
   enables (`git config core.hooksPath githooks`);
 - on every push and pull request, in `.github/workflows/check.yml`
-  (`make install`, `make test`, `make test-storage-engine`).
+  (`make install`, `make test`, `make test-storage-engine`, and
+  `make test-e2e`, the simulation checked against its exact figures,
+  *Testing: E2E*).
 
 None of them has a baseline or an exception list: each gate passes only
 when the manual and the code agree.

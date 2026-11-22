@@ -5,8 +5,10 @@
  * Math.random()) — running it against the same schema always
  * produces exactly the same numbers, not just "a plausible range."
  * This script checks the real, current database against those exact,
- * documented values (see docs/testing.md, which this script and that
- * document are kept in sync with deliberately).
+ * values (docs/pm-testing-e2e.md). Cost of goods sold is first in, first
+ * out: the opening stock is received as a quantity with no value, so the
+ * first sales from it cost 0 (docs/pm-stock-api.md, "The cost of stock
+ * leaving"); the three returns are posted as credit notes.
  *
  * This is a genuine correctness check, not a smoke test: it verifies
  * the fundamental accounting identities (Trial Balance and Balance
@@ -37,26 +39,26 @@ async function main() {
 
   console.log('--- Trial Balance @ 2027-03-28 ---');
   const tb = getTrialBalance(WINE_RETAIL, ACTUAL, '2027-03-28');
-  check('total_debit_minor', tb.total_debit_minor, 39879711);
-  check('total_credit_minor', tb.total_credit_minor, 39879711);
+  check('total_debit_minor', tb.total_debit_minor, 39793204);
+  check('total_credit_minor', tb.total_credit_minor, 39793204);
   check('debit == credit (the fundamental accounting identity)', tb.total_debit_minor === tb.total_credit_minor, true);
-  check('row count', tb.rows.length, 619);
+  check('row count', tb.rows.length, 601);
 
   console.log('\n--- Balance Sheet (all time) ---');
   const bs = getBalanceSheet(WINE_RETAIL, ACTUAL);
-  check('total_assets_minor', bs.total_assets_minor, 30920434);
+  check('total_assets_minor', bs.total_assets_minor, 31464473);
   check('total_liabilities_minor', bs.total_liabilities_minor, 15384808);
-  check('total_equity_minor', bs.total_equity_minor, 15535626);
+  check('total_equity_minor', bs.total_equity_minor, 16079665);
   check('balanced', bs.balanced, true);
 
   console.log('\n--- Profit & Loss, 2027-03-01 to 2027-03-28 ---');
   const pl = getProfitAndLoss(WINE_RETAIL, ACTUAL, '2027-03-01', '2027-03-28');
-  check('total_income_minor', pl.total_income_minor, 13121926);
-  check('total_expenses_minor', pl.total_expenses_minor, 7586940);
-  check('gross_profit_minor', pl.gross_profit_minor, 5539766);
-  check('net_income_minor', pl.net_income_minor, 5534986);
+  check('total_income_minor', pl.total_income_minor, 13112369);
+  check('total_expenses_minor', pl.total_expenses_minor, 7033344);
+  check('gross_profit_minor', pl.gross_profit_minor, 6083805);
+  check('net_income_minor', pl.net_income_minor, 6079025);
   check('real per-product income accounts', pl.income.length, 212);
-  check('real per-product-per-tier COGS accounts', pl.cogs_expenses.length, 212);
+  check('real per-product-per-tier COGS accounts', pl.cogs_expenses.length, 209);
 
   console.log('\n--- Real cash movement (the allocatePayment/vendor-payment fix) ---');
   // Deliberately NOT account.balance_minor directly — that column is a
@@ -92,8 +94,8 @@ async function main() {
     console.log('ALL CHECKS PASSED — the real simulation matches its exact, documented expected results.');
   } else {
     console.log(`${failures} CHECK(S) FAILED — the simulation's real behavior has changed. If this is expected`);
-    console.log('(a deliberate change to the simulation or the underlying logic), update both this script');
-    console.log('and docs/testing.md together, not just one — they must never silently drift apart.');
+    console.log('(a deliberate change to the simulation or the underlying logic), update the expected values');
+    console.log('here and say why in the commit.');
     process.exit(1);
   }
 }
