@@ -5,7 +5,8 @@
 # session to German, and reads each page.
 "Include","../common/business.csv"
 "Set Translation","Every entity in the system, in hierarchy order \u{2014} the whole application (chart of accounts, business reports, languages, vocabulary, businesses/ledgers) is one tree, walked here directly from <code>parent_id</code>.","German","Jede Entit\u{e4}t im System, in Hierarchie-Reihenfolge \u{2014} die ganze Anwendung ist ein Baum, hier direkt \u{fc}ber <code>parent_id</code> durchlaufen."
-"Set Translation","Every real posted sale for {NAME} in the selected period \u{2014} a category summary rolled up from each product's own real place in the catalog, and the full line-by-line detail underneath it.","German","Jeder reale gebuchte Verkauf f\u{fc}r {NAME} im gew\u{e4}hlten Zeitraum."
+"Add Vocabulary Word","Every posted sale for {NAME} in the selected period, summed by a grouping of the items, and line by line.","Vocabulary"
+"Set Translation","Every posted sale for {NAME} in the selected period, summed by a grouping of the items, and line by line.","German","Jeder gebuchte Verkauf f\u{fc}r {NAME} im gew\u{e4}hlten Zeitraum."
 "Set Translation","For {NAME} only.","German","Nur f\u{fc}r {NAME}."
 "Set Translation","The real billing event \u{2014} this is what creates AR and recognizes revenue, distinct from a Dispatch Note/Goods Receipt which only moves stock. Credit Notes and Debit Memos use the same mechanism in reverse.","German","Das eigentliche Rechnungsereignis \u{2014} es erzeugt AR und erfasst Ertrag."
 "Set Translation","The real billing event \u{2014} this is what creates AP and recognizes expense, distinct from a Dispatch Note/Goods Receipt which only moves stock. Credit Notes and Debit Memos use the same mechanism in reverse.","German","Das eigentliche Rechnungsereignis \u{2014} es erzeugt AP und erfasst Aufwand."
@@ -20,7 +21,7 @@
 "Page Shows",".intro","Jede Entit\u{e4}t im System"
 "Open Page","/reports/sales"
 "Page Shows",".intro","${business}"
-"Page Shows",".intro","Jeder reale gebuchte Verkauf"
+"Page Shows",".intro","Jeder gebuchte Verkauf"
 "Open Page","/reports/balance-sheet"
 "Page Shows",".intro","Nur f\u{fc}r Actual"
 "Open Page","/invoices"
