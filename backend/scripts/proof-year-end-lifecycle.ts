@@ -5,7 +5,7 @@
 // per the backend-first-testing skill - no browser, no Playwright,
 // direct function calls, checking every real balance/quantity along
 // the way, not just the final result.
-import { createBusiness, create, requireEntity, requireEntityById, resolveBusinessLocationsRootId, typeRootName, getTrialBalance, stageBomComponent, postBomComponents, getBomComponents, addOrUpdateItemSource, createItem, completePosSale, ensureProductInstance, ensureCombinationAccountLeaf, getItemPriceForCurrency, db, asBusinessName, asLedgerName, asAccountName, asLocationName, asProviderName, asItemName } from '../src/db.ts';
+import { asCustomerName, createBusiness, create, requireEntity, requireEntityById, resolveBusinessLocationsRootId, typeRootName, getTrialBalance, stageBomComponent, postBomComponents, getBomComponents, addOrUpdateItemSource, createItem, completePosSale, ensureProductInstance, ensureCombinationAccountLeaf, getItemPriceForCurrency, db, asBusinessName, asLedgerName, asAccountName, asLocationName, asProviderName, asItemName } from '../src/db.ts';
 import {
   setLocation,
   placeOrder,
@@ -19,6 +19,8 @@ import {
   ensureLocationCapacityAccount,
 } from '../src/db-stock.ts';
 import { previewCloseBooks, closeBooks } from '../src/db-reports.ts';
+import { runInSessionContext } from '../src/session-context.ts';
+import { Entity } from '../src/primitives.ts';
 
 const USER = 1;
 const BIZ = 'YearEnd Proof Co';
@@ -50,9 +52,9 @@ create(requireEntity('Employees', typeRootName), typeRootName, 'Proof Employee â
 check('Employee created', true);
 
 console.log(`\n=== 4. Minimal products, including one real assembly ===`);
-createItem('Proof Component A', `${BIZ} Items`, USER as any);
-createItem('Proof Component B', `${BIZ} Items`, USER as any);
-createItem('Proof Gift Pack', `${BIZ} Items`, USER as any);
+createItem('Proof Component A', 'Items', USER as any, asBusinessName(BIZ));
+createItem('Proof Component B', 'Items', USER as any, asBusinessName(BIZ));
+createItem('Proof Gift Pack', 'Items', USER as any, asBusinessName(BIZ));
 create(requireEntity('Accounts Payable', typeRootName), typeRootName, 'Proof Vendor', USER as any);
 addOrUpdateItemSource({ itemName: 'Proof Component A', vendorName: 'Proof Vendor', priceMinor: 500, packageQuantity: 12, isPreferred: true });
 addOrUpdateItemSource({ itemName: 'Proof Component B', vendorName: 'Proof Vendor', priceMinor: 700, packageQuantity: 12, isPreferred: true });
@@ -79,7 +81,7 @@ const saleResult = completePosSale(
     business: BIZ as any,
     ledger: LEDGER as any,
     locationName: 'Proof Retail Outlet' as any,
-    customerName: 'Cash Sale' as any,
+    customerName: asCustomerName('Cash'),
     lines: [{ itemName: 'Proof Component A', quantity: 10, unitPriceMinor: 1200, taxMinor: 0 }],
     taxAccount: 'GST Collected' as any,
     paymentMethod: 'Cash',
@@ -91,7 +93,7 @@ const saleResult = completePosSale(
 check('Sale completed', !!saleResult);
 
 console.log(`\n=== 7b. A real, hierarchy-varied combination sale, with its own real, combination-specific price ===`);
-createItem('Proof Lager', `${BIZ} Items`, USER as any);
+createItem('Proof Lager', 'Items', USER as any, asBusinessName(BIZ));
 addOrUpdateItemSource({ itemName: 'Proof Lager', vendorName: 'Proof Vendor', priceMinor: 500, isPreferred: true });
 receiveItems(BIZ as any, LEDGER as any, 'REC-PROOF-LAGER-1', asItemName('Proof Lager'), asLocationName('Proof Retail Outlet'), 24, USER as any, '2026-07-10');
 const comboShape: [string, string][] = [
@@ -106,7 +108,7 @@ const comboSaleResult = completePosSale(
     business: BIZ as any,
     ledger: LEDGER as any,
     locationName: 'Proof Retail Outlet' as any,
-    customerName: 'Cash Sale' as any,
+    customerName: asCustomerName('Cash'),
     lines: [{ itemName: 'Proof Lager', quantity: 3, taxMinor: 0, combinationValues: ['Proof Retail Outlet', 'Proof Lager', 'Cold'], combinationShape: comboShape }],
     taxAccount: 'GST Collected' as any,
     paymentMethod: 'Cash',
@@ -121,7 +123,7 @@ const basePrice = getItemPriceForCurrency('Proof Lager', null);
 check(`Base item price genuinely unaffected (still 500, got ${basePrice})`, basePrice === 500);
 
 console.log(`\n=== 7c. Combination-tagged receiving (from a PO-style receipt) and warehouse transfer, per direct instruction ===`);
-createItem('Proof Ale', `${BIZ} Items`, USER as any);
+createItem('Proof Ale', 'Items', USER as any, asBusinessName(BIZ));
 addOrUpdateItemSource({ itemName: 'Proof Ale', vendorName: 'Proof Vendor', priceMinor: 400, packageQuantity: 1, isPreferred: true });
 receiveItems(BIZ as any, LEDGER as any, 'REC-PROOF-ALE-1', asItemName('Proof Ale'), asLocationName('Proof Warehouse'), 48, USER as any, '2026-07-11', ['Proof Warehouse', 'Proof Ale', 'Cold'], comboShape);
 const warehouseInstance = ensureProductInstance(BIZ as any, comboShape, ['Proof Warehouse', 'Proof Ale', 'Cold'], USER as any);
@@ -138,10 +140,12 @@ check(`Combination-tagged transfer correctly reduced the real warehouse Inventor
 check(`Combination-tagged transfer correctly increased the real retail Inventory value (20 x 400 = 8000, got ${retailBalanceAfterTransfer})`, retailBalanceAfterTransfer === 20 * 400);
 
 console.log(`\n=== 8. Month/year-end stock take, with a real, deliberate variance ===`);
-const takeId = createStockTake(asLocationName('Proof Retail Outlet'), '2027-06-30', USER as any);
+// A stock take reads the session's business, as a request would supply it.
+const session = { userId: USER, business: { id: Entity.get(BIZ, 'Businesses')!.id, name: BIZ }, ledger: LEDGER };
+const takeId = runInSessionContext(session, () => createStockTake(asLocationName('Proof Retail Outlet'), '2027-06-30', USER as any));
 recordStockTakeCount(takeId, asItemName('Proof Component A'), 13); // real, deliberate shortage of 1 (14 on hand -> 13 counted)
 ensureLocationCapacityAccount(asBusinessName(BIZ), asLedgerName(LEDGER), asLocationName('Proof Retail Outlet'), USER as any);
-completeStockTake(takeId, BIZ as any, LEDGER as any, asAccountName('Miscellaneous'), 'Inventory', { 'Proof Component A': 500 }, USER as any);
+runInSessionContext(session, () => completeStockTake(takeId, BIZ as any, LEDGER as any, asAccountName('Miscellaneous'), 'Inventory', { 'Proof Component A': 500 }, USER as any));
 check('Stock take completed', true);
 
 console.log(`\n=== 9. Trial balance must be genuinely, exactly balanced before closing ===`);
