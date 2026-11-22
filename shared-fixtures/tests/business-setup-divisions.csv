@@ -7,7 +7,7 @@
 "Page Shows","body","${business} \u{2014} Division for Locations"
 "Focus","[aria-keyshortcuts='Insert Delete']"
 "Press Key","Insert"
-"Fill","input[placeholder='Division name']","Testburg"
+"Fill","input[placeholder='Division Name']","Testburg"
 "Press Key","Enter"
 "Page Count","button:text-is('Testburg')","1"
 "Click","button:text-is('Testburg')"
