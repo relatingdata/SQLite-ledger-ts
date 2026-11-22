@@ -699,7 +699,10 @@ Tests (*Testing: Unit*, "Running the tests"):
 children, of the business's own Chart of Accounts prototype (the
 relation each prototype account and each business carries,
 `backend/schema/00-core.sql`), plus accounts with no prototype at all
-(contacts, and the business's own copied accounts).
+(contacts, and the business's own copied accounts). A child that a
+rollover made, named after the new ledger and related to it
+(*Reports*, "Rollover"), does not count as a child: the account it
+carries forward is still offered, and the ledger node is not.
 
 **One side per line**: typing a debit clears the line's credit, and the
 other way round.

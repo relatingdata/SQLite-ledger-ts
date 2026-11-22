@@ -32,7 +32,7 @@ Tests (*Testing: Unit*, "Running the tests"):
 
 Looks in the business's own `Asset` category (`resolveBusinessCoaAccountId`). Three cases:
 
-- Home currency (or none given): the business's `Cash and Bank` when its chart has one (the shared English CoA leaf), so a `Cash at Bank` made earlier for a foreign currency never takes its place; else `Cash at Bank`, created if missing.
+- Home currency (or none given): the business's `Cash and Bank` when its chart has one (its copy of the English CoA leaf), so a `Cash at Bank` made earlier for a foreign currency never takes its place; else `Cash at Bank`, created if missing.
 - Another currency: a `(XXX)` child of `Cash at Bank` (created if missing), never of `Cash and Bank`.
 - Existing currency leaves under that base are distinguished from a ledger-scoped rollover child (`resolveRolloverLines` creates a node named after the ledger itself, e.g. "Actual 2027-28", with `relation_id` pointing at that ledger) by matching only names ending in `(XXX)` — a plain single-currency "Cash at Bank" leaf that has been through a rollover otherwise gets a non-currency child and would wrongly look multi-currency.
 

@@ -99,9 +99,15 @@
     const prototypeName = (id: number | null) => (id == null ? null : accounts.find((a) => a.id === id)?.name ?? null);
     const currentPrototype = prototypeName(currentPrototypeId);
     const allPrototypeNames = new Set(['English CoA', 'German CoA', 'French CoA', 'Italian CoA', 'Swiss CoA']);
+    // A rollover gives a carried-forward account a child named after the
+    // new ledger (relation_id: that ledger). It is not a sub-account: the
+    // account stays postable, and the ledger node is not offered.
+    const ledgerIds = new Set(accounts.filter((a) => accounts.find((p) => p.id === a.parent_id)?.name === 'Ledgers').map((a) => a.id));
+    const isLedgerNode = (a: (typeof accounts)[number]) => a.relation_id != null && ledgerIds.has(a.relation_id);
 
     return accounts.filter((a) => {
-      if (!a.is_postable_account || accounts.some((c) => c.parent_id === a.id)) return false;
+      if (isLedgerNode(a)) return false;
+      if (!a.is_postable_account || accounts.some((c) => c.parent_id === a.id && !isLedgerNode(c))) return false;
       const accountPrototype = prototypeName(a.relation_id);
       if (accountPrototype == null || !allPrototypeNames.has(accountPrototype)) return true; // universal (e.g. customer/provider) or unrelated relation (e.g. an address/phone type — never expected here, but never hidden incorrectly either)
       return accountPrototype === currentPrototype;

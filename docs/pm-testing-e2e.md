@@ -624,8 +624,8 @@ three customer returns are credit notes that reverse the original sale's
 own Sales account, which is why income is below the sales report's total.
 
 Cash and Bank is read through `getTrialBalance` for the ledger, not
-from `account.balance_minor`, which sums every business's postings to
-that shared account (*Testing: Unit*, "Shared accounts").
+from `account.balance_minor`, which sums the account's postings in
+every ledger (*Reports*, "The core rule").
 
 ### If a check fails
 

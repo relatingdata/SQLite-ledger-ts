@@ -129,16 +129,20 @@ never a test-only substitute:
 
 ### Shared accounts
 
-A business's chart copies its groups and its prototype's leaves, but
-universal leaves such as `Cash and Bank` are one entity shared by every
-business (*The Entity Model*, "Chart of Accounts"). Their postings are
-kept apart by business and ledger, but their `account.balance_minor`
-is the sum over all businesses. So a test checks a shared account
-through a ledger-scoped read (`getTrialBalance`, `getBalanceSheet`,
-`getLedgerBalances`), and uses `getAccountBalance` only for an account
-of its own business. `freshBusiness` uses the `English CoA` prototype
-unless `coaPrototype` is given; `coaPrototype: undefined` gives a chart
-of groups and universal leaves only.
+A business's chart copies the global chart's groups and its
+prototype's leaves (`Cash and Bank`, `Rent`, … for `English CoA`;
+*The Entity Model*, "Chart of Accounts"). Leaves that belong to no
+prototype (`Accounts Receivable`, `Medicare Levy Payable`,
+`Superannuation Payable`, `Superannuation Expense`) are not copied:
+every business posts to the one global entity. So are the prototype's
+leaves for a business made without a prototype (`coaPrototype:
+undefined`). Postings to a shared account are kept apart by business
+and ledger, but its `account.balance_minor` is the sum over all
+businesses, so a test reads it through a ledger-scoped report
+(`getTrialBalance`, `getBalanceSheet`, `getLedgerBalances`) and uses
+`getAccountBalance` only for an account of its own business.
+`freshBusiness` uses the `English CoA` prototype unless `coaPrototype`
+is given.
 
 ### The database-connection ordering hazard
 
