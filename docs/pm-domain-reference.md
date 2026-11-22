@@ -706,6 +706,9 @@ Reading invoices:
   shows `manual` by default and pages by the user's own page size
   (`pageSize()`, `$lib/pagination`), like every list
   (`invoices-source-filter-and-pages`, *Testing*, "Standalone tests").
+- `getInvoice(id)` reads one invoice with its lines, or `undefined`.
+  `createInvoice` uses it to check the invoice a credit note refers to,
+  `exportInvoiceAsUbl` and `getPickingList` to read the invoice.
 - `getInvoiceLine(reference, business, ledger)` reads the single
   invoice line recorded for a non-invoice posting by `recordInvoiceLine`
   (*The Journal API*); `invoice.ts` prints it.

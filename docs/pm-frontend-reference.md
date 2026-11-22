@@ -562,15 +562,25 @@ Hand-written pages (`frontend/src/routes/…/+page.svelte`):
   (`getUsers`, `createUserAccount`, `setUserActiveApi`,
   `changeUserPassword`, `getUserRoleMatrix`, `setUserRoleInBusiness`).
 
+Section pages of tiles, one per screen in the section (template
+`tiles`): `/arap`, `/stock` and `/reports`.
+
+Hand-written list pages: `/invoices` (Sales and Purchase Invoices:
+`listInvoices`, `countInvoices`, `getInvoiceById`,
+`getInvoiceOutstanding`; *Core Domain Reference*, "Reading invoices")
+and `/projects` (clocking employees in and out of projects:
+`clockInToProject`, `clockOutOfProject`, `getOpenProjectClock`; *The
+Journal API*, "Employee project-clock functions").
+
 Generated report pages (template `report`, `screen-runtime.ts`
-`reports.…`): `/reports/trial-balance`, `/reports/balance-sheet` and
+`reports.…`): `/reports/sales` (`reports.sales`), `/reports/trial-balance`, `/reports/balance-sheet` and
 `/reports/statement` (next section), `/reports/below-reorder`
 (`reports.belowReorder`), `/reports/business-configuration`
 (`reports.businessConfiguration`), `/reports/cash-flow-forecast`
 (`reports.cashFlow`) and `/reports/reminders` (`reports.reminders`).
 
 Not implemented yet (template `not-implemented`, ⚠️ in the menu):
-`/exchange-rates`, `/gl/fx-adjustment`, `/jobs`,
+`/cash`, `/exchange-rates`, `/gl/fx-adjustment`, `/jobs`,
 `/logistics/assembly-bom`, `/order-entry/generate-invoices`,
 `/order-entry/generate-po`, `/reconciliation`, `/recurring`,
 `/setup/currencies`, `/setup/taxes`, `/shipping`.

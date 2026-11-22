@@ -493,6 +493,8 @@ take is a "Stock Take" entity under the location; each line is a child
 whose `relation_id` is the item, and `counted` starts empty. `business`
 is optional, as for `getInventoryListingByLocation`, which it calls.
 
+**`getStockTake(id)`** reads a take with its lines, or `undefined`.
+
 **`recordStockTakeCount(take, item, counted)`** records one line's
 count on a draft take, by renaming the line to `… counted:{n}`. A
 completed take, a negative count or an item not on the sheet is

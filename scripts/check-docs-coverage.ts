@@ -60,7 +60,11 @@ for (const file of findFiles(routesDir, '.svelte')) {
 }
 
 function checkCoverage(label: string, names: Set<string>): string[] {
-  const missing = [...names].filter((name) => !manual.includes(name)).sort();
+  // A whole name, not part of a longer word or path: `release` is not
+  // covered by "releases", nor `/stock` by `/stock/po`.
+  const mentioned = (name: string) => new RegExp(`(?<![\\w/-])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w/-])`).test(manual);
+  // A page is also named by its file: frontend/src/routes<route>/+page.svelte.
+  const missing = [...names].filter((name) => !mentioned(name) && !manual.includes(`routes${name === '/' ? '' : name}/+page.svelte`)).sort();
   if (missing.length > 0) {
     console.error(`\n❌ ${label}: ${missing.length} name(s) the Programmer's Manual never mentions:`);
     for (const m of missing) console.error(`   - ${m}`);

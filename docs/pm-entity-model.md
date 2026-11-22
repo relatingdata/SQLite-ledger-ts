@@ -254,8 +254,8 @@ happens. Scoped uniqueness (*Core Domain Reference*, "Scoped
 uniqueness") is enforced by the schema.
 
 Roughly three dozen `TypeDescriptor` constants exist
-(`typeBusinessName`, `typeLocationEntityName`,
-`typeVocabularyWordName`, `typeCategoryOrItemsRootName`, and more —
+(`typeRootName` for the top-level roots, `typeBusinessName`,
+`typeLocationEntityName`, `typeVocabularyWordName`, `typeCategoryOrItemsRootName`, and more —
 see `docs/source-reference.md`'s generated, complete index rather than
 a copy here that could go stale), grouped by purpose:
 

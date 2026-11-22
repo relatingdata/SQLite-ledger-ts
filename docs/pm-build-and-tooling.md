@@ -31,6 +31,7 @@
 
 | Target | What it does |
 |---|---|
+| `make untrack FILE=…` | Stops git tracking a file that should have been ignored, keeps it on disk, and commits that. |
 | `make release` | Refuses while anything is uncommitted; otherwise pushes `main` and writes `dist/sql-ledger-ts-<commit>.zip` of the committed files (`git archive`). |
 | `make backend-verbose` | The backend alone, with `DB_VERBOSE=1`. |
 | `make test-one TEST=…` | Only the backend tests whose title contains `TEST`. The tests share one database, so a test that fails alone may need the whole file. |
