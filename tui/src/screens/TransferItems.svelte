@@ -7,15 +7,9 @@
   the two real, location-scoped accounts it sits in, along with the
   physical stock itself.
 
-  Same two-step, canned-journal shape as the web screen's own submit():
-  transferStock moves the real, physical stock first (the step most
-  likely to fail - not enough stock on hand at the From location -
-  and a failed value entry must never leave stock moved with no
-  matching value behind it); only once that succeeds does
-  resolveTransferAccounts resolve the two real, location-scoped
-  Inventory accounts, and - only when the item has a known unit cost -
-  a balanced two-line VALUE entry is staged and posted as its own,
-  separate General Journal entry, referenced "<reference>-VALUE".
+  The same one call as the web screen: transferItems moves the stock
+  and, at its first-in-first-out cost, its value together, in one
+  transaction.
 -->
 <script lang="ts">
   import { Box, Text } from 'sveltui';
@@ -23,16 +17,12 @@
   import { onDestroy } from 'svelte';
   import {
     ApiError,
-    asAccountName,
     asBusinessName,
     asLedgerName,
     getItemLocation,
     listItems,
     listLocations,
-    postJournalEntry,
-    resolveTransferAccounts,
-    stageLine,
-    transferStock,
+    transferItems,
     type ItemLocationLevels,
     type ItemSummary,
     type LocationRecord,
@@ -40,7 +30,6 @@
   import Panel from '../components/Panel.svelte';
   import TextInput from '../components/TextInput.svelte';
   import SelectList from '../components/SelectList.svelte';
-  import { formatMinor } from '../components/MoneyText.svelte';
   import { brass, ink, inkSoft } from '../theme.ts';
 
   type Step = 'item' | 'from-location' | 'to-location' | 'quantity' | 'reference' | 'saved';
@@ -117,20 +106,8 @@
       const business = asBusinessName(businessName);
       const ledger = asLedgerName(ledgerName);
       const transdate = todayIso();
-      // Physical movement first, then the VALUE entry — see the file
-      // header comment above.
-      await transferStock({ business, ledger, itemName: itemName.trim(), fromLocationName: fromLocation, toLocationName: toLocation, quantity: qty, reference, transdate });
-      const resolved = await resolveTransferAccounts({ business, itemName: itemName.trim(), fromLocationName: fromLocation, toLocationName: toLocation });
-      const valueMinor = resolved.unitCostMinor != null ? qty * resolved.unitCostMinor : 0;
-      if (resolved.unitCostMinor != null && valueMinor > 0) {
-        const valueReference = `${reference}-VALUE`;
-        await stageLine({ reference: valueReference, business, ledger, transdate, account: asAccountName(resolved.fromInventoryAccount), amount_minor: -valueMinor });
-        await stageLine({ reference: valueReference, business, ledger, transdate, account: asAccountName(resolved.toInventoryAccount), amount_minor: valueMinor });
-        await postJournalEntry(valueReference, business, ledger);
-        saved = `Transferred ${qty} × ${itemName} from ${fromLocation} to ${toLocation} — value $${formatMinor(valueMinor)} moved between Inventory accounts.`;
-      } else {
-        saved = `Transferred ${qty} × ${itemName} from ${fromLocation} to ${toLocation} — no known unit cost, so no value entry was made.`;
-      }
+      await transferItems({ business, ledger, itemName: itemName.trim(), fromLocationName: fromLocation, toLocationName: toLocation, quantity: qty, reference, transdate });
+      saved = `Transferred ${qty} × ${itemName} from ${fromLocation} to ${toLocation}.`;
       step = 'saved';
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Could not transfer.';

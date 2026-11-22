@@ -59,7 +59,7 @@ its qualifier, never by the bare word "receipt" alone.
   a confirmed stub. Since a Service is distinct from an Item, the
   plan is a dedicated Services catalogue, not folding Services into
   the Items catalogue — not yet designed or built.
-- **TransferOrder as a real document.** Today, `transferStock` covers
+- **TransferOrder as a real document.** Today, `transferItems` covers
   only the instant, same-city case. A genuine, multi-step transfer (a
   real document with its own staging table, the events `dispatchItems`
   and `receiveItems` with a real "In Transit" place between them) is

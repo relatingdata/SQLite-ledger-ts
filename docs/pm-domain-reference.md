@@ -853,21 +853,17 @@ Tests:
 
 ### Account resolution split between frontend and backend
 
-Per `docs/canned-journal-to-frontend-design.md`: for a canned
-Transfer, everything about *which* account is a deterministic,
-given-the-form's-own-inputs computation that lives in the frontend
-(`frontend/src/lib/canned-journal.ts`). The one thing that cannot move
-there is whether a specific item's real, location-qualified
-cartesian-product account (Inventory/Sales/COGS leaf) already exists —
-a genuinely stateful fact only the server can safely decide, since two
-concurrent users' browsers can't both safely decide whether an account
-already exists. `resolveTransferAccounts` is the narrow, server-side
-resolver for this — it never resolves or returns a division/category:
-every dimension is already baked into the account's own name.
-`resolveOpenContainerAccounts` is the equivalent for Open Container,
-which (unlike Transfer) has no physical quantity-on-hand side effect —
-it only reclassifies which storage-space/Inventory tier the same stock
-already sits in. Cash Purchase and Cash Sale resolve everything
+Per `docs/canned-journal-to-frontend-design.md`: for a canned entry,
+everything about *which* account is a deterministic computation from
+the form's own inputs, done in the frontend
+(`frontend/src/lib/canned-journal.ts`). Whether an item's
+location-qualified account already exists is a stateful fact only the
+server can decide, so a narrow server-side resolver answers it:
+`resolveOpenContainerAccounts` for Open Container, which only
+reclassifies which storage-space/Inventory tier stock already sits in.
+A transfer is not split this way: `transferItems` moves the stock and
+its value in one call (*Stock API*, "Receive: a physical-only
+variant..."). Cash Purchase and Cash Sale resolve everything
 server-side, in `completeCashPurchase`/`completePosSale` (see "POS and
 cash-register flows" above).
 
@@ -1347,7 +1343,7 @@ already had one documented, confirmed bug class from two different,
 real entities sharing one name (see
 `journal_entry_staging.account_id`'s own comment in 00-core.sql).
 `receiveItems`/`receiveStockPhysical`/`dispatchItems`/`transferItems`/
-`transferStock`/`completeStockTake`'s simple (non-combination) paths
+`completeStockTake`'s simple (non-combination) paths
 now stage their quantity line against this real account instead of
 the item's own global one, with an explicit `accountId` (same pattern
 their own "On Order"/"Units Sold"/"Count Adjustment" counter-accounts

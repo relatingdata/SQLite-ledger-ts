@@ -2853,28 +2853,6 @@ export interface CashPurchaseResult {
 // on-account Purchase/Sale, to the one real "Cash" provider/customer.
 // See "Cash Sale and Cash Purchase" in pm-frontend-reference.md.
 
-export interface ResolvedTransferAccounts {
-    fromInventoryAccount: string;
-    toInventoryAccount: string;
-    unitCostMinor: number | null;
-}
-
-export function resolveTransferAccounts(
-  business: BusinessName,
-  itemName: ItemName,
-  fromLocationName: LocationName,
-  toLocationName: LocationName,
-  userId: UserId
-): ResolvedTransferAccounts {
-  const { inventoryAccount: fromInventoryAccount } = ensureItemLocationInventoryAccount(itemName, fromLocationName, userId, undefined, business);
-  const { inventoryAccount: toInventoryAccount } = ensureItemLocationInventoryAccount(itemName, toLocationName, userId, undefined, business);
-  return {
-    fromInventoryAccount,
-    toInventoryAccount,
-    unitCostMinor: getItemUnitCostMinor(itemName),
-  };
-}
-
 export function completeCashPurchase(input: CashPurchaseInput, userId: UserId): CashPurchaseResult {
   if (input.lines.length === 0) throw new ValidationError('A purchase needs at least one line.');
 

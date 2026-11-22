@@ -19,14 +19,12 @@ import {
   openStorageContainer,
   resolveOpenContainerAccounts,
   resolveReceiveAccounts,
-  resolveTransferAccounts,
   getItemLocation,
   setItemLocationLevels,
   receiveItems,
   receiveStockPhysical,
   dispatchItems,
   transferItems,
-  transferStock,
   getRestockPickingList,
   confirmRestockPickedLine,
   dispatchRestockFromPickingList,
@@ -219,45 +217,6 @@ export const locationsFunctions: Record<string, BackendCall> = {
       if (err instanceof ValidationError) throw new CallError(409, err.message);
       console.error(err);
       throw new CallError(500, 'Could not transfer stock.');
-    }
-  },
-
-  transferStock: (v, user) => {
-    requireRole(user, 'Administrator', 'Bookkeeper');
-    const [business, ledger, itemName, fromLocationName, toLocationName, quantity, reference, transdate] = v;
-    try {
-      transferStock(
-        {
-          business: asBusinessName(business),
-          ledger: asLedgerName(ledger),
-          itemName: asItemName(itemName),
-          fromLocationName: asLocationName(fromLocationName),
-          toLocationName: asLocationName(toLocationName),
-          quantity: Number(quantity),
-          reference,
-          transdate: transdate || undefined,
-        },
-        asUserId(user!.id)
-      );
-      return row();
-    } catch (err) {
-      if (err instanceof ValidationError) throw new CallError(409, err.message);
-      console.error(err);
-      throw new CallError(500, 'Could not transfer stock.');
-    }
-  },
-
-  resolveTransferAccounts: (v, user) => {
-    requireRole(user, 'Administrator', 'Bookkeeper');
-    const [business, itemName, fromLocationName, toLocationName] = v;
-    try {
-      const result = resolveTransferAccounts(asBusinessName(business), asItemName(itemName), asLocationName(fromLocationName), asLocationName(toLocationName), asUserId(user!.id));
-      return row(result.fromInventoryAccount, result.toInventoryAccount, result.unitCostMinor);
-    } catch (err) {
-      if (err instanceof ValidationError) throw new CallError(409, err.message);
-      if (err instanceof NotFoundError) throw new CallError(404, err.message);
-      console.error(err);
-      throw new CallError(500, 'Could not resolve accounts.');
     }
   },
 

@@ -879,11 +879,6 @@ Root
     - :Parameter Name=input.oldLedger
     - :Parameter Name=input.newLedger
     - :Parameter Name=input.asOfDate
-   resolveTransferAccounts :Call Client=resolveTransferAccounts
-    - :Parameter Name=input.business
-    - :Parameter Name=input.itemName
-    - :Parameter Name=input.fromLocationName
-    - :Parameter Name=input.toLocationName
    reverseJournalEntry :Call Client=reverseJournalEntry
     - :Parameter Name=business
     - :Parameter Name=ledger
@@ -1172,15 +1167,6 @@ Root
     - :Parameter Name=quantity Type=text
     - :Parameter Name=reference Type=text
     - :Parameter Name=ledger Type=text
-   transferStock :Call Client=transferStock
-    - :Parameter Name=input.business
-    - :Parameter Name=input.ledger
-    - :Parameter Name=input.itemName
-    - :Parameter Name=input.fromLocationName
-    - :Parameter Name=input.toLocationName
-    - :Parameter Name="String(input.quantity)"
-    - :Parameter Name=input.reference
-    - :Parameter Name=input.transdate
    unregisterBankAccount :Call Client=unregisterBankAccount
     - :Parameter Name=accountName
    unsetUserRoleInBusiness :Call Client=unsetUserRoleInBusiness

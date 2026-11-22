@@ -156,7 +156,7 @@ down.
 | Sales Order (`/stock/so`) | `stageSalesOrder`, `postSalesOrder` | `postJournalEntry` (On Order) |
 | Stock Receipt (`/stock/stock-receipt`) | `stageOrderReceipt`, `postOrderReceipt` | `postJournalEntry` and `commitStagedQuantityMovement` |
 | Stock Dispatch (`/stock/stock-dispatch`) | `stageOrderDispatch`, `postOrderDispatch` | `postJournalEntry` and `commitStagedQuantityMovement` |
-| Stock Transfer (`/stock/transfer`) | `transferStock`, then the `-VALUE` entry | `commitStagedQuantityMovement`, then `postJournalEntry` |
+| Stock Transfer (`/stock/transfer`) | `transferItems` | `commitStagedQuantityMovement`, then `postJournalEntry` (the value, when it has a cost) |
 | Stock Take (`/stock/stock-take`) | `completeStockTake` | both |
 | Write-offs & Expiration (`/stock/write-offs`) | `writeOffItems` | both |
 | HR wage payment (`/hr`) | `payEmployeeWages` | `postJournalEntry` |
@@ -229,13 +229,12 @@ whole thing server-side. In this pattern the backend exposes two
 narrower kinds of endpoint instead of one wide one:
 
 - **A `resolve*Accounts` endpoint** (`resolveOpenContainerAccounts`,
-  `resolveReceiveAccounts`, `resolveTransferAccounts`,
-  `resolveRolloverLines`) — a read-only, stateless call that resolves
+  `resolveReceiveAccounts`, `resolveRolloverLines`) — a read-only, stateless call that resolves
   or creates whichever accounts the frontend will need to stage lines
   against (including each item's own known per-unit cost), but posts
   nothing itself.
 - **A narrow, physical-only endpoint** (`receiveIntoStorageStock`,
-  `transferStock`, `receiveStock`, `dispatchStock`) — does only the
+  `receiveStock`, `dispatchStock`) — does only the
   real, physical side effect (a quantity movement, a location-capacity
   change), with no journal entry of its own; the frontend posts the
   dollar-value entry itself, separately, using the resolved accounts.
@@ -322,13 +321,8 @@ rationale as `StagedLine.accountId` (see the "pass the resolved
 account id" rule under `api.ts`, above) — repeated here only as a
 reminder at the point of use, not re-explained.
 
-The three canned shapes (`canned-journal.ts`):
+The two canned shapes (`canned-journal.ts`):
 
-- **`transferLines`** (Stock Transfer) — credits the source location's
-  Inventory account and debits the destination's, for the real cost
-  of the quantity moved. Returns an empty line list when the item's
-  per-unit cost isn't known yet (no fabricated cost, no entry at all —
-  only the physical movement via `transferStock` happens).
 - **`openContainerLines`** (Open Container) — returns two independent
   results, since they're posted as two separate journal entries: the
   storage-space movement (container's "Remaining" up / "Occupied" down
@@ -604,10 +598,9 @@ behaviour in `frontend/src/lib/screen-runtime.ts` it calls:
 - **Stock Transfer** (`actions.transfer`). The destination list holds
   only locations in the source's city (`filters.sameCityAsFrom`), and
   the on-hand quantity follows the item and source
-  (`reactions.onHand`, `reactions.fromLocationChanged`). The stock moves
-  first (`transferStock`); then `transferLines` (`canned-journal.ts`)
-  works out the value entry between the two locations' Inventory
-  accounts, posted as `{reference}-VALUE`.
+  (`reactions.onHand`, `reactions.fromLocationChanged`). One call,
+  `transferItems`, moves the stock and its value at first-in-first-out
+  cost, as every other caller does (*Stock API*).
 - **Statement** (`reports.statement`): the customer's invoices as of a
   date, with total, paid and outstanding, from `getCustomerStatement`.
 - **Trial Balance** (`reports.trialBalance`): one group per currency,

@@ -2,8 +2,6 @@
 // for the full design (the "frontend-driven canned journal" pattern, the
 // "no division/category field" rule, and each screen's canned shape).
 
-import { stageLine, postJournalEntry, type AccountName, type BusinessName, type LedgerName } from './api';
-
 export interface CannedLine {
   account: string;
   accountId?: number; // resolves name collisions — see docs/pm-frontend-reference.md
@@ -22,22 +20,6 @@ export interface CannedEntry {
 // invoice+stock+immediate-payment mechanism as any on-account
 // Purchase/Sale, to the one real "Cash" provider/customer. See "Cash
 // Sale and Cash Purchase" in pm-frontend-reference.md.
-
-// Stock Transfer's canned shape — see docs/pm-frontend-reference.md.
-export function transferLines(input: {
-  quantity: number;
-  fromInventoryAccount: string;
-  toInventoryAccount: string;
-  unitCostMinor: number | null;
-}): CannedLine[] {
-  if (input.unitCostMinor == null) return [];
-  const valueMinor = input.quantity * input.unitCostMinor;
-  if (valueMinor <= 0) return [];
-  return [
-    { account: input.fromInventoryAccount, amount_minor: -valueMinor },
-    { account: input.toInventoryAccount, amount_minor: valueMinor },
-  ];
-}
 
 // Open Container's canned shape — see docs/pm-frontend-reference.md.
 export function openContainerLines(input: {

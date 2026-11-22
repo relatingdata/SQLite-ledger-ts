@@ -341,15 +341,14 @@ Tests:
 - "openStorageContainer: opening a carton is two, real, independent space movements - never a rate-linked conversion, and genuinely never requires one to be defined" (`backend/test/db.test.ts`)
 - "openStorageContainer: a dozen 12-bottle cartons (144 bottles) moves directly into its own, real, bottle-tier Inventory account, with no contra accounting of any kind - the same real dollar value, just re-tagged, per direct instruction" (`backend/test/db.test.ts`)
 
-## Receive/transfer: physical-only variants that post value from the frontend
+## Receive: a physical-only variant that posts value from the frontend
 
-**`receiveStockPhysical`** and **`transferStock`** are narrower
-siblings of `receiveItems`/`transferItems`: each does only the
-physical half of the operation — the quantity movement and the
+**`receiveStockPhysical`** is a narrower sibling of `receiveItems`: it
+does only the physical half of the operation — the quantity movement and the
 location-capacity adjustment — and posts **no dollar value journal
 entry of any kind**, even for a combination-tracked item. The dollar
 Inventory/Accounts-Payable (or Accounts-Payable-equivalent) VALUE
-entry that `receiveItems`/`transferItems` post internally for a
+entry that `receiveItems` posts internally for a
 combination-tracked item is instead posted **separately, from the
 frontend**, through the same generic `/journal/staging` +
 `/journal/post` calls the General Journal screen's own "Save" button
@@ -358,17 +357,20 @@ unit cost a frontend caller needs to build that entry itself, returning
 `null` when the receipt isn't combination-tracked, since a plain
 receipt posts no dollar entry either way).
 
-`receiveItems` and `transferItems` themselves are deliberately left
-completely unchanged — every other real caller (Cash Purchase's own
-`/pos/receive-stock` endpoint, the restocking flow, the tutorial's own
-proof scripts, every existing test) is a backend-to-backend call with
-no browser-side step of its own to post that VALUE entry instead, so
-those two functions still need to do the whole job themselves, VALUE
-entry included. `transferItems`'s own non-combination path does now
-also move the plain per-location Inventory dollar value with the
-stock (via `ensureItemLocationInventoryAccount`), mirroring what its
-combination-tagged path already did — a transfer genuinely moves value
-with the stock, not just its count and its space, on either path.
+`receiveItems` itself does the whole job, VALUE entry included, for
+every other caller (Cash Purchase's own `/pos/receive-stock` endpoint,
+the restocking flow, the tutorials, the tests).
+
+A transfer has no such split. Every caller (the Stock Transfer screen,
+the terminal's Transfer Items, the step runner, the restocking flow)
+makes the one call, `transferItems`: the stock and its value move in
+one transaction. Its non-combination path moves the per-location
+Inventory value at the stock's first-in-first-out cost
+(`fifoCostMinor`), between the two locations' accounts
+(`ensureItemLocationInventoryAccount`), and only when that cost is
+above 0, so a transfer of stock with no recorded cost creates no
+value account. The core middleware's `transferStock` (`core/ops.ts`)
+does the same.
 
 ## First-in, first-out cost (original middleware)
 

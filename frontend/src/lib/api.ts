@@ -2197,26 +2197,6 @@ export const resolveReceiveAccounts = (input: { business: BusinessName; itemName
 export const transferItems = (input: { business: BusinessName; ledger: LedgerName; itemName: ItemName; fromLocationName: string; toLocationName: string; quantity: number; reference: string }) =>
   callRow('transferItems', [input.business, input.ledger, input.itemName, input.fromLocationName, input.toLocationName, String(input.quantity), input.reference, undefined], () => undefined);
 
-// The narrow, physical-only half of the canned journal pattern — see docs/pm-frontend-reference.md.
-export const transferStock = (input: { business: BusinessName; ledger: LedgerName; itemName: ItemName; fromLocationName: string; toLocationName: string; quantity: number; reference: string; transdate?: string }) =>
-  callRow(
-    'transferStock',
-    [input.business, input.ledger, input.itemName, input.fromLocationName, input.toLocationName, String(input.quantity), input.reference, input.transdate],
-    () => undefined
-  );
-
-export interface ResolvedTransferAccounts {
-  fromInventoryAccount: string;
-  toInventoryAccount: string;
-  unitCostMinor: number | null;
-}
-export const resolveTransferAccounts = (input: { business: BusinessName; itemName: ItemName; fromLocationName: string; toLocationName: string }) =>
-  callRow('resolveTransferAccounts', [input.business, input.itemName, input.fromLocationName, input.toLocationName], (f): ResolvedTransferAccounts => ({
-    fromInventoryAccount: f[0],
-    toInventoryAccount: f[1],
-    unitCostMinor: f[2] === '' ? null : Number(f[2]),
-  }));
-
 export interface BelowReorderRow {
   item: string;
   location: string;

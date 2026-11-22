@@ -21,10 +21,7 @@ import {
   dispatchStock,
   completeCashPurchase,
   completePosSale,
-  transferStock,
-  resolveTransferAccounts,
-  stageLine,
-  postJournalEntry,
+  transferItems,
   getItemLocation,
   listItemSources,
   stagePurchaseOrder,
@@ -63,7 +60,6 @@ import {
   asItemName,
   type EntityNode,
 } from '$lib/api';
-import { transferLines } from '$lib/canned-journal';
 import { getCube, getAxes } from '$lib/matrix-api';
 import { parseMinorUnits, parseQuantity } from '$lib/money';
 
@@ -322,18 +318,9 @@ export const actions: Record<string, (c: Context, v: Values, lines: Line[]) => P
     if (!v.item || !v.fromLocation || !v.toLocation) throw new Invalid('Item, from location and to location are all required.');
     const business = asBusinessName(c.business);
     const ledger = asLedgerName(c.ledger);
-    // The physical movement first, then the value entry between the two
-    // locations' inventory accounts.
-    await transferStock({ business, ledger, itemName: asItemName(v.item), fromLocationName: asLocationName(v.fromLocation), toLocationName: asLocationName(v.toLocation), quantity, reference: v.reference });
-    const resolved = await resolveTransferAccounts({ business, itemName: asItemName(v.item), fromLocationName: asLocationName(v.fromLocation), toLocationName: asLocationName(v.toLocation) });
-    const lines = transferLines({ quantity, fromInventoryAccount: resolved.fromInventoryAccount, toInventoryAccount: resolved.toInventoryAccount, unitCostMinor: resolved.unitCostMinor });
-    if (lines.length > 0) {
-      const valueReference = `${v.reference}-VALUE`;
-      for (const line of lines) {
-        await stageLine({ reference: valueReference, business, ledger, account: asAccountName(line.account), amount_minor: line.amount_minor });
-      }
-      await postJournalEntry(valueReference, business, ledger);
-    }
+    // One call, as every other caller makes it: the stock and, at its
+    // first-in-first-out cost, its value move together.
+    await transferItems({ business, ledger, itemName: asItemName(v.item), fromLocationName: asLocationName(v.fromLocation), toLocationName: asLocationName(v.toLocation), quantity, reference: v.reference });
     return `${t('Transferred')} ${quantity} ${v.item}: ${v.fromLocation} \u2192 ${v.toLocation}.`;
   },
   /** Goods or a service received against a purchase order. */

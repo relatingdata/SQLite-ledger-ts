@@ -1194,47 +1194,6 @@ export function transferItems(
   })();
 }
 
-export interface TransferStockInput {
-  business: BusinessName;
-  ledger: LedgerName;
-  itemName: ItemName;
-  fromLocationName: LocationName;
-  toLocationName: LocationName;
-  quantity: number;
-  reference: string;
-  transdate?: string;
-}
-
-// See docs/pm-stock-api.md § "Receive/transfer: physical-only variants that post value from the frontend"
-export function transferStock(input: TransferStockInput, userId: UserId): void {
-  const { business, ledger, itemName, fromLocationName, toLocationName, quantity, reference, transdate } = input;
-  if (quantity <= 0) throw new ValidationError('Transfer quantity must be positive.');
-  const fromLoc = getLocation(fromLocationName, business);
-  const toLoc = getLocation(toLocationName, business);
-  if (!fromLoc) throw new ValidationError(`No location named "${fromLocationName}".`);
-  if (!toLoc) throw new ValidationError(`No location named "${toLocationName}".`);
-  if (fromLoc.city !== toLoc.city) {
-    throw new ValidationError(`"${fromLocationName}" (${fromLoc.city}) and "${toLocationName}" (${toLoc.city}) are in different cities — a transfer can only move stock within the same city.`);
-  }
-  const current = getItemLocation(itemName, fromLocationName);
-  if (quantity > current.quantity_on_hand) {
-    throw new ValidationError(`Only ${current.quantity_on_hand} of "${itemName}" on hand at "${fromLocationName}" — cannot transfer ${quantity}.`);
-  }
-  resolveItemId(itemName); // validates the real item exists; throws otherwise
-
-  const date = transdate ?? todayAtLocation(fromLocationName);
-  assertPeriodOpen(business, ledger, date);
-  db.transaction(() => {
-    const fromQty = ensureItemLocationQuantityAccount(itemName, fromLocationName, userId, undefined, business);
-    const toQty = ensureItemLocationQuantityAccount(itemName, toLocationName, userId, undefined, business);
-    stageQuantityMovementLine(business, ledger, reference, asAccountName(fromQty.quantityAccount), -quantity, date, fromQty.quantityAccountId);
-    stageQuantityMovementLine(business, ledger, reference, asAccountName(toQty.quantityAccount), quantity, date, toQty.quantityAccountId);
-    postStagedQuantityMovement(business, ledger, reference, userId);
-    adjustLocationCapacity(business, ledger, fromLocationName, itemName, -quantity, date, userId, reference);
-    adjustLocationCapacity(business, ledger, toLocationName, itemName, quantity, date, userId, reference);
-  })();
-}
-
 export interface BelowReorderRow {
   item: string;
   location: string;

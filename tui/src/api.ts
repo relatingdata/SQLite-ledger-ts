@@ -848,15 +848,14 @@ export const dispatchStock = (input: { business: BusinessName; ledger: LedgerNam
   );
 
 // --- Transfer Items -----------------------------------------------------
-// Mirrors frontend/src/routes/stock/transfer/+page.svelte's own two-step,
-// canned-journal pattern exactly: transferStock moves the real, physical
-// stock between the two real locations (the narrow, physical-only half),
-// then — only when the item has a known unit cost — resolveTransferAccounts
-// resolves the two real, location-scoped Inventory accounts so the
-// matching real VALUE entry (a balanced two-line debit/credit, built
-// here rather than imported from the web app's own separate
-// canned-journal module) can be staged and posted as its own, separate
-// General Journal entry, exactly like the web screen's own submit().
+// The same one call the web screen makes: transferItems moves the stock
+// and, at its first-in-first-out cost, its value together.
+export const transferItems = (input: { business: BusinessName; ledger: LedgerName; itemName: string; fromLocationName: string; toLocationName: string; quantity: number; reference: string; transdate?: string }) =>
+  callRow(
+    'transferItems',
+    [input.business, input.ledger, input.itemName, input.fromLocationName, input.toLocationName, String(input.quantity), input.reference, input.transdate],
+    () => undefined
+  );
 
 export interface ItemLocationLevels {
   quantity_on_hand: number;
@@ -876,25 +875,6 @@ export const getItemLocation = (itemName: string, locationName: string) =>
     shelf_side: f[4] || null,
     rack: f[5] || null,
     level: f[6] === '' ? null : Number(f[6]),
-  }));
-
-export const transferStock = (input: { business: BusinessName; ledger: LedgerName; itemName: string; fromLocationName: string; toLocationName: string; quantity: number; reference: string; transdate?: string }) =>
-  callRow(
-    'transferStock',
-    [input.business, input.ledger, input.itemName, input.fromLocationName, input.toLocationName, String(input.quantity), input.reference, input.transdate],
-    () => undefined
-  );
-
-export interface ResolvedTransferAccounts {
-  fromInventoryAccount: string;
-  toInventoryAccount: string;
-  unitCostMinor: number | null;
-}
-export const resolveTransferAccounts = (input: { business: BusinessName; itemName: string; fromLocationName: string; toLocationName: string }) =>
-  callRow('resolveTransferAccounts', [input.business, input.itemName, input.fromLocationName, input.toLocationName], (f): ResolvedTransferAccounts => ({
-    fromInventoryAccount: f[0],
-    toInventoryAccount: f[1],
-    unitCostMinor: f[2] === '' ? null : Number(f[2]),
   }));
 
 // --- Cash Sale / POS Terminal -------------------------------------------------

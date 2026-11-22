@@ -20,8 +20,8 @@ It uses the TypeScript compiler, not a text search. A prototype is printed by th
 
 ## Summary
 
-- **Backend:** 1197 functions (1018 exported); 830 are called from production code; 47 only from tests or tooling; 320 from nowhere the compiler could find.
-- **Frontend library:** 394 functions (318 exported); 302 are called from production code; 2 only from tests or tooling; 90 from nowhere the compiler could find.
+- **Backend:** 1193 functions (1014 exported); 828 are called from production code; 47 only from tests or tooling; 318 from nowhere the compiler could find.
+- **Frontend library:** 391 functions (315 exported); 302 are called from production code; 2 only from tests or tooling; 87 from nowhere the compiler could find.
 
 ### Backend: functions with no callers found
 
@@ -39,7 +39,7 @@ Candidates to review, not proof of dead code: a function may be reached in a way
 - `backend/src/call-dispatch/invoices.ts`: `invoicesFunctions.listInvoices`, `invoicesFunctions.getInvoiceById`, `invoicesFunctions.createInvoice`, `invoicesFunctions.postInvoiceById`, `invoicesFunctions.getInvoiceOutstanding`, `invoicesFunctions.allocatePaymentToInvoice`, `invoicesFunctions.exportInvoiceAsEInvoice`, `invoicesFunctions.importEInvoice`, `invoicesFunctions.getPickingList`, `invoicesFunctions.confirmPickedLine`, `invoicesFunctions.dispatchOrderFromPickingList`, `invoicesFunctions.getAgedInvoices`, `invoicesFunctions.getAgedSummary`, `invoicesFunctions.getCustomerStatement`, `invoicesFunctions.getCounterpartyHistory`, `invoicesFunctions.getReminderCandidates`, `invoicesFunctions.sendReminder`, `invoicesFunctions.resetReminder`, `invoicesFunctions.exportInvoicePdf`
 - `backend/src/call-dispatch/items.ts`: `itemsFunctions.listItems`, `itemsFunctions.getItem`, `itemsFunctions.setItem`, `itemsFunctions.listItemSources`, `itemsFunctions.addOrUpdateItemSource`, `itemsFunctions.deleteItemSource`, `itemsFunctions.getBomComponents`, `itemsFunctions.setBomComponent`, `itemsFunctions.deleteBomComponent`, `itemsFunctions.getItemStorageOrigin`, `itemsFunctions.setItemStorageOrigin`
 - `backend/src/call-dispatch/journal.ts`: `journalFunctions.listJournalEntries`, `journalFunctions.getJournalEntry`, `journalFunctions.stageLine`, `journalFunctions.getStagedLines`, `journalFunctions.removeStagedLine`, `journalFunctions.postJournalEntry`, `journalFunctions.createRecurringJournal`, `journalFunctions.reverseJournalEntry`, `journalFunctions.previewCloseBooks`, `journalFunctions.closeBooks`, `journalFunctions.createLedger`, `journalFunctions.rolloverToNewPeriod`, `journalFunctions.resolveRolloverLines`
-- `backend/src/call-dispatch/locations.ts`: `locationsFunctions.listLocations`, `locationsFunctions.getLocationTypes`, `locationsFunctions.createLocationType`, `locationsFunctions.convertStorageSpace`, `locationsFunctions.openStorageContainer`, `locationsFunctions.resolveOpenContainerAccounts`, `locationsFunctions.resolveReceiveAccounts`, `locationsFunctions.transferItems`, `locationsFunctions.transferStock`, `locationsFunctions.resolveTransferAccounts`, `locationsFunctions.getLocationByName`, `locationsFunctions.createLocation`, `locationsFunctions.saveLocation`, `locationsFunctions.deleteLocation`, `locationsFunctions.getLocationCurrencies`, `locationsFunctions.nominateLocationCurrency`, `locationsFunctions.getItemLocation`, `locationsFunctions.setItemLocationLevels`, `locationsFunctions.receiveItems`, `locationsFunctions.receiveIntoStorageStock`, `locationsFunctions.dispatchItems`, `locationsFunctions.getRestockPickingList`, `locationsFunctions.confirmRestockPickedLine`, `locationsFunctions.dispatchRestockRun`, `locationsFunctions.setLocationOpenHours`, `locationsFunctions.getLocationOpenHours`, `locationsFunctions.getScheduleAtLocation`, `locationsFunctions.setEmployeeSchedule`, `locationsFunctions.getEmployeeSchedule`, `locationsFunctions.getBelowReorderStock`, `locationsFunctions.getStockOutRiskReport`, `locationsFunctions.setItemSourceLeadTime`, `locationsFunctions.getInventoryListing`, `locationsFunctions.getInventoryListingByLocation`, `locationsFunctions.getStorageSpaceReport`, `locationsFunctions.getStockMovementReport`, `locationsFunctions.createStockTake`, `locationsFunctions.getStockTake`, `locationsFunctions.recordStockTakeCount`, `locationsFunctions.completeStockTake`
+- `backend/src/call-dispatch/locations.ts`: `locationsFunctions.listLocations`, `locationsFunctions.getLocationTypes`, `locationsFunctions.createLocationType`, `locationsFunctions.convertStorageSpace`, `locationsFunctions.openStorageContainer`, `locationsFunctions.resolveOpenContainerAccounts`, `locationsFunctions.resolveReceiveAccounts`, `locationsFunctions.transferItems`, `locationsFunctions.getLocationByName`, `locationsFunctions.createLocation`, `locationsFunctions.saveLocation`, `locationsFunctions.deleteLocation`, `locationsFunctions.getLocationCurrencies`, `locationsFunctions.nominateLocationCurrency`, `locationsFunctions.getItemLocation`, `locationsFunctions.setItemLocationLevels`, `locationsFunctions.receiveItems`, `locationsFunctions.receiveIntoStorageStock`, `locationsFunctions.dispatchItems`, `locationsFunctions.getRestockPickingList`, `locationsFunctions.confirmRestockPickedLine`, `locationsFunctions.dispatchRestockRun`, `locationsFunctions.setLocationOpenHours`, `locationsFunctions.getLocationOpenHours`, `locationsFunctions.getScheduleAtLocation`, `locationsFunctions.setEmployeeSchedule`, `locationsFunctions.getEmployeeSchedule`, `locationsFunctions.getBelowReorderStock`, `locationsFunctions.getStockOutRiskReport`, `locationsFunctions.setItemSourceLeadTime`, `locationsFunctions.getInventoryListing`, `locationsFunctions.getInventoryListingByLocation`, `locationsFunctions.getStorageSpaceReport`, `locationsFunctions.getStockMovementReport`, `locationsFunctions.createStockTake`, `locationsFunctions.getStockTake`, `locationsFunctions.recordStockTakeCount`, `locationsFunctions.completeStockTake`
 - `backend/src/call-dispatch/matrix-reports.ts`: `matrixReportsFunctions.getCube`, `matrixReportsFunctions.getSalesCogsMatrix`, `matrixReportsFunctions.getStockOnHandMatrix`, `matrixReportsFunctions.getAxisValues`, `matrixReportsFunctions.getProfitAndLossByAxis`
 - `backend/src/call-dispatch/menu.ts`: `menuFunctions.getMenuTree`, `menuFunctions.setMenuOverride`, `menuFunctions.deleteMenuOverride`
 - `backend/src/call-dispatch/period.ts`: `periodFunctions.getPeriodStatus`, `periodFunctions.closePeriod`, `periodFunctions.reopenPeriod`
@@ -64,8 +64,7 @@ Candidates to review, not proof of dead code: a function may be reached in a way
 
 Candidates to review, not proof of dead code: a function may be reached in a way the limits above cannot see.
 
-- `frontend/src/lib/api.ts`: `getCashFlowForecast`, `getTrialBalance`, `getSalesReport`, `getBalanceSheet`, `getProfitAndLoss`, `getProfitAndLossByHierarchy`, `getProfitAndLossByHierarchyTree`, `getLedgerDateRange`, `createProfitCenter`, `setSessionProfitCenter`, `getBusinessConfigurationReport`, `stagePurchaseOrder`, `postPurchaseOrder`, `stageOrderReceipt`, `postOrderReceipt`, `stageSalesOrder`, `postSalesOrder`, `listQuotations`, `getQuotation`, `createQuotation`, `createRfq`, `markQuotationSent`, `acceptQuotation`, `rejectQuotation`, `getAgedInvoices`, `getAgedSummary`, `getCustomerStatement`, `getReminderCandidates`, `sendReminder`, `resetReminder`, `openStorageContainer`, `getItemLocation`, `receiveItems`, `transferItems`, `transferStock`, `resolveTransferAccounts`, `receiveStock`, `dispatchStock`, `closeBooks`, `getStorageSpaceReport`
-- `frontend/src/lib/canned-journal.ts`: `transferLines`
+- `frontend/src/lib/api.ts`: `getCashFlowForecast`, `getTrialBalance`, `getSalesReport`, `getBalanceSheet`, `getProfitAndLoss`, `getProfitAndLossByHierarchy`, `getProfitAndLossByHierarchyTree`, `getLedgerDateRange`, `createProfitCenter`, `setSessionProfitCenter`, `getBusinessConfigurationReport`, `stagePurchaseOrder`, `postPurchaseOrder`, `stageOrderReceipt`, `postOrderReceipt`, `stageSalesOrder`, `postSalesOrder`, `listQuotations`, `getQuotation`, `createQuotation`, `createRfq`, `markQuotationSent`, `acceptQuotation`, `rejectQuotation`, `getAgedInvoices`, `getAgedSummary`, `getCustomerStatement`, `getReminderCandidates`, `sendReminder`, `resetReminder`, `openStorageContainer`, `getItemLocation`, `receiveItems`, `transferItems`, `receiveStock`, `dispatchStock`, `closeBooks`, `getStorageSpaceReport`
 - `frontend/src/lib/matrix-api.ts`: `getSalesCogsMatrix`, `getStockOnHandMatrix`, `getCube`, `getAxes`
 - `frontend/src/lib/screen-runtime.ts`: `sources.locations`, `sources.items`, `sources.providers`, `sources.customers`, `sources.postableAccounts`, `filters.sameCityAsFrom`, `reactions.orderStatus`, `reactions.onHand`, `reactions.fromLocationChanged`, `reactions.itemSources`, `reactions.providerPrice`, `totals.lineTax`, `totals.quantityTimesPrice`, `totals.valueTaxRate`, `totals.taxRate`, `actions.purchase`, `actions.sale`, `actions.transfer`, `actions.orderReceipt`, `actions.salesOrder`, `actions.quotation`, `actions.purchaseOrder`, `records.quotations`, `commands.sendReminder`, `commands.resetReminder`, `commands.markSent`, `commands.accept`, `commands.reject`, `reports.aged`, `reports.businessConfiguration`, `reports.cashFlow`, `reports.sales`, `reports.statement`, `reports.reminders`, `reports.belowReorder`, `reports.storageSpace`, `reports.trialBalance`, `reports.balanceSheet`
 - `frontend/src/lib/state.svelte.ts`: `auth.set`, `hasUnsavedEdit.set`, `menuTree.set`, `screenTitle`, `session.set`, `session.clear`, `translations.set`
@@ -1756,22 +1755,6 @@ Called from: nowhere the compiler could find.
 
 ```
 locationsFunctions.transferItems(v: string[], user: AuthenticatedUser): CallResult
-```
-
-Called from: nowhere the compiler could find.
-
-**`locationsFunctions.transferStock`** *(exported)*
-
-```
-locationsFunctions.transferStock(v: string[], user: AuthenticatedUser): CallResult
-```
-
-Called from: nowhere the compiler could find.
-
-**`locationsFunctions.resolveTransferAccounts`** *(exported)*
-
-```
-locationsFunctions.resolveTransferAccounts(v: string[], user: AuthenticatedUser): CallResult
 ```
 
 Called from: nowhere the compiler could find.
@@ -4786,7 +4769,7 @@ Called from: production: call-dispatch/period.ts (periodFunctions.reopenPeriod �
 assertPeriodOpen(business: BusinessName, ledger: LedgerName, transdate: string): void
 ```
 
-Called from: production: db-journal.ts (createRecurringJournal ×1); db-stock.ts (dispatchItems ×1, postQuantityMovement ×1, receiveItems ×1, receiveStockPhysical ×1, transferItems ×1, transferStock ×1)
+Called from: production: db-journal.ts (createRecurringJournal ×1); db-stock.ts (dispatchItems ×1, postQuantityMovement ×1, receiveItems ×1, receiveStockPhysical ×1, transferItems ×1)
 
 **`reverseJournalEntry`** *(exported)*
 
@@ -5504,7 +5487,7 @@ Called from: production: db.ts ((module level) ×1)
 stageQuantityMovementLine(business: BusinessName, ledger: LedgerName, reference: string, account: AccountName, deltaQuantity: number, transdate: string, accountId?: number, memo?: string): void
 ```
 
-Called from: production: db-stock.ts (completeStockTake ×2, dispatchItems ×2, postQuantityMovement ×1, receiveItems ×2, receiveStockPhysical ×2, transferItems ×2, and 2 more)
+Called from: production: db-stock.ts (completeStockTake ×2, dispatchItems ×2, postQuantityMovement ×1, receiveItems ×2, receiveStockPhysical ×2, transferItems ×2, and 1 more)
 
 **`postStagedQuantityMovement`** *(exported)*
 
@@ -5512,7 +5495,7 @@ Called from: production: db-stock.ts (completeStockTake ×2, dispatchItems ×2, 
 postStagedQuantityMovement(business: BusinessName, ledger: LedgerName, reference: string, userId: UserId, recurrence?: Recurrence, recurrenceCount?: number): void
 ```
 
-Called from: production: db-stock.ts (completeStockTake ×1, dispatchItems ×1, postQuantityMovement ×1, receiveItems ×1, receiveStockPhysical ×1, transferItems ×1, and 2 more)
+Called from: production: db-stock.ts (completeStockTake ×1, dispatchItems ×1, postQuantityMovement ×1, receiveItems ×1, receiveStockPhysical ×1, transferItems ×1, and 1 more)
 
 **`postQuantityMovement`** *(exported)*
 
@@ -5552,7 +5535,7 @@ Called from: production: call-dispatch/locations.ts (locationsFunctions.saveLoca
 getLocation(name: string, business?: BusinessName): Location | undefined
 ```
 
-Called from: production: call-dispatch/locations.ts (locationsFunctions.getLocationByName ×1, locationsFunctions.listLocations ×1); db-stock.ts (ensureLocationCapacityAccount ×1, getInventoryListingByLocation ×1, getLocationCapacityStatus ×1, todayAtLocation ×1, transferItems ×2, transferStock ×2); db.ts (getBusinessConfigurationReport ×1, openStorageContainer ×1, resolveOpenContainerAccounts ×1) · tests: 5 call(s) in 1 file(s) · tooling: 4 call(s) in 2 file(s)
+Called from: production: call-dispatch/locations.ts (locationsFunctions.getLocationByName ×1, locationsFunctions.listLocations ×1); db-stock.ts (ensureLocationCapacityAccount ×1, getInventoryListingByLocation ×1, getLocationCapacityStatus ×1, todayAtLocation ×1, transferItems ×2); db.ts (getBusinessConfigurationReport ×1, openStorageContainer ×1, resolveOpenContainerAccounts ×1) · tests: 5 call(s) in 1 file(s) · tooling: 4 call(s) in 2 file(s)
 
 **`todayAtLocation`** *(exported)*
 
@@ -5560,7 +5543,7 @@ Called from: production: call-dispatch/locations.ts (locationsFunctions.getLocat
 todayAtLocation(locationName: LocationName): string
 ```
 
-Called from: production: db-stock.ts (dispatchItems ×1, postQuantityMovement ×1, receiveItems ×1, receiveStockPhysical ×1, transferItems ×1, transferStock ×1); db.ts (completeCashPurchase ×1, completePosSale ×1) · tests: 2 call(s) in 1 file(s)
+Called from: production: db-stock.ts (dispatchItems ×1, postQuantityMovement ×1, receiveItems ×1, receiveStockPhysical ×1, transferItems ×1); db.ts (completeCashPurchase ×1, completePosSale ×1) · tests: 2 call(s) in 1 file(s)
 
 **`getItemLocation`** *(exported)*
 
@@ -5568,7 +5551,7 @@ Called from: production: db-stock.ts (dispatchItems ×1, postQuantityMovement ×
 getItemLocation(itemName: ItemName, locationName: LocationName): ItemLocationLevels
 ```
 
-Called from: production: call-dispatch/locations.ts (locationsFunctions.getItemLocation ×1); db-stock.ts (completeStockTake ×1, createStockTake ×1, dispatchItems ×1, getInventoryListingByLocation ×1, transferItems ×1, transferStock ×1); db.ts (completePosSale ×1, getPickingList ×1, getRestockPickingList ×1) · tests: 23 call(s) in 1 file(s) · tooling: 5 call(s) in 2 file(s)
+Called from: production: call-dispatch/locations.ts (locationsFunctions.getItemLocation ×1); db-stock.ts (completeStockTake ×1, createStockTake ×1, dispatchItems ×1, getInventoryListingByLocation ×1, transferItems ×1); db.ts (completePosSale ×1, getPickingList ×1, getRestockPickingList ×1) · tests: 23 call(s) in 1 file(s) · tooling: 5 call(s) in 2 file(s)
 
 **`setItemLocationLevelDetails`** *(exported)*
 
@@ -5672,7 +5655,7 @@ Called from: production: db-journal.ts (postLocation ×1); db-stock.ts (adjustLo
 adjustLocationCapacity(business: BusinessName, ledger: LedgerName, locationName: LocationName, itemName: ItemName, itemQuantityDelta: number, transdate: string, userId: UserId, referenceSuffix: string): void
 ```
 
-Called from: production: db-stock.ts (completeStockTake ×1, dispatchItems ×1, receiveItems ×1, receiveStockPhysical ×1, transferItems ×2, transferStock ×2, and 1 more) · tests: 4 call(s) in 1 file(s)
+Called from: production: db-stock.ts (completeStockTake ×1, dispatchItems ×1, receiveItems ×1, receiveStockPhysical ×1, transferItems ×2, writeOffItems ×1) · tests: 4 call(s) in 1 file(s)
 
 **`getStorageSpaceReport`** *(exported)*
 
@@ -5793,14 +5776,6 @@ transferItems(business: BusinessName, ledger: LedgerName, itemName: ItemName, fr
 ```
 
 Called from: production: call-dispatch/locations.ts (locationsFunctions.transferItems ×1); db.ts (dispatchRestockFromPickingList ×1) · tests: 8 call(s) in 2 file(s) · tooling: 3 call(s) in 2 file(s)
-
-**`transferStock`** *(exported)*
-
-```
-transferStock(input: TransferStockInput, userId: UserId): void
-```
-
-Called from: production: call-dispatch/locations.ts (locationsFunctions.transferStock ×1)
 
 **`getBelowReorderStock`** *(exported)*
 
@@ -6066,7 +6041,7 @@ Called from: production: auth-middleware.ts (requireRole ×1); call-dispatch.ts 
 asLedgerName(name: string): LedgerName
 ```
 
-Called from: production: call-dispatch/arap.ts (arapFunctions.postAPPayment ×1, arapFunctions.postARReceipt ×1, arapFunctions.stageAPPayment ×1, arapFunctions.stageARReceipt ×1); call-dispatch/invoices.ts (invoicesFunctions.confirmPickedLine ×1, invoicesFunctions.getAgedInvoices ×1, invoicesFunctions.getAgedSummary ×1, invoicesFunctions.getCounterpartyHistory ×1, invoicesFunctions.getCustomerStatement ×1, invoicesFunctions.getReminderCandidates ×1, and 2 more); call-dispatch/journal.ts (journalFunctions.closeBooks ×1, journalFunctions.createLedger ×1, journalFunctions.createRecurringJournal ×1, journalFunctions.getJournalEntry ×1, journalFunctions.getStagedLines ×1, journalFunctions.listJournalEntries ×2, and 8 more); call-dispatch/locations.ts (locationsFunctions.completeStockTake ×1, locationsFunctions.confirmRestockPickedLine ×1, locationsFunctions.convertStorageSpace ×1, locationsFunctions.dispatchItems ×1, locationsFunctions.dispatchRestockRun ×1, locationsFunctions.openStorageContainer ×1, and 5 more); call-dispatch/matrix-reports.ts (matrixReportsFunctions.getAxisValues ×1, matrixReportsFunctions.getCube ×1, matrixReportsFunctions.getProfitAndLossByAxis ×1, matrixReportsFunctions.getSalesCogsMatrix ×1); call-dispatch/period.ts (periodFunctions.closePeriod ×1, periodFunctions.getPeriodStatus ×1, periodFunctions.reopenPeriod ×1); call-dispatch/plant.ts (plantFunctions.clockPlantIn ×1, plantFunctions.clockPlantOut ×1); call-dispatch/pos.ts (posFunctions.completeCashPurchase ×1, posFunctions.completePosSale ×1, posFunctions.dispatchStock ×1, posFunctions.receiveStock ×1); and 12 more file(s) · tests: 20 call(s) in 1 file(s) · tooling: 33 call(s) in 5 file(s)
+Called from: production: call-dispatch/arap.ts (arapFunctions.postAPPayment ×1, arapFunctions.postARReceipt ×1, arapFunctions.stageAPPayment ×1, arapFunctions.stageARReceipt ×1); call-dispatch/invoices.ts (invoicesFunctions.confirmPickedLine ×1, invoicesFunctions.getAgedInvoices ×1, invoicesFunctions.getAgedSummary ×1, invoicesFunctions.getCounterpartyHistory ×1, invoicesFunctions.getCustomerStatement ×1, invoicesFunctions.getReminderCandidates ×1, and 2 more); call-dispatch/journal.ts (journalFunctions.closeBooks ×1, journalFunctions.createLedger ×1, journalFunctions.createRecurringJournal ×1, journalFunctions.getJournalEntry ×1, journalFunctions.getStagedLines ×1, journalFunctions.listJournalEntries ×2, and 8 more); call-dispatch/locations.ts (locationsFunctions.completeStockTake ×1, locationsFunctions.confirmRestockPickedLine ×1, locationsFunctions.convertStorageSpace ×1, locationsFunctions.dispatchItems ×1, locationsFunctions.dispatchRestockRun ×1, locationsFunctions.openStorageContainer ×1, and 4 more); call-dispatch/matrix-reports.ts (matrixReportsFunctions.getAxisValues ×1, matrixReportsFunctions.getCube ×1, matrixReportsFunctions.getProfitAndLossByAxis ×1, matrixReportsFunctions.getSalesCogsMatrix ×1); call-dispatch/period.ts (periodFunctions.closePeriod ×1, periodFunctions.getPeriodStatus ×1, periodFunctions.reopenPeriod ×1); call-dispatch/plant.ts (plantFunctions.clockPlantIn ×1, plantFunctions.clockPlantOut ×1); call-dispatch/pos.ts (posFunctions.completeCashPurchase ×1, posFunctions.completePosSale ×1, posFunctions.dispatchStock ×1, posFunctions.receiveStock ×1); and 12 more file(s) · tests: 20 call(s) in 1 file(s) · tooling: 33 call(s) in 5 file(s)
 
 **`asAccountName`** *(exported)*
 
@@ -6082,7 +6057,7 @@ Called from: production: call-dispatch/journal.ts (journalFunctions.removeStaged
 asLocationName(name: string): LocationName
 ```
 
-Called from: production: call-dispatch/invoices.ts (invoicesFunctions.dispatchOrderFromPickingList ×1, invoicesFunctions.getPickingList ×1); call-dispatch/locations.ts (locationsFunctions.createStockTake ×1, locationsFunctions.dispatchItems ×1, locationsFunctions.dispatchRestockRun ×2, locationsFunctions.getItemLocation ×1, locationsFunctions.getRestockPickingList ×1, locationsFunctions.openStorageContainer ×1, and 7 more); call-dispatch/pos.ts (posFunctions.completeCashPurchase ×1, posFunctions.completePosSale ×1, posFunctions.createPosTerminal ×1, posFunctions.dispatchStock ×1, posFunctions.receiveStock ×1); db-journal.ts (postLocation ×2, postPurchaseOrder ×1, postSalesOrder ×1); db-matrix-reports.ts (getCube ×1); db-quotations.ts (draftQuotation ×1); db-stock.ts (createStockTake ×1, getInventoryListingByLocation ×2, getStockOutRiskReport ×1); db.ts (completeCashPurchase ×1, completePosSale ×2, createAndConfigureLocation ×1, dispatchOrderFromPickingList ×1, dispatchRestockFromPickingList ×2, resolveDispatchLocation ×1) · tests: 13 call(s) in 3 file(s) · tooling: 16 call(s) in 4 file(s)
+Called from: production: call-dispatch/invoices.ts (invoicesFunctions.dispatchOrderFromPickingList ×1, invoicesFunctions.getPickingList ×1); call-dispatch/locations.ts (locationsFunctions.createStockTake ×1, locationsFunctions.dispatchItems ×1, locationsFunctions.dispatchRestockRun ×2, locationsFunctions.getItemLocation ×1, locationsFunctions.getRestockPickingList ×1, locationsFunctions.openStorageContainer ×1, and 5 more); call-dispatch/pos.ts (posFunctions.completeCashPurchase ×1, posFunctions.completePosSale ×1, posFunctions.createPosTerminal ×1, posFunctions.dispatchStock ×1, posFunctions.receiveStock ×1); db-journal.ts (postLocation ×2, postPurchaseOrder ×1, postSalesOrder ×1); db-matrix-reports.ts (getCube ×1); db-quotations.ts (draftQuotation ×1); db-stock.ts (createStockTake ×1, getInventoryListingByLocation ×2, getStockOutRiskReport ×1); db.ts (completeCashPurchase ×1, completePosSale ×2, createAndConfigureLocation ×1, dispatchOrderFromPickingList ×1, dispatchRestockFromPickingList ×2, resolveDispatchLocation ×1) · tests: 13 call(s) in 3 file(s) · tooling: 16 call(s) in 4 file(s)
 
 **`asEmployeeName`** *(exported)*
 
@@ -6114,7 +6089,7 @@ Called from: production: call-dispatch/arap.ts (arapFunctions.stageAPPayment ×1
 asItemName(name: string): ItemName
 ```
 
-Called from: production: call-dispatch/items.ts (itemsFunctions.getItemStorageOrigin ×1, itemsFunctions.setItemStorageOrigin ×1); call-dispatch/locations.ts (locationsFunctions.convertStorageSpace ×1, locationsFunctions.dispatchItems ×1, locationsFunctions.getItemLocation ×1, locationsFunctions.openStorageContainer ×1, locationsFunctions.receiveIntoStorageStock ×1, locationsFunctions.receiveItems ×1, and 8 more); call-dispatch/pos.ts (posFunctions.dispatchStock ×1, posFunctions.receiveStock ×1); call-dispatch/stock-lots.ts (stockLotsFunctions.consumeFromLots ×1, stockLotsFunctions.receiveLot ×1, stockLotsFunctions.writeOffItems ×1); db-journal.ts (postPurchaseOrder ×1, postSalesOrder ×1); db-matrix-reports.ts (getCube ×1); db-quotations.ts (draftQuotation ×1, rejectQuotation ×1); db-stock.ts (completeStockTake ×5, createStockTake ×2, getInventoryListingByLocation ×1, getLocationCapacityStatus ×1, getStockOutRiskReport ×2); and 1 more file(s) · tests: 158 call(s) in 3 file(s) · tooling: 20 call(s) in 4 file(s)
+Called from: production: call-dispatch/items.ts (itemsFunctions.getItemStorageOrigin ×1, itemsFunctions.setItemStorageOrigin ×1); call-dispatch/locations.ts (locationsFunctions.convertStorageSpace ×1, locationsFunctions.dispatchItems ×1, locationsFunctions.getItemLocation ×1, locationsFunctions.openStorageContainer ×1, locationsFunctions.receiveIntoStorageStock ×1, locationsFunctions.receiveItems ×1, and 6 more); call-dispatch/pos.ts (posFunctions.dispatchStock ×1, posFunctions.receiveStock ×1); call-dispatch/stock-lots.ts (stockLotsFunctions.consumeFromLots ×1, stockLotsFunctions.receiveLot ×1, stockLotsFunctions.writeOffItems ×1); db-journal.ts (postPurchaseOrder ×1, postSalesOrder ×1); db-matrix-reports.ts (getCube ×1); db-quotations.ts (draftQuotation ×1, rejectQuotation ×1); db-stock.ts (completeStockTake ×5, createStockTake ×2, getInventoryListingByLocation ×1, getLocationCapacityStatus ×1, getStockOutRiskReport ×2); and 1 more file(s) · tests: 158 call(s) in 3 file(s) · tooling: 20 call(s) in 4 file(s)
 
 **`getEntityTree`** *(exported)*
 
@@ -6162,7 +6137,7 @@ Called from: production: db.ts (createEntityRaw ×2, requireEntity ×1, resolveI
 resolveItemId(itemName: ItemName): number | undefined
 ```
 
-Called from: production: db-stock.ts (consumeFromLots ×1, createStockTake ×1, dispatchItems ×1, receiveItems ×1, receiveLot ×1, receiveStockPhysical ×1, and 3 more); db.ts (createInvoice ×1, openStorageContainer ×1, resolveItemLocationQuantityAccountId ×1, resolveOpenContainerAccounts ×1)
+Called from: production: db-stock.ts (consumeFromLots ×1, createStockTake ×1, dispatchItems ×1, receiveItems ×1, receiveLot ×1, receiveStockPhysical ×1, and 2 more); db.ts (createInvoice ×1, openStorageContainer ×1, resolveItemLocationQuantityAccountId ×1, resolveOpenContainerAccounts ×1)
 
 **`requireEntity`** *(exported)*
 
@@ -6658,7 +6633,7 @@ Called from: production: db-stock.ts (writeOffItems ×1); db.ts (completePosSale
 ensureItemLocationInventoryAccount(itemName: ItemName, locationName: LocationName, userId: UserId, tier?: string, business?: BusinessName, profitCenter?: string): { inventoryAccount: string; inventoryAccountId: number; }
 ```
 
-Called from: production: db-stock.ts (completeStockTake ×1, transferItems ×2); db.ts (completeCashPurchase ×1, completePosSale ×1, openStorageContainer ×2, resolveOpenContainerAccounts ×2, resolveTransferAccounts ×2) · tests: 1 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
+Called from: production: db-stock.ts (completeStockTake ×1, transferItems ×2); db.ts (completeCashPurchase ×1, completePosSale ×1, openStorageContainer ×2, resolveOpenContainerAccounts ×2) · tests: 1 call(s) in 1 file(s) · tooling: 1 call(s) in 1 file(s)
 
 **`ensureItemLocationQuantityAccount`** *(exported)*
 
@@ -6666,7 +6641,7 @@ Called from: production: db-stock.ts (completeStockTake ×1, transferItems ×2);
 ensureItemLocationQuantityAccount(itemName: ItemName, locationName: LocationName, userId: UserId, tier?: string, business?: BusinessName): { quantityAccount: string; quantityAccountId: number; }
 ```
 
-Called from: production: db-stock.ts (completeStockTake ×1, dispatchItems ×1, receiveItems ×1, receiveStockPhysical ×1, transferItems ×2, transferStock ×2) · tests: 1 call(s) in 1 file(s)
+Called from: production: db-stock.ts (completeStockTake ×1, dispatchItems ×1, receiveItems ×1, receiveStockPhysical ×1, transferItems ×2) · tests: 1 call(s) in 1 file(s)
 
 **`resolveItemLocationQuantityAccountId`** *(exported)*
 
@@ -6866,7 +6841,7 @@ Called from: production: call-dispatch/hierarchy.ts (hierarchyFunctions.getProdu
 getItemUnitCostMinor(itemName: ItemName): number | null
 ```
 
-Called from: production: db-stock.ts (dispatchItems ×1, fifoCostMinor ×1, receiveItems ×1, resolveReceiveAccounts ×1, transferItems ×1); db.ts (completePosSale ×1, openStorageContainer ×1, resolveOpenContainerAccounts ×1, resolveTransferAccounts ×1)
+Called from: production: db-stock.ts (dispatchItems ×1, fifoCostMinor ×1, receiveItems ×1, resolveReceiveAccounts ×1, transferItems ×1); db.ts (completePosSale ×1, openStorageContainer ×1, resolveOpenContainerAccounts ×1)
 
 **`ensureItemTier`** *(exported)*
 
@@ -6947,14 +6922,6 @@ completePosSale(input: PosSaleInput, userId: UserId): PosSaleResult
 ```
 
 Called from: production: call-dispatch/pos.ts (posFunctions.completePosSale ×1) · tests: 34 call(s) in 2 file(s) · tooling: 9 call(s) in 4 file(s)
-
-**`resolveTransferAccounts`** *(exported)*
-
-```
-resolveTransferAccounts(business: BusinessName, itemName: ItemName, fromLocationName: LocationName, toLocationName: LocationName, userId: UserId): ResolvedTransferAccounts
-```
-
-Called from: production: call-dispatch/locations.ts (locationsFunctions.resolveTransferAccounts ×1)
 
 **`completeCashPurchase`** *(exported)*
 
@@ -9900,7 +9867,7 @@ Called from: production: api.ts (callRaw ×1, callRawWithLines ×1)
 callRow<T>(name: string, values: (string | undefined)[], parseResult: (fields: string[]) => T): Promise<T>
 ```
 
-Called from: production: api.ts (acceptQuotation ×1, addOrUpdateItemSource ×1, allocatePaymentToInvoice ×1, apiLogin ×1, apiLogout ×1, buildBankCurrencyStructure ×1, and 144 more)
+Called from: production: api.ts (acceptQuotation ×1, addOrUpdateItemSource ×1, allocatePaymentToInvoice ×1, apiLogin ×1, apiLogout ×1, buildBankCurrencyStructure ×1, and 142 more)
 
 **`callTable`**
 
@@ -11542,22 +11509,6 @@ transferItems(input: { business: BusinessName; ledger: LedgerName; itemName: Ite
 
 Called from: nowhere the compiler could find.
 
-**`transferStock`** *(exported)*
-
-```
-transferStock(input: { business: BusinessName; ledger: LedgerName; itemName: ItemName; fromLocationName: string; toLocationName: string; quantity: number; reference: string; transdate?: string; }): Promise<any>
-```
-
-Called from: nowhere the compiler could find.
-
-**`resolveTransferAccounts`** *(exported)*
-
-```
-resolveTransferAccounts(input: { business: BusinessName; itemName: ItemName; fromLocationName: string; toLocationName: string; }): Promise<ResolvedTransferAccounts>
-```
-
-Called from: nowhere the compiler could find.
-
 **`getBelowReorderStock`** *(exported)*
 
 ```
@@ -11857,14 +11808,6 @@ createAuthStore(): { subscribe: (this: void, run: Subscriber<AuthState>, invalid
 Called from: production: auth.ts ((module level) ×1)
 
 ### `frontend/src/lib/canned-journal.ts`
-
-**`transferLines`** *(exported)*
-
-```
-transferLines(input: { quantity: number; fromInventoryAccount: string; toInventoryAccount: string; unitCostMinor: number | null; }): CannedLine[]
-```
-
-Called from: nowhere the compiler could find.
 
 **`openContainerLines`** *(exported)*
 
