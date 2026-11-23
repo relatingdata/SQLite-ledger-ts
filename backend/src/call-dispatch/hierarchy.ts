@@ -20,6 +20,10 @@ import {
   resolveBusinessLocationId,
   resolveHierarchyValueId,
   checkHierarchyTag,
+  getHierarchyTree,
+  listHierarchyPrototypes,
+  saveHierarchyPrototype,
+  createHierarchyFromPrototype,
   HIERARCHY_KINDS,
   type HierarchyKind,
 } from '../db.js';
@@ -97,13 +101,56 @@ export const hierarchyFunctions: Record<string, BackendCall> = {
       // A location is found under the session's business, never as a
       // same-named node elsewhere (docs/pm-domain-reference.md).
       const business = sessionBusinessName();
-      const entityId = business ? resolveBusinessLocationId(business, entityName) : undefined;
+      // A value is found among the business's own values in the same way.
+      const entityId = business ? (resolveBusinessLocationId(business, entityName) ?? resolveHierarchyValueId(business, hierarchyName, entityName)) : undefined;
       const targetId = business ? resolveHierarchyValueId(business, hierarchyName, parentName) : undefined;
-      if (business) checkHierarchyTag(business, hierarchyName, entityName);
+      if (business) checkHierarchyTag(business, hierarchyName, entityName, parentName);
       setHierarchyParent(entityName, hierarchyName, parentName, asUserId(admin.id), entityId, targetId);
       return row(entityName, hierarchyName, parentName);
     } catch (err) {
       if (err instanceof ValidationError) throw new CallError(409, err.message);
+      throw err;
+    }
+  },
+  // Positional args: [0] business, [1] hierarchyName. Every value, then
+  // every location or item in one, each with the value it is within
+  // ('' at the top).
+  getHierarchyTree: (v, user) => {
+    requireAuth(user);
+    const [business, hierarchyName] = v;
+    if (!business || !hierarchyName) throw new CallError(400, 'business and hierarchyName are both required.');
+    return table(['name', 'kind', 'parent'], getHierarchyTree(business, hierarchyName).map((n) => ({ ...n, parent: n.parent ?? '' })));
+  },
+  // No args: every hierarchy prototype, what it is of, and its number of values.
+  listHierarchyPrototypes: (_v, user) => {
+    requireAuth(user);
+    return table(['prototype', 'of', 'values'], listHierarchyPrototypes());
+  },
+  // Positional args: [0] business, [1] hierarchyName, [2] prototypeName.
+  saveHierarchyPrototype: (v, user) => {
+    const admin = requireRole(user, 'Administrator', 'Bookkeeper');
+    const [business, hierarchyName, prototypeName] = v;
+    if (!business || !hierarchyName || !prototypeName) throw new CallError(400, 'business, hierarchyName and prototypeName are all required.');
+    try {
+      saveHierarchyPrototype(asBusinessName(business), hierarchyName, prototypeName, asUserId(admin.id));
+      return row(prototypeName);
+    } catch (err) {
+      if (err instanceof ValidationError) throw new CallError(409, err.message);
+      if (err instanceof NotFoundError) throw new CallError(404, err.message);
+      throw err;
+    }
+  },
+  // Positional args: [0] business, [1] prototypeName, [2] hierarchyName.
+  createHierarchyFromPrototype: (v, user) => {
+    const admin = requireRole(user, 'Administrator', 'Bookkeeper');
+    const [business, prototypeName, hierarchyName] = v;
+    if (!business || !prototypeName || !hierarchyName) throw new CallError(400, 'business, prototypeName and hierarchyName are all required.');
+    try {
+      createHierarchyFromPrototype(asBusinessName(business), prototypeName, hierarchyName, asUserId(admin.id));
+      return row(hierarchyName);
+    } catch (err) {
+      if (err instanceof ValidationError) throw new CallError(409, err.message);
+      if (err instanceof NotFoundError) throw new CallError(404, err.message);
       throw err;
     }
   },

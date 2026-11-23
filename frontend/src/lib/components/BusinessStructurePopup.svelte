@@ -17,6 +17,10 @@
     getLocationTypes,
     getHierarchy,
     hierarchiesOf,
+    listHierarchyPrototypes,
+    getHierarchyTree,
+    createHierarchyFromPrototype,
+    type HierarchyPrototype,
     getHierarchyTag,
     getHierarchyAssignments,
     setHierarchyTag,
@@ -81,11 +85,16 @@
   // A new hierarchy of the given kind, named in the step that shows it.
   let namingHierarchyOf: HierarchyKind | null = $state(null);
   let namedHierarchy = $state('');
+  // A new hierarchy starts empty, or from a prototype of its kind.
+  let prototypes: HierarchyPrototype[] = $state([]);
+  let startFrom = $state('');
   async function submitNamedHierarchy() {
     if (!namedHierarchy.trim() || !namingHierarchyOf) return;
     const kind = namingHierarchyOf;
     try {
-      await createHierarchy(business, namedHierarchy.trim(), kind);
+      if (startFrom) await createHierarchyFromPrototype(business, startFrom, namedHierarchy.trim());
+      else await createHierarchy(business, namedHierarchy.trim(), kind);
+      startFrom = '';
       if (kind === 'Locations') locationHierarchy = namedHierarchy.trim();
       else itemHierarchy = namedHierarchy.trim();
       namedHierarchy = '';
@@ -152,9 +161,11 @@
       orgChart = chart;
       settleHierarchies(hierarchy);
       divisionValues = hierarchy.find((h: HierarchyWithValues) => h.hierarchy === locationHierarchy)?.values ?? [];
-      const chosen = locationHierarchy;
-      const tags = chosen ? await Promise.all(locs.map((l) => getHierarchyTag(l.name, chosen).catch(() => ({ parentName: null })))) : locs.map(() => ({ parentName: null }));
-      locationDivision = Object.fromEntries(locs.map((l, i) => [l.name, tags[i].parentName]));
+      // The location hierarchy as a tree: values within values, locations
+      // within values (docs/pm-domain-reference.md, "Values nest to any depth").
+      const tree = locationHierarchy ? await getHierarchyTree(business, locationHierarchy) : [];
+      valueParent = Object.fromEntries(tree.filter((n) => n.kind === 'value').map((n) => [n.name, n.parent]));
+      locationDivision = Object.fromEntries(locs.map((l) => [l.name, tree.find((n) => n.kind === 'location' && n.name === l.name)?.parent ?? null]));
     } catch (e) {
       structureError = e instanceof ApiError ? e.message : 'Could not load the org chart.';
     } finally {
@@ -166,10 +177,18 @@
   // half of the containment forest, Departments/Employees on the right,
   // with Employee.managerId drawing the one, independent, dashed
   // "reports to" connector OrgChartNode's layout handles on its own.
+  let valueParent: Record<string, string | null> = $state({});
+  /** A value and every value within it, at any depth. */
+  function heldBy(value: string): Set<string> {
+    const held = new Set([value]);
+    for (const [v, parent] of Object.entries(valueParent)) if (parent === value) for (const w of heldBy(v)) held.add(w);
+    return held;
+  }
   let orgChartNodes: OrgChartBox[] = $derived.by(() => {
     const nodes: OrgChartBox[] = [];
     for (const v of divisionValues.slice().sort((a, b) => a.localeCompare(b))) {
-      nodes.push({ key: `div:${v}`, parentId: null, label: v, kind: 'division', canMove: false });
+      const parent = valueParent[v] ?? null;
+      nodes.push({ key: `div:${v}`, parentId: parent ? `div:${parent}` : null, label: v, kind: 'division', canMove: true });
     }
     nodes.push({ key: UNASSIGNED_KEY, parentId: null, label: 'Unassigned', kind: 'unassigned' });
     for (const l of locations.slice().sort((a, b) => a.name.localeCompare(b.name))) {
@@ -287,6 +306,11 @@
     if (node?.kind === 'location') {
       return [{ value: null, label: translations.current['Unassigned'] ?? 'Unassigned' }, ...divisionValues.map((v) => ({ value: v, label: v }))];
     }
+    if (node?.kind === 'division') {
+      // A value moves within another value, never within itself or a value it holds.
+      const held = heldBy(node.label);
+      return [{ value: null, label: translations.current['(top level)'] ?? '(top level)' }, ...divisionValues.filter((v) => !held.has(v)).map((v) => ({ value: v, label: v }))];
+    }
     if (node?.kind === 'employee') {
       return [
         { value: null, label: translations.current['Unassigned (no department)'] ?? 'Unassigned (no department)' },
@@ -301,7 +325,7 @@
   }
   async function confirmMoveStructureNode(node: OrgChartBox, destination: string | null) {
     try {
-      if (node.kind === 'location') {
+      if (node.kind === 'location' || node.kind === 'division') {
         if (destination) await setHierarchyTag(node.label, locationHierarchy, destination);
         else await deleteHierarchyTag(node.label, locationHierarchy);
       } else if (node.kind === 'employee') {
@@ -654,11 +678,17 @@
     {#if namingHierarchyOf === kind}
       <div class="inline-form">
         <input bind:value={namedHierarchy} placeholder={translations.current['Name of the hierarchy'] ?? 'Name of the hierarchy'} />
+        {#if prototypes.some((p) => p.of === kind)}
+          <select class="start-from" bind:value={startFrom}>
+            <option value="">{translations.current['Empty'] ?? 'Empty'}</option>
+            {#each prototypes.filter((p) => p.of === kind) as p (p.prototype)}<option value={p.prototype}>{translations.current['From'] ?? 'From'} {p.prototype}</option>{/each}
+          </select>
+        {/if}
         <button type="button" class="btn" onclick={submitNamedHierarchy}>{translations.current['Create'] ?? 'Create'}</button>
         <button type="button" class="btn secondary" onclick={() => (namingHierarchyOf = null)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
       </div>
     {:else}
-      <button type="button" class="link-button" onclick={() => { namingHierarchyOf = kind; namedHierarchy = ''; }}>+ {translations.current['New Hierarchy'] ?? 'New Hierarchy'}</button>
+      <button type="button" class="link-button" onclick={async () => { namingHierarchyOf = kind; namedHierarchy = ''; startFrom = ''; prototypes = await listHierarchyPrototypes().catch(() => []); }}>+ {translations.current['New Hierarchy'] ?? 'New Hierarchy'}</button>
     {/if}
   </div>
 {/snippet}

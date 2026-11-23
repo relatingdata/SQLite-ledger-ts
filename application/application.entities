@@ -220,6 +220,14 @@ Root
     - :Parameter Name=business
     - :Parameter Name=hierarchyName
     - :Parameter Name=of
+   createHierarchyFromPrototype :Call Client=createHierarchyFromPrototype
+    - :Parameter Name=business
+    - :Parameter Name=prototypeName
+    - :Parameter Name=hierarchyName
+   createHierarchyFromPrototypeSimple :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=prototypeName Type=select_value
+    - :Parameter Name=hierarchyName Type=text
    createHierarchySimple :Call
     - :Parameter Name=businessName Type=text
     - :Parameter Name=hierarchyName Type=text
@@ -233,6 +241,11 @@ Root
     - :Parameter Name=businessName Type=text
     - :Parameter Name=hierarchyName Type=text
     - :Parameter Name=valueName Type=text
+   createHierarchyValueWithin :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=hierarchyName Type=text
+    - :Parameter Name=valueName Type=text
+    - :Parameter Name=entityName Type=text
    createInvoice :Call Client=createInvoice
     - :Parameter Name=input.invoiceType
     - :Parameter Name=input.business
@@ -491,6 +504,9 @@ Root
    getHierarchyTag :Call Client=getHierarchyTag
     - :Parameter Name=entityName
     - :Parameter Name=hierarchyName
+   getHierarchyTree :Call Client=getHierarchyTree
+    - :Parameter Name=business
+    - :Parameter Name=hierarchyName
    getInventoryListingByLocation :Call Client=getInventoryListingByLocation
     - :Parameter Name=businessName
     - :Parameter Name=hierarchyName
@@ -635,6 +651,7 @@ Root
    listContactPersonTypes :Call Client=listContactPersonTypes
    listDepartments :Call Client=listDepartments
     - :Parameter Name=business
+   listHierarchyPrototypes :Call Client=listHierarchyPrototypes
    listInvoices :Call Client=listInvoices
     - :Parameter Name=business
     - :Parameter Name=ledger
@@ -897,6 +914,14 @@ Root
    saveBusinessTypeAnswers :Call Client=saveBusinessTypeAnswers
     - :Parameter Name=businessName
     - :Parameter Name="encodeRecordList(['key', 'value'], Object.entries(answers).map(([key, value]) => ({ key, value })))"
+   saveHierarchyPrototype :Call Client=saveHierarchyPrototype
+    - :Parameter Name=business
+    - :Parameter Name=hierarchyName
+    - :Parameter Name=prototypeName
+   saveHierarchyPrototypeSimple :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=hierarchyName Type=text
+    - :Parameter Name=prototypeName Type=text
    saveLocation :Call Client=saveLocation
     - :Parameter Name=name
     - :Parameter Name=business
@@ -948,6 +973,11 @@ Root
     - :Parameter Name=entityName
     - :Parameter Name=relationshipType
     - :Parameter Name=targetName
+   setHierarchyParentSimple :Call
+    - :Parameter Name=businessName Type=text
+    - :Parameter Name=entityName Type=text
+    - :Parameter Name=hierarchyName Type=text
+    - :Parameter Name=valueName Type=select_value
    setHierarchyTag :Call Client=setHierarchyTag
     - :Parameter Name=entityName
     - :Parameter Name=hierarchyName

@@ -166,6 +166,18 @@
 "Move Location To Group","${business}","Main Street Cellar","Division","Adelaide Metro"
 # Head Office joins the same division, the same way.
 "Move Location To Group","${business}","Head Office","Division","Adelaide Metro"
+# Values within values, and each location in one place: Adelaide
+# Metro, with its two locations, goes within a new top-level value,
+# South Australia, and a new depot, Mount Barker Depot, goes directly
+# in South Australia beside it (docs/user-manual-ch2-configuration.md).
+"Create Hierarchy Value","${business}","Division","South Australia"
+"Move In Business Setup","${business}","Adelaide Metro","Division","South Australia"
+"Add Location Via Structure Popup","${business}","Mount Barker Depot","Mount Barker","Warehouse"
+"Move In Business Setup","${business}","Mount Barker Depot","Division","South Australia"
+"Check Value Within","${business}","Main Street Cellar","Division","Adelaide Metro"
+# The Division tree is saved as a prototype, for any business to start
+# its own Division hierarchy from: the values, not the locations.
+"Save Hierarchy As Prototype","${business}","Division","Australian Retail Divisions"
 # One more growth step through the popup: on its Item Hierarchies step,
 # the business names its hierarchy of items, Category, and adds the
 # value "Whiskey", so that Highland Single Malt's creation below can

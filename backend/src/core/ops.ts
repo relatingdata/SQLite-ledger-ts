@@ -258,6 +258,18 @@ export function itemSource(inst: Instance, itemName: string, providerName: strin
  * hierarchy (docs/pm-domain-reference.md). */
 export function setGroup(inst: Instance, thingName: string, hierarchy: string, value: string): void {
   inst.store.tx(() => {
+    // A value nests under another value of its hierarchy, never under
+    // itself or a value it holds.
+    const own = valueNode(inst, hierarchy, thingName);
+    if (own) {
+      const parent = valueNode(inst, hierarchy, value);
+      if (!parent) throw new NotFound(`No value "${value}" in ${hierarchy}.`);
+      for (let at: Node | undefined = parent; at; at = inst.core.related(at.id, hierarchy)) {
+        if (at.id === own.id) throw new Refused(`"${thingName}" cannot go within "${value}", which it holds.`);
+      }
+      inst.core.relate(own.id, hierarchy, parent.id, inst.id);
+      return;
+    }
     const thing = inst.anything(thingName);
     if (!thing) throw new NotFound(`Nothing named "${thingName}" to put in ${hierarchy}.`);
     const kind = inst.hierarchyKind(hierarchy);
@@ -269,8 +281,86 @@ export function setGroup(inst: Instance, thingName: string, hierarchy: string, v
 }
 
 export function groupOf(inst: Instance, thingName: string, hierarchy: string): string | undefined {
-  const thing = inst.anything(thingName);
+  const thing = valueNode(inst, hierarchy, thingName) ?? inst.anything(thingName);
   return thing && inst.core.value(thing.id, hierarchy);
+}
+
+/** A value of the business's hierarchy, by name. */
+function valueNode(inst: Instance, hierarchy: string, name: string): Node | undefined {
+  const node = inst.existing('Hierarchy', hierarchy);
+  return node && inst.core.things(node.id, 'Value').find((v) => v.name === name);
+}
+
+/** A hierarchy of the business as a tree: every value, then every item or
+ * location in one, each with the value it is within (docs/pm-domain-reference.md,
+ * "Values nest to any depth"). */
+export function hierarchyTree(inst: Instance, hierarchy: string): { name: string; kind: 'value' | 'location' | 'item'; parent: string | null }[] {
+  const node = inst.existing('Hierarchy', hierarchy);
+  if (!node) return [];
+  const values = inst.core.things(node.id, 'Value');
+  const ids = new Set(values.map((v) => v.id));
+  const tree: { name: string; kind: 'value' | 'location' | 'item'; parent: string | null }[] = values.map((v) => ({ name: v.name, kind: 'value', parent: inst.core.value(v.id, hierarchy) ?? null }));
+  for (const [branch, kind] of [['Locations', 'location'], ['Items', 'item']] as const) {
+    const root = inst.existingBranch(branch);
+    for (const thing of root ? inst.core.things(root.id) : []) {
+      const parent = inst.core.related(thing.id, hierarchy);
+      if (parent && ids.has(parent.id)) tree.push({ name: thing.name, kind, parent: parent.name });
+    }
+  }
+  return tree;
+}
+
+/** Hierarchy prototypes, kept under the global instance's Application
+ * (docs/pm-domain-reference.md, "Hierarchy prototypes"): a prototype
+ * records what it is of and keeps each value under its parent. */
+function prototypesRoot(inst: Instance): Node {
+  return inst.core.ensure('Hierarchy Prototypes', inst.core.at(['Application']).id, inst.id);
+}
+
+export function saveHierarchyPrototype(inst: Instance, hierarchy: string, prototype: string): void {
+  inst.store.tx(() => {
+    const of = inst.hierarchyKind(hierarchy);
+    if (!of) throw new NotFound(`No reporting hierarchy named "${hierarchy}".`);
+    const root = prototypesRoot(inst);
+    if (inst.store.child(root.id, prototype)) throw new Refused(`A hierarchy prototype named "${prototype}" already exists.`);
+    const made = inst.core.ensure(prototype, root.id, inst.id);
+    inst.core.relate(made.id, 'Hierarchy Of', inst.branch(of).id, inst.id);
+    const tree = hierarchyTree(inst, hierarchy).filter((n) => n.kind === 'value');
+    const copy = (parent: string | null, under: number) => {
+      for (const v of tree.filter((n) => n.parent === parent).sort((a, b) => a.name.localeCompare(b.name))) copy(v.name, inst.core.ensure(v.name, under, inst.id).id);
+    };
+    copy(null, made.id);
+  });
+}
+
+export function createHierarchyFromPrototype(inst: Instance, prototype: string, hierarchy: string): void {
+  inst.store.tx(() => {
+    const source = inst.store.child(prototypesRoot(inst).id, prototype);
+    const of = source && inst.core.value(source.id, 'Hierarchy Of');
+    if (!source || (of !== 'Items' && of !== 'Locations')) throw new NotFound(`No hierarchy prototype named "${prototype}".`);
+    if (inst.existing('Hierarchy', hierarchy)) throw new Refused(`There is already a hierarchy named "${hierarchy}".`);
+    inst.hierarchy(hierarchy, of);
+    const copy = (from: number, parent: Node | null) => {
+      for (const child of inst.store.children(from)) {
+        if (child.name === 'Hierarchy Of') continue;
+        const value = inst.valueOf(hierarchy, child.name);
+        if (parent) inst.core.relate(value.id, hierarchy, parent.id, inst.id);
+        copy(child.id, value);
+      }
+    };
+    copy(source.id, null);
+  });
+}
+
+export function listHierarchyPrototypes(inst: Instance): { prototype: string; of: string; values: number }[] {
+  const root = inst.store.child(inst.core.at(['Application']).id, 'Hierarchy Prototypes');
+  if (!root) return [];
+  const count = (id: number): number => inst.store.children(id).filter((c) => c.name !== 'Hierarchy Of').reduce((n, c) => n + 1 + count(c.id), 0);
+  return inst.store
+    .children(root.id)
+    .map((p) => ({ prototype: p.name, of: inst.core.value(p.id, 'Hierarchy Of') ?? '', values: count(p.id) }))
+    .filter((p) => p.of)
+    .sort((a, b) => a.prototype.localeCompare(b.prototype));
 }
 
 const DEPARTMENT_ACCOUNTS = ['Payroll', 'Other Expenses'];

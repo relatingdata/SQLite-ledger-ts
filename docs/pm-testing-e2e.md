@@ -885,6 +885,7 @@ row's verify, `entity_named_exists`.
 
 Tests (*Testing: Unit*, "Running the tests"):
 - "business-setup-divisions" (`shared-fixtures/tests/business-setup-divisions.csv`)
+- "hierarchy-prototype" (`shared-fixtures/tests/hierarchy-prototype.csv`)
 - "cash-sale-storage-origin" (`shared-fixtures/tests/cash-sale-storage-origin.csv`)
 - "contact-addresses-by-keyboard" (`shared-fixtures/tests/contact-addresses-by-keyboard.csv`)
 - "contact-persons" (`shared-fixtures/tests/contact-persons.csv`)

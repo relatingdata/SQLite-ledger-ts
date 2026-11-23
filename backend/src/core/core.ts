@@ -395,7 +395,7 @@ export class Instance {
     return this.core.ensure(name, this.business.id, this.id);
   }
 
-  private existingBranch(name: string): Node | undefined {
+  existingBranch(name: string): Node | undefined {
     return this.store.child(this.business.id, name);
   }
 
@@ -488,7 +488,7 @@ export class Instance {
     return hierarchy;
   }
 
-  /** What a hierarchy groups, if it records it. */
+  /** What a hierarchy is of, if it records it. */
   hierarchyKind(name: string): HierarchyKind | undefined {
     const hierarchy = this.existing('Hierarchy', name);
     const target = hierarchy && this.core.related(hierarchy.id, 'Hierarchy Of');

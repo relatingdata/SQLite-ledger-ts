@@ -2031,7 +2031,7 @@ function ensureBusinessRoot(businessName: BusinessName, rootName: string, userId
 export type HierarchyKind = 'Items' | 'Locations';
 export const HIERARCHY_KINDS: readonly HierarchyKind[] = ['Items', 'Locations'];
 /** The relation records under a hierarchy, which are not its values. */
-const HIERARCHY_RELATIONS = new Set(['Hierarchy Of', 'Kind']);
+export const HIERARCHY_RELATIONS = new Set(['Hierarchy Of', 'Kind']);
 
 export function hierarchyKind(hierarchyId: number): HierarchyKind | undefined {
   const record = Entity.getUnder('Hierarchy Of', hierarchyId);
@@ -2058,12 +2058,19 @@ export function ensureHierarchy(businessName: BusinessName, hierarchyName: strin
 /** Refuses to tag an item with a location hierarchy or a location with
  * an item hierarchy; a value may be tagged under a value of its own
  * hierarchy, to nest. */
-export function checkHierarchyTag(businessName: string, hierarchyName: string, entityName: string): void {
+export function checkHierarchyTag(businessName: string, hierarchyName: string, entityName: string, parentName?: string): void {
   const businessId = Entity.get(businessName, 'Businesses')?.id;
   const hierarchyRoot = businessId !== undefined ? Entity.getUnder('Hierarchy', businessId) : undefined;
   const hierarchy = hierarchyRoot ? Entity.getUnder(hierarchyName, hierarchyRoot.id) : undefined;
+  if (hierarchy && Entity.getUnder(entityName, hierarchy.id)) {
+    // A value nests under another value, never under itself or a value it holds.
+    if (parentName !== undefined && (parentName === entityName || getHierarchyAncestorChain(parentName, hierarchyName).includes(entityName))) {
+      throw new ValidationError(`"${entityName}" cannot go within "${parentName}", which it holds.`);
+    }
+    return;
+  }
   const kind = hierarchy ? hierarchyKind(hierarchy.id) : undefined;
-  if (!hierarchy || !kind || Entity.getUnder(entityName, hierarchy.id)) return;
+  if (!hierarchy || !kind) return;
   const isLocation = resolveBusinessLocationId(businessName, entityName) !== undefined;
   if (kind === 'Locations' && !isLocation) throw new ValidationError(`"${hierarchyName}" is a hierarchy of locations; "${entityName}" is not one.`);
   if (kind === 'Items' && isLocation) throw new ValidationError(`"${hierarchyName}" is a hierarchy of items; "${entityName}" is a location.`);
@@ -4132,7 +4139,40 @@ export function getHierarchyGroups(businessName: string, hierarchyName: string):
   const hierarchyRoot = businessId ? Entity.getUnder('Hierarchy', businessId) : undefined;
   const hierarchy = hierarchyRoot ? Entity.getUnder(hierarchyName, hierarchyRoot.id) : undefined;
   if (!hierarchy) return [];
-  return Entity.children(hierarchy.id).map((value) => ({ name: value.name, parentName: getHierarchyParent(value.name, hierarchyName) ?? null }));
+  return Entity.children(hierarchy.id)
+    .filter((value) => !HIERARCHY_RELATIONS.has(value.name))
+    .map((value) => ({ name: value.name, parentName: getHierarchyParent(value.name, hierarchyName) ?? null }));
+}
+
+export interface HierarchyTreeNode {
+  name: string;
+  kind: 'value' | 'location' | 'item';
+  /** The value it is within, or null at the top. */
+  parent: string | null;
+}
+
+/** A hierarchy of the business as a tree: every value, then every
+ * location or item tagged with one of its values, each with its parent
+ * (docs/pm-domain-reference.md, "Values nest to any depth"). */
+export function getHierarchyTree(businessName: string, hierarchyName: string): HierarchyTreeNode[] {
+  const values = getHierarchyGroups(businessName, hierarchyName);
+  const valueNames = new Set(values.map((v) => v.name));
+  const nodes: HierarchyTreeNode[] = values.map((v) => ({ name: v.name, kind: 'value', parent: v.parentName }));
+  // Only this business's own locations and items: another business may
+  // use the same value names in a hierarchy of the same name.
+  const childNamesOf = (root: string): Set<string> => {
+    const businessId = Entity.get(businessName, 'Businesses')?.id;
+    const rootNode = businessId !== undefined ? Entity.getUnder(root, businessId) : undefined;
+    return new Set(rootNode ? Entity.children(rootNode.id).map((c) => c.name) : []);
+  };
+  const locationNames = childNamesOf('Locations');
+  const itemNames = childNamesOf('Items');
+  for (const [name, parent] of Object.entries(getHierarchyAssignments(hierarchyName)).sort(([a], [b]) => a.localeCompare(b))) {
+    if (valueNames.has(name) || !valueNames.has(parent)) continue;
+    if (locationNames.has(name)) nodes.push({ name, kind: 'location', parent });
+    else if (itemNames.has(name)) nodes.push({ name, kind: 'item', parent });
+  }
+  return nodes;
 }
 
 export function getHierarchyAncestorChain(entityName: string, hierarchyName: string): string[] {
@@ -6060,4 +6100,5 @@ import { getLocation, setLocation, fifoCostMinor, getItemLocation, dispatchItems
 export * from './db-quotations.js';
 export * from './db-projects.js';
 export * from './db-prototypes.js';
+export * from './db-hierarchy-prototypes.js';
 

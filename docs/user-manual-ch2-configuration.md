@@ -156,6 +156,18 @@ The Profit and Loss screen has an **Outer** and an **Inner hierarchy**; Sales an
 
 When Lars and Mette open their wine bar, for instance, a new value Wine Bar in their location hierarchy, alongside Retail, is all it takes for the bar's own profit to appear next to the shop's, with each broken down by the same item hierarchy.
 
+### Values within values, and each location in one place
+
+A value of a hierarchy can hold other values, locations, or both, to any depth. A Division hierarchy might have the value **South Australia** holding the value **Adelaide Metro** and the location **Mount Barker** side by side, with **Adelaide Metro** holding the city shops. A location is always in exactly one place in a hierarchy: moving it takes it out of where it was. A value can be moved too, with everything it holds, but never into itself or into a value it holds.
+
+**Business Setup** shows the location hierarchy as this tree. Select a value and press **Insert** to add a location within it, or use **+ Value within** to add a value within it; **Move…** puts the selected location or value somewhere else in the tree. The Profit and Loss adds each value up from everything it holds, so South Australia's profit includes Adelaide Metro's.
+
+### Starting from a hierarchy prototype
+
+A hierarchy's tree of values can be saved as a **prototype**, for this or any other business to start from, the way a new business starts from a Chart of Accounts prototype. Under **Setup → Hierarchies**, select the hierarchy and choose **Save as prototype**, giving the prototype a name (say "Australian Retail Divisions"). Only the values are saved, nested as they are; the business's own locations and items stay with it.
+
+Another business then chooses that prototype when it adds a hierarchy --- in **Setup → Hierarchies**, in Business Setup, or in the Business Structure popup, where **+ New Hierarchy** offers the prototypes of the right kind --- and gets the same tree of values, ready for its own locations or items.
+
 **Setting this up**: under **Setup → Hierarchies & Products**, add a real hierarchy (e.g. "Storage") and its real values (e.g. "Cold," "Ambient"), then define a real Product shape --- the ordered list of dimensions (Location, Item, Storage, and so on) a specific combination will follow.
 
 A real, honest note on where this stands today: the setup screen above is real and working --- a business can define its own Hierarchies and Product shapes through it right now. Recording a real sale *against* one of these combinations works too, but only through **a real, registered barcode** --- when a real product barcode is registered against a specific combination (a cold beer's own, distinct barcode, different from a warm one's), scanning it at the register automatically finds the correct, exact combination and its own, real price, with nothing to pick manually. There is not yet a screen for choosing a combination by hand, or for tagging stock received without scanning --- that's real, planned, future work.

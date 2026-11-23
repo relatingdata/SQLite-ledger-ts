@@ -1,0 +1,14 @@
+# A Division hierarchy whose value South Australia holds the value
+# Adelaide Metro, saved as a prototype by one business, starts the same
+# hierarchy, nested the same way, in a second business
+# (docs/pm-domain-reference.md, "Hierarchy prototypes").
+"Include","../common/business.csv"
+"Include","../common/division-hierarchy.csv"
+"Create Hierarchy Value","${business}","Division","South Australia"
+"Create Hierarchy Value","${business}","Division","Adelaide Metro"
+"Move In Business Setup","${business}","Adelaide Metro","Division","South Australia"
+"Save Hierarchy As Prototype","${business}","Division","Test Retail Divisions"
+"Create Business","Second Test Business","2026-27","Sole Trader","AUD","English / generic",""
+"Switch Session","Second Test Business","Actual"
+"Create Hierarchy From Prototype","Second Test Business","Test Retail Divisions","Division"
+"Check Value Within","Second Test Business","Adelaide Metro","Division","South Australia"

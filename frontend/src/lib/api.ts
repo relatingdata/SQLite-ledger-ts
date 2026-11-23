@@ -776,6 +776,30 @@ export const getHierarchyAssignments = async (hierarchyName: string): Promise<Re
   return Object.fromEntries(rows.map((r) => [r.entityName, r.parentName]));
 };
 
+/** A hierarchy of the business as a tree: every value, then every
+ * location or item in one, each with the value it is within (null at
+ * the top) — see docs/pm-domain-reference.md, "Values nest to any depth". */
+export interface HierarchyTreeNode {
+  name: string;
+  kind: 'value' | 'location' | 'item';
+  parent: string | null;
+}
+export const getHierarchyTree = (business: string, hierarchyName: string) =>
+  callTable('getHierarchyTree', [business, hierarchyName], (f): HierarchyTreeNode => ({ name: f.name, kind: f.kind as HierarchyTreeNode['kind'], parent: f.parent || null }));
+
+/** A saved tree of values any business can start a hierarchy from. */
+export interface HierarchyPrototype {
+  prototype: string;
+  of: HierarchyKind;
+  values: number;
+}
+export const listHierarchyPrototypes = () =>
+  callTable('listHierarchyPrototypes', [], (f): HierarchyPrototype => ({ prototype: f.prototype, of: f.of as HierarchyKind, values: Number(f.values) }));
+export const saveHierarchyPrototype = (business: string, hierarchyName: string, prototypeName: string) =>
+  callRow('saveHierarchyPrototype', [business, hierarchyName, prototypeName], (f) => f[0]);
+export const createHierarchyFromPrototype = (business: string, prototypeName: string, hierarchyName: string) =>
+  callRow('createHierarchyFromPrototype', [business, prototypeName, hierarchyName], (f) => f[0]);
+
 export const getBusinesses = () => callTable('getBusinesses', [], (f) => ({ id: Number(f.id), name: f.name }));
 export const getBusinessTypes = () => callTable('getBusinessTypes', [], (f) => ({ name: f.name, questions: decodeStringList(f.questions) }));
 export const saveBusinessTypeAnswers = (businessName: string, answers: Record<string, string>) =>

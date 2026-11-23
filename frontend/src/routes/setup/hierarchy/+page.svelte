@@ -14,6 +14,10 @@
     ApiError,
     type HierarchyWithValues,
     type HierarchyKind,
+    listHierarchyPrototypes,
+    saveHierarchyPrototype,
+    createHierarchyFromPrototype,
+    type HierarchyPrototype,
   } from '$lib/api';
 
   // Single source of truth for entity name display.
@@ -103,14 +107,55 @@
   let newShapeRows: { dimension: string; hierarchy: string }[] = [{ dimension: '', hierarchy: '' }];
   let definingShape = false;
 
+  // Hierarchy prototypes: a hierarchy's tree of values saved for any
+  // business to start from — see docs/pm-domain-reference.md.
+  let prototypes: HierarchyPrototype[] = [];
+  let savingAsPrototype = false;
+  let prototypeName = '';
+  let fromPrototype = false;
+  let chosenPrototype = '';
+  let fromPrototypeHierarchyName = '';
+  let prototypeError = '';
+  let prototypeMessage = '';
+
+  async function saveAsPrototype() {
+    if (!session.current?.businessName || !selectedHierarchy || !prototypeName.trim()) return;
+    prototypeError = '';
+    try {
+      await saveHierarchyPrototype(session.current.businessName, selectedHierarchy.hierarchy, prototypeName.trim());
+      prototypeMessage = `${T('Saved as prototype')}: ${prototypeName.trim()}`;
+      prototypeName = '';
+      savingAsPrototype = false;
+      prototypes = await listHierarchyPrototypes();
+    } catch (e) {
+      prototypeError = e instanceof ApiError ? e.message : 'Could not save the prototype.';
+    }
+  }
+
+  async function createFromPrototype() {
+    if (!session.current?.businessName || !chosenPrototype || !fromPrototypeHierarchyName.trim()) return;
+    prototypeError = '';
+    try {
+      await createHierarchyFromPrototype(session.current.businessName, chosenPrototype, fromPrototypeHierarchyName.trim());
+      selectedHierarchyName = fromPrototypeHierarchyName.trim();
+      fromPrototype = false;
+      fromPrototypeHierarchyName = '';
+      await load();
+    } catch (e) {
+      prototypeError = e instanceof ApiError ? e.message : 'Could not create the hierarchy.';
+    }
+  }
+
   async function load() {
     if (!session.current?.businessName) return;
     loading = true;
     error = '';
     try {
-      const [loadedHierarchies, loadedShapes] = await Promise.all([getHierarchy(session.current.businessName), getProductShapes(session.current.businessName)]);
+      const [loadedHierarchies, loadedShapes, loadedPrototypes] = await Promise.all([getHierarchy(session.current.businessName), getProductShapes(session.current.businessName), listHierarchyPrototypes()]);
       hierarchies = loadedHierarchies;
       shapes = loadedShapes;
+      prototypes = loadedPrototypes;
+      if (!chosenPrototype && prototypes.length > 0) chosenPrototype = prototypes[0].prototype;
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Failed to load.';
     } finally {
@@ -267,6 +312,39 @@
           </SelectableListEditor>
         {/if}
       </div>
+      <div class="prototype-bar">
+        {#if fromPrototype}
+          <div class="prototype-form">
+            <select bind:value={chosenPrototype}>
+              {#each prototypes as p (p.prototype)}
+                <option value={p.prototype}>{T(p.prototype)} ({T(p.of === 'Items' ? 'Of items' : 'Of locations')}, {p.values})</option>
+              {/each}
+            </select>
+            <input type="text" placeholder={translations.current['Name of the hierarchy'] ?? 'Name of the hierarchy'} bind:value={fromPrototypeHierarchyName} />
+            <button type="button" class="btn small" onclick={createFromPrototype}>{translations.current['Create'] ?? 'Create'}</button>
+            <button type="button" class="btn secondary small" onclick={() => (fromPrototype = false)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
+          </div>
+        {:else if prototypes.length > 0}
+          <button type="button" class="btn secondary small" onclick={() => { fromPrototype = true; prototypeError = ''; }}>{translations.current['From a prototype'] ?? 'From a prototype'}</button>
+        {/if}
+        {#if selectedHierarchy?.of}
+          {#if savingAsPrototype}
+            <input
+              type="text"
+              placeholder={translations.current['Name of the prototype'] ?? 'Name of the prototype'}
+              bind:value={prototypeName}
+              onkeydown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); saveAsPrototype(); }
+                else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); savingAsPrototype = false; }
+              }}
+            />
+          {:else}
+            <button type="button" class="btn secondary small" onclick={() => { savingAsPrototype = true; prototypeName = ''; prototypeError = ''; prototypeMessage = ''; }}>{translations.current['Save as prototype'] ?? 'Save as prototype'}</button>
+          {/if}
+        {/if}
+        {#if prototypeError}<p class="error small">{prototypeError}</p>{/if}
+        {#if prototypeMessage}<p class="success small">{prototypeMessage}</p>{/if}
+      </div>
     </section>
 
     <section>
@@ -313,6 +391,14 @@
 </fieldset>
 
 <style>
+  .prototype-bar,
+  .prototype-form {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 0.8rem;
+  }
   .center-text {
     text-align: center;
   }

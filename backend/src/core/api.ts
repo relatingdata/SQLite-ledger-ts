@@ -292,6 +292,20 @@ export const CORE_CALLS: Record<string, CoreCall> = {
   createHierarchyValueSimple: { params: ['businessName', 'hierarchyName', 'valueName'], run: (a, s) => ensureValue(inst(a, s), a.hierarchyName, a.valueName) },
   tagItemHierarchy: { params: ['businessName', 'itemName', 'hierarchyName', 'valueName'], run: (a, s) => ops.setGroup(inst(a, s), a.itemName, a.hierarchyName, a.valueName) },
   setLocationGroup: { params: ['businessName', 'locationName', 'hierarchyName', 'valueName'], run: (a, s) => ops.setGroup(inst(a, s), a.locationName, a.hierarchyName, a.valueName) },
+  createHierarchyValueWithin: {
+    params: ['businessName', 'hierarchyName', 'valueName', 'entityName'],
+    run: (a, s) => {
+      const i = inst(a, s);
+      i.store.tx(() => {
+        i.valueOf(a.hierarchyName, a.entityName);
+        ops.setGroup(i, a.entityName, a.hierarchyName, a.valueName);
+      });
+    },
+  },
+  setHierarchyParentSimple: { params: ['businessName', 'entityName', 'hierarchyName', 'valueName'], run: (a, s) => ops.setGroup(inst(a, s), a.entityName, a.hierarchyName, a.valueName) },
+  saveHierarchyPrototypeSimple: { params: ['businessName', 'hierarchyName', 'prototypeName'], run: (a, s) => ops.saveHierarchyPrototype(inst(a, s), a.hierarchyName, a.prototypeName) },
+  createHierarchyFromPrototypeSimple: { params: ['businessName', 'prototypeName', 'hierarchyName'], run: (a, s) => ops.createHierarchyFromPrototype(inst(a, s), a.prototypeName, a.hierarchyName) },
+  listHierarchyPrototypes: { params: ['businessName'], run: (a, s) => ({ header: ['prototype', 'of', 'values'], rows: ops.listHierarchyPrototypes(inst(a, s)).map((p) => [p.prototype, p.of, p.values]) }) },
   addDepartmentViaStructurePopup: { params: ['businessName', 'departmentName'], run: (a, s) => void ops.createDepartment(inst(a, s), a.departmentName) },
   deleteDepartmentViaStructurePopup: { params: ['businessName', 'departmentName'], run: (a, s) => ops.deleteDepartment(inst(a, s), a.departmentName) },
   assignEmployeeDepartmentViaStructurePopup: {

@@ -367,3 +367,21 @@ Set Item Location Levels,api,,,setItemLocationLevelsSimple,,4,minLevel,,text
 Set Item Location Levels,api,,,setItemLocationLevelsSimple,,5,maxLevel,,text
 Set Item Location Levels,api,,,setItemLocationLevelsSimple,,6,reorderLevel,,text
 Check Entity Exists,api,,,,,1,name,,text
+Add Value Within In Business Setup,data,/setup/business-setup,"button.hierarchy-choice:text-is('{{hierarchyName}}');;button.tree-item.group:text-is('{{valueName}}');;button:has-text('+ Value within')",createHierarchyValueWithin,key:Enter,1,businessName,,text
+Add Value Within In Business Setup,data,/setup/business-setup,"button.hierarchy-choice:text-is('{{hierarchyName}}');;button.tree-item.group:text-is('{{valueName}}');;button:has-text('+ Value within')",createHierarchyValueWithin,key:Enter,2,hierarchyName,,text
+Add Value Within In Business Setup,data,/setup/business-setup,"button.hierarchy-choice:text-is('{{hierarchyName}}');;button.tree-item.group:text-is('{{valueName}}');;button:has-text('+ Value within')",createHierarchyValueWithin,key:Enter,3,valueName,,text
+Add Value Within In Business Setup,data,/setup/business-setup,"button.hierarchy-choice:text-is('{{hierarchyName}}');;button.tree-item.group:text-is('{{valueName}}');;button:has-text('+ Value within')",createHierarchyValueWithin,key:Enter,4,entityName,input[placeholder='New value'],text
+Move In Business Setup,data,/setup/business-setup,"button.hierarchy-choice:text-is('{{hierarchyName}}');;button.tree-item:text-is('{{entityName}}');;button:has-text('Move…')",setHierarchyParentSimple,.move-panel button:has-text('Move'),1,businessName,,text
+Move In Business Setup,data,/setup/business-setup,"button.hierarchy-choice:text-is('{{hierarchyName}}');;button.tree-item:text-is('{{entityName}}');;button:has-text('Move…')",setHierarchyParentSimple,.move-panel button:has-text('Move'),2,entityName,,text
+Move In Business Setup,data,/setup/business-setup,"button.hierarchy-choice:text-is('{{hierarchyName}}');;button.tree-item:text-is('{{entityName}}');;button:has-text('Move…')",setHierarchyParentSimple,.move-panel button:has-text('Move'),3,hierarchyName,,text
+Move In Business Setup,data,/setup/business-setup,"button.hierarchy-choice:text-is('{{hierarchyName}}');;button.tree-item:text-is('{{entityName}}');;button:has-text('Move…')",setHierarchyParentSimple,.move-panel button:has-text('Move'),4,valueName,.move-panel select,select_value
+Check Value Within,data,/setup/business-setup,,,,1,businessName,,text
+Check Value Within,data,/setup/business-setup,,,,2,entityName,,text
+Check Value Within,data,/setup/business-setup,,,,3,hierarchyName,,text
+Check Value Within,data,/setup/business-setup,,,,4,valueName,,text
+Save Hierarchy As Prototype,data,/setup/hierarchy,".hierarchy-layout fieldset.sub-block:first-of-type .repeat-block:has-text('{{hierarchyName}}');;button:has-text('Save as prototype')",saveHierarchyPrototypeSimple,key:Enter,1,businessName,,text
+Save Hierarchy As Prototype,data,/setup/hierarchy,".hierarchy-layout fieldset.sub-block:first-of-type .repeat-block:has-text('{{hierarchyName}}');;button:has-text('Save as prototype')",saveHierarchyPrototypeSimple,key:Enter,2,hierarchyName,,text
+Save Hierarchy As Prototype,data,/setup/hierarchy,".hierarchy-layout fieldset.sub-block:first-of-type .repeat-block:has-text('{{hierarchyName}}');;button:has-text('Save as prototype')",saveHierarchyPrototypeSimple,key:Enter,3,prototypeName,input[placeholder='Name of the prototype'],text
+Create Hierarchy From Prototype,data,/setup/hierarchy,button:has-text('From a prototype'),createHierarchyFromPrototypeSimple,.prototype-form button:has-text('Create'),1,businessName,,text
+Create Hierarchy From Prototype,data,/setup/hierarchy,button:has-text('From a prototype'),createHierarchyFromPrototypeSimple,.prototype-form button:has-text('Create'),2,prototypeName,.prototype-form select,select_value
+Create Hierarchy From Prototype,data,/setup/hierarchy,button:has-text('From a prototype'),createHierarchyFromPrototypeSimple,.prototype-form button:has-text('Create'),3,hierarchyName,.prototype-form input,text

@@ -351,6 +351,11 @@ Tests (*Testing: Unit*, "Running the tests"):
 - **`setup/users/+page.svelte`**: the per-business User × Role matrix
   is kept beside the global roles and never changes them
   (`docs/user-business-role-matrix-design.md`).
+- **`setup/hierarchy/+page.svelte`**: "Save as prototype" saves the
+  selected hierarchy's tree of values (`saveHierarchyPrototype`), and
+  "From a prototype" (`.prototype-form`, shown once a prototype exists)
+  creates a hierarchy from one under a name the business gives it
+  (`createHierarchyFromPrototype`).
 - **`setup/hierarchy/+page.svelte`**: a new shape is entered as a list
   of (dimension name, hierarchy name) rows, the shape
   `defineProductShape` takes.
@@ -869,7 +874,10 @@ a new one of that kind (`createHierarchy(business, name,
 (`add-group-value`) adds a value, and its group boxes are labelled with
 the hierarchy's name (`OrgChartNode`'s `groupLabel`). Other
 Hierarchies lists every hierarchy with what it is of, and asks which
-when it creates one. `activeTab` is `$derived` from
+when it creates one. "+ New Hierarchy" can start from a prototype of
+the step's kind. The org chart nests a value's box within its parent
+value's (`getHierarchyTree`, `valueParent`), and a value's box can be
+moved within another value, except itself or one it holds (`heldBy`). `activeTab` is `$derived` from
 `stepIndex`, and each step loads when first shown (`loadStep`).
 
 The quick-add Location form has optional bottle and carton capacity;
@@ -994,7 +1002,23 @@ one whose values are the org-chart groups, else the first
 business has no hierarchy until it names one ("+ New Hierarchy", or
 Insert with nothing selected), and no hierarchy name is in the code.
 **`otherHierarchies`** are the business's other location hierarchies,
-each a field on the Location form.
+each a field on the Location form. "+ New Hierarchy" starts the new one
+empty or from a prototype of locations (`listHierarchyPrototypes`,
+`createHierarchyFromPrototype`).
+
+**The tree is the location hierarchy itself** (`getHierarchyTree`): the
+`valueNode` snippet draws a value, the values within it (recursively)
+and the locations within it (`locationNode`, with their employees from
+`getOrganizationChart`), to any depth; locations in no value are under
+"Unassigned" (or "Locations" before the business has a location
+hierarchy). A selected value offers "+ Value within", which adds a value
+within it (`createHierarchyValue(business, hierarchy, name, parent)`),
+and "Move…"; a selected location offers "Move…" too. The move panel
+(`movePanel`, `.move-panel`) lists every value except, for a value,
+itself and the values it holds (`heldBy`), with "(top level)" for a
+value and "Unassigned" for a location; Move re-tags it
+(`setHierarchyTag`) or clears its tag (`deleteHierarchyTag`), so a
+location is always in one place.
 
 **A new location** is created under the business's `Locations` root
 and tagged with its group (`setHierarchyTag`), which the reports that

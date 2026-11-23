@@ -488,12 +488,51 @@ application hierarchy); `HIERARCHY_KINDS` lists the two kinds. An
 existing hierarchy asked for with the other kind is refused. A value is added only to a hierarchy that exists
 (`ensureHierarchyValue`, `inst.valueOf`).
 `getBusinessHierarchy` returns `{ hierarchy, of, values }`, values
-excluding the relation records. An item is tagged only with item
+excluding the relation records (`HIERARCHY_RELATIONS`). An item is tagged only with item
 hierarchies and a location only with location hierarchies (`setGroup`,
 `setHierarchyTag` and `checkHierarchyTag` refuse otherwise); a value may be tagged under
 another value of its own hierarchy, to nest. A hierarchy link only
 classifies, so it never blocks deleting the item or location it is
 on: `revokeEntity` untags it.
+
+**Values nest to any depth, and an item or a location is in one place.**
+A value of a hierarchy may hold other values of it, locations (or items)
+or both, arbitrarily: a Division value "South Australia" can hold the
+value "Adelaide Metro" and the location "Mount Barker" side by side, and
+"Adelaide Metro" its own shops. Each value, item and location has at
+most one parent in a hierarchy, because its tag (`{name} — Hierarchy:
+{hierarchy}`) is one link that moving replaces; so a location is in one
+place. A value is never put under itself or under a value it holds
+(`checkHierarchyTag` refuses the cycle). The location hierarchy's tree
+(`getHierarchyTree(business, hierarchy)`) lists every value and every
+tagged location or item with its parent (`null` at the top), values
+first; Business Setup and the Business Structure popup's org chart draw
+it, and the Profit and Loss rolls a value up through the values it
+holds (`getProfitAndLossByHierarchyTree`). The core keeps a value's
+parent as a relation named after the hierarchy, the same as an item's
+or a location's (`ops.setGroup`), and `ops.hierarchyTree` lists it.
+
+**Hierarchy prototypes.** A hierarchy's tree of values, without the
+business's own items or locations, can be saved as a prototype for any
+business to start from, as a Chart of Accounts prototype is.
+`saveHierarchyPrototype(business, hierarchy, prototype, userId)` copies
+the values, nested as they are, under `Application › Hierarchy
+Prototypes › {prototype}`, which records what the hierarchy is of (its
+`Hierarchy Of` relation, to `Items` or `Locations`) and keeps each value
+under its parent as a real child, since a prototype has no tags. A
+prototype's name is unique; saving over one is refused.
+`listHierarchyPrototypes()` lists `{ prototype, of, values }`.
+`createHierarchyFromPrototype(business, prototype, hierarchy, userId)`
+creates the business's hierarchy (of the prototype's kind) with every
+value, each tagged under its parent, refused when the business already
+has a hierarchy of that name; the business then adds its own locations
+or items. Setup → Hierarchies saves a hierarchy as a prototype ("Save
+as prototype") and starts a new one from a prototype; Business Setup's
+and the popup's "+ New Hierarchy" offer the prototypes of their kind.
+The calls are `listHierarchyPrototypes`, `saveHierarchyPrototype` and
+`createHierarchyFromPrototype`; the core's are `ops.saveHierarchyPrototype`
+and `ops.createHierarchyFromPrototype`, keeping prototypes under the
+core's global instance.
 
 **Screens choose among the business's hierarchies**, each shown by its
 own name:
@@ -536,6 +575,9 @@ itself when it has none, and a group belongs to the business.
 hierarchy: by `parent_id`, by a named relationship, or both.
 
 Tests (*Testing: Unit*, "Running the tests"):
+- "values nest to any depth, holding values and locations side by side; a location is in one place; a value never goes within itself or a value it holds" (`backend/test/db.test.ts`)
+- "a hierarchy prototype keeps the tree of values, nested as it was and without the business's locations, and starts the same hierarchy in another business" (`backend/test/db.test.ts`)
+- "hierarchy-prototype" (`shared-fixtures/tests/hierarchy-prototype.csv`)
 - "a hierarchy records what it is of: its items or its locations; it is never asked for as the other kind, a value is added only to one that exists, and an item and a location are tagged only with their own kind" (`backend/test/db.test.ts`)
 - "setHierarchyParent/getHierarchyParent/getHierarchyChildren/getHierarchyAncestorChain: the generic, reusable hierarchy-link mechanism (docs/multi-dimensional-reporting.md) — a real, reversible up/down index per named hierarchy, never touching an entity's own relation_id, and never a "dimension" in the matrix-stock-report/drag-and-drop sense" (`backend/test/db.test.ts`)
 - "getLocationForAccount/getHierarchyGroupForAccount: the real, structural replacement for journal_line.division_id — walking a real account to its own, real, structural location and hierarchy group, not reading a separate tag" (`backend/test/db.test.ts`)

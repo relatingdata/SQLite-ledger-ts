@@ -218,6 +218,62 @@ test('a hierarchy records what it is of: its items or its locations; it is never
   db.checkHierarchyTag(biz.business, ofItems, 'Wine'); // a value nests under a value of its own hierarchy
 });
 
+test('values nest to any depth, holding values and locations side by side; a location is in one place; a value never goes within itself or a value it holds', () => {
+  const biz = fx.freshBusiness('NestTest Co');
+  const division = fx.uniqueName('Division');
+  db.ensureHierarchy(biz.business, division, fx.userId, 'Locations');
+  const sa = db.ensureHierarchyValue(biz.business, division, 'South Australia', fx.userId);
+  const metro = db.ensureHierarchyValue(biz.business, division, 'Adelaide Metro', fx.userId);
+  const within = (name: string, parent: string, id: number) => {
+    db.checkHierarchyTag(biz.business, division, name, parent);
+    db.setHierarchyParent(name, division, parent, fx.userId, id, db.resolveHierarchyValueId(biz.business, division, parent));
+  };
+  within('Adelaide Metro', 'South Australia', metro.id);
+  const shop = fx.freshLocation(biz.business, 'NestTest Shop');
+  const depot = fx.freshLocation(biz.business, 'NestTest Depot');
+  within(shop.name, 'Adelaide Metro', shop.id);
+  within(depot.name, 'South Australia', depot.id);
+  const tree = db.getHierarchyTree(biz.business, division);
+  const parentOf = (name: string) => tree.find((n) => n.name === name)?.parent;
+  assert.equal(parentOf('South Australia'), null);
+  assert.equal(parentOf('Adelaide Metro'), 'South Australia');
+  assert.equal(parentOf(shop.name), 'Adelaide Metro');
+  assert.equal(parentOf(depot.name), 'South Australia', 'a value holds a location beside a value');
+  assert.deepEqual(tree.filter((n) => n.kind === 'location').map((n) => n.name).sort(), [depot.name, shop.name].sort());
+
+  // Moving a location takes it out of where it was: it is in one place.
+  within(shop.name, 'South Australia', shop.id);
+  assert.equal(db.getHierarchyTree(biz.business, division).filter((n) => n.name === shop.name).length, 1);
+  assert.equal(db.getHierarchyParent(shop.name, division), 'South Australia');
+
+  assert.throws(() => db.checkHierarchyTag(biz.business, division, 'South Australia', 'Adelaide Metro'), /which it holds/);
+  assert.throws(() => db.checkHierarchyTag(biz.business, division, 'South Australia', 'South Australia'), /which it holds/);
+  assert.ok(sa.id > 0);
+});
+
+test('a hierarchy prototype keeps the tree of values, nested as it was and without the business\'s locations, and starts the same hierarchy in another business', () => {
+  const first = fx.freshBusiness('ProtoTest First');
+  const second = fx.freshBusiness('ProtoTest Second');
+  const division = fx.uniqueName('Division');
+  const prototype = fx.uniqueName('Retail Divisions');
+  db.ensureHierarchy(first.business, division, fx.userId, 'Locations');
+  db.ensureHierarchyValue(first.business, division, 'South Australia', fx.userId);
+  const metro = db.ensureHierarchyValue(first.business, division, 'Adelaide Metro', fx.userId);
+  db.setHierarchyParent('Adelaide Metro', division, 'South Australia', fx.userId, metro.id, db.resolveHierarchyValueId(first.business, division, 'South Australia'));
+  const shop = fx.freshLocation(first.business, 'ProtoTest Shop');
+  db.setHierarchyParent(shop.name, division, 'Adelaide Metro', fx.userId, shop.id, metro.id);
+
+  db.saveHierarchyPrototype(first.business, division, prototype, fx.userId);
+  assert.deepEqual(db.listHierarchyPrototypes().find((p) => p.prototype === prototype), { prototype, of: 'Locations', values: 2 });
+  assert.throws(() => db.saveHierarchyPrototype(first.business, division, prototype, fx.userId), /already exists/);
+
+  db.createHierarchyFromPrototype(second.business, prototype, division, fx.userId);
+  const tree = db.getHierarchyTree(second.business, division);
+  assert.deepEqual(tree.map((n) => [n.name, n.kind, n.parent]).sort(), [['Adelaide Metro', 'value', 'South Australia'], ['South Australia', 'value', null]]);
+  assert.equal(db.getBusinessHierarchy(second.business).find((h) => h.hierarchy === division)?.of, 'Locations');
+  assert.throws(() => db.createHierarchyFromPrototype(second.business, prototype, division, fx.userId), /already has a hierarchy/);
+});
+
 test('deleteLocation: name-based wrapper resolves the real entity and reuses revokeEntity\'s own guards — a hierarchy tag on it only classifies it, so it is untagged, never a reason to refuse', () => {
   const biz = fx.freshBusiness('LocationDeleteTest Co');
   const loc = fx.freshLocation(biz.business, 'LocationDeleteTest Outlet');

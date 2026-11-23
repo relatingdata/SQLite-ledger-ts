@@ -112,6 +112,12 @@ Then the real growing-up moment: **Main Street Cellar**, which already existed w
 
 ![Head Office joining the same division.](manual-images-tutorial/structure_popup_move_ho.png)
 
+The Division hierarchy then grows a level. A new top-level value, **South Australia**, is added, and in **Business Setup** Adelaide Metro is moved within it with **Move…** --- taking its two locations with it. A new depot, **Mount Barker Depot**, goes directly in South Australia, beside Adelaide Metro: a value can hold values and locations side by side, and each location is in exactly one place in the hierarchy.
+
+![Business Setup's Division tree: South Australia holding Adelaide Metro, with its two locations, and Mount Barker Depot beside it.](manual-images-tutorial/business_setup_nested_divisions.png)
+
+Under **Setup → Hierarchies**, the Division hierarchy is saved with **Save as prototype** as **Australian Retail Divisions**. The prototype keeps South Australia and Adelaide Metro, nested as they are, but none of this business's locations, so any other business can start its own Division hierarchy from it.
+
 One further growth step, on the popup's **Item Hierarchies** step: the business names its hierarchy of its items, **Category**, with "+ New Hierarchy", and creates its first value, **Whiskey**, with "+ New top-level value" --- so that Highland Single Malt's own creation, later in this chapter, can simply be placed in it.
 
 ![A Whiskey category, pre-created from the popup, ready for Highland Single Malt to select directly.](manual-images-tutorial/structure_popup_category_added.png)

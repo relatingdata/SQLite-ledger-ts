@@ -44,6 +44,12 @@ api,,,false
 ,location_in_hierarchy_group,structure_popup_move_msc,false
 ,location_in_hierarchy_group,structure_popup_move_ho,false
 ,,,false
+,in_hierarchy_value,,false
+,location_exists,,false
+,in_hierarchy_value,business_setup_nested_divisions,false
+,in_hierarchy_value,,false
+,hierarchy_prototype_exists,,false
+,,,false
 ,,structure_popup_category_added,false
 ,,employee_created,false
 ,,employee_sam_created,false

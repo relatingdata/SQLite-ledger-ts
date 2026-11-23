@@ -177,6 +177,8 @@ export const CORE_API_VERIFY: Record<string, Verify> = {
   },
   translation_matches: async (a, api) => (await api.must('getTranslation', [a.concept, a.language])).row[0] === a.translationText,
   location_in_hierarchy_group: async (a, api) => (await api.must('getGroup', [a.businessName, a.locationName, a.hierarchyName])).row[0] === a.valueName,
+  in_hierarchy_value: async (a, api) => (await api.must('getGroup', [a.businessName, a.entityName, a.hierarchyName])).row[0] === a.valueName,
+  hierarchy_prototype_exists: async (a, api) => (await api.must('listHierarchyPrototypes', [a.businessName])).table.some((r) => r.prototype === a.prototypeName),
 };
 
 /** The API function a session screen maps to. */

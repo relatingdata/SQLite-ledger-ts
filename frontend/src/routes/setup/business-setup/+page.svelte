@@ -38,6 +38,11 @@
     type Contact,
     asLocationName,
     asEmployeeName,
+    getHierarchyTree,
+    listHierarchyPrototypes,
+    createHierarchyFromPrototype,
+    type HierarchyTreeNode,
+    type HierarchyPrototype,
   } from '$lib/api';
 
   let chart: OrganizationChart | null = $state(null);
@@ -67,11 +72,16 @@
   let addingHierarchy = $state(false);
   let newHierarchyName = $state('');
   let hierarchyError = $state('');
+  // A new hierarchy starts empty, or from a prototype of locations.
+  let prototypes: HierarchyPrototype[] = $state([]);
+  let startFrom = $state('');
   async function addHierarchy() {
     if (!session.current || !newHierarchyName.trim()) return;
     hierarchyError = '';
     try {
-      await createHierarchy(session.current.businessName, newHierarchyName.trim(), 'Locations');
+      if (startFrom) await createHierarchyFromPrototype(session.current.businessName, startFrom, newHierarchyName.trim());
+      else await createHierarchy(session.current.businessName, newHierarchyName.trim(), 'Locations');
+      startFrom = '';
       chosenHierarchy = newHierarchyName.trim();
       newHierarchyName = '';
       addingHierarchy = false;
@@ -83,15 +93,43 @@
 
   function selectGroup(name: string) {
     selection = { type: 'group', name };
+    moving = false;
+    addingValueWithin = false;
+  }
+
+  // The tree of the location hierarchy: values within values, and
+  // locations within values, to any depth; each location in one place
+  // (docs/pm-domain-reference.md, "Values nest to any depth").
+  let tree: HierarchyTreeNode[] = $state([]);
+  const childValues = (parent: string | null) => tree.filter((n) => n.kind === 'value' && n.parent === parent).map((n) => n.name).sort();
+  const childLocations = (parent: string) => tree.filter((n) => n.kind === 'location' && n.parent === parent).map((n) => n.name).sort();
+  let employeesAt = $derived.by(() => new Map(chart ? chart.groups.flatMap((g) => g.locations.map((l): [string, string[]] => [l.location, l.employees])) : []));
+  let unassignedLocations = $derived.by(() => {
+    const placed = new Set(tree.filter((n) => n.kind === 'location').map((n) => n.name));
+    return [...new Set(chart ? chart.groups.flatMap((g) => g.locations.map((l) => l.location)) : [])].filter((l) => !placed.has(l)).sort();
+  });
+  /** The value a location or value is within, or '' at the top. */
+  const parentOf = (name: string) => tree.find((n) => n.name === name)?.parent ?? '';
+  /** A value and every value it holds. */
+  function heldBy(value: string): Set<string> {
+    const held = new Set([value]);
+    for (const child of childValues(value)) for (const v of heldBy(child)) held.add(v);
+    return held;
+  }
+
+  async function loadTree() {
+    tree = session.current && locationHierarchyName ? await getHierarchyTree(session.current.businessName, locationHierarchyName) : [];
   }
 
   async function loadChart() {
     if (!session.current) return;
     loading = true;
     try {
-      const [c, h] = await Promise.all([getOrganizationChart(session.current.businessName), getHierarchy(session.current.businessName)]);
+      const [c, h, p] = await Promise.all([getOrganizationChart(session.current.businessName), getHierarchy(session.current.businessName), listHierarchyPrototypes()]);
       chart = c;
       hierarchy = h;
+      prototypes = p.filter((x) => x.of === 'Locations');
+      await loadTree();
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Failed to load.';
     } finally {
@@ -119,6 +157,45 @@
       groupError = e instanceof ApiError ? e.message : `Could not create this ${locationHierarchyName.toLowerCase()}.`;
     } finally {
       creatingGroup = false;
+    }
+  }
+
+  // --- A value within the selected value ----------------------------
+  let addingValueWithin = $state(false);
+  let newValueWithin = $state('');
+  async function addValueWithin() {
+    if (!session.current || selection?.type !== 'group' || !newValueWithin.trim()) return;
+    groupError = '';
+    try {
+      await createHierarchyValue(session.current.businessName, locationHierarchyName, newValueWithin.trim(), selection.name);
+      await setEntityRelationship(newValueWithin.trim(), 'Belongs To Business', session.current.businessName);
+      newValueWithin = '';
+      addingValueWithin = false;
+      await loadChart();
+    } catch (e) {
+      groupError = e instanceof ApiError ? e.message : 'Could not create the value.';
+    }
+  }
+
+  // --- Moving the selected location or value within another value ---
+  let moving = $state(false);
+  let moveTarget = $state('');
+  let moveTargets = $derived.by(() => {
+    if (!selection || selection.type === 'employee') return [];
+    const excluded = selection.type === 'group' ? heldBy(selection.name) : new Set<string>();
+    return tree.filter((n) => n.kind === 'value' && !excluded.has(n.name)).map((n) => n.name).sort();
+  });
+  async function moveSelected() {
+    if (!session.current || !selection || selection.type === 'employee') return;
+    groupError = '';
+    try {
+      if (moveTarget) await setHierarchyTag(selection.name, locationHierarchyName, moveTarget);
+      else await deleteHierarchyTag(selection.name, locationHierarchyName);
+      if (selection.type === 'location') await setEntityRelationship(selection.name, 'Belongs To Group', moveTarget || selection.name);
+      moving = false;
+      await loadChart();
+    } catch (e) {
+      groupError = e instanceof ApiError ? e.message : 'Could not move it.';
     }
   }
 
@@ -389,6 +466,96 @@
   }
 </script>
 
+{#snippet valueNode(value: string)}
+  <div class="tree-section">
+    <button type="button" class="tree-item group" class:active={selection?.type === 'group' && selection.name === value} onclick={() => selectGroup(value)}>
+      {value}
+    </button>
+    <div class="tree-within">
+      {#each childValues(value) as inner (inner)}{@render valueNode(inner)}{/each}
+      {#each childLocations(value) as loc (loc)}{@render locationNode(loc, value)}{/each}
+      {#if employeeError}<p class="error small">{employeeError}</p>{/if}
+      {#if creatingLocationFor === value}
+        <!-- A whole-form keydown, not per-field — see Form.svelte's own
+             onFormKeydown and docs/pm-frontend-reference.md: this plain
+             field group has no Form.svelte of its own, but Escape must
+             still work from the select fields too, not just the text
+             inputs. -->
+        <div
+          class="inline-add-block"
+          onkeydown={(e) => {
+            if (e.key === 'Enter') { e.preventDefault(); addLocation(value); }
+            else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); creatingLocationFor = null; locationError = ''; }
+          }}
+        >
+          <input bind:value={newLocationName} placeholder={translations.current['Location name'] ?? 'Location name'} />
+          <input bind:value={newLocationCity} placeholder={translations.current['City'] ?? 'City'} />
+          <select bind:value={newLocationType}>
+            <option value="Retail">{translations.current['Retail'] ?? 'Retail'}</option>
+            <option value="Warehouse">{translations.current['Warehouse'] ?? 'Warehouse'}</option>
+          </select>
+          <select bind:value={newLocationTimezone}>
+            {#each ALL_TIMEZONES as tz}<option value={tz}>{tz}</option>{/each}
+          </select>
+          {#each otherHierarchies as h}
+            <select bind:value={newLocationDimensionValues[h.hierarchy]}>
+              <option value="">{translations.current[h.hierarchy] ?? h.hierarchy}…</option>
+              {#each h.values as v}<option value={v}>{translations.current[v] ?? v}</option>{/each}
+            </select>
+          {/each}
+        </div>
+      {/if}
+      {#if locationError}<p class="error small">{locationError}</p>{/if}
+    </div>
+  </div>
+{/snippet}
+
+{#snippet locationNode(loc: string, group: string)}
+  <div class="tree-location">
+    <button type="button" class="tree-item location" class:active={selection?.type === 'location' && selection.name === loc} onclick={() => selectLocation(loc, group)}>
+      {loc}
+    </button>
+    <ul class="tree-list">
+      {#each employeesAt.get(loc) ?? [] as emp}
+        <li>
+          <button type="button" class="tree-item" class:active={selection?.type === 'employee' && selection.name === emp} onclick={() => selectEmployee(emp, group, loc)}>{emp}</button>
+        </li>
+      {/each}
+      <li>
+        {#if creatingEmployeeFor === loc}
+          <div class="inline-add">
+            <input
+              bind:value={newEmployeeName}
+              placeholder={translations.current['Employee name'] ?? 'Employee name'}
+              onkeydown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); addEmployee(loc); }
+                else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); creatingEmployeeFor = null; employeeError = ''; }
+              }}
+            />
+          </div>
+        {/if}
+      </li>
+    </ul>
+  </div>
+{/snippet}
+
+{#snippet movePanel()}
+  {#if locationHierarchyName && selection && selection.type !== 'employee'}
+    {#if moving}
+      <div class="move-panel">
+        <select bind:value={moveTarget}>
+          <option value="">{selection.type === 'group' ? (translations.current['(top level)'] ?? '(top level)') : (translations.current['Unassigned'] ?? 'Unassigned')}</option>
+          {#each moveTargets as v (v)}<option value={v}>{translations.current[v] ?? v}</option>{/each}
+        </select>
+        <button type="button" class="btn small" onclick={moveSelected}>{translations.current['Move'] ?? 'Move'}</button>
+        <button type="button" class="btn secondary small" onclick={() => (moving = false)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
+      </div>
+    {:else}
+      <button type="button" class="btn secondary small" onclick={() => { moving = true; moveTarget = parentOf(selection!.name); }}>{translations.current['Move…'] ?? 'Move…'}</button>
+    {/if}
+  {/if}
+{/snippet}
+
 <svelte:head><title>{translations.current['Business Setup'] ?? 'Business Setup'}</title></svelte:head>
 
 <fieldset class="page-title">
@@ -408,7 +575,7 @@
     {#if locationHierarchies.length > 0}
       <span>{translations.current['Hierarchy'] ?? 'Hierarchy'}:</span>
       {#each locationHierarchies as g (g.hierarchy)}
-        <button type="button" class="btn secondary small hierarchy-choice" class:active={g.hierarchy === locationHierarchyName} onclick={() => { chosenHierarchy = g.hierarchy; selection = null; }}>{translations.current[g.hierarchy] ?? g.hierarchy}</button>
+        <button type="button" class="btn secondary small hierarchy-choice" class:active={g.hierarchy === locationHierarchyName} onclick={async () => { chosenHierarchy = g.hierarchy; selection = null; await loadTree(); }}>{translations.current[g.hierarchy] ?? g.hierarchy}</button>
       {/each}
     {/if}
     {#if addingHierarchy}
@@ -420,6 +587,12 @@
           else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); addingHierarchy = false; hierarchyError = ''; }
         }}
       />
+      {#if prototypes.length > 0}
+        <select class="start-from" bind:value={startFrom}>
+          <option value="">{translations.current['Empty'] ?? 'Empty'}</option>
+          {#each prototypes as p (p.prototype)}<option value={p.prototype}>{translations.current['From'] ?? 'From'} {p.prototype}</option>{/each}
+        </select>
+      {/if}
     {:else}
       <button type="button" class="link-button" onclick={() => { addingHierarchy = true; newHierarchyName = ''; hierarchyError = ''; }}>+ {translations.current['New Hierarchy'] ?? 'New Hierarchy'}</button>
     {/if}
@@ -445,74 +618,15 @@
         </div>
       {/if}
 
-      {#each chart.groups as group}
-        <div class="tree-section">
-          <button type="button" class="tree-item group" class:active={selection?.type === 'group' && selection.name === group.group} onclick={() => selectGroup(group.group)}>
-            {group.group}
-          </button>
-          {#each group.locations as loc}
-            <div class="tree-location">
-              <button type="button" class="tree-item location" class:active={selection?.type === 'location' && selection.name === loc.location} onclick={() => selectLocation(loc.location, group.group)}>
-                {loc.location}
-              </button>
-              <ul class="tree-list">
-                {#each loc.employees as emp}
-                  <li>
-                    <button type="button" class="tree-item" class:active={selection?.type === 'employee' && selection.name === emp} onclick={() => selectEmployee(emp, group.group, loc.location)}>{emp}</button>
-                  </li>
-                {/each}
-                <li>
-                  {#if creatingEmployeeFor === loc.location}
-                    <div class="inline-add">
-                      <input
-                        bind:value={newEmployeeName}
-                        placeholder={translations.current['Employee name'] ?? 'Employee name'}
-                        onkeydown={(e) => {
-                          if (e.key === 'Enter') { e.preventDefault(); addEmployee(loc.location); }
-                          else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); creatingEmployeeFor = null; employeeError = ''; }
-                        }}
-                      />
-                    </div>
-                  {/if}
-                </li>
-              </ul>
-            </div>
-          {/each}
-          {#if employeeError}<p class="error small">{employeeError}</p>{/if}
-
-          {#if creatingLocationFor === group.group}
-            <!-- A whole-form keydown, not per-field — see Form.svelte's own
-                 onFormKeydown and docs/pm-frontend-reference.md: this plain
-                 field group has no Form.svelte of its own, but Escape must
-                 still work from the select fields too, not just the text
-                 inputs. -->
-            <div
-              class="inline-add-block"
-              onkeydown={(e) => {
-                if (e.key === 'Enter') { e.preventDefault(); addLocation(group.group); }
-                else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); creatingLocationFor = null; locationError = ''; }
-              }}
-            >
-              <input bind:value={newLocationName} placeholder={translations.current['Location name'] ?? 'Location name'} />
-              <input bind:value={newLocationCity} placeholder={translations.current['City'] ?? 'City'} />
-              <select bind:value={newLocationType}>
-                <option value="Retail">{translations.current['Retail'] ?? 'Retail'}</option>
-                <option value="Warehouse">{translations.current['Warehouse'] ?? 'Warehouse'}</option>
-              </select>
-              <select bind:value={newLocationTimezone}>
-                {#each ALL_TIMEZONES as tz}<option value={tz}>{tz}</option>{/each}
-              </select>
-              {#each otherHierarchies as h}
-                <select bind:value={newLocationDimensionValues[h.hierarchy]}>
-                  <option value="">{translations.current[h.hierarchy] ?? h.hierarchy}…</option>
-                  {#each h.values as v}<option value={v}>{translations.current[v] ?? v}</option>{/each}
-                </select>
-              {/each}
-            </div>
-          {/if}
-          {#if locationError}<p class="error small">{locationError}</p>{/if}
-        </div>
+      {#each childValues(null) as value (value)}
+        {@render valueNode(value)}
       {/each}
+      {#if unassignedLocations.length > 0}
+        <div class="tree-section">
+          <p class="tree-heading">{locationHierarchyName ? (translations.current['Unassigned'] ?? 'Unassigned') : (translations.current['Locations'] ?? 'Locations')}</p>
+          {#each unassignedLocations as loc (loc)}{@render locationNode(loc, loc)}{/each}
+        </div>
+      {/if}
 
       <div class="tree-section">
         {#if showAddGroup}
@@ -537,8 +651,26 @@
       {#if !selection}
         <p class="hint">{translations.current['Select a group, location, or employee on the left — Insert adds within whatever\'s selected, Delete removes it.'] ?? `Select a ${locationHierarchyName.toLowerCase()}, location, or employee on the left — Insert adds within whatever's selected, Delete removes it.`}</p>
       {:else if selection.type === 'group'}
-        <p class="hint">{`"${selection.name}" is a value of the ${locationHierarchyName} reporting hierarchy — press Insert to add a location within it, or Delete to remove it.`}</p>
+        <p class="hint">{`"${selection.name}" is a value of the ${locationHierarchyName} reporting hierarchy — press Insert to add a location within it, "+ Value within" to add a value within it, or Delete to remove it.`}</p>
+        {#if addingValueWithin}
+          <div class="inline-add">
+            <input
+              bind:value={newValueWithin}
+              placeholder={translations.current['New value'] ?? 'New value'}
+              onkeydown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); addValueWithin(); }
+                else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); addingValueWithin = false; }
+              }}
+            />
+          </div>
+        {:else}
+          <button type="button" class="btn secondary small" onclick={() => { addingValueWithin = true; newValueWithin = ''; }}>+ {translations.current['Value within'] ?? 'Value within'}</button>
+        {/if}
+        {@render movePanel()}
+        {#if groupError}<p class="error small">{groupError}</p>{/if}
       {:else if selection.type === 'location' && locationRecord}
+        {@render movePanel()}
+        {#if groupError}<p class="error small">{groupError}</p>{/if}
         <fieldset>
           <legend>{translations.current['City'] ?? 'City'}</legend>
           <input bind:value={locationRecord.city} />
@@ -678,6 +810,17 @@
 </fieldset>
 
 <style>
+  .tree-within {
+    margin-left: 1rem;
+    border-left: 1px solid var(--border, #ddd);
+    padding-left: 0.5rem;
+  }
+  .move-panel {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    margin: 0.4rem 0;
+  }
   .hierarchy-bar {
     display: flex;
     align-items: center;

@@ -441,6 +441,24 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     const userId = db.asUserId(1);
     db.ensureHierarchyValue(a.businessName as any, a.hierarchyName, a.valueName, userId);
   },
+  // Business Setup's tree: a value within a value, and a location or a
+  // value moved within another value (docs/pm-domain-reference.md,
+  // "Values nest to any depth").
+  createHierarchyValueWithin: (a) => {
+    const userId = db.asUserId(1);
+    const value = db.ensureHierarchyValue(a.businessName as any, a.hierarchyName, a.entityName, userId);
+    db.checkHierarchyTag(a.businessName, a.hierarchyName, a.entityName, a.valueName);
+    db.setHierarchyParent(a.entityName, a.hierarchyName, a.valueName, userId, value.id, db.resolveHierarchyValueId(a.businessName, a.hierarchyName, a.valueName));
+  },
+  setHierarchyParentSimple: (a) => {
+    const userId = db.asUserId(1);
+    db.checkHierarchyTag(a.businessName, a.hierarchyName, a.entityName, a.valueName);
+    const entityId = db.resolveBusinessLocationId(a.businessName, a.entityName) ?? db.resolveHierarchyValueId(a.businessName, a.hierarchyName, a.entityName);
+    db.setHierarchyParent(a.entityName, a.hierarchyName, a.valueName, userId, entityId, db.resolveHierarchyValueId(a.businessName, a.hierarchyName, a.valueName));
+  },
+  // Hierarchy prototypes (Setup → Hierarchies).
+  saveHierarchyPrototypeSimple: (a) => db.saveHierarchyPrototype(a.businessName as any, a.hierarchyName, a.prototypeName, db.asUserId(1)),
+  createHierarchyFromPrototypeSimple: (a) => db.createHierarchyFromPrototype(a.businessName as any, a.prototypeName, a.hierarchyName, db.asUserId(1)),
   // Business Structure popup (frontend/src/lib/components/BusinessStructurePopup.svelte):
   // a value added to the location or item hierarchy a step shows, and a
   // location moved to a value of a location hierarchy ("Move…").
@@ -757,6 +775,9 @@ export const VERIFY_REGISTRY: Record<string, (args: Record<string, string>) => b
   // Confirms a Business Structure popup "Move…" re-tagged the location:
   // the same getHierarchyParent read the popup renders its tree from.
   location_in_hierarchy_group: (a) => db.getHierarchyParent(a.locationName, a.hierarchyName) === a.valueName,
+  // A location or a value is within the value valueName of the hierarchy.
+  in_hierarchy_value: (a) => db.getHierarchyTree(a.businessName, a.hierarchyName).some((n) => n.name === a.entityName && n.parent === a.valueName),
+  hierarchy_prototype_exists: (a) => db.listHierarchyPrototypes().some((p) => p.prototype === a.prototypeName),
 };
 
 /** A minimal, real CSV field parser handling real, quoted fields with
