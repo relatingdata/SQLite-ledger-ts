@@ -24,9 +24,9 @@ Create Location,data,/locations,.list-toolbar;;key:Insert,createAndConfigureLoca
 Create Location,data,/locations,.list-toolbar;;key:Insert,createAndConfigureLocation,key:Enter,4,locationType,.generic-form fieldset >> nth=2 >> select,select
 Create Location,data,/locations,.list-toolbar;;key:Insert,createAndConfigureLocation,key:Enter,5,bottleCapacity,,text
 Create Location,data,/locations,.list-toolbar;;key:Insert,createAndConfigureLocation,key:Enter,6,cartonCapacity,,text
-Create Employee,data,/setup/business-setup,button:has-text('{{locationName}}') >> nth=1;;key:Insert,createEmployeeAt,key:Enter,1,businessName,,text
-Create Employee,data,/setup/business-setup,button:has-text('{{locationName}}') >> nth=1;;key:Insert,createEmployeeAt,key:Enter,2,employeeName,input[placeholder='Employee name'],text
-Create Employee,data,/setup/business-setup,button:has-text('{{locationName}}') >> nth=1;;key:Insert,createEmployeeAt,key:Enter,3,locationName,,text
+Create Employee,data,/setup/business-setup,button.tree-item.location:text-is('{{locationName}}');;key:Insert,createEmployeeAt,key:Enter,1,businessName,,text
+Create Employee,data,/setup/business-setup,button.tree-item.location:text-is('{{locationName}}');;key:Insert,createEmployeeAt,key:Enter,2,employeeName,input[placeholder='Employee name'],text
+Create Employee,data,/setup/business-setup,button.tree-item.location:text-is('{{locationName}}');;key:Insert,createEmployeeAt,key:Enter,3,locationName,,text
 Create Provider,data,/editor,.card.list th:first-child;;key:Insert,createProviderSimple,key:Enter,1,businessName,,text
 Create Provider,data,/editor,.card.list th:first-child;;key:Insert,createProviderSimple,key:Enter,2,providerName,input[placeholder='e.g. Gamma LLC'],text
 Create Provider,data,/editor,.card.list th:first-child;;key:Insert,createProviderSimple,key:Enter,3,parent,select >> nth=0,select
