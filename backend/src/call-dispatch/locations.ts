@@ -647,12 +647,12 @@ export const locationsFunctions: Record<string, BackendCall> = {
     if (!ledger) throw new CallError(400, 'ledger is required.');
     try {
       const report = getStockMovementReport(business, ledger, fromDate || undefined, toDate || undefined);
-      // Each row's groups: [grouping, value] pairs, the value '' for none.
-      const groups = (g: Record<string, string | null>) => encodeShape(Object.entries(g).map(([k, value]): [string, string] => [k, value ?? '']));
+      // Each row's hierarchyValues: [hierarchy, value] pairs, the value '' for none.
+      const encodeValues = (g: Record<string, string | null>) => encodeShape(Object.entries(g).map(([k, value]): [string, string] => [k, value ?? '']));
       return row(
-        encodeRecordList(['item', 'groups', 'quantity', 'date', 'location', 'vendor'], report.receipts.map((r) => ({ ...r, groups: groups(r.groups), vendor: r.vendor ?? '' }))),
-        encodeRecordList(['item', 'groups', 'quantity', 'date', 'from_location', 'to_location'], report.transfers.map((r) => ({ ...r, groups: groups(r.groups) }))),
-        encodeRecordList(['item', 'groups', 'quantity', 'date', 'location', 'vendor', 'amount_minor'], report.sales.map((r) => ({ ...r, groups: groups(r.groups), vendor: r.vendor ?? '' })))
+        encodeRecordList(['item', 'hierarchyValues', 'quantity', 'date', 'location', 'vendor'], report.receipts.map((r) => ({ ...r, hierarchyValues: encodeValues(r.hierarchyValues), vendor: r.vendor ?? '' }))),
+        encodeRecordList(['item', 'hierarchyValues', 'quantity', 'date', 'from_location', 'to_location'], report.transfers.map((r) => ({ ...r, hierarchyValues: encodeValues(r.hierarchyValues) }))),
+        encodeRecordList(['item', 'hierarchyValues', 'quantity', 'date', 'location', 'vendor', 'amount_minor'], report.sales.map((r) => ({ ...r, hierarchyValues: encodeValues(r.hierarchyValues), vendor: r.vendor ?? '' })))
       );
     } catch (err) {
       // Matches the old route's own exact, narrower gate: ValidationError

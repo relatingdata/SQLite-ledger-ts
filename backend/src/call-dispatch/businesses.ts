@@ -196,7 +196,7 @@ export const businessesFunctions: Record<string, BackendCall> = {
         encodeRecordList(['name', 'routingDetail', 'accountNumber'], r.bankAccounts),
         r.homeCurrency ?? '',
         encodeStringList(r.secondaryCurrencies),
-        encodeRecordList(['grouping', 'groups', 'values'], r.hierarchies.map((h) => ({ grouping: h.grouping, groups: h.groups ?? '', values: encodeStringList(h.values) }))),
+        encodeRecordList(['hierarchy', 'of', 'values'], r.hierarchies.map((h) => ({ hierarchy: h.hierarchy, of: h.of ?? '', values: encodeStringList(h.values) }))),
         encodeRecordList(['name', 'city', 'locationType'], r.locations),
         encodeStringList(r.products),
         encodeRecordList(['name', 'text'], r.notes),

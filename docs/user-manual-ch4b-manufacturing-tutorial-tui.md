@@ -189,7 +189,7 @@ Door Framing & Lock Fitting and Packaging both carry two real employees (a craft
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
-And Other Hierarchies carries a real **Process** grouping --- which production stage each item belongs to (Cutting, Glazing, Framing & Lock Fitting, Packaging), independent of, and coarser than, the eight Departments' own workshop-level granularity:
+And Other Hierarchies carries a real **Process** hierarchy --- which production stage each item belongs to (Cutting, Glazing, Framing & Lock Fitting, Packaging), independent of, and coarser than, the eight Departments' own workshop-level granularity:
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮

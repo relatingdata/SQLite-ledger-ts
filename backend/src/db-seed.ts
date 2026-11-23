@@ -522,7 +522,7 @@ function migrateForEnglishStringAuditGap() {
       'Seleziona una divisione, una posizione o un dipendente a sinistra — Inserisci aggiunge all\'interno di ciò che è selezionato, Elimina lo rimuove.',
     ],
     [
-      'A division is purely a reporting grouping — press Insert to add a real location within it, or Delete to remove this division.',
+      'A division is purely a reporting hierarchy — press Insert to add a real location within it, or Delete to remove this division.',
       'Ein Bereich ist rein eine Berichtsgruppierung — drücken Sie Einfg, um einen realen Standort hinzuzufügen, oder Entf, um diesen Bereich zu entfernen.',
       'Une division est purement un regroupement de reporting — appuyez sur Insertion pour ajouter un emplacement réel, ou Suppr pour retirer cette division.',
       'En afdeling er udelukkende en rapporteringsgruppering — tryk på Indsæt for at tilføje en reel lokation, eller Slet for at fjerne denne afdeling.',
@@ -569,7 +569,7 @@ function migrateForEnglishStringAuditGap() {
 
   const paragraphs: [string, string, string, string, string][] = [
     [
-      'A real P&L statement, in the same, vertical, drillable layout as the original — but grouped by two, real, independent, nested groupings at once. Pick what each level breaks down by, or narrow either one down to a single, particular value directly.',
+      'A P&L statement, in the same vertical, drillable layout as the original — but broken down by two independent, nested hierarchies at once. Pick what each level breaks down by, or narrow either one down to a single value directly.',
       'Eine reale G&V-Rechnung, im selben, vertikalen, aufklappbaren Layout wie das Original — aber gleichzeitig nach zwei realen, unabhängigen, verschachtelten Gruppierungen gegliedert. Wählen Sie, wonach jede Ebene aufgeschlüsselt wird, oder grenzen Sie eine davon direkt auf einen einzelnen, bestimmten Wert ein.',
       'Un vrai compte de résultat, dans la même mise en page verticale et explorable que l\'original — mais regroupé selon deux regroupements réels, indépendants et imbriqués à la fois. Choisissez selon quoi chaque niveau se décompose, ou restreignez l\'un des deux directement à une seule valeur particulière.',
       'En reel resultatopgørelse, i samme lodrette, drill-down layout som originalen — men grupperet efter to reelle, uafhængige, indlejrede grupperinger på én gang. Vælg, hvad hvert niveau skal opdeles efter, eller indsnævr en af dem direkte til én bestemt værdi.',

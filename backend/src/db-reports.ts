@@ -1269,17 +1269,17 @@ export interface SalesGroupSummary {
 
 export interface SalesReport {
   detailed: SalesReportLine[];
-  /** By the item grouping `grouping`, or by item when it is null. */
+  /** By the item hierarchy `hierarchy`, or by item when it is null. */
   group_summary: SalesGroupSummary[];
-  grouping: string | null;
+  hierarchy: string | null;
   total_quantity: number;
   total_amount_minor: number;
 }
 
 /** Every posted sale in a period, line by line, and summed by one of the
- * business's item groupings (the first it created, unless one is named),
+ * business's item hierarchies (the first it created, unless one is named),
  * or by item when it has none (docs/pm-domain-reference.md). */
-export function getSalesReport(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string, itemGrouping?: string): SalesReport {
+export function getSalesReport(business: BusinessName, ledger: LedgerName, fromDate?: string, toDate?: string, itemHierarchy?: string): SalesReport {
   const businessId = resolveBusinessEntityId(business) ?? -1;
   const ledgerId = resolveLedgerEntityId(business, ledger) ?? -1;
   // item_name is resolved below via Entity.getMany, not joined in SQL here
@@ -1310,11 +1310,11 @@ export function getSalesReport(business: BusinessName, ledger: LedgerName, fromD
     item_name: r.item_id !== null ? (itemNameById.get(r.item_id) ?? null) : null,
   }));
 
-  const itemGroupings = getBusinessHierarchy(business).filter((g) => g.groups === 'Items').map((g) => g.grouping);
-  const grouping = itemGrouping && itemGroupings.includes(itemGrouping) ? itemGrouping : (itemGroupings[0] ?? null);
+  const itemHierarchies = getBusinessHierarchy(business).filter((g) => g.of === 'Items').map((g) => g.hierarchy);
+  const hierarchy = itemHierarchy && itemHierarchies.includes(itemHierarchy) ? itemHierarchy : (itemHierarchies[0] ?? null);
   const other = '(—)';
   const groupOf = (r: { item_name: string | null; description: string }): string =>
-    grouping === null ? (r.item_name ?? r.description) : (r.item_name ? getHierarchyParent(r.item_name, grouping) : undefined) ?? other;
+    hierarchy === null ? (r.item_name ?? r.description) : (r.item_name ? getHierarchyParent(r.item_name, hierarchy) : undefined) ?? other;
 
   const summaryMap = new Map<string, { quantity: number; amount_minor: number }>();
   let total_quantity = 0;
@@ -1335,7 +1335,7 @@ export function getSalesReport(business: BusinessName, ledger: LedgerName, fromD
     .map(([group, v]) => ({ group, ...v }))
     .sort((a, b) => b.amount_minor - a.amount_minor);
 
-  return { detailed, group_summary, grouping, total_quantity, total_amount_minor };
+  return { detailed, group_summary, hierarchy, total_quantity, total_amount_minor };
 }
 
 export function getProfitAndLossComparison(businessName: BusinessName, ledgerA: LedgerName, ledgerB: LedgerName): ProfitAndLossComparison {

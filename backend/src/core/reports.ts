@@ -106,7 +106,7 @@ export function balanceSheet(inst: Instance, asOf?: string): BalanceSheet {
 }
 
 /** The value an account takes along a reporting axis. `Item` and `Location`
- * are the account's own dimensions; any other axis is a hierarchy grouping,
+ * are the account's own dimensions; any other axis is a hierarchy,
  * read from the account's item, then its location, then the account. */
 function axisValue(inst: Instance, account: Node, axis: string): string {
   if (axis === 'Consolidated') return 'Consolidated';

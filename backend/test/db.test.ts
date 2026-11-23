@@ -154,7 +154,7 @@ test('getEntityLinksPointingAt/revokeEntity: a Hierarchy value still assigned to
   const north = fx.freshHierarchyValue(biz.business, 'Division', 'North');
   const south = fx.freshHierarchyValue(biz.business, 'Division', 'South');
   const loc = fx.freshLocation(biz.business, 'HierarchyGuardTest Location');
-  db.setHierarchyParent(loc.name, north.groupingName, north.valueName, fx.userId);
+  db.setHierarchyParent(loc.name, north.hierarchyName, north.valueName, fx.userId);
 
   const northId = db.getEntityTree().find((e) => e.name === north.valueName)!.id;
   assert.ok(db.getEntityLinksPointingAt(north.valueName).some((l) => l.linkType === 'Hierarchy: Division'));
@@ -164,7 +164,7 @@ test('getEntityLinksPointingAt/revokeEntity: a Hierarchy value still assigned to
   // real, established way setHierarchyParent itself is meant to be used to
   // move a tag, per its own doc comment — leaves nothing pointing at
   // "North" any more, so it can now genuinely be revoked.
-  db.setHierarchyParent(loc.name, north.groupingName, south.valueName, fx.userId);
+  db.setHierarchyParent(loc.name, north.hierarchyName, south.valueName, fx.userId);
   assert.equal(db.getEntityLinksPointingAt(north.valueName).length, 0);
   db.revokeEntity(northId, fx.userId);
   assert.equal(db.getEntity(northId)!.relation_id, null);
@@ -184,45 +184,45 @@ test('getEntityLinksPointingAt/revokeEntity: a Location still referenced by a re
   assert.equal(db.getEntity(locA.entity.id)!.relation_id, null);
 });
 
-test('deleteHierarchyGrouping/deleteHierarchyValue: name-based wrappers resolve the real entity and reuse revokeEntity\'s own guards — a grouping with a live value still refuses, exactly like revokeEntity itself already does', () => {
+test('deleteHierarchy/deleteHierarchyValue: name-based wrappers resolve the real entity and reuse revokeEntity\'s own guards — a hierarchy with a live value still refuses, exactly like revokeEntity itself already does', () => {
   const biz = fx.freshBusiness('HierarchyDeleteTest Co');
-  const { groupingName, valueName } = fx.freshHierarchyValue(biz.business, fx.uniqueName('Region'), 'East');
+  const { hierarchyName, valueName } = fx.freshHierarchyValue(biz.business, fx.uniqueName('Region'), 'East');
 
-  assert.throws(() => db.deleteHierarchyGrouping(biz.business, groupingName, fx.userId), /still has children/);
-  db.deleteHierarchyValue(biz.business, groupingName, valueName, fx.userId);
-  db.deleteHierarchyGrouping(biz.business, groupingName, fx.userId);
-  assert.throws(() => db.deleteHierarchyValue(biz.business, groupingName, valueName, fx.userId), /no grouping named/);
+  assert.throws(() => db.deleteHierarchy(biz.business, hierarchyName, fx.userId), /still has children/);
+  db.deleteHierarchyValue(biz.business, hierarchyName, valueName, fx.userId);
+  db.deleteHierarchy(biz.business, hierarchyName, fx.userId);
+  assert.throws(() => db.deleteHierarchyValue(biz.business, hierarchyName, valueName, fx.userId), /no hierarchy named/);
 });
 
-test('a grouping records what it groups: its items or its locations; it is never asked for as the other kind, a value is added only to one that exists, and an item and a location are tagged only with their own kind', () => {
-  const biz = fx.freshBusiness('GroupingKindTest Co');
+test('a hierarchy records what it is of: its items or its locations; it is never asked for as the other kind, a value is added only to one that exists, and an item and a location are tagged only with their own kind', () => {
+  const biz = fx.freshBusiness('HierarchyKindTest Co');
   const ofItems = fx.uniqueName('Range');
   const ofLocations = fx.uniqueName('Region');
-  assert.throws(() => db.ensureHierarchyValue(biz.business, ofItems, 'Reds', fx.userId), /no grouping named/);
-  db.ensureHierarchyGrouping(biz.business, ofItems, fx.userId, 'Items');
-  db.ensureHierarchyGrouping(biz.business, ofLocations, fx.userId, 'Locations');
-  assert.throws(() => db.ensureHierarchyGrouping(biz.business, ofItems, fx.userId, 'Locations'), /groups items, not locations/);
+  assert.throws(() => db.ensureHierarchyValue(biz.business, ofItems, 'Reds', fx.userId), /no hierarchy named/);
+  db.ensureHierarchy(biz.business, ofItems, fx.userId, 'Items');
+  db.ensureHierarchy(biz.business, ofLocations, fx.userId, 'Locations');
+  assert.throws(() => db.ensureHierarchy(biz.business, ofItems, fx.userId, 'Locations'), /is a hierarchy of items, not of locations/);
   db.ensureHierarchyValue(biz.business, ofItems, 'Reds', fx.userId);
   db.ensureHierarchyValue(biz.business, ofLocations, 'North', fx.userId);
   const hierarchy = db.getBusinessHierarchy(biz.business);
-  assert.deepEqual(hierarchy.find((g) => g.grouping === ofItems), { grouping: ofItems, groups: 'Items', values: ['Reds'] });
-  assert.deepEqual(hierarchy.find((g) => g.grouping === ofLocations), { grouping: ofLocations, groups: 'Locations', values: ['North'] });
+  assert.deepEqual(hierarchy.find((g) => g.hierarchy === ofItems), { hierarchy: ofItems, of: 'Items', values: ['Reds'] });
+  assert.deepEqual(hierarchy.find((g) => g.hierarchy === ofLocations), { hierarchy: ofLocations, of: 'Locations', values: ['North'] });
 
-  const outlet = fx.freshLocation(biz.business, 'GroupingKindTest Outlet');
-  const { itemName } = fx.freshItem(biz.business, 'GroupingKindTest Merlot');
-  assert.throws(() => db.checkGroupingTag(biz.business, ofLocations, itemName), /groups locations/);
-  assert.throws(() => db.checkGroupingTag(biz.business, ofItems, outlet.name), /groups items/);
-  db.checkGroupingTag(biz.business, ofLocations, outlet.name);
-  db.checkGroupingTag(biz.business, ofItems, itemName);
+  const outlet = fx.freshLocation(biz.business, 'HierarchyKindTest Outlet');
+  const { itemName } = fx.freshItem(biz.business, 'HierarchyKindTest Merlot');
+  assert.throws(() => db.checkHierarchyTag(biz.business, ofLocations, itemName), /is a hierarchy of locations/);
+  assert.throws(() => db.checkHierarchyTag(biz.business, ofItems, outlet.name), /is a hierarchy of items/);
+  db.checkHierarchyTag(biz.business, ofLocations, outlet.name);
+  db.checkHierarchyTag(biz.business, ofItems, itemName);
   db.ensureHierarchyValue(biz.business, ofItems, 'Wine', fx.userId);
-  db.checkGroupingTag(biz.business, ofItems, 'Wine'); // a value nests under a value of its own grouping
+  db.checkHierarchyTag(biz.business, ofItems, 'Wine'); // a value nests under a value of its own hierarchy
 });
 
-test('deleteLocation: name-based wrapper resolves the real entity and reuses revokeEntity\'s own guards — a grouping tag on it only classifies it, so it is untagged, never a reason to refuse', () => {
+test('deleteLocation: name-based wrapper resolves the real entity and reuses revokeEntity\'s own guards — a hierarchy tag on it only classifies it, so it is untagged, never a reason to refuse', () => {
   const biz = fx.freshBusiness('LocationDeleteTest Co');
   const loc = fx.freshLocation(biz.business, 'LocationDeleteTest Outlet');
   const division = fx.uniqueName('LocationDeleteTest Division');
-  db.ensureHierarchyGrouping(biz.business, 'Division', fx.userId, 'Locations');
+  db.ensureHierarchy(biz.business, 'Division', fx.userId, 'Locations');
   db.ensureHierarchyValue(biz.business, 'Division', division, fx.userId);
   // Passes the real entity id explicitly — a bare name-based lookup here
   // would be genuinely ambiguous, since a location with a capacity account
@@ -2537,16 +2537,16 @@ test('true double-entry quantity tracking: a real "on order" account for receipt
 
 test('getStockMovementReport: the real, physical journey of stock — purchases into a warehouse, a real transfer on to a retail outlet, and a real sale, each correctly enriched with its own real category, division, and vendor', () => {
   const biz = fx.freshBusiness('SMRTest Co');
-  // The business's own groupings: Division of its locations, Category of
+  // The business's own hierarchies: Division of its locations, Category of
   // its items (docs/pm-domain-reference.md).
-  db.ensureHierarchyGrouping(biz.business, 'Division', fx.userId, 'Locations');
-  db.ensureHierarchyGrouping(biz.business, 'Category', fx.userId, 'Items');
+  db.ensureHierarchy(biz.business, 'Division', fx.userId, 'Locations');
+  db.ensureHierarchy(biz.business, 'Category', fx.userId, 'Items');
   const region = fx.uniqueName('SMRTest Region');
   db.create(db.requireEntity('Application', db.typeRootName), db.typeRootName, region, fx.userId);
   const warehouse = fx.freshLocation(biz.business, 'SMRTest Warehouse', { city: region, location_type: 'Warehouse', bottle_capacity: 0, carton_capacity: 5000 });
   // A location's own `city` is just free-text, never a real, structural
   // link to anything (see "Locations:..." above) - a real division
-  // grouping is reached the same, real, established way every other
+  // hierarchy is reached the same, real, established way every other
   // "Division" test in this file already uses: setHierarchyParent.
   db.setHierarchyParent(warehouse.name, 'Division', region, fx.userId);
   const outlet = fx.freshLocation(biz.business, 'SMRTest Outlet', { city: region, location_type: 'Retail', is_billing_address: true, bottle_capacity: 500, carton_capacity: 50 });
@@ -2587,8 +2587,8 @@ test('getStockMovementReport: the real, physical journey of stock — purchases 
 
   assert.equal(report.receipts.length, 1);
   assert.equal(report.receipts[0].location, warehouse.name);
-  assert.equal(report.receipts[0].groups['Division'], region, "a receipt's location must resolve to its value of the location grouping");
-  assert.equal(report.receipts[0].groups['Category'], categoryName);
+  assert.equal(report.receipts[0].hierarchyValues['Division'], region, "a receipt's location must resolve to its value of the location hierarchy");
+  assert.equal(report.receipts[0].hierarchyValues['Category'], categoryName);
   assert.equal(report.receipts[0].vendor, vendorName, "a receipt's real item must resolve to its real, preferred vendor");
   assert.equal(report.receipts[0].quantity, 50);
 
@@ -2596,8 +2596,8 @@ test('getStockMovementReport: the real, physical journey of stock — purchases 
   assert.equal(report.transfers[0].from_location, warehouse.name, "a real transfer's own source location must be correctly looked up, not left unknown");
   assert.equal(report.transfers[0].to_location, outlet.name);
   assert.equal(report.transfers[0].quantity, 20);
-  assert.equal(report.transfers[0].groups['Category'], categoryName, 'a transfer carries its item groupings');
-  assert.equal(report.transfers[0].groups['Division'], undefined, 'a transfer, between two locations, has no location grouping');
+  assert.equal(report.transfers[0].hierarchyValues['Category'], categoryName, 'a transfer carries its item hierarchies');
+  assert.equal(report.transfers[0].hierarchyValues['Division'], undefined, 'a transfer, between two locations, has no location hierarchy');
 
   assert.equal(report.sales.length, 1);
   assert.equal(report.sales[0].location, outlet.name);
@@ -2615,7 +2615,7 @@ test('Category: an arbitrarily deep, generic Hierarchy of pure tags (setHierarch
   // business's own Hierarchy registry (ensureHierarchyValue) - the exact
   // same, generic registration Division already uses - never a node
   // nested in the real Items catalog tree.
-  db.ensureHierarchyGrouping(biz.business, 'Category', fx.userId, 'Items');
+  db.ensureHierarchy(biz.business, 'Category', fx.userId, 'Items');
   for (const name of [redWine, whiteWine, merlotCat, chablisCat]) db.ensureHierarchyValue(biz.business, 'Category', name, fx.userId);
   // A Category VALUE can itself carry a further parent value, arbitrarily
   // deep - the exact, same generic value-to-value chaining Division
@@ -4013,7 +4013,7 @@ test('getSalesReport: detailed lines and a genuine category rollup (via the real
   db.create(db.requireEntity('Customers', db.typeRootName), db.typeRootName, customerName, fx.userId);
   const merlotCat = fx.uniqueName('SalesReportTest Merlot Category');
   const shirazCat = fx.uniqueName('SalesReportTest Shiraz Category');
-  db.ensureHierarchyGrouping(biz.business, 'Category', fx.userId, 'Items');
+  db.ensureHierarchy(biz.business, 'Category', fx.userId, 'Items');
   db.ensureHierarchyValue(biz.business, 'Category', merlotCat, fx.userId);
   db.ensureHierarchyValue(biz.business, 'Category', shirazCat, fx.userId);
   const merlotName = fx.uniqueName('SalesReportTest Merlot');
@@ -4237,7 +4237,7 @@ test('ensureItemSalesCogsAccounts: posts flat, directly under Sales Revenue/Cost
   const biz = fx.freshBusiness('CategoryMirrorTest Co');
   const category = fx.uniqueName('CategoryMirrorTest Category');
   const subCategory = fx.uniqueName('CategoryMirrorTest SubCategory');
-  db.ensureHierarchyGrouping(biz.business, 'Category', fx.userId, 'Items');
+  db.ensureHierarchy(biz.business, 'Category', fx.userId, 'Items');
   db.ensureHierarchyValue(biz.business, 'Category', category, fx.userId);
   db.ensureHierarchyValue(biz.business, 'Category', subCategory, fx.userId);
   // Nesting is the same, generic, already-existing setHierarchyParent
@@ -5258,7 +5258,7 @@ test('getProfitAndLossByHierarchyTree: "Consolidated per Division per Location" 
   const city = fx.uniqueName('PLTreeTest City');
   const storeA = fx.uniqueName('PLTreeTest Store A');
   const storeB = fx.uniqueName('PLTreeTest Store B');
-  db.ensureHierarchyGrouping(biz.business, 'Division', fx.userId, 'Locations');
+  db.ensureHierarchy(biz.business, 'Division', fx.userId, 'Locations');
   for (const value of [city, storeA, storeB]) db.ensureHierarchyValue(biz.business, 'Division', value, fx.userId);
   db.setHierarchyParent(storeA, 'Division', city, fx.userId);
   db.setHierarchyParent(storeB, 'Division', city, fx.userId);
@@ -5784,10 +5784,10 @@ test('The real Hierarchy/Product cartesian mechanism - the full, settled, flat c
   const storage = fx.uniqueName('CartTest Storage');
   const hot = fx.uniqueName('CartTest Hot');
   const cold = fx.uniqueName('CartTest Cold');
-  db.ensureHierarchyGrouping(biz.business, beer, fx.userId, 'Items');
+  db.ensureHierarchy(biz.business, beer, fx.userId, 'Items');
   db.ensureHierarchyValue(biz.business, beer, lager, fx.userId);
   db.ensureHierarchyValue(biz.business, beer, ale, fx.userId);
-  db.ensureHierarchyGrouping(biz.business, storage, fx.userId, 'Items');
+  db.ensureHierarchy(biz.business, storage, fx.userId, 'Items');
   db.ensureHierarchyValue(biz.business, storage, hot, fx.userId);
   db.ensureHierarchyValue(biz.business, storage, cold, fx.userId);
 
@@ -5863,7 +5863,7 @@ test('getItemPriceForCurrency: a real, combination-specific price wins over the 
 
   const storage = fx.uniqueName('PricingComboTest Storage');
   const cold = fx.uniqueName('PricingComboTest Cold');
-  db.ensureHierarchyGrouping(biz.business, storage, fx.userId, 'Items');
+  db.ensureHierarchy(biz.business, storage, fx.userId, 'Items');
   db.ensureHierarchyValue(biz.business, storage, cold, fx.userId);
   const shape: [string, string][] = [
     ['Location', 'Location'],
@@ -5892,7 +5892,7 @@ test('completePosSale: a real, genuine combination sale correctly resolves its o
 
   const storage = fx.uniqueName('ComboSaleTest Storage');
   const cold = fx.uniqueName('ComboSaleTest Cold');
-  db.ensureHierarchyGrouping(biz.business, storage, fx.userId, 'Items');
+  db.ensureHierarchy(biz.business, storage, fx.userId, 'Items');
   db.ensureHierarchyValue(biz.business, storage, cold, fx.userId);
   const shape: [string, string][] = [
     ['Location', 'Location'],
@@ -5941,7 +5941,7 @@ test('receiveItems: a real, combination-tagged receipt builds up a real, distinc
 
   const storage = fx.uniqueName('ReceiveComboTest Storage');
   const cold = fx.uniqueName('ReceiveComboTest Cold');
-  db.ensureHierarchyGrouping(biz.business, storage, fx.userId, 'Items');
+  db.ensureHierarchy(biz.business, storage, fx.userId, 'Items');
   db.ensureHierarchyValue(biz.business, storage, cold, fx.userId);
   const shape: [string, string][] = [
     ['Location', 'Location'],
@@ -5972,7 +5972,7 @@ test('transferItems: a real, combination-tagged transfer correctly moves the rea
 
   const storage = fx.uniqueName('TransferComboTest Storage');
   const cold = fx.uniqueName('TransferComboTest Cold');
-  db.ensureHierarchyGrouping(biz.business, storage, fx.userId, 'Items');
+  db.ensureHierarchy(biz.business, storage, fx.userId, 'Items');
   db.ensureHierarchyValue(biz.business, storage, cold, fx.userId);
   const shape: [string, string][] = [
     ['Location', 'Location'],
@@ -5999,29 +5999,29 @@ test('transferItems: a real, combination-tagged transfer correctly moves the rea
 
 test('getBusinessHierarchy/getBusinessProductShapes: real, business-scoped listing functions, for the frontend to actually use this mechanism through', () => {
   const biz = fx.freshBusiness('ListingTest Co');
-  const beerGroupingName = fx.uniqueName('ListingTest Beer');
+  const beerHierarchyName = fx.uniqueName('ListingTest Beer');
   const lager = fx.uniqueName('ListingTest Lager');
   const ale = fx.uniqueName('ListingTest Ale');
-  db.ensureHierarchyGrouping(biz.business, beerGroupingName, fx.userId, 'Items');
-  db.ensureHierarchyValue(biz.business, beerGroupingName, lager, fx.userId);
-  db.ensureHierarchyValue(biz.business, beerGroupingName, ale, fx.userId);
+  db.ensureHierarchy(biz.business, beerHierarchyName, fx.userId, 'Items');
+  db.ensureHierarchyValue(biz.business, beerHierarchyName, lager, fx.userId);
+  db.ensureHierarchyValue(biz.business, beerHierarchyName, ale, fx.userId);
 
   const hierarchy = db.getBusinessHierarchy(biz.business);
-  const beerGrouping = hierarchy.find((g) => g.grouping === beerGroupingName);
-  assert.ok(beerGrouping, 'the real, new grouping is genuinely listed');
-  assert.deepEqual(beerGrouping?.values.sort(), [ale, lager].sort(), 'the real, new values are genuinely, correctly listed under their real grouping');
+  const beerHierarchy = hierarchy.find((g) => g.hierarchy === beerHierarchyName);
+  assert.ok(beerHierarchy, 'the real, new hierarchy is genuinely listed');
+  assert.deepEqual(beerHierarchy?.values.sort(), [ale, lager].sort(), 'the real, new values are genuinely, correctly listed under their real hierarchy');
 
   const locationDim = fx.uniqueName('ListingTest Location');
   const itemDim = fx.uniqueName('ListingTest Item');
   const shape: [string, string][] = [
     [locationDim, 'Location'],
-    [itemDim, beerGroupingName],
+    [itemDim, beerHierarchyName],
   ];
   db.defineProductShape(biz.business, shape, fx.userId);
   const shapes = db.getBusinessProductShapes(biz.business);
   const found = shapes.find((s) => s.some(([dim]) => dim === locationDim));
   assert.ok(found, 'the real, new Definition shape is genuinely listed');
-  assert.deepEqual(found, shape, 'the real, listed shape exactly matches the real, defined dimension/grouping pairs, in the real, correct order');
+  assert.deepEqual(found, shape, 'the real, listed shape exactly matches the real, defined dimension/hierarchy pairs, in the real, correct order');
 });
 
 test('climbInstanceTree/getCombinationByUpc: a real, scanned barcode resolves directly to its own, exact combination, climbing back up to the real Product root, per direct instruction', () => {
@@ -6035,7 +6035,7 @@ test('climbInstanceTree/getCombinationByUpc: a real, scanned barcode resolves di
   const beer = fx.uniqueName('BarcodeTest Beer');
   const storage = fx.uniqueName('BarcodeTest Storage');
   const cold = fx.uniqueName('BarcodeTest Cold');
-  db.ensureHierarchyGrouping(biz.business, storage, fx.userId, 'Items');
+  db.ensureHierarchy(biz.business, storage, fx.userId, 'Items');
   db.ensureHierarchyValue(biz.business, storage, cold, fx.userId);
   const shape: [string, string][] = [
     ['Location', 'Location'],
@@ -6050,11 +6050,11 @@ test('climbInstanceTree/getCombinationByUpc: a real, scanned barcode resolves di
   // Definition's own dimension names (e.g. "Item") cannot be reliably
   // reconstructed from an instance alone once two, real, different
   // shapes share a common prefix then diverge - only the real
-  // grouping each value belongs to (e.g. "Beer") can be, genuinely,
+  // hierarchy each value belongs to (e.g. "Beer") can be, genuinely,
   // unambiguously derived. Good enough to re-post through
   // ensureProductInstance correctly; not a faithful redisplay of the
   // original dimension labels.
-  assert.deepEqual(climbed.combinationShape, [['Location', 'Location'], [beer, beer], [storage, storage]], 'the real, reconstructed shape correctly identifies each real value\'s own grouping, even though the original dimension name ("Item") cannot be recovered from the instance alone');
+  assert.deepEqual(climbed.combinationShape, [['Location', 'Location'], [beer, beer], [storage, storage]], 'the real, reconstructed shape correctly identifies each real value\'s own hierarchy, even though the original dimension name ("Item") cannot be recovered from the instance alone');
 
   const barcode = fx.uniqueName('BARCODE-COLD-001');
   db.addOrUpdateItemSource({ itemName: lager, vendorName, priceMinor: 800, isPreferred: true, vendorUpc: barcode, productInstanceId: coldInstance.id });
@@ -6632,13 +6632,13 @@ test('stageLocation/postLocation: the location form is held as a staged form - t
 
 test('convertStorageSpace: a real, balanced conversion between storage combinations - never single-sided, and a real, undefined reverse direction genuinely refuses', () => {
   const biz = fx.freshBusiness('StorageConvertTest Co');
-  const storageGrouping = fx.uniqueName('StorageConvertTest Storage');
+  const storageHierarchy = fx.uniqueName('StorageConvertTest Storage');
   const hot = fx.uniqueName('StorageConvertTest Hot');
   const cold = fx.uniqueName('StorageConvertTest Cold');
-  db.ensureHierarchyGrouping(biz.business, storageGrouping, fx.userId);
-  db.ensureHierarchyValue(biz.business, storageGrouping, hot, fx.userId);
-  db.ensureHierarchyValue(biz.business, storageGrouping, cold, fx.userId);
-  const shape: [string, string][] = [[storageGrouping, storageGrouping]];
+  db.ensureHierarchy(biz.business, storageHierarchy, fx.userId);
+  db.ensureHierarchyValue(biz.business, storageHierarchy, hot, fx.userId);
+  db.ensureHierarchyValue(biz.business, storageHierarchy, cold, fx.userId);
+  const shape: [string, string][] = [[storageHierarchy, storageHierarchy]];
   db.defineProductShape(biz.business, shape, fx.userId);
   const spaceHot = `SPACE-${hot.toUpperCase()}`;
   const spaceCold = `SPACE-${cold.toUpperCase()}`;
@@ -6675,13 +6675,13 @@ test('openStorageContainer: opening a carton is two, real, independent space mov
   // location with real bottle shelving - there is nowhere for the
   // resulting loose bottles to go otherwise.
   const outlet = fx.freshLocation(biz.business, 'OpenContainerTest Outlet', { bottle_capacity: 500, carton_capacity: 50 });
-  const containerGrouping = fx.uniqueName('OpenContainerTest Container');
+  const containerHierarchy = fx.uniqueName('OpenContainerTest Container');
   const carton = fx.uniqueName('OpenContainerTest Carton');
   const bottle = fx.uniqueName('OpenContainerTest Bottle');
-  db.ensureHierarchyGrouping(biz.business, containerGrouping, fx.userId);
-  db.ensureHierarchyValue(biz.business, containerGrouping, carton, fx.userId);
-  db.ensureHierarchyValue(biz.business, containerGrouping, bottle, fx.userId);
-  const shape: [string, string][] = [[containerGrouping, containerGrouping]];
+  db.ensureHierarchy(biz.business, containerHierarchy, fx.userId);
+  db.ensureHierarchyValue(biz.business, containerHierarchy, carton, fx.userId);
+  db.ensureHierarchyValue(biz.business, containerHierarchy, bottle, fx.userId);
+  const shape: [string, string][] = [[containerHierarchy, containerHierarchy]];
   db.defineProductShape(biz.business, shape, fx.userId);
   // Deliberately no currency pair between SPACE-CARTON and SPACE-BOTTLE
   // is ever defined - per direct instruction, none should be needed.
@@ -6737,13 +6737,13 @@ test('openStorageContainer: a dozen 12-bottle cartons (144 bottles) moves direct
   // divides this by packageQuantity itself) - 1200/12 = 100 minor units
   // per real bottle.
   db.addOrUpdateItemSource({ itemName: wineName, vendorName: providerName, priceMinor: 1200, packageQuantity: 12, isPreferred: true });
-  const containerGrouping = fx.uniqueName('DozenTest Container');
+  const containerHierarchy = fx.uniqueName('DozenTest Container');
   const carton = fx.uniqueName('DozenTest Carton');
   const bottle = fx.uniqueName('DozenTest Bottle');
-  db.ensureHierarchyGrouping(biz.business, containerGrouping, fx.userId);
-  db.ensureHierarchyValue(biz.business, containerGrouping, carton, fx.userId);
-  db.ensureHierarchyValue(biz.business, containerGrouping, bottle, fx.userId);
-  const shape: [string, string][] = [[containerGrouping, containerGrouping]];
+  db.ensureHierarchy(biz.business, containerHierarchy, fx.userId);
+  db.ensureHierarchyValue(biz.business, containerHierarchy, carton, fx.userId);
+  db.ensureHierarchyValue(biz.business, containerHierarchy, bottle, fx.userId);
+  const shape: [string, string][] = [[containerHierarchy, containerHierarchy]];
   db.defineProductShape(biz.business, shape, fx.userId);
 
   db.openStorageContainer(biz.business, biz.actualLedger, outlet.name, db.asItemName(wineName), shape, [carton], 12, [bottle], 144, fx.userId, fx.uniqueName('DOZEN-TEST-1'));
@@ -6812,15 +6812,15 @@ test('receiveItems with a real combination: parallel currency AND count postings
   const wineName = fx.uniqueName('Parallel Count Wine');
   db.createItem(wineName, 'Items', fx.userId, biz.business);
 
-  const storageGrouping = fx.uniqueName('ParallelCountTest Storage');
+  const storageHierarchy = fx.uniqueName('ParallelCountTest Storage');
   const secure = fx.uniqueName('ParallelCountTest Secure');
-  db.ensureHierarchyGrouping(biz.business, storageGrouping, fx.userId);
-  db.ensureHierarchyValue(biz.business, storageGrouping, secure, fx.userId);
-  db.defineProductShape(biz.business, [[storageGrouping, storageGrouping]], fx.userId);
+  db.ensureHierarchy(biz.business, storageHierarchy, fx.userId);
+  db.ensureHierarchyValue(biz.business, storageHierarchy, secure, fx.userId);
+  db.defineProductShape(biz.business, [[storageHierarchy, storageHierarchy]], fx.userId);
 
   db.receiveItems(
     biz.business, biz.actualLedger, fx.uniqueName('PARALLEL-COUNT-TEST-1'), db.asItemName(wineName), db.asLocationName(outletName),
-    12, fx.userId, undefined, [secure], [[storageGrouping, storageGrouping]]
+    12, fx.userId, undefined, [secure], [[storageHierarchy, storageHierarchy]]
   );
 
   const entities = db.getEntityTree();
@@ -6852,14 +6852,14 @@ test('dispatchItems with a real combination: parallel currency AND count posting
   const wineName = fx.uniqueName('Dispatch Parallel Wine');
   db.createItem(wineName, 'Items', fx.userId, biz.business);
 
-  const storageGrouping = fx.uniqueName('DispatchParallelTest Storage');
+  const storageHierarchy = fx.uniqueName('DispatchParallelTest Storage');
   const secure = fx.uniqueName('DispatchParallelTest Secure');
-  db.ensureHierarchyGrouping(biz.business, storageGrouping, fx.userId);
-  db.ensureHierarchyValue(biz.business, storageGrouping, secure, fx.userId);
-  db.defineProductShape(biz.business, [[storageGrouping, storageGrouping]], fx.userId);
+  db.ensureHierarchy(biz.business, storageHierarchy, fx.userId);
+  db.ensureHierarchyValue(biz.business, storageHierarchy, secure, fx.userId);
+  db.defineProductShape(biz.business, [[storageHierarchy, storageHierarchy]], fx.userId);
 
-  db.receiveItems(biz.business, biz.actualLedger, fx.uniqueName('DISPATCH-PARALLEL-RECEIVE-1'), db.asItemName(wineName), db.asLocationName(outletName), 12, fx.userId, undefined, [secure], [[storageGrouping, storageGrouping]]);
-  db.dispatchItems(biz.business, biz.actualLedger, fx.uniqueName('DISPATCH-PARALLEL-DISPATCH-1'), db.asItemName(wineName), db.asLocationName(outletName), 5, fx.userId, undefined, [secure], [[storageGrouping, storageGrouping]]);
+  db.receiveItems(biz.business, biz.actualLedger, fx.uniqueName('DISPATCH-PARALLEL-RECEIVE-1'), db.asItemName(wineName), db.asLocationName(outletName), 12, fx.userId, undefined, [secure], [[storageHierarchy, storageHierarchy]]);
+  db.dispatchItems(biz.business, biz.actualLedger, fx.uniqueName('DISPATCH-PARALLEL-DISPATCH-1'), db.asItemName(wineName), db.asLocationName(outletName), 5, fx.userId, undefined, [secure], [[storageHierarchy, storageHierarchy]]);
 
   const entities = db.getEntityTree();
   const biz2 = entities.find((e) => e.name === biz.business);
@@ -6884,14 +6884,14 @@ test('transferItems with a real combination: the real unit count moves in parall
   const wineName = fx.uniqueName('Transfer Parallel Wine');
   db.createItem(wineName, 'Items', fx.userId, biz.business);
 
-  const storageGrouping = fx.uniqueName('TransferParallelTest Storage');
+  const storageHierarchy = fx.uniqueName('TransferParallelTest Storage');
   const secure = fx.uniqueName('TransferParallelTest Secure');
-  db.ensureHierarchyGrouping(biz.business, storageGrouping, fx.userId);
-  db.ensureHierarchyValue(biz.business, storageGrouping, secure, fx.userId);
-  db.defineProductShape(biz.business, [['Location', 'Location'], [storageGrouping, storageGrouping]], fx.userId);
+  db.ensureHierarchy(biz.business, storageHierarchy, fx.userId);
+  db.ensureHierarchyValue(biz.business, storageHierarchy, secure, fx.userId);
+  db.defineProductShape(biz.business, [['Location', 'Location'], [storageHierarchy, storageHierarchy]], fx.userId);
 
   db.receiveItems(biz.business, biz.actualLedger, fx.uniqueName('TRANSFER-PARALLEL-RECEIVE-1'), db.asItemName(wineName), db.asLocationName(sourceName), 20, fx.userId);
-  db.transferItems(biz.business, biz.actualLedger, db.asItemName(wineName), db.asLocationName(sourceName), db.asLocationName(destName), 8, fx.uniqueName('TRANSFER-PARALLEL-TRANSFER-1'), fx.userId, undefined, [['Location', 'Location'], [storageGrouping, storageGrouping]], [secure]);
+  db.transferItems(biz.business, biz.actualLedger, db.asItemName(wineName), db.asLocationName(sourceName), db.asLocationName(destName), 8, fx.uniqueName('TRANSFER-PARALLEL-TRANSFER-1'), fx.userId, undefined, [['Location', 'Location'], [storageHierarchy, storageHierarchy]], [secure]);
 
   const entities = db.getEntityTree();
   const biz2 = entities.find((e) => e.name === biz.business);
@@ -6922,14 +6922,14 @@ test('writeOffItems with a real combination: the real Inventory value and real u
   const breakageExpenseName = fx.uniqueName('WriteOffParallelTest Breakage Expense');
   db.create({ id: expenseRoot!.id, name: 'Expense' } as any, db.typeRootName, breakageExpenseName, fx.userId);
 
-  const storageGrouping = fx.uniqueName('WriteOffParallelTest Storage');
+  const storageHierarchy = fx.uniqueName('WriteOffParallelTest Storage');
   const secure = fx.uniqueName('WriteOffParallelTest Secure');
-  db.ensureHierarchyGrouping(business, storageGrouping, fx.userId);
-  db.ensureHierarchyValue(business, storageGrouping, secure, fx.userId);
-  db.defineProductShape(business, [[storageGrouping, storageGrouping]], fx.userId);
+  db.ensureHierarchy(business, storageHierarchy, fx.userId);
+  db.ensureHierarchyValue(business, storageHierarchy, secure, fx.userId);
+  db.defineProductShape(business, [[storageHierarchy, storageHierarchy]], fx.userId);
 
-  db.receiveItems(business, ledger, fx.uniqueName('WRITEOFF-PARALLEL-RECEIVE-1'), db.asItemName(wineName), db.asLocationName(outletName), 10, fx.userId, undefined, [secure], [[storageGrouping, storageGrouping]]);
-  db.writeOffItems(business, ledger, fx.uniqueName('WRITEOFF-PARALLEL-1'), db.asItemName(wineName), 3, 500, db.asAccountName(breakageExpenseName), '', 'Broken in storage', fx.userId, undefined, undefined, [secure], [[storageGrouping, storageGrouping]]);
+  db.receiveItems(business, ledger, fx.uniqueName('WRITEOFF-PARALLEL-RECEIVE-1'), db.asItemName(wineName), db.asLocationName(outletName), 10, fx.userId, undefined, [secure], [[storageHierarchy, storageHierarchy]]);
+  db.writeOffItems(business, ledger, fx.uniqueName('WRITEOFF-PARALLEL-1'), db.asItemName(wineName), 3, 500, db.asAccountName(breakageExpenseName), '', 'Broken in storage', fx.userId, undefined, undefined, [secure], [[storageHierarchy, storageHierarchy]]);
 
   const entities = db.getEntityTree();
   const biz2 = entities.find((e) => e.name === business);

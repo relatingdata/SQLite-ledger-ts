@@ -160,7 +160,7 @@ export const CORE_API_VERIFY: Record<string, Verify> = {
     return !!item && item.net > 0 && summed === (await profitAndLoss(a, api)).net;
   },
   profit_and_loss_group_has_item: async (a, api) => {
-    // The value valueName of the inner grouping holds the item itemName.
+    // The value valueName of the inner hierarchy holds the item itemName.
     const group = (await byAxis(a, api, a.innerAxis, 'Item')).find((n) => n.key === a.valueName);
     return !!group && group.children.includes(a.itemName);
   },
@@ -176,7 +176,7 @@ export const CORE_API_VERIFY: Record<string, Verify> = {
     return expected.length === actual.length && expected.every((r, n) => r === actual[n]);
   },
   translation_matches: async (a, api) => (await api.must('getTranslation', [a.concept, a.language])).row[0] === a.translationText,
-  location_in_hierarchy_group: async (a, api) => (await api.must('getGroup', [a.businessName, a.locationName, a.groupingName])).row[0] === a.valueName,
+  location_in_hierarchy_group: async (a, api) => (await api.must('getGroup', [a.businessName, a.locationName, a.hierarchyName])).row[0] === a.valueName,
 };
 
 /** The API function a session screen maps to. */

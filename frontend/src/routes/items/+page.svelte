@@ -25,8 +25,8 @@
     ApiError,
     listLocations,
     getHierarchy,
-    groupingsOf,
-    createHierarchyGrouping,
+    hierarchiesOf,
+    createHierarchy,
     createHierarchyValue,
     deleteHierarchyValue,
     setHierarchyTag,
@@ -44,7 +44,7 @@
     type Item,
     type ItemSource,
     type LocationRecord,
-    type HierarchyGroupingWithValues,
+    type HierarchyWithValues,
   } from '$lib/api';
   import { receiveIntoStorageLines, freshReference } from '$lib/canned-journal';
 
@@ -89,9 +89,9 @@
 
   // Receiving into a named storage combination — see docs/pm-frontend-reference.md.
   let locations: LocationRecord[] = $state([]);
-  let hierarchyGroupings: HierarchyGroupingWithValues[] = $state([]);
+  let hierarchies: HierarchyWithValues[] = $state([]);
   let receiveLocation = $state('');
-  let receiveGrouping = $state('');
+  let receiveHierarchy = $state('');
   let receiveStorageValue = $state('');
   let receiveQuantity = $state('');
   let receiving = $state(false);
@@ -108,8 +108,8 @@
       const business = asBusinessName(session.current.businessName);
       const ledger = asLedgerName(session.current.ledgerName);
       const quantity = Number(receiveQuantity);
-      const combinationValues = receiveGrouping && receiveStorageValue ? [receiveStorageValue] : undefined;
-      const combinationShape: [string, string][] | undefined = receiveGrouping && receiveStorageValue ? [[receiveGrouping, receiveGrouping]] : undefined;
+      const combinationValues = receiveHierarchy && receiveStorageValue ? [receiveStorageValue] : undefined;
+      const combinationShape: [string, string][] | undefined = receiveHierarchy && receiveStorageValue ? [[receiveHierarchy, receiveHierarchy]] : undefined;
       const reference = freshReference(`RECEIVE-${selectedName}`);
       await receiveIntoStorageStock(asLocationName(receiveLocation), {
         business,
@@ -146,14 +146,14 @@
   let sourceNotes = $state('');
   let savingSource = $state(false);
 
-  // The catalog is organised by one of the business's item groupings,
+  // The catalog is organised by one of the business's item hierarchies,
   // chosen on the page (the first created comes first): its values
   // (so an empty value still shows), and in one call every tag of that
-  // grouping, entity name -> value, covering an item in a value and a
-  // value nested under another. No grouping is named in the code — see
+  // hierarchy, entity name -> value, covering an item in a value and a
+  // value nested under another. No hierarchy is named in the code — see
   // docs/pm-frontend-reference.md.
-  let itemGrouping = $state('');
-  let itemGroupings = $derived(groupingsOf(hierarchyGroupings, 'Items'));
+  let itemHierarchy = $state('');
+  let itemHierarchies = $derived(hierarchiesOf(hierarchies, 'Items'));
   let categoryValues: string[] = $state([]);
   let categoryAssignments: Record<string, string> = $state({});
 
@@ -163,35 +163,35 @@
       categoryAssignments = {};
       return;
     }
-    const groupings = await getHierarchy(session.current.businessName);
-    hierarchyGroupings = groupings;
-    const ofItems = groupingsOf(groupings, 'Items');
-    if (!ofItems.some((g) => g.grouping === itemGrouping)) itemGrouping = ofItems[0]?.grouping ?? '';
-    categoryValues = ofItems.find((g) => g.grouping === itemGrouping)?.values ?? [];
-    categoryAssignments = itemGrouping ? await getHierarchyAssignments(itemGrouping) : {};
+    const loaded = await getHierarchy(session.current.businessName);
+    hierarchies = loaded;
+    const ofItems = hierarchiesOf(loaded, 'Items');
+    if (!ofItems.some((g) => g.hierarchy === itemHierarchy)) itemHierarchy = ofItems[0]?.hierarchy ?? '';
+    categoryValues = ofItems.find((g) => g.hierarchy === itemHierarchy)?.values ?? [];
+    categoryAssignments = itemHierarchy ? await getHierarchyAssignments(itemHierarchy) : {};
   }
 
-  async function chooseGrouping(name: string) {
-    itemGrouping = name;
+  async function chooseHierarchy(name: string) {
+    itemHierarchy = name;
     selection = null;
     await loadCategoryData();
   }
 
-  // A new item grouping, named by the business.
-  let addingGrouping = $state(false);
-  let newGroupingName = $state('');
-  let groupingError = $state('');
-  async function addGrouping() {
-    if (!newGroupingName.trim() || !session.current?.businessName) return;
-    groupingError = '';
+  // A new item hierarchy, named by the business.
+  let addingHierarchy = $state(false);
+  let newHierarchyName = $state('');
+  let hierarchyError = $state('');
+  async function addHierarchy() {
+    if (!newHierarchyName.trim() || !session.current?.businessName) return;
+    hierarchyError = '';
     try {
-      await createHierarchyGrouping(session.current.businessName, newGroupingName.trim(), 'Items');
-      const created = newGroupingName.trim();
-      newGroupingName = '';
-      addingGrouping = false;
-      await chooseGrouping(created);
+      await createHierarchy(session.current.businessName, newHierarchyName.trim(), 'Items');
+      const created = newHierarchyName.trim();
+      newHierarchyName = '';
+      addingHierarchy = false;
+      await chooseHierarchy(created);
     } catch (e) {
-      groupingError = e instanceof ApiError ? e.message : 'Could not create the grouping.';
+      hierarchyError = e instanceof ApiError ? e.message : 'Could not create the hierarchy.';
     }
   }
 
@@ -297,7 +297,7 @@
     if (!newCategoryNameRoot.trim() || !session.current?.businessName) return;
     categoryError = '';
     try {
-      await createHierarchyValue(session.current.businessName, itemGrouping, newCategoryNameRoot.trim());
+      await createHierarchyValue(session.current.businessName, itemHierarchy, newCategoryNameRoot.trim());
       newCategoryNameRoot = '';
       addingCategory = false;
       await loadCategoryData();
@@ -319,8 +319,8 @@
     if (!newSubcategoryName.trim() || !session.current?.businessName) return;
     subcategoryError = '';
     try {
-      // Nesting: a value tagged under another value of the same grouping.
-      await createHierarchyValue(session.current.businessName, itemGrouping, newSubcategoryName.trim(), parentCategoryName);
+      // Nesting: a value tagged under another value of the same hierarchy.
+      await createHierarchyValue(session.current.businessName, itemHierarchy, newSubcategoryName.trim(), parentCategoryName);
       newSubcategoryName = '';
       addingSubcategoryUnder = null;
       await loadCategoryData();
@@ -347,7 +347,7 @@
       await createEntity({ name: newItemNameField, parentId: root.id });
       // setItem ensures the item row exists immediately — see docs/pm-frontend-reference.md.
       await setItem(newItemNameField, { description: null, unit_of_measure: null, upc: null });
-      await setHierarchyTag(newItemNameField, itemGrouping, categoryName);
+      await setHierarchyTag(newItemNameField, itemHierarchy, categoryName);
       const created = newItemNameField;
       newItemNameField = '';
       addingItemUnder = null;
@@ -398,12 +398,12 @@
       addingItemUnder = NO_CATEGORY;
       newItemNameField = '';
       itemAddError = '';
-    } else if (itemGrouping) {
+    } else if (itemHierarchy) {
       addingCategory = true;
       newCategoryNameRoot = '';
       categoryError = '';
     } else {
-      // No item grouping yet: Insert adds an item, ungrouped.
+      // No item hierarchy yet: Insert adds an item, unassigned.
       addingItemUnder = NO_CATEGORY;
       newItemNameField = '';
       itemAddError = '';
@@ -419,7 +419,7 @@
         if (!session.current?.businessName) throw new Error('No business selected.');
         // Deletes the value itself, refused while an item or a nested
         // value is still tagged with it.
-        await deleteHierarchyValue(session.current.businessName, itemGrouping, selection.name);
+        await deleteHierarchyValue(session.current.businessName, itemHierarchy, selection.name);
       } else {
         const target = entities.find((e) => e.name === selection!.name);
         if (!target) throw new Error(`${translations.current['No real entity named'] ?? 'No real entity named'} "${selection!.name}".`);
@@ -604,38 +604,38 @@
   {:else}
     {#if error}<p class="error">{error}</p>{/if}
 
-    <div class="grouping-bar">
-      {#if itemGroupings.length > 0}
-        <span>{translations.current['Grouping'] ?? 'Grouping'}:</span>
-        {#each itemGroupings as g (g.grouping)}
-          <button type="button" class="btn secondary small grouping-choice" class:active={g.grouping === itemGrouping} onclick={() => chooseGrouping(g.grouping)}>{translations.current[g.grouping] ?? g.grouping}</button>
+    <div class="hierarchy-bar">
+      {#if itemHierarchies.length > 0}
+        <span>{translations.current['Hierarchy'] ?? 'Hierarchy'}:</span>
+        {#each itemHierarchies as g (g.hierarchy)}
+          <button type="button" class="btn secondary small hierarchy-choice" class:active={g.hierarchy === itemHierarchy} onclick={() => chooseHierarchy(g.hierarchy)}>{translations.current[g.hierarchy] ?? g.hierarchy}</button>
         {/each}
       {/if}
-      {#if addingGrouping}
+      {#if addingHierarchy}
         <input
-          bind:value={newGroupingName}
-          placeholder={translations.current['Name of the grouping, e.g. Category'] ?? 'Name of the grouping, e.g. Category'}
+          bind:value={newHierarchyName}
+          placeholder={translations.current['Name of the hierarchy, e.g. Category'] ?? 'Name of the hierarchy, e.g. Category'}
           onkeydown={(e) => {
-            if (e.key === 'Enter') { e.preventDefault(); addGrouping(); }
-            else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); addingGrouping = false; groupingError = ''; }
+            if (e.key === 'Enter') { e.preventDefault(); addHierarchy(); }
+            else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); addingHierarchy = false; hierarchyError = ''; }
           }}
         />
       {:else}
-        <button type="button" class="link-button" onclick={() => { addingGrouping = true; newGroupingName = ''; groupingError = ''; }}>+ {translations.current['New grouping'] ?? 'New grouping'}</button>
+        <button type="button" class="link-button" onclick={() => { addingHierarchy = true; newHierarchyName = ''; hierarchyError = ''; }}>+ {translations.current['New Hierarchy'] ?? 'New Hierarchy'}</button>
       {/if}
-      {#if groupingError}<p class="error small">{groupingError}</p>{/if}
+      {#if hierarchyError}<p class="error small">{hierarchyError}</p>{/if}
     </div>
 
     <div class="layout">
       <TreeEditor
-        legend={itemGrouping ? (translations.current[itemGrouping] ?? itemGrouping) : (translations.current['Items'] ?? 'Items')}
+        legend={itemHierarchy ? (translations.current[itemHierarchy] ?? itemHierarchy) : (translations.current['Items'] ?? 'Items')}
         {hintText}
         onInsert={handleInsert}
         onDelete={handleDelete}
       >
         {#if uncategorizedItems.length > 0 || addingItemUnder === NO_CATEGORY}
           <div class="tree-section">
-            <p class="tree-heading">{translations.current['Ungrouped'] ?? 'Ungrouped'}</p>
+            <p class="tree-heading">{translations.current['Unassigned'] ?? 'Unassigned'}</p>
             {#each uncategorizedItems as it (it.name)}
               <button type="button" class="tree-item item" class:active={selection?.type === 'item' && selection.name === it.name} onclick={() => selectItem(it.name, itemsRoot()?.name ?? 'Items')}>
                 <span>{translations.current[it.name] ?? it.name}</span>
@@ -685,7 +685,7 @@
                business with no hierarchy at all still needs a direct way to add its first item. -->
           {#if addingItemUnder !== NO_CATEGORY}
             <button type="button" class="link-button" onclick={() => { addingItemUnder = NO_CATEGORY; newItemNameField = ''; itemAddError = ''; }}>
-              + {translations.current['Item (ungrouped)'] ?? 'Item (ungrouped)'}
+              + {translations.current['Item (unassigned)'] ?? 'Item (unassigned)'}
             </button>
           {/if}
         </div>
@@ -701,7 +701,7 @@
             {#if message}<p class="success">{message}</p>{/if}
             <div class="card form-card">
               <h3>{selectedName}</h3>
-              {#if itemGrouping}<p class="category-line">{translations.current[itemGrouping] ?? itemGrouping}: <strong>{selection.category === (itemsRoot()?.name ?? 'Items') ? (translations.current['Ungrouped'] ?? 'Ungrouped') : (translations.current[selection.category] ?? selection.category)}</strong></p>{/if}
+              {#if itemHierarchy}<p class="category-line">{translations.current[itemHierarchy] ?? itemHierarchy}: <strong>{selection.category === (itemsRoot()?.name ?? 'Items') ? (translations.current['Unassigned'] ?? 'Unassigned') : (translations.current[selection.category] ?? selection.category)}</strong></p>{/if}
               <fieldset>
                 <legend>{translations.current['Description'] ?? 'Description'}</legend>
                 <input bind:value={item.description} placeholder="optional" />
@@ -815,17 +815,17 @@
                     <input bind:value={receiveQuantity} inputmode="numeric" placeholder="e.g. 24" />
                   </fieldset>
                 </div>
-                {#if hierarchyGroupings.length > 0}
+                {#if hierarchies.length > 0}
                   <div class="row-2">
                     <fieldset>
-                      <legend>{translations.current['Storage grouping (optional)'] ?? 'Storage grouping (optional)'}</legend>
-                      <select bind:value={receiveGrouping}>
+                      <legend>{translations.current['Storage hierarchy (optional)'] ?? 'Storage hierarchy (optional)'}</legend>
+                      <select bind:value={receiveHierarchy}>
                         <option value="">{translations.current['None — plain receipt'] ?? 'None — plain receipt'}</option>
-                        {#each hierarchyGroupings as g}<option value={g.grouping}>{g.grouping}</option>{/each}
+                        {#each hierarchies as g}<option value={g.hierarchy}>{g.hierarchy}</option>{/each}
                       </select>
                     </fieldset>
-                    {#if receiveGrouping}
-                      {@const values = hierarchyGroupings.find((g) => g.grouping === receiveGrouping)?.values ?? []}
+                    {#if receiveHierarchy}
+                      {@const values = hierarchies.find((g) => g.hierarchy === receiveHierarchy)?.values ?? []}
                       <fieldset>
                         <legend>{translations.current['Value'] ?? 'Value'}</legend>
                         <select bind:value={receiveStorageValue}>
@@ -897,14 +897,14 @@
 </fieldset>
 
 <style>
-  .grouping-bar {
+  .hierarchy-bar {
     display: flex;
     align-items: center;
     gap: 0.5rem;
     flex-wrap: wrap;
     margin-bottom: 0.8rem;
   }
-  .grouping-choice.active {
+  .hierarchy-choice.active {
     background: var(--brass-dark, #7a5c2e);
     color: white;
   }

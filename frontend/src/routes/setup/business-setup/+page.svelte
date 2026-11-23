@@ -13,8 +13,8 @@
     getOrganizationChart,
     getHierarchy,
     createHierarchyValue,
-    createHierarchyGrouping,
-    groupingsOf,
+    createHierarchy,
+    hierarchiesOf,
     setHierarchyTag,
     getHierarchyTag,
     deleteHierarchyTag,
@@ -33,7 +33,7 @@
     revokeEntity,
     ApiError,
     type OrganizationChart,
-    type HierarchyGroupingWithValues,
+    type HierarchyWithValues,
     type LocationRecord,
     type Contact,
     asLocationName,
@@ -41,43 +41,43 @@
   } from '$lib/api';
 
   let chart: OrganizationChart | null = $state(null);
-  let hierarchy: HierarchyGroupingWithValues[] = $state([]);
+  let hierarchy: HierarchyWithValues[] = $state([]);
   let loading = $state(true);
   let error = $state('');
 
   type Selection = { type: 'group' | 'location' | 'employee'; name: string; group?: string; location?: string } | null;
   let selection: Selection = $state(null);
 
-  // The location grouping the tree shows: the one chosen, else the one the
+  // The location hierarchy the tree shows: the one chosen, else the one the
   // chart's groups are values of, else the first; '' when the business
   // has none yet. Never a name in the code — see docs/pm-frontend-reference.md.
-  let locationGroupings = $derived(groupingsOf(hierarchy, 'Locations'));
-  let chosenGrouping = $state('');
+  let locationHierarchies = $derived(hierarchiesOf(hierarchy, 'Locations'));
+  let chosenHierarchy = $state('');
   let locationHierarchyName = $derived.by(() => {
-    if (locationGroupings.some((g) => g.grouping === chosenGrouping)) return chosenGrouping;
+    if (locationHierarchies.some((g) => g.hierarchy === chosenHierarchy)) return chosenHierarchy;
     const groupNames = new Set<string>(chart ? chart.groups.map((g): string => g.group) : []);
-    const match = locationGroupings.find((h) => h.values.some((v) => groupNames.has(v)));
-    return (match ?? locationGroupings[0])?.grouping ?? '';
+    const match = locationHierarchies.find((h) => h.values.some((v) => groupNames.has(v)));
+    return (match ?? locationHierarchies[0])?.hierarchy ?? '';
   });
 
-  // The business's other location groupings — see docs/pm-frontend-reference.md.
-  let otherHierarchies = $derived.by(() => locationGroupings.filter((h) => h.grouping !== locationHierarchyName));
+  // The business's other location hierarchies — see docs/pm-frontend-reference.md.
+  let otherHierarchies = $derived.by(() => locationHierarchies.filter((h) => h.hierarchy !== locationHierarchyName));
 
-  // A new location grouping, named by the business.
-  let addingGrouping = $state(false);
-  let newGroupingName = $state('');
-  let groupingError = $state('');
-  async function addGrouping() {
-    if (!session.current || !newGroupingName.trim()) return;
-    groupingError = '';
+  // A new location hierarchy, named by the business.
+  let addingHierarchy = $state(false);
+  let newHierarchyName = $state('');
+  let hierarchyError = $state('');
+  async function addHierarchy() {
+    if (!session.current || !newHierarchyName.trim()) return;
+    hierarchyError = '';
     try {
-      await createHierarchyGrouping(session.current.businessName, newGroupingName.trim(), 'Locations');
-      chosenGrouping = newGroupingName.trim();
-      newGroupingName = '';
-      addingGrouping = false;
+      await createHierarchy(session.current.businessName, newHierarchyName.trim(), 'Locations');
+      chosenHierarchy = newHierarchyName.trim();
+      newHierarchyName = '';
+      addingHierarchy = false;
       await loadChart();
     } catch (e) {
-      groupingError = e instanceof ApiError ? e.message : 'Could not create the grouping.';
+      hierarchyError = e instanceof ApiError ? e.message : 'Could not create the hierarchy.';
     }
   }
 
@@ -149,8 +149,8 @@
       // Also tagged via the Hierarchy mechanism — see docs/pm-frontend-reference.md.
       if (locationHierarchyName) await setHierarchyTag(newLocationName.trim(), locationHierarchyName, groupName);
       for (const h of otherHierarchies) {
-        const value = newLocationDimensionValues[h.grouping];
-        if (value) await setHierarchyTag(newLocationName.trim(), h.grouping, value);
+        const value = newLocationDimensionValues[h.hierarchy];
+        if (value) await setHierarchyTag(newLocationName.trim(), h.hierarchy, value);
       }
       newLocationName = '';
       newLocationCity = '';
@@ -205,7 +205,7 @@
     } else if (locationHierarchyName) {
       showAddGroup = true;
     } else {
-      addingGrouping = true;
+      addingHierarchy = true;
     }
   }
 
@@ -242,12 +242,12 @@
     const [loc, hours, tags] = await Promise.all([
       getLocationByName(asLocationName(name)),
       getLocationOpenHours(asLocationName(name)),
-      Promise.all(dimensions.map((h) => getHierarchyTag(name, h.grouping))),
+      Promise.all(dimensions.map((h) => getHierarchyTag(name, h.hierarchy))),
     ]);
     locationRecord = loc;
     openHours = hours.map((h) => ({ day: h.day, from_time: h.opens_at, to_time: h.closes_at }));
     const values: Record<string, string> = {};
-    dimensions.forEach((h, i) => { values[h.grouping] = tags[i].parentName ?? ''; });
+    dimensions.forEach((h, i) => { values[h.hierarchy] = tags[i].parentName ?? ''; });
     locationDimensionValues = values;
   }
 
@@ -274,9 +274,9 @@
         openHours.map((h) => ({ day: h.day, opens_at: h.from_time, closes_at: h.to_time }))
       );
       for (const h of otherHierarchies) {
-        const value = locationDimensionValues[h.grouping];
-        if (value) await setHierarchyTag(selection.name, h.grouping, value);
-        else await deleteHierarchyTag(selection.name, h.grouping);
+        const value = locationDimensionValues[h.hierarchy];
+        if (value) await setHierarchyTag(selection.name, h.hierarchy, value);
+        else await deleteHierarchyTag(selection.name, h.hierarchy);
       }
       locationSaveMessage = 'Saved.';
     } catch (e) {
@@ -404,26 +404,26 @@
 {:else if error}
   <p class="error">{error}</p>
 {:else if chart}
-  <div class="grouping-bar">
-    {#if locationGroupings.length > 0}
-      <span>{translations.current['Grouping'] ?? 'Grouping'}:</span>
-      {#each locationGroupings as g (g.grouping)}
-        <button type="button" class="btn secondary small grouping-choice" class:active={g.grouping === locationHierarchyName} onclick={() => { chosenGrouping = g.grouping; selection = null; }}>{translations.current[g.grouping] ?? g.grouping}</button>
+  <div class="hierarchy-bar">
+    {#if locationHierarchies.length > 0}
+      <span>{translations.current['Hierarchy'] ?? 'Hierarchy'}:</span>
+      {#each locationHierarchies as g (g.hierarchy)}
+        <button type="button" class="btn secondary small hierarchy-choice" class:active={g.hierarchy === locationHierarchyName} onclick={() => { chosenHierarchy = g.hierarchy; selection = null; }}>{translations.current[g.hierarchy] ?? g.hierarchy}</button>
       {/each}
     {/if}
-    {#if addingGrouping}
+    {#if addingHierarchy}
       <input
-        bind:value={newGroupingName}
-        placeholder={translations.current['Name of the grouping, e.g. Division'] ?? 'Name of the grouping, e.g. Division'}
+        bind:value={newHierarchyName}
+        placeholder={translations.current['Name of the hierarchy, e.g. Division'] ?? 'Name of the hierarchy, e.g. Division'}
         onkeydown={(e) => {
-          if (e.key === 'Enter') { e.preventDefault(); addGrouping(); }
-          else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); addingGrouping = false; groupingError = ''; }
+          if (e.key === 'Enter') { e.preventDefault(); addHierarchy(); }
+          else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); addingHierarchy = false; hierarchyError = ''; }
         }}
       />
     {:else}
-      <button type="button" class="link-button" onclick={() => { addingGrouping = true; newGroupingName = ''; groupingError = ''; }}>+ {translations.current['New grouping'] ?? 'New grouping'}</button>
+      <button type="button" class="link-button" onclick={() => { addingHierarchy = true; newHierarchyName = ''; hierarchyError = ''; }}>+ {translations.current['New Hierarchy'] ?? 'New Hierarchy'}</button>
     {/if}
-    {#if groupingError}<p class="error small">{groupingError}</p>{/if}
+    {#if hierarchyError}<p class="error small">{hierarchyError}</p>{/if}
   </div>
   <div class="layout">
     <TreeEditor
@@ -503,8 +503,8 @@
                 {#each ALL_TIMEZONES as tz}<option value={tz}>{tz}</option>{/each}
               </select>
               {#each otherHierarchies as h}
-                <select bind:value={newLocationDimensionValues[h.grouping]}>
-                  <option value="">{translations.current[h.grouping] ?? h.grouping}…</option>
+                <select bind:value={newLocationDimensionValues[h.hierarchy]}>
+                  <option value="">{translations.current[h.hierarchy] ?? h.hierarchy}…</option>
                   {#each h.values as v}<option value={v}>{translations.current[v] ?? v}</option>{/each}
                 </select>
               {/each}
@@ -537,7 +537,7 @@
       {#if !selection}
         <p class="hint">{translations.current['Select a group, location, or employee on the left — Insert adds within whatever\'s selected, Delete removes it.'] ?? `Select a ${locationHierarchyName.toLowerCase()}, location, or employee on the left — Insert adds within whatever's selected, Delete removes it.`}</p>
       {:else if selection.type === 'group'}
-        <p class="hint">{`A ${locationHierarchyName.toLowerCase()} is purely a reporting grouping — press Insert to add a real location within it, or Delete to remove this ${locationHierarchyName.toLowerCase()}.`}</p>
+        <p class="hint">{`A ${locationHierarchyName.toLowerCase()} is purely a reporting hierarchy — press Insert to add a real location within it, or Delete to remove this ${locationHierarchyName.toLowerCase()}.`}</p>
       {:else if selection.type === 'location' && locationRecord}
         <fieldset>
           <legend>{translations.current['City'] ?? 'City'}</legend>
@@ -557,8 +557,8 @@
           <div class="row-2">
             {#each otherHierarchies as h}
               <fieldset>
-                <legend>{translations.current[h.grouping] ?? h.grouping}</legend>
-                <select bind:value={locationDimensionValues[h.grouping]}>
+                <legend>{translations.current[h.hierarchy] ?? h.hierarchy}</legend>
+                <select bind:value={locationDimensionValues[h.hierarchy]}>
                   <option value="">{translations.current['(none)'] ?? '(none)'}</option>
                   {#each h.values as v}<option value={v}>{translations.current[v] ?? v}</option>{/each}
                 </select>
@@ -678,14 +678,14 @@
 </fieldset>
 
 <style>
-  .grouping-bar {
+  .hierarchy-bar {
     display: flex;
     align-items: center;
     gap: 0.5rem;
     flex-wrap: wrap;
     margin-bottom: 0.8rem;
   }
-  .grouping-choice.active {
+  .hierarchy-choice.active {
     background: var(--brass-dark, #7a5c2e);
     color: white;
   }

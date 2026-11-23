@@ -1,13 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { getInventoryListingByLocation, getHierarchy, groupingsOf, setItemLocationLevels, asItemName, asLocationName, ApiError, type InventoryListingLocationGroup, type InventoryListingRow } from '$lib/api';
+  import { getInventoryListingByLocation, getHierarchy, hierarchiesOf, setItemLocationLevels, asItemName, asLocationName, ApiError, type InventoryListingLocationGroup, type InventoryListingRow } from '$lib/api';
   import { translations, session } from '$lib/state.svelte';
 
   let groups: InventoryListingLocationGroup[] = $state([]);
   let loading = $state(true);
   let error = $state('');
 
-  // Grouping hierarchy name, never hardcoded — see docs/pm-frontend-reference.md.
+  // Hierarchy name, never hardcoded — see docs/pm-frontend-reference.md.
   let hierarchyName: string | undefined = $state(undefined);
 
   async function load() {
@@ -26,7 +26,7 @@
     if (session.current) {
       try {
         const hierarchy = await getHierarchy(session.current.businessName);
-        hierarchyName = groupingsOf(hierarchy, 'Locations')[0]?.grouping;
+        hierarchyName = hierarchiesOf(hierarchy, 'Locations')[0]?.hierarchy;
       } catch {
         /* the report still works with no group tagging at all if this fails */
       }

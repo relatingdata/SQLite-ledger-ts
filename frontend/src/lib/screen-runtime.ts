@@ -35,7 +35,7 @@ import {
   getCustomerStatement,
   getSalesReport,
   getHierarchy,
-  groupingsOf,
+  hierarchiesOf,
   getCashFlowForecast,
   getBusinessConfigurationReport,
   sendReminder,
@@ -108,8 +108,8 @@ const named = (es: { name: string }[]): Choice[] => es.map((e) => ({ value: e.na
 const under = (es: EntityNode[], parentName: string) => es.filter((e) => es.find((p) => p.id === e.parent_id)?.name === parentName);
 
 export const sources: Record<string, (business: string) => Promise<Choice[]>> = {
-  /** The business's groupings of its items, by name. */
-  itemGroupings: async (business) => named(groupingsOf(await getHierarchy(business), 'Items').map((g) => ({ name: g.grouping }))),
+  /** The business's hierarchies of its items, by name. */
+  itemHierarchies: async (business) => named(hierarchiesOf(await getHierarchy(business), 'Items').map((g) => ({ name: g.hierarchy }))),
   locations: async (business) => (await listLocations(asBusinessName(business))).map((l) => ({ value: l.name, label: l.name, city: l.city ?? undefined })),
   items: async (business) => named((await listItems(business)).rows),
   providers: async () => named(under(await getEntityTree(), 'Accounts Payable')),
@@ -536,7 +536,7 @@ export const reports: Record<string, (c: Context, v: Values) => Promise<Report>>
       lines('Owner(s) / Partner(s)', r.ownerOrPartners),
       { title: t('Banking Details'), table: 'banks', rows: r.bankAccounts.map((b) => line(b.name, { name: b.name, routing: b.routingDetail, number: b.accountNumber })) },
       lines('Currencies', [`${t('Home currency')}: ${r.homeCurrency ?? '\u2014'}`, ...(r.secondaryCurrencies.length > 0 ? [`${t('Also trades in')}: ${r.secondaryCurrencies.join(', ')}`] : [])]),
-      lines('Hierarchies', r.hierarchies.map((h) => `${t(h.grouping)}${h.groups ? ` (${t(h.groups)})` : ''}: ${h.values.length > 0 ? h.values.join(', ') : t('None recorded.')}`)),
+      lines('Hierarchies', r.hierarchies.map((h) => `${t(h.hierarchy)}${h.of ? ` (${t(h.of)})` : ''}: ${h.values.length > 0 ? h.values.join(', ') : t('None recorded.')}`)),
       { title: t('Locations'), table: 'locations', rows: r.locations.map((l) => line(l.name, { name: l.name, city: l.city, type: l.locationType })) },
       lines('Products', r.products),
       lines('Notes to the Financial Statements', r.notes.map((n) => n.text)),
@@ -569,10 +569,10 @@ export const reports: Record<string, (c: Context, v: Values) => Promise<Report>>
           : undefined,
     };
   },
-  /** Every posted sale in a period, summed by an item grouping (or by
+  /** Every posted sale in a period, summed by an item hierarchy (or by
    * item when the business has none) or line by line (view). */
   sales: async (c, v) => {
-    const r = await getSalesReport(asBusinessName(c.business), asLedgerName(c.ledger), v.fromDate || undefined, v.toDate || undefined, v.grouping || undefined);
+    const r = await getSalesReport(asBusinessName(c.business), asLedgerName(c.ledger), v.fromDate || undefined, v.toDate || undefined, v.hierarchy || undefined);
     const rows: ReportRow[] = v.view === 'detailed'
       ? r.detailed.map((l, i) => line(String(i), {
           date: l.invoice_date, reference: l.reference, item: l.item_name ?? l.description, quantity: count(l.quantity),
@@ -583,7 +583,7 @@ export const reports: Record<string, (c: Context, v: Values) => Promise<Report>>
           share: `${r.total_amount_minor > 0 ? ((cs.amount_minor / r.total_amount_minor) * 100).toFixed(1) : '0.0'}%`,
         }));
     return { columns: [{
-      groups: [{ title: '', table: v.view === 'detailed' ? 'detailed' : '', rows, labels: { group: t(r.grouping ?? 'Item') } }],
+      groups: [{ title: '', table: v.view === 'detailed' ? 'detailed' : '', rows, labels: { group: t(r.hierarchy ?? 'Item') } }],
       summary: { label: t('Total'), value: `${r.total_quantity} ${t('units')}, ${money(r.total_amount_minor)}` },
     }] };
   },
@@ -778,7 +778,7 @@ export function evaluate(formula: string, names: Record<string, number | null>):
 }
 
 /** The axes a pivot can break down by, in groups: Item and the item
- * groupings, Location and the location groupings. Two axes of the same
+ * hierarchies, Location and the location hierarchies. Two axes of the same
  * group would only repeat each other, so they never cross. Values per
  * axis, for narrowing to one. */
 export interface Axes {
@@ -788,7 +788,7 @@ export interface Axes {
 
 export async function loadAxes(c: Context): Promise<Axes> {
   const { values, groups }: { values: Record<string, string[]>; groups: Record<string, string> } = await getAxes(c.business, c.ledger).catch(() => ({ values: { Item: [], Location: [] }, groups: {} }));
-  // A grouping with no values here would only say "No ..." everywhere.
+  // A hierarchy with no values here would only say "No ..." everywhere.
   const further = (side: string) => Object.keys(values).filter((k) => !['Item', 'Location'].includes(k) && groups[k] === side && values[k].length > 0);
   return { groups: [['Item', ...further('item')], ['Location', ...further('location')]], values };
 }

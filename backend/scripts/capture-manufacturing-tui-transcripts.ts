@@ -139,7 +139,7 @@ async function main() {
   //   Item Categories - five real categories (Raw Materials, Hardware
   //   & Fittings, Bulk Lengths, Frame Assemblies, Complete Units), every
   //   real item tagged into one.
-  //   Other Hierarchies - a real "Process" grouping (Cutting, Glazing,
+  //   Other Hierarchies - a real "Process" hierarchy (Cutting, Glazing,
   //   Framing & Lock Fitting, Packaging), the same real items tagged by
   //   production stage.
   await navigateMenuGenerically(terminal, 'Business Structure');

@@ -361,15 +361,15 @@ the structured form is the cartesian mechanism below.
   sub-location (the entity related to it), when there is one;
   everything else from the location itself.
 
-**An item grouping is an optional lateral tag**, applied to a Product
-or an Item by name (`setHierarchyParent(name, grouping, value,
-userId)`, `getHierarchyParent(name, grouping)`), never an ancestor.
-A value (`Beer`, in a grouping the business called Category) is an
+**An item hierarchy is an optional lateral tag**, applied to a Product
+or an Item by name (`setHierarchyParent(name, hierarchy, value,
+userId)`, `getHierarchyParent(name, hierarchy)`), never an ancestor.
+A value (`Beer`, in a hierarchy the business called Category) is an
 entity in the business's Hierarchy registry, not under `Items`, so
-finding an item's value is one link lookup and regrouping moves
+finding an item's value is one link lookup and re-tagging moves
 nothing. *Core Domain Reference*, "Hierarchies and multi-dimensional
-reporting", describes the mechanism, which location groupings share,
-and the rule that no grouping name is in the code.
+reporting", describes the mechanism, which location hierarchies share,
+and the rule that no hierarchy name is in the code.
 
 A function walking up from an item to its Items root recognizes
 `Items` or a name ending in `" Items"`; an exact match on `Items`
@@ -1032,13 +1032,13 @@ Tests (*Testing: Unit*, "Running the tests"):
 
 Per `docs/cartesian-account-linking-plan.md`, two layers:
 
-- **Hierarchy**: named groupings and values (`Beer` → `Lager`/`Ale`,
+- **Hierarchy**: named hierarchies and values (`Beer` → `Lager`/`Ale`,
   `Storage` → `Hot`/`Cold`), living under one business's own
   `Hierarchy` root — a user-extensible vocabulary of facts, never
-  hardcoded (`ensureHierarchyGrouping`/`ensureHierarchyValue`).
+  hardcoded (`ensureHierarchy`/`ensureHierarchyValue`).
 - **Product**: one node under a business's `Product` root, holding
   both **Definitions** (`defineProductShape` — an ordered chain of
-  dimension names, each paired with the Hierarchy grouping it
+  dimension names, each paired with the Hierarchy it
   represents, e.g. `[["Item","Beer"],["Storage","Storage"]]`) and
   **Instances** (`ensureProductInstance` — one specific, real
   combination, e.g. Riverside Cellars / Lager / 330ml / can / single /
@@ -1069,7 +1069,7 @@ never set `combination_ids` at all (e.g. a location's own plain
 capacity-tracking account).
 
 `getBusinessProductShapes(business)` returns every Definition a
-business has defined, each as its ordered `[dimension, grouping]`
+business has defined, each as its ordered `[dimension, hierarchy]`
 chain (read by the `getProductShapes` call, `call-dispatch/hierarchy.ts`).
 
 Barcode scanning (`climbInstanceTree`, `getCombinationByUpc`) resolves

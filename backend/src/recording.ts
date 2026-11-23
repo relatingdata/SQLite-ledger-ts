@@ -186,11 +186,11 @@ const REAL_FIELD_SOURCE_OVERRIDES: Record<string, Record<string, FieldSource>> =
     // Confirmed directly (backend/src/routes/locations.ts,
     // movementSchema + the real /:name/receive route): business, not
     // businessName; the real location name is the URL's own path
-    // segment; groupingName/storageValue are each the real, nested
+    // segment; hierarchyName/storageValue are each the real, nested
     // combination arrays' own first element.
     businessName: { from: 'body', key: 'business' },
     locationName: { from: 'params', key: 'name' },
-    groupingName: { from: 'body', key: 'combinationShape', path: [0, 0] },
+    hierarchyName: { from: 'body', key: 'combinationShape', path: [0, 0] },
     storageValue: { from: 'body', key: 'combinationValues', path: [0] },
   },
 };

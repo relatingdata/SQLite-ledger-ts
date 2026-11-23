@@ -2,13 +2,13 @@
 // for the whole router; POST/DELETE further require Administrator or
 // Bookkeeper, replicated per-function here.
 import {
-  ensureHierarchyGrouping,
+  ensureHierarchy,
   ensureHierarchyValue,
   setHierarchyParent,
   getHierarchyParent,
   getHierarchyAssignments,
   deleteHierarchyParent,
-  deleteHierarchyGrouping,
+  deleteHierarchy,
   deleteHierarchyValue,
   defineProductShape,
   getBusinessHierarchy,
@@ -19,35 +19,35 @@ import {
   asUserId,
   resolveBusinessLocationId,
   resolveHierarchyValueId,
-  checkGroupingTag,
-  GROUPING_KINDS,
-  type GroupingKind,
+  checkHierarchyTag,
+  HIERARCHY_KINDS,
+  type HierarchyKind,
 } from '../db.js';
 import { CallError, decodeShape, encodeShape, requireAuth, requireRole, row, sessionBusinessName, table, type BackendCall } from '../call-dispatch.js';
 
 export const hierarchyFunctions: Record<string, BackendCall> = {
-  // Positional args: [0] business. Flattens HierarchyGroupingWithValues[]
-  // (one level of real nesting: a grouping name plus its own values[])
-  // into one (grouping, value) table, with a sentinel row (value='', a
-  // real value name is never empty) for a grouping that has zero values
+  // Positional args: [0] business. Flattens HierarchyWithValues[]
+  // (one level of real nesting: a hierarchy name plus its own values[])
+  // into one (hierarchy, value) table, with a sentinel row (value='', a
+  // real value name is never empty) for a hierarchy that has zero values
   // yet — confirmed needed via grep of setup/hierarchy/+page.svelte,
-  // which lists groupings themselves independent of their value count,
+  // which lists hierarchies themselves independent of their value count,
   // same discipline as departments.ts's getOrgChartStructure.
   getHierarchy: (v, user) => {
     requireAuth(user);
     const [business] = v;
     if (!business) throw new CallError(400, 'business is required.');
-    const groupings = getBusinessHierarchy(asBusinessName(business));
-    const rows: { grouping: string; groups: string; value: string }[] = [];
-    for (const g of groupings) {
-      const groups = g.groups ?? '';
-      if (g.values.length === 0) rows.push({ grouping: g.grouping, groups, value: '' });
-      else for (const value of g.values) rows.push({ grouping: g.grouping, groups, value });
+    const hierarchies = getBusinessHierarchy(asBusinessName(business));
+    const rows: { hierarchy: string; of: string; value: string }[] = [];
+    for (const g of hierarchies) {
+      const of = g.of ?? '';
+      if (g.values.length === 0) rows.push({ hierarchy: g.hierarchy, of, value: '' });
+      else for (const value of g.values) rows.push({ hierarchy: g.hierarchy, of, value });
     }
-    return table(['grouping', 'groups', 'value'], rows);
+    return table(['hierarchy', 'of', 'value'], rows);
   },
   // Positional args: [0] business. Each real product shape (a real,
-  // ordered chain of [dimensionName, groupingName] pairs) is encoded via
+  // ordered chain of [dimensionName, hierarchyName] pairs) is encoded via
   // the same real, shared nested-list codec as pos.ts's
   // combinationValues/combinationShape — one row per shape, one column.
   getProductShapes: (v, user) => {
@@ -57,30 +57,30 @@ export const hierarchyFunctions: Record<string, BackendCall> = {
     const shapes = getBusinessProductShapes(asBusinessName(business));
     return table(['shape'], shapes.map((chain) => ({ shape: encodeShape(chain) })));
   },
-  // Positional args: [0] business, [1] groupingName, [2] groups (Items
-  // or Locations: what the grouping groups).
-  createHierarchyGrouping: (v, user) => {
+  // Positional args: [0] business, [1] hierarchyName, [2] of (Items or
+  // Locations: what the hierarchy is of).
+  createHierarchy: (v, user) => {
     const admin = requireRole(user, 'Administrator', 'Bookkeeper');
-    const [business, groupingName, groups] = v;
-    if (!business || !groupingName) throw new CallError(400, 'business and groupingName are both required.');
-    if (!(GROUPING_KINDS as readonly string[]).includes(groups ?? '')) throw new CallError(400, `groups must be one of ${GROUPING_KINDS.join(', ')}.`);
+    const [business, hierarchyName, of] = v;
+    if (!business || !hierarchyName) throw new CallError(400, 'business and hierarchyName are both required.');
+    if (!(HIERARCHY_KINDS as readonly string[]).includes(of ?? '')) throw new CallError(400, `of must be one of ${HIERARCHY_KINDS.join(', ')}.`);
     try {
-      const grouping = ensureHierarchyGrouping(asBusinessName(business), groupingName, asUserId(admin.id), groups as GroupingKind);
-      return row(grouping.name);
+      const hierarchy = ensureHierarchy(asBusinessName(business), hierarchyName, asUserId(admin.id), of as HierarchyKind);
+      return row(hierarchy.name);
     } catch (err) {
       if (err instanceof ValidationError) throw new CallError(409, err.message);
       throw err;
     }
   },
-  // Positional args: [0] business, [1] groupingName, [2] valueName,
+  // Positional args: [0] business, [1] hierarchyName, [2] valueName,
   // [3] parentValueName (optional).
   createHierarchyValue: (v, user) => {
     const admin = requireRole(user, 'Administrator', 'Bookkeeper');
-    const [business, groupingName, valueName, parentValueName] = v;
-    if (!business || !groupingName || !valueName) throw new CallError(400, 'business, groupingName and valueName are all required.');
+    const [business, hierarchyName, valueName, parentValueName] = v;
+    if (!business || !hierarchyName || !valueName) throw new CallError(400, 'business, hierarchyName and valueName are all required.');
     try {
-      const value = ensureHierarchyValue(asBusinessName(business), groupingName, valueName, asUserId(admin.id));
-      if (parentValueName) setHierarchyParent(valueName, groupingName, parentValueName, asUserId(admin.id));
+      const value = ensureHierarchyValue(asBusinessName(business), hierarchyName, valueName, asUserId(admin.id));
+      if (parentValueName) setHierarchyParent(valueName, hierarchyName, parentValueName, asUserId(admin.id));
       return row(value.name);
     } catch (err) {
       if (err instanceof ValidationError) throw new CallError(409, err.message);
@@ -99,7 +99,7 @@ export const hierarchyFunctions: Record<string, BackendCall> = {
       const business = sessionBusinessName();
       const entityId = business ? resolveBusinessLocationId(business, entityName) : undefined;
       const targetId = business ? resolveHierarchyValueId(business, hierarchyName, parentName) : undefined;
-      if (business) checkGroupingTag(business, hierarchyName, entityName);
+      if (business) checkHierarchyTag(business, hierarchyName, entityName);
       setHierarchyParent(entityName, hierarchyName, parentName, asUserId(admin.id), entityId, targetId);
       return row(entityName, hierarchyName, parentName);
     } catch (err) {
@@ -138,13 +138,13 @@ export const hierarchyFunctions: Record<string, BackendCall> = {
       throw err;
     }
   },
-  // Positional args: [0] business, [1] groupingName.
-  deleteHierarchyGrouping: (v, user) => {
+  // Positional args: [0] business, [1] hierarchyName.
+  deleteHierarchy: (v, user) => {
     const admin = requireRole(user, 'Administrator', 'Bookkeeper');
-    const [business, groupingName] = v;
-    if (!business || !groupingName) throw new CallError(400, 'business and groupingName are both required.');
+    const [business, hierarchyName] = v;
+    if (!business || !hierarchyName) throw new CallError(400, 'business and hierarchyName are both required.');
     try {
-      deleteHierarchyGrouping(asBusinessName(business), groupingName, asUserId(admin.id));
+      deleteHierarchy(asBusinessName(business), hierarchyName, asUserId(admin.id));
       return row();
     } catch (err) {
       if (err instanceof ValidationError) throw new CallError(409, err.message);
@@ -152,13 +152,13 @@ export const hierarchyFunctions: Record<string, BackendCall> = {
       throw err;
     }
   },
-  // Positional args: [0] business, [1] groupingName, [2] valueName.
+  // Positional args: [0] business, [1] hierarchyName, [2] valueName.
   deleteHierarchyValue: (v, user) => {
     const admin = requireRole(user, 'Administrator', 'Bookkeeper');
-    const [business, groupingName, valueName] = v;
-    if (!business || !groupingName || !valueName) throw new CallError(400, 'business, groupingName and valueName are all required.');
+    const [business, hierarchyName, valueName] = v;
+    if (!business || !hierarchyName || !valueName) throw new CallError(400, 'business, hierarchyName and valueName are all required.');
     try {
-      deleteHierarchyValue(asBusinessName(business), groupingName, valueName, asUserId(admin.id));
+      deleteHierarchyValue(asBusinessName(business), hierarchyName, valueName, asUserId(admin.id));
       return row();
     } catch (err) {
       if (err instanceof ValidationError) throw new CallError(409, err.message);
@@ -172,7 +172,7 @@ export const hierarchyFunctions: Record<string, BackendCall> = {
     const [business, dimensionsEncoded] = v;
     if (!business || !dimensionsEncoded) throw new CallError(400, 'business and dimensions are both required.');
     const dimensions = decodeShape(dimensionsEncoded);
-    if (!dimensions || dimensions.length === 0) throw new CallError(400, 'dimensions must contain at least one [dimension, grouping] pair.');
+    if (!dimensions || dimensions.length === 0) throw new CallError(400, 'dimensions must contain at least one [dimension, hierarchy] pair.');
     try {
       defineProductShape(asBusinessName(business), dimensions, asUserId(admin.id));
       return row(encodeShape(dimensions));

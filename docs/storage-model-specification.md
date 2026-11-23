@@ -430,7 +430,7 @@ provides at minimum:
 | Withdrawal fact log | the separate `entity_revoke` table | `revoked-by`, a second, non-versioned field on the box itself |
 | Withdraw (reparent under "Withdrawn") | `revokeEntity` (reparents under `Application → Revoked`) | `entity-revoke!` (reparents under a caller-supplied bucket) |
 | Withdrawal precondition: no dangling lateral references | `getEntityLinksPointingAt` | `entity-links-pointing-at` |
-| Dimension / value | a Hierarchy grouping and its values (`ensureHierarchyGrouping`/`ensureHierarchyValue`) | not yet built in the experimental mirror |
+| Dimension / value | a Hierarchy grouping and its values (`ensureHierarchy`/`ensureHierarchyValue`) | not yet built in the experimental mirror |
 | Pattern 1 (classification tag) | `setHierarchyParent` | not yet built in the experimental mirror |
 | Pattern 2, Prototype | `defineProductShape` | not yet built in the experimental mirror |
 | Pattern 2, Instance | `ensureProductInstance`, identified by a stored, flat array of the chosen values' own stable ids (`combination_ids`) — satisfying §B.4's stability requirement by construction | not yet built in the experimental mirror |

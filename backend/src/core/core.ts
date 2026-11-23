@@ -25,9 +25,9 @@ import { hashPassword } from '../password.js';
 export class Refused extends Error {}
 export class NotFound extends Error {}
 
-/** What a grouping of the business groups (docs/pm-domain-reference.md). */
-export type GroupingKind = 'Items' | 'Locations';
-export const GROUPING_KINDS: readonly GroupingKind[] = ['Items', 'Locations'];
+/** What a hierarchy of the business groups (docs/pm-domain-reference.md). */
+export type HierarchyKind = 'Items' | 'Locations';
+export const HIERARCHY_KINDS: readonly HierarchyKind[] = ['Items', 'Locations'];
 
 /** What a relation relates a thing to: text is a value, a number is another
  * entity's id, true is yes, and false or null clears the relation. */
@@ -60,7 +60,7 @@ const ENGLISH_CHART: Record<string, (string | [string, string[]])[]> = {
 
 const KINDS = [
   'Business', 'Ledger', 'Account', 'Entry', 'User', 'Role', 'Contact', 'Contact Type', 'Location', 'Location Type',
-  'Item', 'Plant', 'Skill', 'Grouping', 'Value', 'Prototype', 'Line', 'Project', 'Milestone', 'Bank Account', 'Word',
+  'Item', 'Plant', 'Skill', 'Hierarchy', 'Value', 'Prototype', 'Line', 'Project', 'Milestone', 'Bank Account', 'Word',
 ];
 
 const ROLES = ['Administrator', 'Security Administrator', 'Bookkeeper', 'Accountant', 'Read-Only', 'Developer'];
@@ -281,7 +281,7 @@ export class Core {
 export interface Product {
   item?: Node;
   location?: Node;
-  /** Further dimensions: grouping name to value entity. */
+  /** Further dimensions: hierarchy name to value entity. */
   extra?: Record<string, Node>;
 }
 
@@ -476,34 +476,34 @@ export class Instance {
 
   // --- hierarchy -------------------------------------------------------------
 
-  /** A grouping of the business; one of its own records what it groups,
+  /** A hierarchy of the business; one of its own records what it is of,
    * its Items or its Locations (docs/pm-domain-reference.md). */
-  grouping(name: string, groups?: GroupingKind): Node {
-    const grouping = this.thingIn('Hierarchy', name, 'Grouping');
-    if (groups) {
-      const recorded = this.groupingKind(name);
-      if (recorded && recorded !== groups) throw new Refused(`"${name}" groups ${recorded.toLowerCase()}, not ${groups.toLowerCase()}.`);
-      if (!recorded) this.core.relate(grouping.id, 'Groups', this.branch(groups).id, this.id);
+  hierarchy(name: string, of?: HierarchyKind): Node {
+    const hierarchy = this.thingIn('Hierarchy', name, 'Hierarchy');
+    if (of) {
+      const recorded = this.hierarchyKind(name);
+      if (recorded && recorded !== of) throw new Refused(`"${name}" is a hierarchy of ${recorded.toLowerCase()}, not of ${of.toLowerCase()}.`);
+      if (!recorded) this.core.relate(hierarchy.id, 'Hierarchy Of', this.branch(of).id, this.id);
     }
-    return grouping;
+    return hierarchy;
   }
 
-  /** What a grouping groups, if it records it. */
-  groupingKind(name: string): GroupingKind | undefined {
-    const grouping = this.existing('Hierarchy', name);
-    const target = grouping && this.core.related(grouping.id, 'Groups');
-    return target && (GROUPING_KINDS as readonly string[]).includes(target.name) ? (target.name as GroupingKind) : undefined;
+  /** What a hierarchy groups, if it records it. */
+  hierarchyKind(name: string): HierarchyKind | undefined {
+    const hierarchy = this.existing('Hierarchy', name);
+    const target = hierarchy && this.core.related(hierarchy.id, 'Hierarchy Of');
+    return target && (HIERARCHY_KINDS as readonly string[]).includes(target.name) ? (target.name as HierarchyKind) : undefined;
   }
 
-  groupValue(grouping: string, value: string): Node {
-    return this.core.thing(value, this.grouping(grouping).id, 'Value', this.id);
+  groupValue(hierarchy: string, value: string): Node {
+    return this.core.thing(value, this.hierarchy(hierarchy).id, 'Value', this.id);
   }
 
-  /** A value of an existing grouping: the business creates its groupings
-   * itself, saying what each groups. */
-  valueOf(grouping: string, value: string): Node {
-    const node = this.existing('Hierarchy', grouping);
-    if (!node) throw new NotFound(`No grouping named "${grouping}".`);
+  /** A value of an existing hierarchy: the business creates its hierarchies
+   * itself, saying what each is of. */
+  valueOf(hierarchy: string, value: string): Node {
+    const node = this.existing('Hierarchy', hierarchy);
+    if (!node) throw new NotFound(`No hierarchy named "${hierarchy}".`);
     return this.core.thing(value, node.id, 'Value', this.id);
   }
 
@@ -578,7 +578,7 @@ export class Instance {
     const extra = product.extra ?? {};
     const own = this.core.value(account, 'Dimensions') ?? '';
     if (own !== Object.keys(extra).sort().join(',')) return false;
-    return Object.entries(extra).every(([grouping, value]) => this.core.related(account, grouping)?.id === value.id);
+    return Object.entries(extra).every(([hierarchy, value]) => this.core.related(account, hierarchy)?.id === value.id);
   }
 
   private productName(product: Product): string {
@@ -602,7 +602,7 @@ export class Instance {
     if (product.location) this.core.relate(account.id, 'Location', product.location.id, this.id);
     const extra = product.extra ?? {};
     if (Object.keys(extra).length > 0) this.core.relate(account.id, 'Dimensions', Object.keys(extra).sort().join(','), this.id);
-    for (const [grouping, value] of Object.entries(extra)) this.core.relate(account.id, grouping, value.id, this.id);
+    for (const [hierarchy, value] of Object.entries(extra)) this.core.relate(account.id, hierarchy, value.id, this.id);
     if (unit) this.core.relate(account.id, 'Unit', unit, this.id);
     return account;
   }

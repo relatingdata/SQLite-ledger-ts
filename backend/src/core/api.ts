@@ -24,7 +24,7 @@ import { fileURLToPath } from 'url';
 import { mkdirSync, rmSync } from 'fs';
 import { randomBytes } from 'crypto';
 import { splitCsvLine, csvField, unescapeAscii, writeCsv } from '../../../shared-fixtures/csv.js';
-import { Core, Instance, Refused, NotFound, GLOBAL_BUSINESS, GROUPING_KINDS, type GroupingKind } from './core.js';
+import { Core, Instance, Refused, NotFound, GLOBAL_BUSINESS, HIERARCHY_KINDS, type HierarchyKind } from './core.js';
 import * as ops from './ops.js';
 import * as reports from './reports.js';
 import { verifyPassword } from '../password.js';
@@ -131,8 +131,8 @@ function list(text: string | undefined): string[] {
   return (text ?? '').split(',').map((r) => r.trim()).filter(Boolean);
 }
 
-function ensureValue(i: Instance, grouping: string, value: string): void {
-  i.store.tx(() => i.valueOf(grouping, value));
+function ensureValue(i: Instance, hierarchy: string, value: string): void {
+  i.store.tx(() => i.valueOf(hierarchy, value));
 }
 
 function sale(a: Args, s: Session): void {
@@ -269,29 +269,29 @@ export const CORE_CALLS: Record<string, CoreCall> = {
   tagSkillSimple: { params: ['contactName', 'skillName', 'rateMinorPerHour'], run: (a, s) => ops.tagSkill(inst(a, s), a.contactName, a.skillName, Number(a.rateMinorPerHour)) },
   createUncategorizedItem: { params: ['businessName', 'itemName'], run: (a, s) => void ops.createItem(inst(a, s), a.itemName) },
   createItemInGroup: {
-    params: ['businessName', 'itemName', 'groupingName', 'valueName'],
+    params: ['businessName', 'itemName', 'hierarchyName', 'valueName'],
     run: (a, s) => {
       const i = inst(a, s);
       i.store.tx(() => {
         ops.createItem(i, a.itemName);
-        ops.setGroup(i, a.itemName, a.groupingName, a.valueName);
+        ops.setGroup(i, a.itemName, a.hierarchyName, a.valueName);
       });
     },
   },
-  createItemGroupValue: { params: ['businessName', 'groupingName', 'valueName'], run: (a, s) => ensureValue(inst(a, s), a.groupingName, a.valueName) },
-  addItemGroupValueViaStructurePopup: { params: ['businessName', 'groupingName', 'valueName'], run: (a, s) => ensureValue(inst(a, s), a.groupingName, a.valueName) },
-  addLocationGroupValueViaStructurePopup: { params: ['businessName', 'groupingName', 'valueName'], run: (a, s) => ensureValue(inst(a, s), a.groupingName, a.valueName) },
-  createHierarchyGroupingSimple: {
-    params: ['businessName', 'groupingName', 'groups'],
+  createItemGroupValue: { params: ['businessName', 'hierarchyName', 'valueName'], run: (a, s) => ensureValue(inst(a, s), a.hierarchyName, a.valueName) },
+  addItemGroupValueViaStructurePopup: { params: ['businessName', 'hierarchyName', 'valueName'], run: (a, s) => ensureValue(inst(a, s), a.hierarchyName, a.valueName) },
+  addLocationGroupValueViaStructurePopup: { params: ['businessName', 'hierarchyName', 'valueName'], run: (a, s) => ensureValue(inst(a, s), a.hierarchyName, a.valueName) },
+  createHierarchySimple: {
+    params: ['businessName', 'hierarchyName', 'of'],
     run: (a, s) => {
       const i = inst(a, s);
-      if (!(GROUPING_KINDS as readonly string[]).includes(a.groups)) throw new Refused(`groups must be one of ${GROUPING_KINDS.join(', ')}.`);
-      i.store.tx(() => i.grouping(a.groupingName, a.groups as GroupingKind));
+      if (!(HIERARCHY_KINDS as readonly string[]).includes(a.of)) throw new Refused(`of must be one of ${HIERARCHY_KINDS.join(', ')}.`);
+      i.store.tx(() => i.hierarchy(a.hierarchyName, a.of as HierarchyKind));
     },
   },
-  createHierarchyValueSimple: { params: ['businessName', 'groupingName', 'valueName'], run: (a, s) => ensureValue(inst(a, s), a.groupingName, a.valueName) },
-  tagItemHierarchy: { params: ['businessName', 'itemName', 'groupingName', 'valueName'], run: (a, s) => ops.setGroup(inst(a, s), a.itemName, a.groupingName, a.valueName) },
-  setLocationGroup: { params: ['businessName', 'locationName', 'groupingName', 'valueName'], run: (a, s) => ops.setGroup(inst(a, s), a.locationName, a.groupingName, a.valueName) },
+  createHierarchyValueSimple: { params: ['businessName', 'hierarchyName', 'valueName'], run: (a, s) => ensureValue(inst(a, s), a.hierarchyName, a.valueName) },
+  tagItemHierarchy: { params: ['businessName', 'itemName', 'hierarchyName', 'valueName'], run: (a, s) => ops.setGroup(inst(a, s), a.itemName, a.hierarchyName, a.valueName) },
+  setLocationGroup: { params: ['businessName', 'locationName', 'hierarchyName', 'valueName'], run: (a, s) => ops.setGroup(inst(a, s), a.locationName, a.hierarchyName, a.valueName) },
   addDepartmentViaStructurePopup: { params: ['businessName', 'departmentName'], run: (a, s) => void ops.createDepartment(inst(a, s), a.departmentName) },
   deleteDepartmentViaStructurePopup: { params: ['businessName', 'departmentName'], run: (a, s) => ops.deleteDepartment(inst(a, s), a.departmentName) },
   assignEmployeeDepartmentViaStructurePopup: {
@@ -423,23 +423,23 @@ export const CORE_CALLS: Record<string, CoreCall> = {
     run: (a, s) => void ops.dispatchStock(inst(a, s), a.reference, a.itemName, a.locationName, Number(a.quantity)),
   },
   receiveStockWithCombination: {
-    params: ['businessName', 'itemName', 'locationName', 'quantity', 'groupingName', 'storageValue', 'ledger'],
+    params: ['businessName', 'itemName', 'locationName', 'quantity', 'hierarchyName', 'storageValue', 'ledger'],
     run: (a, s) => {
       const i = inst(a, s);
       i.store.tx(() => {
-        const value = i.valueOf(a.groupingName, a.storageValue);
+        const value = i.valueOf(a.hierarchyName, a.storageValue);
         const reference = i.freeReference(`RECEIVE-${a.itemName}-${a.storageValue}`);
-        ops.receiveStock(i, reference, a.itemName, a.locationName, Number(a.quantity), undefined, { [a.groupingName]: value });
+        ops.receiveStock(i, reference, a.itemName, a.locationName, Number(a.quantity), undefined, { [a.hierarchyName]: value });
       });
     },
   },
   openContainer: {
-    params: ['businessName', 'locationName', 'itemName', 'containerValue', 'cartonsOpened', 'unitValue', 'unitsProduced', 'ledger', 'groupingName'],
+    params: ['businessName', 'locationName', 'itemName', 'containerValue', 'cartonsOpened', 'unitValue', 'unitsProduced', 'ledger', 'hierarchyName'],
     run: (a, s) => {
       const i = inst(a, s);
       i.store.tx(() => {
-        i.valueOf(a.groupingName, a.containerValue);
-        i.valueOf(a.groupingName, a.unitValue);
+        i.valueOf(a.hierarchyName, a.containerValue);
+        i.valueOf(a.hierarchyName, a.unitValue);
         ops.openContainer(i, a.locationName, a.itemName, Number(a.cartonsOpened), Number(a.unitsProduced));
       });
     },
@@ -559,7 +559,7 @@ export const CORE_CALLS: Record<string, CoreCall> = {
       return { row: [source.priceMinor, source.packageQuantity] };
     },
   },
-  getGroup: { params: ['businessName', 'thingName', 'groupingName'], run: (a, s) => ({ row: [ops.groupOf(inst(a, s), a.thingName, a.groupingName) ?? ''] }) },
+  getGroup: { params: ['businessName', 'thingName', 'hierarchyName'], run: (a, s) => ({ row: [ops.groupOf(inst(a, s), a.thingName, a.hierarchyName) ?? ''] }) },
   getTranslation: {
     params: ['concept', 'language'],
     run: (a, s) => {

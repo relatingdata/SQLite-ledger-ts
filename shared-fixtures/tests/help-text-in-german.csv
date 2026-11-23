@@ -5,8 +5,8 @@
 # session to German, and reads each page.
 "Include","../common/business.csv"
 "Set Translation","Every entity in the system, in hierarchy order \u{2014} the whole application (chart of accounts, business reports, languages, vocabulary, businesses/ledgers) is one tree, walked here directly from <code>parent_id</code>.","German","Jede Entit\u{e4}t im System, in Hierarchie-Reihenfolge \u{2014} die ganze Anwendung ist ein Baum, hier direkt \u{fc}ber <code>parent_id</code> durchlaufen."
-"Add Vocabulary Word","Every posted sale for {NAME} in the selected period, summed by a grouping of the items, and line by line.","Vocabulary"
-"Set Translation","Every posted sale for {NAME} in the selected period, summed by a grouping of the items, and line by line.","German","Jeder gebuchte Verkauf f\u{fc}r {NAME} im gew\u{e4}hlten Zeitraum."
+"Add Vocabulary Word","Every posted sale for {NAME} in the selected period, summed by a hierarchy of the items, and line by line.","Vocabulary"
+"Set Translation","Every posted sale for {NAME} in the selected period, summed by a hierarchy of the items, and line by line.","German","Jeder gebuchte Verkauf f\u{fc}r {NAME} im gew\u{e4}hlten Zeitraum."
 "Set Translation","For {NAME} only.","German","Nur f\u{fc}r {NAME}."
 "Set Translation","The real billing event \u{2014} this is what creates AR and recognizes revenue, distinct from a Dispatch Note/Goods Receipt which only moves stock. Credit Notes and Debit Memos use the same mechanism in reverse.","German","Das eigentliche Rechnungsereignis \u{2014} es erzeugt AR und erfasst Ertrag."
 "Set Translation","The real billing event \u{2014} this is what creates AP and recognizes expense, distinct from a Dispatch Note/Goods Receipt which only moves stock. Credit Notes and Debit Memos use the same mechanism in reverse.","German","Das eigentliche Rechnungsereignis \u{2014} es erzeugt AP und erfasst Aufwand."

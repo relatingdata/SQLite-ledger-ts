@@ -1,7 +1,7 @@
 # The stock movement report shows purchases, transfers and sales,
-# grouped by a location grouping (here Division), location (transfers
-# by where they went) or an item grouping (here Category). Transfers
-# have no location grouping of their own.
+# grouped by a location hierarchy (here Division), location (transfers
+# by where they went) or an item hierarchy (here Category). Transfers
+# have no location hierarchy of their own.
 "Include","../common/business.csv"
 "Include","../common/two-locations-in-divisions.csv"
 "Set","category","Beer"

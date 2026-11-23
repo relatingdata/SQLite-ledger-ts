@@ -573,10 +573,10 @@ export function getStorageSpaceReport(): StorageSpaceLocationGroup[] {
   // EntityDriver; only the resulting leaf-id-to-(location,kind) map
   // crosses back into SQL, which otherwise stays a plain
   // journal/journal_line/account query. The final (location, currency,
-  // kind) grouping — which can combine more than one leaf account — is
+  // kind) hierarchy — which can combine more than one leaf account — is
   // done here in TS instead of SQL's GROUP BY, with the `!= 0` filter
   // applied after that combination, exactly matching the original's own
-  // grouping granularity (not a per-account one).
+  // hierarchy granularity (not a per-account one).
   const leafContext = new Map<number, { location: string; kind: string }>();
   for (const capacity of exactly('Storage Capacity', Entity.findAll({ nameSuffix: 'Storage Capacity' }))) {
     if (capacity.parent_id === null) continue;
@@ -682,9 +682,9 @@ export function getInventoryListingByLocation(business?: BusinessName, hierarchy
 
 export interface StockMovementRow {
   item: string;
-  /** The row's value in each of the business's item groupings and, for a
-   * receipt or a sale, location groupings; null where it has none. */
-  groups: Record<string, string | null>;
+  /** The row's value in each of the business's item hierarchies and, for a
+   * receipt or a sale, location hierarchies; null where it has none. */
+  hierarchyValues: Record<string, string | null>;
   quantity: number;
   date: string;
 }
@@ -707,16 +707,16 @@ export interface StockMovementReport {
   sales: StockSaleRow[];
 }
 
-/** A row's value in each of the business's item groupings and, given a
- * location, its location groupings (docs/pm-domain-reference.md). */
-function rowGroupsOf(business: string): (item: string, location?: string) => Record<string, string | null> {
-  const groupings = getBusinessHierarchy(asBusinessName(business)).filter((g) => g.groups);
-  const assignments = new Map(groupings.filter((g) => g.groups === 'Items').map((g) => [g.grouping, getHierarchyAssignments(g.grouping)]));
+/** A row's value in each of the business's item hierarchies and, given a
+ * location, its location hierarchies (docs/pm-domain-reference.md). */
+function rowHierarchyValuesOf(business: string): (item: string, location?: string) => Record<string, string | null> {
+  const hierarchies = getBusinessHierarchy(asBusinessName(business)).filter((g) => g.of);
+  const assignments = new Map(hierarchies.filter((g) => g.of === 'Items').map((g) => [g.hierarchy, getHierarchyAssignments(g.hierarchy)]));
   return (item, location) =>
     Object.fromEntries(
-      groupings
-        .filter((g) => g.groups === 'Items' || location !== undefined)
-        .map((g) => [g.grouping, g.groups === 'Items' ? (assignments.get(g.grouping)![item] ?? null) : (getHierarchyGroupForLocation(location!, g.grouping) ?? null)])
+      hierarchies
+        .filter((g) => g.of === 'Items' || location !== undefined)
+        .map((g) => [g.hierarchy, g.of === 'Items' ? (assignments.get(g.hierarchy)![item] ?? null) : (getHierarchyGroupForLocation(location!, g.hierarchy) ?? null)])
     );
 }
 
@@ -746,7 +746,7 @@ export function getStockMovementReport(business: string, ledgerName: string, fro
 
   const dateFilter = `AND (? IS NULL OR j.transdate >= ?) AND (? IS NULL OR j.transdate <= ?)`;
   const dateParams = [fromDate ?? null, fromDate ?? null, toDate ?? null, toDate ?? null];
-  const groupsOf = rowGroupsOf(business);
+  const valuesOf = rowHierarchyValuesOf(business);
   const vendors = allPreferredProviders();
 
   // Each quantity-movement line hits a real, provisioned per-location
@@ -792,7 +792,7 @@ export function getStockMovementReport(business: string, ledgerName: string, fro
       if (!outLeg || !inLeg) continue;
       transfers.push({
         item: inLeg.item,
-        groups: groupsOf(inLeg.item),
+        hierarchyValues: valuesOf(inLeg.item),
         quantity: inLeg.quantity,
         date: inLeg.date,
         from_location: outLeg.location,
@@ -803,7 +803,7 @@ export function getStockMovementReport(business: string, ledgerName: string, fro
         if (r.quantity > 0) {
           receipts.push({
             item: r.item,
-            groups: groupsOf(r.item, r.location),
+            hierarchyValues: valuesOf(r.item, r.location),
             quantity: r.quantity,
             date: r.date,
             location: r.location,
@@ -845,7 +845,7 @@ export function getStockMovementReport(business: string, ledgerName: string, fro
 
   const sales: StockSaleRow[] = saleRows.map((r) => ({
     item: r.item,
-    groups: groupsOf(r.item, r.location),
+    hierarchyValues: valuesOf(r.item, r.location),
     quantity: -r.quantity,
     date: r.date,
     location: r.location,

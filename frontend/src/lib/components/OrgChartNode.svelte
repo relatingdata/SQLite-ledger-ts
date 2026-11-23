@@ -61,7 +61,7 @@
     onCancelReassignManager: () => void;
     selectedKey?: string | null;
     onSelect?: (node: OrgChartBox) => void;
-    /** The name of the location grouping the group boxes are values of. */
+    /** The name of the location hierarchy the group boxes are values of. */
     groupLabel?: string;
   } = $props();
 

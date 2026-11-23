@@ -411,51 +411,51 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
     const userId = db.asUserId(1);
     db.createItem(a.itemName, 'Items', userId, a.businessName as any);
   },
-  // The Items catalog: a value added to the item grouping the page shows,
+  // The Items catalog: a value added to the item hierarchy the page shows,
   // and an item created in a value of it (docs/pm-domain-reference.md,
-  // "Screens choose among the business's groupings").
+  // "Screens choose among the business's hierarchies").
   createItemGroupValue: (a) => {
     const userId = db.asUserId(1);
-    db.ensureHierarchyValue(a.businessName as any, a.groupingName, a.valueName, userId);
+    db.ensureHierarchyValue(a.businessName as any, a.hierarchyName, a.valueName, userId);
   },
   createItemInGroup: (a) => {
     const userId = db.asUserId(1);
-    db.checkGroupingTag(a.businessName, a.groupingName, a.itemName);
+    db.checkHierarchyTag(a.businessName, a.hierarchyName, a.itemName);
     db.createItem(a.itemName, 'Items', userId, a.businessName as any);
-    db.setHierarchyParent(a.itemName, a.groupingName, a.valueName, userId);
+    db.setHierarchyParent(a.itemName, a.hierarchyName, a.valueName, userId);
   },
-  // An existing item tagged with a value of an item grouping (API path
+  // An existing item tagged with a value of an item hierarchy (API path
   // only: no screen tags an existing item yet).
   tagItemHierarchy: (a) => {
     const userId = db.asUserId(1);
-    db.checkGroupingTag(a.businessName, a.groupingName, a.itemName);
-    db.ensureHierarchyValue(a.businessName as any, a.groupingName, a.valueName, userId);
-    db.setHierarchyParent(a.itemName, a.groupingName, a.valueName, userId);
+    db.checkHierarchyTag(a.businessName, a.hierarchyName, a.itemName);
+    db.ensureHierarchyValue(a.businessName as any, a.hierarchyName, a.valueName, userId);
+    db.setHierarchyParent(a.itemName, a.hierarchyName, a.valueName, userId);
   },
-  // A grouping of the business's own: groups says what it groups.
-  createHierarchyGroupingSimple: (a) => {
+  // A hierarchy of the business's own: groups says what it is of.
+  createHierarchySimple: (a) => {
     const userId = db.asUserId(1);
-    db.ensureHierarchyGrouping(a.businessName as any, a.groupingName, userId, a.groups as db.GroupingKind);
+    db.ensureHierarchy(a.businessName as any, a.hierarchyName, userId, a.of as db.HierarchyKind);
   },
   createHierarchyValueSimple: (a) => {
     const userId = db.asUserId(1);
-    db.ensureHierarchyValue(a.businessName as any, a.groupingName, a.valueName, userId);
+    db.ensureHierarchyValue(a.businessName as any, a.hierarchyName, a.valueName, userId);
   },
   // Business Structure popup (frontend/src/lib/components/BusinessStructurePopup.svelte):
-  // a value added to the location or item grouping a step shows, and a
-  // location moved to a value of a location grouping ("Move…").
+  // a value added to the location or item hierarchy a step shows, and a
+  // location moved to a value of a location hierarchy ("Move…").
   addLocationGroupValueViaStructurePopup: (a) => {
     const userId = db.asUserId(1);
-    db.ensureHierarchyValue(a.businessName as any, a.groupingName, a.valueName, userId);
+    db.ensureHierarchyValue(a.businessName as any, a.hierarchyName, a.valueName, userId);
   },
   addItemGroupValueViaStructurePopup: (a) => {
     const userId = db.asUserId(1);
-    db.ensureHierarchyValue(a.businessName as any, a.groupingName, a.valueName, userId);
+    db.ensureHierarchyValue(a.businessName as any, a.hierarchyName, a.valueName, userId);
   },
   setLocationGroup: (a) => {
     const userId = db.asUserId(1);
-    db.checkGroupingTag(a.businessName, a.groupingName, a.locationName);
-    db.setHierarchyParent(a.locationName, a.groupingName, a.valueName, userId);
+    db.checkHierarchyTag(a.businessName, a.hierarchyName, a.locationName);
+    db.setHierarchyParent(a.locationName, a.hierarchyName, a.valueName, userId);
   },
   // Business Structure popup's Org Chart tab, "+ New Department" — one
   // click, the same db.createAndConfigureDepartment the dedicated route
@@ -496,20 +496,20 @@ export const API_REGISTRY: Record<string, (args: Record<string, string>) => unkn
   },
   receiveStockWithCombination: (a) => {
     const userId = db.asUserId(1);
-    db.ensureHierarchyValue(a.businessName as any, a.groupingName, a.storageValue, userId);
-    db.defineProductShape(a.businessName as any, [[a.groupingName, a.groupingName]], userId);
+    db.ensureHierarchyValue(a.businessName as any, a.hierarchyName, a.storageValue, userId);
+    db.defineProductShape(a.businessName as any, [[a.hierarchyName, a.hierarchyName]], userId);
     db.receiveItems(
       a.businessName as any, db.asLedgerName(a.ledger || 'Actual'), `RECEIVE-${a.itemName}-${a.storageValue}`,
       a.itemName as any, a.locationName as any, Number(a.quantity), userId, undefined,
-      [a.storageValue], [[a.groupingName, a.groupingName]]
+      [a.storageValue], [[a.hierarchyName, a.hierarchyName]]
     );
   },
   // Opening a carton is two independent space movements, not a "conversion"; scoped to one location.
   openContainer: (a) => {
     const userId = db.asUserId(1);
-    const shape: [string, string][] = [[a.groupingName, a.groupingName]];
-    db.ensureHierarchyValue(a.businessName as any, a.groupingName, a.containerValue, userId);
-    db.ensureHierarchyValue(a.businessName as any, a.groupingName, a.unitValue, userId);
+    const shape: [string, string][] = [[a.hierarchyName, a.hierarchyName]];
+    db.ensureHierarchyValue(a.businessName as any, a.hierarchyName, a.containerValue, userId);
+    db.ensureHierarchyValue(a.businessName as any, a.hierarchyName, a.unitValue, userId);
     db.defineProductShape(a.businessName as any, shape, userId);
     db.openStorageContainer(
       a.businessName as any, db.asLedgerName(a.ledger || 'Actual'), a.locationName as any, a.itemName as any, shape,
@@ -723,7 +723,7 @@ export const VERIFY_REGISTRY: Record<string, (args: Record<string, string>) => b
   // - Highland Single Malt (tagged Whiskey) is only ever received into
   // storage in this tutorial, never sold, so it posts no real
   // Sales/COGS leaf for any axis to resolve at all.
-  // The value valueName of the inner grouping holds the item itemName.
+  // The value valueName of the inner hierarchy holds the item itemName.
   profit_and_loss_group_has_item: (a) => {
     const nodes = getProfitAndLossByAxis(a.businessName as any, db.asLedgerName(a.ledger), a.fromDate || undefined, a.toDate || undefined, a.innerAxis, 'Item');
     const group = nodes.find((n) => n.key === a.valueName);
@@ -756,7 +756,7 @@ export const VERIFY_REGISTRY: Record<string, (args: Record<string, string>) => b
   entity_named_exists: (a) => db.getEntityTree().some((e) => e.name === a.name),
   // Confirms a Business Structure popup "Move…" re-tagged the location:
   // the same getHierarchyParent read the popup renders its tree from.
-  location_in_hierarchy_group: (a) => db.getHierarchyParent(a.locationName, a.groupingName) === a.valueName,
+  location_in_hierarchy_group: (a) => db.getHierarchyParent(a.locationName, a.hierarchyName) === a.valueName,
 };
 
 /** A minimal, real CSV field parser handling real, quoted fields with
@@ -798,7 +798,7 @@ function splitDataAndComments(lines: { line: string; fileLine: number }[]): { li
   return out;
 }
 
-/** Loads the screen registry, grouping each screen's fields by position. */
+/** Loads the screen registry, hierarchy each screen's fields by position. */
 export function loadScreens(path: string): Map<string, Screen> {
   const lines = readCsvLines(path).map((l) => l.line);
   const headers = parseCsvLine(lines[0]);

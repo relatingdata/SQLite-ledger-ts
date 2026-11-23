@@ -152,10 +152,10 @@
 # dedicated Locations screen, has no capacity fields of its own -
 # capacity can still be set afterwards on the Locations page itself).
 "Add Location Via Structure Popup","${business}","Head Office","Adelaide","Warehouse"
-# The business names its grouping of locations, Division, in the
-# popup's "+ New grouping", and gives it its first value, "Adelaide
+# The business names its hierarchy of locations, Division, in the
+# popup's "+ New Hierarchy", and gives it its first value, "Adelaide
 # Metro", with "+ Division" (docs/user-manual-ch2-configuration.md).
-"Create Location Grouping Via Structure Popup","${business}","Division","Locations"
+"Create Location Hierarchy Via Structure Popup","${business}","Division","Locations"
 "Add Location Group Value Via Structure Popup","${business}","Division","Adelaide Metro"
 # Repositioning, not structural reparenting: Main Street Cellar
 # already existed with no division at all, and is now tagged into
@@ -166,11 +166,11 @@
 "Move Location To Group","${business}","Main Street Cellar","Division","Adelaide Metro"
 # Head Office joins the same division, the same way.
 "Move Location To Group","${business}","Head Office","Division","Adelaide Metro"
-# One more growth step through the popup: on its Item Groupings step,
-# the business names its grouping of items, Category, and adds the
+# One more growth step through the popup: on its Item Hierarchies step,
+# the business names its hierarchy of items, Category, and adds the
 # value "Whiskey", so that Highland Single Malt's creation below can
 # select it directly.
-"Create Item Grouping Via Structure Popup","${business}","Category","Items"
+"Create Item Hierarchy Via Structure Popup","${business}","Category","Items"
 "Add Item Group Value Via Structure Popup","${business}","Category","Whiskey"
 # Chapter 3's Business Setup: the business's first employee, at the
 # warehouse, to receive and later staff the retail counter.
@@ -213,12 +213,12 @@
 # category.
 "Create Item In Group","${business}","Highland Single Malt 700ml","Category","Whiskey"
 # "330ml"/"700ml" and "Glass Bottle" are not just name suffixes - Size
-# and Packaging are two further, real, generic Hierarchy groupings
-# (the exact, same ensureHierarchyGrouping/ensureHierarchyValue/
+# and Packaging are two further, real, generic Hierarchies
+# (the exact, same ensureHierarchy/ensureHierarchyValue/
 # setHierarchyParent mechanism Category/Division/Storage already use
 # above), tagged onto each item the same way. "Packaging," not
 # "Container" - "Container" already names a real, different, existing
-# grouping below (Open Container's own Carton/Bottle unit-of-measure
+# hierarchy below (Open Container's own Carton/Bottle unit-of-measure
 # form), and reusing that name for a genuinely different concept
 # (glass vs. aluminium) would be exactly the kind of name collision
 # this codebase has already found and fixed once before (see
@@ -232,8 +232,8 @@
 # has - a genuinely different case). Values are supplied in OSASCOMP
 # order (Size before Material) so a combined display name, were one
 # built by joining them, would already read in natural English order.
-"Create Hierarchy Grouping","${business}","Size","Items"
-"Create Hierarchy Grouping","${business}","Packaging","Items"
+"Create Hierarchy","${business}","Size","Items"
+"Create Hierarchy","${business}","Packaging","Items"
 "Tag Item Hierarchy","${business}","Amber Ale 330ml","Size","330ml"
 "Tag Item Hierarchy","${business}","Amber Ale 330ml","Packaging","Glass Bottle"
 "Tag Item Hierarchy","${business}","Highland Single Malt 700ml","Size","700ml"
@@ -293,17 +293,17 @@
 # ordinary internal stock movement.
 #
 # A real, UI-driven Receive Into Storage/Open Container can only ever
-# pick a real grouping/value that already, visibly exists in its own
+# pick a real hierarchy/value that already, visibly exists in its own
 # dropdown - never create one implicitly, the way the api-path-only
 # registry functions still lazily do for their own, direct, backend-
 # to-backend callers. These two pairs of setup steps are that real,
 # honest precondition, done through the real Hierarchies screen
 # itself, exactly as a real person would before ever reaching for
 # either screen below.
-"Create Hierarchy Grouping","${business}","Storage Area","Items"
-"Create Hierarchy Value","${business}","Storage Area","Secure"
-"Receive Into Storage","${business}","Highland Single Malt 700ml","Main Street Cellar","24","Storage Area","Secure","Actual 2027-28"
-"Create Hierarchy Grouping","${business}","Container","Items"
+"Create Hierarchy","${business}","Storage","Items"
+"Create Hierarchy Value","${business}","Storage","Secure"
+"Receive Into Storage","${business}","Highland Single Malt 700ml","Main Street Cellar","24","Storage","Secure","Actual 2027-28"
+"Create Hierarchy","${business}","Container","Items"
 "Create Hierarchy Value","${business}","Container","Carton"
 "Create Hierarchy Value","${business}","Container","Bottle"
 "Open Container","${business}","Main Street Cellar","Highland Single Malt 700ml","Carton","1","Bottle","24","Actual 2027-28","Container"
@@ -314,7 +314,7 @@
 "Check Trial Balance Balanced","${business}","Actual 2027-28",""
 "Check Profit And Loss Positive","${business}","Actual 2027-28","",""
 # The real, live Profit and Loss screen, grouped by Location (left at its
-# own default outer grouping) and then by Category - Beer's own real
+# own default outer hierarchy) and then by Category - Beer's own real
 # row appears, carrying Amber Ale's real Sales/COGS activity at Main
 # Street Cellar. A genuine Category-outer/Item-inner crossing (Beer
 # containing Amber Ale directly) is never offered by this screen at

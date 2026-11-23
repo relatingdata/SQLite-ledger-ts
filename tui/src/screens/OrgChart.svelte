@@ -16,7 +16,7 @@
   same-named account node by name); a Division is a pure Hierarchy
   reporting tag with no account of its own - same distinction the web
   app's own code comments document. Deleting a Division value here
-  only removes the tag/grouping value, never a Location.
+  only removes the tag/hierarchy value, never a Location.
 -->
 <script lang="ts">
   import { Box, Text } from 'sveltui';
@@ -26,7 +26,7 @@
     ApiError,
     asBusinessName,
     createDepartment,
-    createHierarchyGrouping,
+    createHierarchy,
     createHierarchyValue,
     createLocation,
     deleteDepartment,
@@ -36,7 +36,7 @@
     deleteHierarchyValue,
     deleteLocation,
     getHierarchy,
-    firstGroupingOf,
+    firstHierarchyOf,
     getHierarchyTag,
     getLocationTypes,
     getOrgChartStructure,
@@ -70,8 +70,8 @@
     | 'set-department'
     | 'set-manager';
 
-  // The business's first location grouping; until it has one, the first
-  // value added names the grouping instead.
+  // The business's first location hierarchy; until it has one, the first
+  // value added names the hierarchy instead.
   let DIVISION = $state('');
   const UNASSIGNED_DEPT = '__unassigned_dept__';
   const UNASSIGNED_DIV = '__unassigned_div__';
@@ -118,13 +118,13 @@
     try {
       const biz = asBusinessName(businessName);
       const [chart, locs, hierarchy] = await Promise.all([getOrgChartStructure(businessName), listLocations(biz), getHierarchy(businessName)]);
-      DIVISION = firstGroupingOf(hierarchy, 'Locations');
+      DIVISION = firstHierarchyOf(hierarchy, 'Locations');
       const tags = DIVISION ? await Promise.all(locs.map((l) => getHierarchyTag(l.name, DIVISION).catch(() => ({ parentName: null })))) : locs.map(() => ({ parentName: null }));
       const divisionByLocation = Object.fromEntries(locs.map((l, i) => [l.name, tags[i]!.parentName]));
       orgChart = chart;
       locations = locs;
       locationDivision = divisionByLocation;
-      divisionValues = hierarchy.find((h) => h.grouping === DIVISION)?.values ?? [];
+      divisionValues = hierarchy.find((h) => h.hierarchy === DIVISION)?.values ?? [];
       error = null;
       if (resync?.employeeName) selectedEmployee = findEmployee(chart, resync.employeeName);
       if (resync?.locationName) selectedLocation = locs.find((l) => l.name === resync.locationName) ?? null;
@@ -317,7 +317,7 @@
     busy = true; error = null;
     try {
       if (DIVISION) await createHierarchyValue(businessName, DIVISION, name);
-      else await createHierarchyGrouping(businessName, name, 'Locations');
+      else await createHierarchy(businessName, name, 'Locations');
       await refresh();
       view = 'buckets';
     } catch (err) {

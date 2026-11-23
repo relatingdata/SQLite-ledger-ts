@@ -159,7 +159,7 @@ Item Categories, one step over, carries the real **Beer** and **Whiskey** catego
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ```
 
-And Other Hierarchies carries the real OSASCOMP-style groupings this tutorial's items are tagged by --- Container, Packaging, Size, Storage:
+And Other Hierarchies carries the real OSASCOMP-style hierarchies this tutorial's items are tagged by --- Container, Packaging, Size, Storage:
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────╮

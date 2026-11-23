@@ -42,7 +42,7 @@
 // parent_id/relation_id a row references is already a known entity by the
 // time that row is replayed: the real system itself could only ever have
 // inserted a row referencing a parent/relation that already existed, so
-// row_id order already IS a valid dependency order. (Grouping by entity_id
+// row_id order already IS a valid dependency order. (Hierarchy by entity_id
 // instead was considered and rejected — it breaks the moment an entity is
 // later reparented under an entity created AFTER it, which does happen in
 // this schema, e.g. chart-of-accounts restructuring.)

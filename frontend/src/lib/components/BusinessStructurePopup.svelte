@@ -16,15 +16,15 @@
     listLocations,
     getLocationTypes,
     getHierarchy,
-    groupingsOf,
+    hierarchiesOf,
     getHierarchyTag,
     getHierarchyAssignments,
     setHierarchyTag,
     deleteHierarchyTag,
-    createHierarchyGrouping,
+    createHierarchy,
     createHierarchyValue,
     deleteLocation,
-    deleteHierarchyGrouping,
+    deleteHierarchy,
     deleteHierarchyValue,
     listDepartments,
     createDepartment,
@@ -36,8 +36,8 @@
     deleteEmployeeManager,
     ApiError,
     type LocationRecord,
-    type HierarchyGroupingWithValues,
-    type GroupingKind,
+    type HierarchyWithValues,
+    type HierarchyKind,
     type DepartmentRecord,
     type OrgChartStructure,
     type OrgChartEmployee,
@@ -56,44 +56,44 @@
   type Tab = 'structure' | 'categories' | 'hierarchies';
   const STEPS: { id: Tab; title: string; blurb: string }[] = [
     { id: 'structure', title: 'Org Chart', blurb: 'Where this business physically operates, and who works there — locations and their groups, departments, and employees, all in one chart. Add as many as you like, or skip this entirely and come back to it later from the Locations and Employees screens.' },
-    { id: 'categories', title: 'Item Groupings', blurb: 'An optional way to group what this business sells or stocks, under a name of its own. Plenty of businesses never need one — items can always stay ungrouped.' },
-    { id: 'hierarchies', title: 'Other Hierarchies', blurb: 'Every grouping of this business, of its items or of its locations — region, bottle size, storage area. Most businesses never need more than one of each.' },
+    { id: 'categories', title: 'Item Hierarchies', blurb: 'An optional reporting hierarchy of what this business sells or stocks, under a name of its own. Plenty of businesses never need one — items can always stay unassigned.' },
+    { id: 'hierarchies', title: 'Other Hierarchies', blurb: 'Every reporting hierarchy of this business, of its items or of its locations — region, bottle size, storage. Most businesses never need more than one of each.' },
   ];
   let stepIndex = $state(0);
   let activeTab: Tab = $derived(STEPS[stepIndex].id);
 
-  // The location grouping the org chart shows and the item grouping the
+  // The location hierarchy the org chart shows and the item hierarchy the
   // second step shows, each chosen among the business's own (the first
-  // created by default); no grouping is named in the code — see
-  // docs/pm-domain-reference.md, "No grouping name is in the code".
-  let allGroupings: HierarchyGroupingWithValues[] = $state([]);
-  let locationGroupings = $derived(groupingsOf(allGroupings, 'Locations'));
-  let itemGroupings = $derived(groupingsOf(allGroupings, 'Items'));
-  let locationGrouping = $state('');
-  let itemGrouping = $state('');
-  function settleGroupings(h: HierarchyGroupingWithValues[]) {
-    allGroupings = h;
-    const ofLocations = groupingsOf(h, 'Locations');
-    const ofItems = groupingsOf(h, 'Items');
-    if (!ofLocations.some((g) => g.grouping === locationGrouping)) locationGrouping = ofLocations[0]?.grouping ?? '';
-    if (!ofItems.some((g) => g.grouping === itemGrouping)) itemGrouping = ofItems[0]?.grouping ?? '';
+  // created by default); no hierarchy is named in the code — see
+  // docs/pm-domain-reference.md, "No hierarchy name is in the code".
+  let allHierarchies: HierarchyWithValues[] = $state([]);
+  let locationHierarchies = $derived(hierarchiesOf(allHierarchies, 'Locations'));
+  let itemHierarchies = $derived(hierarchiesOf(allHierarchies, 'Items'));
+  let locationHierarchy = $state('');
+  let itemHierarchy = $state('');
+  function settleHierarchies(h: HierarchyWithValues[]) {
+    allHierarchies = h;
+    const ofLocations = hierarchiesOf(h, 'Locations');
+    const ofItems = hierarchiesOf(h, 'Items');
+    if (!ofLocations.some((g) => g.hierarchy === locationHierarchy)) locationHierarchy = ofLocations[0]?.hierarchy ?? '';
+    if (!ofItems.some((g) => g.hierarchy === itemHierarchy)) itemHierarchy = ofItems[0]?.hierarchy ?? '';
   }
-  // A new grouping of the given kind, named in the step that shows it.
-  let namingGroupingOf: GroupingKind | null = $state(null);
-  let namedGrouping = $state('');
-  async function submitNamedGrouping() {
-    if (!namedGrouping.trim() || !namingGroupingOf) return;
-    const kind = namingGroupingOf;
+  // A new hierarchy of the given kind, named in the step that shows it.
+  let namingHierarchyOf: HierarchyKind | null = $state(null);
+  let namedHierarchy = $state('');
+  async function submitNamedHierarchy() {
+    if (!namedHierarchy.trim() || !namingHierarchyOf) return;
+    const kind = namingHierarchyOf;
     try {
-      await createHierarchyGrouping(business, namedGrouping.trim(), kind);
-      if (kind === 'Locations') locationGrouping = namedGrouping.trim();
-      else itemGrouping = namedGrouping.trim();
-      namedGrouping = '';
-      namingGroupingOf = null;
+      await createHierarchy(business, namedHierarchy.trim(), kind);
+      if (kind === 'Locations') locationHierarchy = namedHierarchy.trim();
+      else itemHierarchy = namedHierarchy.trim();
+      namedHierarchy = '';
+      namingHierarchyOf = null;
       if (kind === 'Locations') await loadStructureTab();
       else await loadCategoriesTab();
     } catch (e) {
-      const message = e instanceof ApiError ? e.message : 'Could not create the grouping.';
+      const message = e instanceof ApiError ? e.message : 'Could not create the hierarchy.';
       if (kind === 'Locations') structureError = message;
       else categoriesError = message;
     }
@@ -150,10 +150,10 @@
       locationTypes = types;
       departments = depts;
       orgChart = chart;
-      settleGroupings(hierarchy);
-      divisionValues = hierarchy.find((h: HierarchyGroupingWithValues) => h.grouping === locationGrouping)?.values ?? [];
-      const grouping = locationGrouping;
-      const tags = grouping ? await Promise.all(locs.map((l) => getHierarchyTag(l.name, grouping).catch(() => ({ parentName: null })))) : locs.map(() => ({ parentName: null }));
+      settleHierarchies(hierarchy);
+      divisionValues = hierarchy.find((h: HierarchyWithValues) => h.hierarchy === locationHierarchy)?.values ?? [];
+      const chosen = locationHierarchy;
+      const tags = chosen ? await Promise.all(locs.map((l) => getHierarchyTag(l.name, chosen).catch(() => ({ parentName: null })))) : locs.map(() => ({ parentName: null }));
       locationDivision = Object.fromEntries(locs.map((l, i) => [l.name, tags[i].parentName]));
     } catch (e) {
       structureError = e instanceof ApiError ? e.message : 'Could not load the org chart.';
@@ -171,7 +171,7 @@
     for (const v of divisionValues.slice().sort((a, b) => a.localeCompare(b))) {
       nodes.push({ key: `div:${v}`, parentId: null, label: v, kind: 'division', canMove: false });
     }
-    nodes.push({ key: UNASSIGNED_KEY, parentId: null, label: 'Ungrouped', kind: 'unassigned' });
+    nodes.push({ key: UNASSIGNED_KEY, parentId: null, label: 'Unassigned', kind: 'unassigned' });
     for (const l of locations.slice().sort((a, b) => a.name.localeCompare(b.name))) {
       const d = locationDivision[l.name] ?? null;
       nodes.push({ key: `loc:${l.name}`, parentId: d ? `div:${d}` : UNASSIGNED_KEY, label: l.name, kind: 'location', canMove: true });
@@ -247,9 +247,9 @@
   let addingDivisionValue = $state(false);
   let newDivisionValueName = $state('');
   async function submitNewDivisionValue() {
-    if (!newDivisionValueName.trim() || !locationGrouping) return;
+    if (!newDivisionValueName.trim() || !locationHierarchy) return;
     try {
-      await createHierarchyValue(business, locationGrouping, newDivisionValueName.trim());
+      await createHierarchyValue(business, locationHierarchy, newDivisionValueName.trim());
       newDivisionValueName = '';
       addingDivisionValue = false;
       await loadStructureTab();
@@ -285,7 +285,7 @@
   let moveStructureOptions: { value: string | null; label: string }[] = $derived.by(() => {
     const node = movingStructureKey ? findStructureNode(movingStructureKey) : undefined;
     if (node?.kind === 'location') {
-      return [{ value: null, label: translations.current['Ungrouped'] ?? 'Ungrouped' }, ...divisionValues.map((v) => ({ value: v, label: v }))];
+      return [{ value: null, label: translations.current['Unassigned'] ?? 'Unassigned' }, ...divisionValues.map((v) => ({ value: v, label: v }))];
     }
     if (node?.kind === 'employee') {
       return [
@@ -302,8 +302,8 @@
   async function confirmMoveStructureNode(node: OrgChartBox, destination: string | null) {
     try {
       if (node.kind === 'location') {
-        if (destination) await setHierarchyTag(node.label, locationGrouping, destination);
-        else await deleteHierarchyTag(node.label, locationGrouping);
+        if (destination) await setHierarchyTag(node.label, locationHierarchy, destination);
+        else await deleteHierarchyTag(node.label, locationHierarchy);
       } else if (node.kind === 'employee') {
         if (destination) await setEmployeeDepartment(node.label, destination);
         else await deleteEmployeeDepartment(node.label);
@@ -346,7 +346,7 @@
   }
 
   // Delete, off the shared selection. A real Location/Department deletes
-  // itself; a synthetic Division grouping (not the "Unassigned"
+  // itself; a synthetic Division hierarchy (not the "Unassigned"
   // placeholder, which has no real entity at all) deletes that Division
   // value via the same name-based hierarchy wrapper the Hierarchies tab
   // below uses directly. An Employee box is never created or deleted from
@@ -367,7 +367,7 @@
     } else if (node.kind === 'division' ) {
       if (!confirm(`Delete "${translations.current[node.label] ?? node.label}"? This cannot be undone.`)) return;
       try {
-        await deleteHierarchyValue(business, locationGrouping, node.label);
+        await deleteHierarchyValue(business, locationHierarchy, node.label);
         selectedKey = null;
         await loadStructureTab();
       } catch (e) {
@@ -392,12 +392,12 @@
   // real, lightweight entity registered under the business's
   // Hierarchy registry, never a position in the real Items catalog
   // tree. A value can itself be tagged under a further value of the
-  // same grouping to any depth (the same generic value-to-value
+  // same hierarchy to any depth (the same generic value-to-value
   // nesting createHierarchyValue's own parentValueName already
   // supports for every hierarchy) — rendered here as a tree since a
-  // business typically has only this one Category grouping to
+  // business typically has only this one Category hierarchy to
   // browse, unlike Other Hierarchies below which lists several
-  // groupings side by side.
+  // hierarchies side by side.
   // ---------------------------------------------------------------
   let categoryValues: string[] = $state([]);
   let categoryParents: Record<string, string> = $state({});
@@ -409,11 +409,11 @@
     categoriesError = '';
     try {
       const h = await getHierarchy(business);
-      settleGroupings(h);
-      categoryValues = h.find((g) => g.grouping === itemGrouping)?.values ?? [];
-      categoryParents = itemGrouping ? await getHierarchyAssignments(itemGrouping) : {};
+      settleHierarchies(h);
+      categoryValues = h.find((g) => g.hierarchy === itemHierarchy)?.values ?? [];
+      categoryParents = itemHierarchy ? await getHierarchyAssignments(itemHierarchy) : {};
     } catch (e) {
-      categoriesError = e instanceof ApiError ? e.message : 'Could not load the item groupings.';
+      categoriesError = e instanceof ApiError ? e.message : 'Could not load the item hierarchies.';
     } finally {
       categoriesLoading = false;
     }
@@ -453,10 +453,10 @@
     newCategoryName = '';
   }
   async function submitNewCategory() {
-    if (!newCategoryName.trim() || !addingCategoryUnder || !itemGrouping) return;
+    if (!newCategoryName.trim() || !addingCategoryUnder || !itemHierarchy) return;
     try {
       const parentValueName = addingCategoryUnder === 'root' ? undefined : (addingCategoryUnder as StructureNode).name;
-      await createHierarchyValue(business, itemGrouping, newCategoryName.trim(), parentValueName);
+      await createHierarchyValue(business, itemHierarchy, newCategoryName.trim(), parentValueName);
       addingCategoryUnder = null;
       newCategoryName = '';
       await loadCategoriesTab();
@@ -487,8 +487,8 @@
   }
   async function confirmMoveCategory(node: StructureNode, destination: string | null) {
     try {
-      if (destination) await setHierarchyTag(node.name, itemGrouping, destination);
-      else await deleteHierarchyTag(node.name, itemGrouping);
+      if (destination) await setHierarchyTag(node.name, itemHierarchy, destination);
+      else await deleteHierarchyTag(node.name, itemHierarchy);
       movingCategoryKey = null;
       await loadCategoriesTab();
     } catch (e) {
@@ -502,7 +502,7 @@
     if (!node || node.kind !== 'category') return;
     if (!confirm(`Delete "${translations.current[node.name] ?? node.name}"? This cannot be undone.`)) return;
     try {
-      await deleteHierarchyValue(business, itemGrouping, node.name);
+      await deleteHierarchyValue(business, itemHierarchy, node.name);
       selectedKey = null;
       await loadCategoriesTab();
     } catch (e) {
@@ -511,9 +511,9 @@
   }
 
   // ---------------------------------------------------------------
-  // Other Hierarchies: every grouping of the business, saying what it groups
+  // Other Hierarchies: every hierarchy of the business, saying what it is of
   // ---------------------------------------------------------------
-  let hierarchy: HierarchyGroupingWithValues[] = $state([]);
+  let hierarchy: HierarchyWithValues[] = $state([]);
   let hierarchiesError = $state('');
   let hierarchiesLoading = $state(true);
 
@@ -521,7 +521,7 @@
     hierarchiesLoading = true;
     hierarchiesError = '';
     try {
-      hierarchy = (await getHierarchy(business)).filter((h) => h.groups);
+      hierarchy = (await getHierarchy(business)).filter((h) => h.of);
     } catch (e) {
       hierarchiesError = e instanceof ApiError ? e.message : 'Could not load hierarchies.';
     } finally {
@@ -532,50 +532,50 @@
   let hierarchiesTree: StructureNode[] = $derived.by(() =>
     hierarchy
       .slice()
-      .sort((a, b) => a.grouping.localeCompare(b.grouping))
+      .sort((a, b) => a.hierarchy.localeCompare(b.hierarchy))
       .map((h) => ({
-        key: `grp:${h.grouping}`,
-        name: h.grouping,
-        label: `${translations.current[h.grouping] ?? h.grouping} (${translations.current[h.groups ?? ''] ?? h.groups})`,
+        key: `grp:${h.hierarchy}`,
+        name: h.hierarchy,
+        label: `${translations.current[h.hierarchy] ?? h.hierarchy} (${translations.current[h.of ?? ''] ?? h.of})`,
         kind: 'hierarchy-value',
         canAddChild: true,
         children: h.values
           .slice()
           .sort((a, b) => a.localeCompare(b))
-          .map((v) => ({ key: `grp:${h.grouping}:${v}`, name: v, kind: 'hierarchy-value', children: [] }) as StructureNode),
+          .map((v) => ({ key: `grp:${h.hierarchy}:${v}`, name: v, kind: 'hierarchy-value', children: [] }) as StructureNode),
       }))
   );
 
-  let addingGrouping = $state(false);
-  let newGroupingName = $state('');
-  let newGroupingGroups: GroupingKind = $state('Items');
-  async function submitNewGrouping() {
-    if (!newGroupingName.trim()) return;
+  let addingHierarchy = $state(false);
+  let newHierarchyName = $state('');
+  let newHierarchyOf: HierarchyKind = $state('Items');
+  async function submitNewHierarchy() {
+    if (!newHierarchyName.trim()) return;
     try {
-      await createHierarchyGrouping(business, newGroupingName.trim(), newGroupingGroups);
-      newGroupingName = '';
-      addingGrouping = false;
+      await createHierarchy(business, newHierarchyName.trim(), newHierarchyOf);
+      newHierarchyName = '';
+      addingHierarchy = false;
       await loadHierarchiesTab();
     } catch (e) {
       hierarchiesError = e instanceof ApiError ? e.message : 'Could not create hierarchy.';
     }
   }
 
-  let addingValueUnderGrouping: string | null = $state(null);
+  let addingValueUnderHierarchy: string | null = $state(null);
   let newHierarchyValueName = $state('');
   function onAddChildHierarchiesTab(node: StructureNode) {
-    // Only grouping-level nodes (no ':' in their key beyond "grp:<name>")
-    // offer "+ Add" here, to add a new value under that grouping.
+    // Only hierarchy-level nodes (no ':' in their key beyond "grp:<name>")
+    // offer "+ Add" here, to add a new value under that hierarchy.
     if (node.key.split(':').length === 2) {
-      addingValueUnderGrouping = node.name;
+      addingValueUnderHierarchy = node.name;
       newHierarchyValueName = '';
     }
   }
   async function submitNewHierarchyValue() {
-    if (!newHierarchyValueName.trim() || !addingValueUnderGrouping) return;
+    if (!newHierarchyValueName.trim() || !addingValueUnderHierarchy) return;
     try {
-      await createHierarchyValue(business, addingValueUnderGrouping, newHierarchyValueName.trim());
-      addingValueUnderGrouping = null;
+      await createHierarchyValue(business, addingValueUnderHierarchy, newHierarchyValueName.trim());
+      addingValueUnderHierarchy = null;
       newHierarchyValueName = '';
       await loadHierarchiesTab();
     } catch (e) {
@@ -583,7 +583,7 @@
     }
   }
 
-  // Keys are 'grp:<name>' for a grouping, 'grp:<name>:<value>' for a value
+  // Keys are 'grp:<name>' for a hierarchy, 'grp:<name>:<value>' for a value
   // under it — same convention onAddChildHierarchiesTab above already uses.
   async function deleteSelectedHierarchyNode() {
     if (!selectedKey) return;
@@ -592,7 +592,7 @@
     const parts = node.key.split(':');
     if (!confirm(`Delete "${translations.current[node.name] ?? node.name}"? This cannot be undone.`)) return;
     try {
-      if (parts.length === 2) await deleteHierarchyGrouping(business, node.name);
+      if (parts.length === 2) await deleteHierarchy(business, node.name);
       else await deleteHierarchyValue(business, parts[1], node.name);
       selectedKey = null;
       await loadHierarchiesTab();
@@ -643,22 +643,22 @@
   loadStructureTab();
 </script>
 
-{#snippet groupingBar(kind: GroupingKind, list: HierarchyGroupingWithValues[], chosen: string, choose: (g: string) => void)}
-  <div class="grouping-bar">
+{#snippet hierarchyBar(kind: HierarchyKind, list: HierarchyWithValues[], chosen: string, choose: (g: string) => void)}
+  <div class="hierarchy-bar">
     {#if list.length > 0}
-      <span>{translations.current['Grouping'] ?? 'Grouping'}:</span>
-      {#each list as g (g.grouping)}
-        <button type="button" class="btn secondary small grouping-choice" class:active={g.grouping === chosen} onclick={() => choose(g.grouping)}>{translations.current[g.grouping] ?? g.grouping}</button>
+      <span>{translations.current['Hierarchy'] ?? 'Hierarchy'}:</span>
+      {#each list as g (g.hierarchy)}
+        <button type="button" class="btn secondary small hierarchy-choice" class:active={g.hierarchy === chosen} onclick={() => choose(g.hierarchy)}>{translations.current[g.hierarchy] ?? g.hierarchy}</button>
       {/each}
     {/if}
-    {#if namingGroupingOf === kind}
+    {#if namingHierarchyOf === kind}
       <div class="inline-form">
-        <input bind:value={namedGrouping} placeholder={translations.current['Name of the grouping'] ?? 'Name of the grouping'} />
-        <button type="button" class="btn" onclick={submitNamedGrouping}>{translations.current['Create'] ?? 'Create'}</button>
-        <button type="button" class="btn secondary" onclick={() => (namingGroupingOf = null)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
+        <input bind:value={namedHierarchy} placeholder={translations.current['Name of the hierarchy'] ?? 'Name of the hierarchy'} />
+        <button type="button" class="btn" onclick={submitNamedHierarchy}>{translations.current['Create'] ?? 'Create'}</button>
+        <button type="button" class="btn secondary" onclick={() => (namingHierarchyOf = null)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
       </div>
     {:else}
-      <button type="button" class="link-button" onclick={() => { namingGroupingOf = kind; namedGrouping = ''; }}>+ {translations.current['New grouping'] ?? 'New grouping'}</button>
+      <button type="button" class="link-button" onclick={() => { namingHierarchyOf = kind; namedHierarchy = ''; }}>+ {translations.current['New Hierarchy'] ?? 'New Hierarchy'}</button>
     {/if}
   </div>
 {/snippet}
@@ -692,10 +692,10 @@
         {#if structureLoading}
           <p>{translations.current['Loading…'] ?? 'Loading…'}</p>
         {:else}
-          {@render groupingBar('Locations', locationGroupings, locationGrouping, (g) => { locationGrouping = g; loadStructureTab(); })}
+          {@render hierarchyBar('Locations', locationHierarchies, locationHierarchy, (g) => { locationHierarchy = g; loadStructureTab(); })}
           <div class="org-chart">
             <OrgChartNode
-              groupLabel={locationGrouping}
+              groupLabel={locationHierarchy}
               nodes={orgChartNodes}
               onAddChild={onAddChildStructureTab}
               onStartMove={startMoveStructureNode}
@@ -717,8 +717,8 @@
             {#if !addingLocationForm}
               <button type="button" class="btn" onclick={() => (addingLocationForm = true)}>+ {translations.current['New Location'] ?? 'New Location'}</button>
             {/if}
-            {#if !addingDivisionValue && locationGrouping}
-              <button type="button" class="btn secondary add-group-value" onclick={() => (addingDivisionValue = true)}>+ {translations.current[locationGrouping] ?? locationGrouping}</button>
+            {#if !addingDivisionValue && locationHierarchy}
+              <button type="button" class="btn secondary add-group-value" onclick={() => (addingDivisionValue = true)}>+ {translations.current[locationHierarchy] ?? locationHierarchy}</button>
             {/if}
             {#if !addingDepartmentForm}
               <button type="button" class="btn secondary" onclick={() => (addingDepartmentForm = true)}>+ {translations.current['New Department'] ?? 'New Department'}</button>
@@ -747,14 +747,14 @@
         {#if categoriesLoading}
           <p>{translations.current['Loading…'] ?? 'Loading…'}</p>
         {:else}
-          {@render groupingBar('Items', itemGroupings, itemGrouping, (g) => { itemGrouping = g; loadCategoriesTab(); })}
+          {@render hierarchyBar('Items', itemHierarchies, itemHierarchy, (g) => { itemHierarchy = g; loadCategoriesTab(); })}
           <div class="tree">
             {#each categoryTree as node (node.key)}
               <StructureTreeNode {node} onAddChild={onAddChildCategoriesTab} onStartMove={startMoveCategory} movingKey={movingCategoryKey} moveOptions={moveCategoryOptions} onConfirmMove={confirmMoveCategory} onCancelMove={() => (movingCategoryKey = null)} {selectedKey} onSelect={selectNode} />
             {/each}
           </div>
           <p class="keyboard-hint">{translations.current['Select a group, then press Delete to remove it.'] ?? 'Select a group, then press Delete to remove it.'}</p>
-          {#if itemGrouping}
+          {#if itemHierarchy}
             <div class="tab-actions">
               <button type="button" class="btn add-top-level-value" onclick={addTopLevelCategory}>+ {translations.current['New top-level value'] ?? 'New top-level value'}</button>
             </div>
@@ -772,34 +772,34 @@
         {#if hierarchiesLoading}
           <p>{translations.current['Loading…'] ?? 'Loading…'}</p>
         {:else}
-          <p class="field-note">{translations.current['Every grouping your business reports by, of its items or of its locations — region, bottle size, storage area.'] ?? 'Every grouping your business reports by, of its items or of its locations — region, bottle size, storage area.'}</p>
+          <p class="field-note">{translations.current['Every reporting hierarchy of your business, of its items or of its locations — region, bottle size, storage.'] ?? 'Every reporting hierarchy of your business, of its items or of its locations — region, bottle size, storage.'}</p>
           <div class="tree">
             {#each hierarchiesTree as node (node.key)}
               <StructureTreeNode {node} onAddChild={onAddChildHierarchiesTab} onStartMove={() => {}} movingKey={null} moveOptions={[]} onConfirmMove={() => {}} onCancelMove={() => {}} {selectedKey} onSelect={selectNode} />
             {/each}
           </div>
-          <p class="keyboard-hint">{translations.current['Select a grouping or value, then press Delete to remove it.'] ?? 'Select a grouping or value, then press Delete to remove it.'}</p>
+          <p class="keyboard-hint">{translations.current['Select a hierarchy or value, then press Delete to remove it.'] ?? 'Select a hierarchy or value, then press Delete to remove it.'}</p>
           <div class="tab-actions">
-            {#if !addingGrouping}
-              <button type="button" class="btn" onclick={() => (addingGrouping = true)}>+ {translations.current['New Hierarchy'] ?? 'New Hierarchy'}</button>
+            {#if !addingHierarchy}
+              <button type="button" class="btn" onclick={() => (addingHierarchy = true)}>+ {translations.current['New Hierarchy'] ?? 'New Hierarchy'}</button>
             {/if}
           </div>
-          {#if addingGrouping}
+          {#if addingHierarchy}
             <div class="inline-form">
-              <input bind:value={newGroupingName} placeholder={translations.current['Hierarchy name, e.g. Storage'] ?? 'Hierarchy name, e.g. Storage'} />
-              <select name="groups" bind:value={newGroupingGroups}>
-                <option value="Items">{translations.current['Groups items'] ?? 'Groups items'}</option>
-                <option value="Locations">{translations.current['Groups locations'] ?? 'Groups locations'}</option>
+              <input bind:value={newHierarchyName} placeholder={translations.current['Hierarchy name, e.g. Storage'] ?? 'Hierarchy name, e.g. Storage'} />
+              <select name="of" bind:value={newHierarchyOf}>
+                <option value="Items">{translations.current['Of items'] ?? 'Of items'}</option>
+                <option value="Locations">{translations.current['Of locations'] ?? 'Of locations'}</option>
               </select>
-              <button type="button" class="btn" onclick={submitNewGrouping}>{translations.current['Create'] ?? 'Create'}</button>
-              <button type="button" class="btn secondary" onclick={() => (addingGrouping = false)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
+              <button type="button" class="btn" onclick={submitNewHierarchy}>{translations.current['Create'] ?? 'Create'}</button>
+              <button type="button" class="btn secondary" onclick={() => (addingHierarchy = false)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
             </div>
           {/if}
-          {#if addingValueUnderGrouping}
+          {#if addingValueUnderHierarchy}
             <div class="inline-form">
               <input bind:value={newHierarchyValueName} placeholder={translations.current['Value name, e.g. Secure'] ?? 'Value name, e.g. Secure'} />
               <button type="button" class="btn" onclick={submitNewHierarchyValue}>{translations.current['Create'] ?? 'Create'}</button>
-              <button type="button" class="btn secondary" onclick={() => (addingValueUnderGrouping = null)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
+              <button type="button" class="btn secondary" onclick={() => (addingValueUnderHierarchy = null)}>{translations.current['Cancel'] ?? 'Cancel'}</button>
             </div>
           {/if}
         {/if}
@@ -817,14 +817,14 @@
 </div>
 
 <style>
-  .grouping-bar {
+  .hierarchy-bar {
     display: flex;
     align-items: center;
     gap: 0.5rem;
     flex-wrap: wrap;
     margin-bottom: 0.6rem;
   }
-  .grouping-choice.active {
+  .hierarchy-choice.active {
     background: var(--brass-dark, #7a5c2e);
     color: white;
   }

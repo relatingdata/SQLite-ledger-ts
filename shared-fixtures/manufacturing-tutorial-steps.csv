@@ -510,12 +510,12 @@
 # A third real location - the actual production floor, distinct from
 # both the raw-material warehouse and the finished-goods warehouse.
 "Create Location","${business}","Factory","Adelaide","Warehouse","",""
-# A location grouping the business calls Division, with two values -
+# A location hierarchy the business calls Division, with two values -
 # the warehousing locations grouped apart from the production floor -
 # named and used through the Business Structure popup's "+ New
-# grouping", "+ Division" and "Move..." actions, as in the Retail
+# hierarchy", "+ Division" and "Move..." actions, as in the Retail
 # tutorial.
-"Create Location Grouping Via Structure Popup","${business}","Division","Locations"
+"Create Location Hierarchy Via Structure Popup","${business}","Division","Locations"
 "Add Location Group Value Via Structure Popup","${business}","Division","Production"
 "Add Location Group Value Via Structure Popup","${business}","Division","Warehousing"
 "Move Location To Group","${business}","Raw Materials Store","Division","Warehousing"
@@ -623,15 +623,15 @@
 "Check Bom Components Recorded","Timber Stile","1"
 "Set Bom Component","Timber Rail","${business}","Timber Length (6.1m)","0.2","ea"
 "Check Bom Components Recorded","Timber Rail","1"
-# An item grouping the business calls Category, with five values, and
+# An item hierarchy the business calls Category, with five values, and
 # every item (the 23 above, plus the 2 new bulk lengths) tagged into
-# one - via the Business Structure popup's "+ New grouping" and "+ New
+# one - via the Business Structure popup's "+ New Hierarchy" and "+ New
 # top-level value" actions, then the generic Tag Item Hierarchy action
 # (data-kind, no UI selectors yet - the same, documented exception
 # the earlier feasibility check already found and flagged) for each
 # item, since there is no dedicated UI control for tagging an
 # EXISTING item into a value after its own creation.
-"Create Item Grouping Via Structure Popup","${business}","Category","Items"
+"Create Item Hierarchy Via Structure Popup","${business}","Category","Items"
 "Add Item Group Value Via Structure Popup","${business}","Category","Raw Materials"
 "Add Item Group Value Via Structure Popup","${business}","Category","Hardware & Fittings"
 "Add Item Group Value Via Structure Popup","${business}","Category","Bulk Lengths"
@@ -665,7 +665,7 @@
 # A real Other Hierarchy - 'Process' - the production stage each item
 # belongs to, independent of (coarser than) the eight Departments'
 # own workshop-level granularity.
-"Create Hierarchy Grouping","${business}","Process","Items"
+"Create Hierarchy","${business}","Process","Items"
 "Create Hierarchy Value","${business}","Process","Cutting"
 "Create Hierarchy Value","${business}","Process","Glazing"
 "Create Hierarchy Value","${business}","Process","Framing & Lock Fitting"

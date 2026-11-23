@@ -196,7 +196,7 @@ location with stock, item then location, a page at a time (`limit`,
 business.
 
 **`getInventoryListingByLocation`** is the same, grouped by location,
-each tagged with its value in the location grouping `hierarchyName`
+each tagged with its value in the location hierarchy `hierarchyName`
 asks for (`group` is `null` when none is asked). It
 is not paged: there are few locations. `business` is optional and falls
 back to the session's, as for `setItemLocationLevelDetails` above.
@@ -207,9 +207,9 @@ position) and `getLocationCapacityStatus` take no `business`, so two
 businesses with an item and a location of the same names could read
 each other's figures. This is an open gap.
 
-**`rowGroupsOf`/`allPreferredProviders`** (private) read every
-item's value in each item grouping (one `getHierarchyAssignments` per
-grouping) or its preferred vendor in one query each, so a report of
+**`rowHierarchyValuesOf`/`allPreferredProviders`** (private) read every
+item's value in each item hierarchy (one `getHierarchyAssignments` per
+hierarchy) or its preferred vendor in one query each, so a report of
 thousands of rows makes no query per row (per row took about 4 seconds
 for a month).
 
@@ -219,10 +219,10 @@ quantity accounts (`<item> — <location> — Qty`) in the date range. A
 journal with lines at two locations is a transfer, from the one whose
 count fell to the one whose count rose; a journal at one location is a
 receipt when the quantity is positive and a sale when negative. Each
-row carries its preferred vendor and `groups`: its value in each of the
-business's item groupings and, for a receipt or a sale, in each of its
-location groupings (null where it has none; a transfer, between two
-locations, has only its item groupings). Sales for the range are read
+row carries its preferred vendor and `hierarchyValues`: its value in each of the
+business's item hierarchies and, for a receipt or a sale, in each of its
+location hierarchies (null where it has none; a transfer, between two
+locations, has only its item hierarchies). Sales for the range are read
 once, keyed by invoice reference and Sales account (`Sales - X
 (Bottle)` is read as `X`).
 
@@ -232,7 +232,7 @@ Tests (*Testing: Unit*, "Running the tests"):
 - "getInventoryListingByLocation: groups the same real stock data by real location, tagging each with its real group where one exists" (`backend/test/db.test.ts`)
 - "stock-listing-by-division" (`shared-fixtures/tests/stock-listing-by-division.csv`)
 - "stock-listing-over-capacity" (`shared-fixtures/tests/stock-listing-over-capacity.csv`)
-- "stock-movement-by-grouping" (`shared-fixtures/tests/stock-movement-by-grouping.csv`)
+- "stock-movement-by-hierarchy" (`shared-fixtures/tests/stock-movement-by-hierarchy.csv`)
 
 ## The Storage Space Report
 

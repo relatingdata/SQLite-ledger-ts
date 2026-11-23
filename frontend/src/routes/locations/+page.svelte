@@ -2,7 +2,7 @@
   // Locations setup and storage actions — see
   // docs/pm-frontend-reference.md for the full design.
   import { onMount } from 'svelte';
-  import { getEntityTree, listLocations, saveLocation, createLocation, deleteLocation, createEntity, asBusinessName, asLedgerName, asAccountName, ApiError, getLocationTypes, createLocationType, getLocationCurrencies, nominateLocationCurrency, getHierarchy, convertStorageSpace, resolveOpenContainerAccounts, stageLine, postJournalEntry, type EntityNode, type LocationRecord, type HierarchyGroupingWithValues } from '$lib/api';
+  import { getEntityTree, listLocations, saveLocation, createLocation, deleteLocation, createEntity, asBusinessName, asLedgerName, asAccountName, ApiError, getLocationTypes, createLocationType, getLocationCurrencies, nominateLocationCurrency, getHierarchy, convertStorageSpace, resolveOpenContainerAccounts, stageLine, postJournalEntry, type EntityNode, type LocationRecord, type HierarchyWithValues } from '$lib/api';
   import { translations } from '$lib/state.svelte';
   import { session } from '$lib/state.svelte';
   import { openContainerLines, freshReference } from '$lib/canned-journal';
@@ -54,15 +54,15 @@
   let addingLocationType = $state(false);
 
   // Storage combinations reuse the Hierarchy/Product mechanism — see docs/pm-frontend-reference.md.
-  let hierarchyGroupings: HierarchyGroupingWithValues[] = $state([]);
+  let hierarchies: HierarchyWithValues[] = $state([]);
   let openContainerItem = $state('');
-  let openContainerGrouping = $state('');
+  let openContainerHierarchy = $state('');
   let openContainerFrom = $state('');
   let openContainerTo = $state('');
   let openContainerCartonsOpened = $state('1');
   let openContainerUnitsProduced = $state('');
   let openingContainer = $state(false);
-  let convertGrouping = $state('');
+  let convertHierarchy = $state('');
   let convertFrom = $state('');
   let convertTo = $state('');
   let convertQuantity = $state('');
@@ -71,7 +71,7 @@
   let storageActionError = $state('');
 
   async function doOpenContainer() {
-    if (!session.current?.businessName || !selectedName || !openContainerItem || !openContainerGrouping || !openContainerFrom || !openContainerTo) return;
+    if (!session.current?.businessName || !selectedName || !openContainerItem || !openContainerHierarchy || !openContainerFrom || !openContainerTo) return;
     openingContainer = true;
     storageActionError = '';
     storageActionMessage = '';
@@ -79,7 +79,7 @@
       // Canned account selection via openContainerLines — see docs/pm-frontend-reference.md.
       const business = asBusinessName(session.current.businessName);
       const ledger = asLedgerName(session.current.ledgerName);
-      const definitionDimensions: [string, string][] = [[openContainerGrouping, openContainerGrouping]];
+      const definitionDimensions: [string, string][] = [[openContainerHierarchy, openContainerHierarchy]];
       const cartonsOpened = Number(openContainerCartonsOpened) || 1;
       const unitsProduced = Number(openContainerUnitsProduced) || 0;
       const resolved = await resolveOpenContainerAccounts({
@@ -129,7 +129,7 @@
   }
 
   async function doConvertStorage() {
-    if (!session.current?.businessName || !convertGrouping || !convertFrom || !convertTo || !selectedName) return;
+    if (!session.current?.businessName || !convertHierarchy || !convertFrom || !convertTo || !selectedName) return;
     converting = true;
     storageActionError = '';
     storageActionMessage = '';
@@ -138,7 +138,7 @@
         business: session.current.businessName,
         ledger: session.current.ledgerName,
         itemName: selectedName,
-        definitionDimensions: [[convertGrouping, convertGrouping]],
+        definitionDimensions: [[convertHierarchy, convertHierarchy]],
         fromValues: [convertFrom],
         toValues: [convertTo],
         quantity: Number(convertQuantity) || 0,
@@ -166,7 +166,7 @@
   async function loadAll() {
     loading = true;
     try {
-      [entities, locations, locationTypes, hierarchyGroupings] = await Promise.all([
+      [entities, locations, locationTypes, hierarchies] = await Promise.all([
         getEntityTree(), listLocations(asBusinessName(session.current?.businessName ?? '')), getLocationTypes(),
         session.current?.businessName ? getHierarchy(session.current.businessName) : Promise.resolve([]),
       ]);
@@ -569,12 +569,12 @@
           {/if}
         </fieldset>
 
-        {#if hierarchyGroupings.length > 0}
+        {#if hierarchies.length > 0}
           <fieldset class="sub-block">
             <legend>{translations.current['Storage Actions'] ?? 'Storage Actions'}</legend>
             <p class="field-help">
-              {translations.current['Uses the real Hierarchy groupings and values already set up under Setup → Hierarchies. Add or edit those there first.'] ??
-                'Uses the real Hierarchy groupings and values already set up under Setup → Hierarchies. Add or edit those there first.'}
+              {translations.current['Uses the hierarchies and values already set up under Setup → Hierarchies. Add or edit those there first.'] ??
+                'Uses the hierarchies and values already set up under Setup → Hierarchies. Add or edit those there first.'}
             </p>
 
             {#if storageActionError}<p class="error">{storageActionError}</p>{/if}
@@ -588,13 +588,13 @@
                   <input bind:value={openContainerItem} placeholder={translations.current['Item name…'] ?? 'Item name…'} />
                 </div>
                 <div class="add-row">
-                  <select bind:value={openContainerGrouping}>
-                    <option value="">{translations.current['Grouping…'] ?? 'Grouping…'}</option>
-                    {#each hierarchyGroupings as g}<option value={g.grouping}>{g.grouping}</option>{/each}
+                  <select bind:value={openContainerHierarchy}>
+                    <option value="">{translations.current['Hierarchy…'] ?? 'Hierarchy…'}</option>
+                    {#each hierarchies as g}<option value={g.hierarchy}>{g.hierarchy}</option>{/each}
                   </select>
                 </div>
-                {#if openContainerGrouping}
-                  {@const values = hierarchyGroupings.find((g) => g.grouping === openContainerGrouping)?.values ?? []}
+                {#if openContainerHierarchy}
+                  {@const values = hierarchies.find((g) => g.hierarchy === openContainerHierarchy)?.values ?? []}
                   <div class="add-row">
                     <select bind:value={openContainerFrom}>
                       <option value="">{translations.current['Container value…'] ?? 'Container value…'}</option>
@@ -610,7 +610,7 @@
                     <input bind:value={openContainerUnitsProduced} inputmode="numeric" placeholder="e.g. 24" style="max-width:6rem" />
                   </div>
                 {/if}
-                <button class="btn small" onclick={doOpenContainer} disabled={openingContainer || !openContainerItem || !openContainerGrouping || !openContainerFrom || !openContainerTo}>
+                <button class="btn small" onclick={doOpenContainer} disabled={openingContainer || !openContainerItem || !openContainerHierarchy || !openContainerFrom || !openContainerTo}>
                   {openingContainer ? '…' : (translations.current['Open Container'] ?? 'Open Container')}
                 </button>
               </div>
@@ -619,13 +619,13 @@
                 <h4>{translations.current['Convert Storage'] ?? 'Convert Storage'}</h4>
                 <p class="hint">{translations.current['A real, defined, one-directional exchange rate — e.g. Hot to Cold. The reverse direction simply refuses if never set up.'] ?? 'A real, defined, one-directional exchange rate — e.g. Hot to Cold. The reverse direction simply refuses if never set up.'}</p>
                 <div class="add-row">
-                  <select bind:value={convertGrouping}>
-                    <option value="">{translations.current['Grouping…'] ?? 'Grouping…'}</option>
-                    {#each hierarchyGroupings as g}<option value={g.grouping}>{g.grouping}</option>{/each}
+                  <select bind:value={convertHierarchy}>
+                    <option value="">{translations.current['Hierarchy…'] ?? 'Hierarchy…'}</option>
+                    {#each hierarchies as g}<option value={g.hierarchy}>{g.hierarchy}</option>{/each}
                   </select>
                 </div>
-                {#if convertGrouping}
-                  {@const values = hierarchyGroupings.find((g) => g.grouping === convertGrouping)?.values ?? []}
+                {#if convertHierarchy}
+                  {@const values = hierarchies.find((g) => g.hierarchy === convertHierarchy)?.values ?? []}
                   <div class="add-row">
                     <select bind:value={convertFrom}>
                       <option value="">{translations.current['From…'] ?? 'From…'}</option>
@@ -640,7 +640,7 @@
                     <input bind:value={convertQuantity} inputmode="numeric" placeholder={translations.current['Quantity'] ?? 'Quantity'} />
                   </div>
                 {/if}
-                <button class="btn small" onclick={doConvertStorage} disabled={converting || !convertGrouping || !convertFrom || !convertTo || !convertQuantity}>
+                <button class="btn small" onclick={doConvertStorage} disabled={converting || !convertHierarchy || !convertFrom || !convertTo || !convertQuantity}>
                   {converting ? '…' : (translations.current['Convert'] ?? 'Convert')}
                 </button>
               </div>

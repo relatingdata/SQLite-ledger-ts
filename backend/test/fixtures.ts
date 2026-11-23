@@ -91,11 +91,11 @@ export function makeFixtures(db: DbModule) {
     return { itemName: db.asItemName(itemNameStr) };
   }
 
-  function freshHierarchyValue(business: BusinessName, groupingName: string, valueHint: string): { groupingName: string; valueName: string } {
+  function freshHierarchyValue(business: BusinessName, hierarchyName: string, valueHint: string): { hierarchyName: string; valueName: string } {
     const valueName = uniqueName(valueHint);
-    db.ensureHierarchyGrouping(business, groupingName, userId);
-    db.ensureHierarchyValue(business, groupingName, valueName, userId);
-    return { groupingName, valueName };
+    db.ensureHierarchy(business, hierarchyName, userId);
+    db.ensureHierarchyValue(business, hierarchyName, valueName, userId);
+    return { hierarchyName, valueName };
   }
 
   // Prefer reading balance_minor/currency off a getEntityTree() node (via findByName/findChild)

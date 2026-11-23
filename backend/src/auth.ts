@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { db, ValidationError, NotFoundError, ensureProductInstance, getActiveLedger, ROLE_MATRIX_GROUPINGS, type BusinessName, type LedgerName, type UserId } from './db.js';
+import { db, ValidationError, NotFoundError, ensureProductInstance, getActiveLedger, ROLE_MATRIX_HIERARCHIES, type BusinessName, type LedgerName, type UserId } from './db.js';
 import { Entity } from './primitives.js';
 import { hashPassword, verifyPassword } from './password.js';
 
@@ -107,7 +107,7 @@ export function setUserRoles(userId: number, roleNames: string[]): void {
   }
 }
 
-const USER_ROLE_SHAPE: [string, string][] = ROLE_MATRIX_GROUPINGS.map((g) => [g, g]);
+const USER_ROLE_SHAPE: [string, string][] = ROLE_MATRIX_HIERARCHIES.map((g) => [g, g]);
 
 export interface UserRoleMatrix {
   users: string[];
@@ -148,11 +148,11 @@ export function unsetUserRoleInBusiness(businessName: BusinessName, username: st
   if (!productRoot) return;
   const hierarchyRoot = Entity.getUnder('Hierarchy', business.id);
   if (!hierarchyRoot) return;
-  const userGrouping = Entity.getUnder('User', hierarchyRoot.id);
-  const roleGrouping = Entity.getUnder('Role', hierarchyRoot.id);
-  if (!userGrouping || !roleGrouping) return;
-  const userValue = Entity.getUnder(username, userGrouping.id);
-  const roleValue = Entity.getUnder(roleName, roleGrouping.id);
+  const userHierarchy = Entity.getUnder('User', hierarchyRoot.id);
+  const roleHierarchy = Entity.getUnder('Role', hierarchyRoot.id);
+  if (!userHierarchy || !roleHierarchy) return;
+  const userValue = Entity.getUnder(username, userHierarchy.id);
+  const roleValue = Entity.getUnder(roleName, roleHierarchy.id);
   if (!userValue || !roleValue) return;
   // combination_ids is the approved JSON exception — stays SQL-only, out
   // of scope for the Kaappi/EntityDriver migration.

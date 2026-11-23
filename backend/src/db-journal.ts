@@ -159,7 +159,7 @@ export function createRecurringJournal(
     // currency, so a recurring entry genuinely mixing currencies could
     // pass as "balanced" while not balancing in either currency on its
     // own — exactly the hole post_journal_entry_insert's own per-currency
-    // grouping (00-core.sql) closes for every ordinary posting. Grouped
+    // hierarchy (00-core.sql) closes for every ordinary posting. Grouped
     // the same way here: only lines effective at the start date count
     // toward the start-date balance (a line whose effective_date is
     // later — e.g. the wage-increase amendment test — isn't part of what

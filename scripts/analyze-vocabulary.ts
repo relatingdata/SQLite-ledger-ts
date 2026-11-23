@@ -27,7 +27,7 @@ const CONCEPTS: Record<string, string[]> = {
   'stock moving between places': ['transfer', 'move', 'redistribute', 'relocate', 'restock'],
   'stock lost': ['writeoff', 'spoil', 'spoilage', 'shrink', 'breakage', 'wastage'],
   'making things': ['assembly', 'assemble', 'bom', 'kit', 'produce', 'production', 'manufacture', 'build'],
-  'a way of grouping': ['division', 'category', 'department', 'class', 'group', 'hierarchy', 'tier', 'dimension'],
+  'a way of hierarchy': ['division', 'category', 'department', 'class', 'group', 'hierarchy', 'tier', 'dimension'],
   'how many': ['quantity', 'qty', 'count', 'units'],
   'reading': ['get', 'list', 'find', 'fetch', 'load', 'read', 'query', 'lookup', 'all'],
   'writing': ['set', 'update', 'save', 'put', 'upsert', 'modify', 'edit'],

@@ -1,6 +1,6 @@
 <script lang="ts" module>
   // A lean port of frontend/src/lib/format.ts's own `formatAmount` —
-  // comma grouping, 2 decimal places, parentheses for negative amounts,
+  // comma hierarchy, 2 decimal places, parentheses for negative amounts,
   // per the same real accounting convention the web app already uses.
   export function formatMinor(minorUnits: number): string {
     const abs = Math.abs(Math.round(minorUnits));

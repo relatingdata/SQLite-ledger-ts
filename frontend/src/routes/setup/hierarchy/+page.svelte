@@ -6,14 +6,14 @@
   import {
     getHierarchy,
     getProductShapes,
-    createHierarchyGrouping,
+    createHierarchy,
     createHierarchyValue,
-    deleteHierarchyGrouping,
+    deleteHierarchy,
     deleteHierarchyValue,
     defineProductShape as defineProductShapeApi,
     ApiError,
-    type HierarchyGroupingWithValues,
-    type GroupingKind,
+    type HierarchyWithValues,
+    type HierarchyKind,
   } from '$lib/api';
 
   // Single source of truth for entity name display.
@@ -21,43 +21,43 @@
     return translations.current[name] ?? name;
   }
 
-  let groupings: HierarchyGroupingWithValues[] = [];
+  let hierarchies: HierarchyWithValues[] = [];
   let shapes: [string, string][][] = [];
   let loading = true;
   let error = '';
 
-  let newGroupingName = '';
-  // What the new grouping groups — see docs/pm-domain-reference.md.
-  let newGroupingGroups: GroupingKind = 'Items';
-  let creatingGrouping = false;
+  let newHierarchyName = '';
+  // What the new hierarchy groups — see docs/pm-domain-reference.md.
+  let newHierarchyOf: HierarchyKind = 'Items';
+  let creatingHierarchy = false;
 
-  let valueForGrouping: Record<string, string> = {};
+  let valueForHierarchy: Record<string, string> = {};
   let addingValueTo = '';
 
-  // Groupings list + each grouping's own values list, both converted to
+  // Hierarchies list + each hierarchy's own values list, both converted to
   // the shared SelectableListEditor shell — see docs/pm-frontend-reference.md,
   // "Insert/Enter/Escape/Delete". Product Shapes below is deliberately left
   // button-driven (an in-progress multi-row draft committed as one unit,
   // not a list of independently insertable/deletable items — see the plan).
-  let selectedGroupingName: string | null = null;
-  let insertingGrouping = false;
+  let selectedHierarchyName: string | null = null;
+  let insertingHierarchy = false;
   let selectedValueName: string | null = null;
   let insertingValue = false;
-  $: selectedGrouping = groupings.find((g) => g.grouping === selectedGroupingName) ?? null;
+  $: selectedHierarchy = hierarchies.find((g) => g.hierarchy === selectedHierarchyName) ?? null;
 
-  function selectGrouping(g: HierarchyGroupingWithValues) {
-    selectedGroupingName = g.grouping;
+  function selectHierarchy(g: HierarchyWithValues) {
+    selectedHierarchyName = g.hierarchy;
     selectedValueName = null;
     insertingValue = false;
   }
 
-  function openInsertGrouping() {
-    insertingGrouping = true;
+  function openInsertHierarchy() {
+    insertingHierarchy = true;
   }
 
-  function closeInsertGrouping() {
-    insertingGrouping = false;
-    newGroupingName = '';
+  function closeInsertHierarchy() {
+    insertingHierarchy = false;
+    newHierarchyName = '';
   }
 
   function selectValue(v: string) {
@@ -70,28 +70,28 @@
 
   function closeInsertValue() {
     insertingValue = false;
-    if (selectedGroupingName) valueForGrouping[selectedGroupingName] = '';
+    if (selectedHierarchyName) valueForHierarchy[selectedHierarchyName] = '';
   }
 
-  async function deleteGrouping(g: HierarchyGroupingWithValues) {
+  async function deleteHierarchyRow(g: HierarchyWithValues) {
     if (!session.current?.businessName) return;
-    if (!confirm(`${T('Delete')} "${T(g.grouping)}"? ${T("This can't be undone.")}`)) return;
+    if (!confirm(`${T('Delete')} "${T(g.hierarchy)}"? ${T("This can't be undone.")}`)) return;
     error = '';
     try {
-      await deleteHierarchyGrouping(session.current.businessName, g.grouping);
-      if (selectedGroupingName === g.grouping) selectedGroupingName = null;
+      await deleteHierarchy(session.current.businessName, g.hierarchy);
+      if (selectedHierarchyName === g.hierarchy) selectedHierarchyName = null;
       await load();
     } catch (e) {
-      error = e instanceof ApiError ? e.message : 'Could not delete this grouping.';
+      error = e instanceof ApiError ? e.message : 'Could not delete this hierarchy.';
     }
   }
 
   async function deleteValue(v: string) {
-    if (!session.current?.businessName || !selectedGroupingName) return;
+    if (!session.current?.businessName || !selectedHierarchyName) return;
     if (!confirm(`${T('Delete')} "${T(v)}"? ${T("This can't be undone.")}`)) return;
     error = '';
     try {
-      await deleteHierarchyValue(session.current.businessName, selectedGroupingName, v);
+      await deleteHierarchyValue(session.current.businessName, selectedHierarchyName, v);
       if (selectedValueName === v) selectedValueName = null;
       await load();
     } catch (e) {
@@ -99,8 +99,8 @@
     }
   }
 
-  // Growable (dimension, grouping) pair list — see docs/pm-frontend-reference.md.
-  let newShapeRows: { dimension: string; grouping: string }[] = [{ dimension: '', grouping: '' }];
+  // Growable (dimension, hierarchy) pair list — see docs/pm-frontend-reference.md.
+  let newShapeRows: { dimension: string; hierarchy: string }[] = [{ dimension: '', hierarchy: '' }];
   let definingShape = false;
 
   async function load() {
@@ -108,8 +108,8 @@
     loading = true;
     error = '';
     try {
-      const [loadedGroupings, loadedShapes] = await Promise.all([getHierarchy(session.current.businessName), getProductShapes(session.current.businessName)]);
-      groupings = loadedGroupings;
+      const [loadedHierarchies, loadedShapes] = await Promise.all([getHierarchy(session.current.businessName), getProductShapes(session.current.businessName)]);
+      hierarchies = loadedHierarchies;
       shapes = loadedShapes;
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Failed to load.';
@@ -120,28 +120,28 @@
 
   onMount(load);
 
-  async function addGrouping() {
-    if (!session.current?.businessName || !newGroupingName.trim()) return;
-    creatingGrouping = true;
+  async function addHierarchy() {
+    if (!session.current?.businessName || !newHierarchyName.trim()) return;
+    creatingHierarchy = true;
     error = '';
     try {
-      await createHierarchyGrouping(session.current.businessName, newGroupingName.trim(), newGroupingGroups);
-      closeInsertGrouping();
+      await createHierarchy(session.current.businessName, newHierarchyName.trim(), newHierarchyOf);
+      closeInsertHierarchy();
       await load();
     } catch (e) {
-      error = e instanceof ApiError ? e.message : 'Could not create grouping.';
+      error = e instanceof ApiError ? e.message : 'Could not create hierarchy.';
     } finally {
-      creatingGrouping = false;
+      creatingHierarchy = false;
     }
   }
 
-  async function addValue(groupingName: string) {
-    const valueName = (valueForGrouping[groupingName] ?? '').trim();
+  async function addValue(hierarchyName: string) {
+    const valueName = (valueForHierarchy[hierarchyName] ?? '').trim();
     if (!session.current?.businessName || !valueName) return;
-    addingValueTo = groupingName;
+    addingValueTo = hierarchyName;
     error = '';
     try {
-      await createHierarchyValue(session.current.businessName, groupingName, valueName);
+      await createHierarchyValue(session.current.businessName, hierarchyName, valueName);
       closeInsertValue();
       await load();
     } catch (e) {
@@ -152,7 +152,7 @@
   }
 
   function addShapeRow() {
-    newShapeRows = [...newShapeRows, { dimension: '', grouping: '' }];
+    newShapeRows = [...newShapeRows, { dimension: '', hierarchy: '' }];
   }
 
   function removeShapeRow(index: number) {
@@ -161,13 +161,13 @@
 
   async function saveShape() {
     if (!session.current?.businessName) return;
-    const dimensions: [string, string][] = newShapeRows.filter((r) => r.dimension.trim() && r.grouping.trim()).map((r) => [r.dimension.trim(), r.grouping.trim()]);
+    const dimensions: [string, string][] = newShapeRows.filter((r) => r.dimension.trim() && r.hierarchy.trim()).map((r) => [r.dimension.trim(), r.hierarchy.trim()]);
     if (dimensions.length === 0) return;
     definingShape = true;
     error = '';
     try {
       await defineProductShapeApi(session.current.businessName, dimensions);
-      newShapeRows = [{ dimension: '', grouping: '' }];
+      newShapeRows = [{ dimension: '', hierarchy: '' }];
       await load();
     } catch (e) {
       error = e instanceof ApiError ? e.message : 'Could not define shape.';
@@ -192,55 +192,55 @@
     <p class="center-text">Loading…</p>
   {:else}
     <section>
-      <h3>{translations.current['Groupings'] ?? 'Groupings'}</h3>
+      <h3>{translations.current['Hierarchies'] ?? 'Hierarchies'}</h3>
       <div class="hierarchy-layout">
         <SelectableListEditor
-          legend={translations.current['Groupings'] ?? 'Groupings'}
-          hintText={translations.current['Insert adds a grouping. Delete removes the selected grouping.'] ?? 'Insert adds a grouping. Delete removes the selected grouping.'}
-          items={groupings}
-          getId={(g) => g.grouping}
-          selectedId={selectedGroupingName}
-          onSelect={selectGrouping}
-          onInsert={openInsertGrouping}
-          onDelete={deleteGrouping}
-          inserting={insertingGrouping}
-          emptyText={translations.current['No real hierarchy groupings yet.'] ?? 'No real hierarchy groupings yet.'}
+          legend={translations.current['Hierarchies'] ?? 'Hierarchies'}
+          hintText={translations.current['Insert adds a hierarchy. Delete removes the selected hierarchy.'] ?? 'Insert adds a hierarchy. Delete removes the selected hierarchy.'}
+          items={hierarchies}
+          getId={(g) => g.hierarchy}
+          selectedId={selectedHierarchyName}
+          onSelect={selectHierarchy}
+          onInsert={openInsertHierarchy}
+          onDelete={deleteHierarchyRow}
+          inserting={insertingHierarchy}
+          emptyText={translations.current['No hierarchies yet.'] ?? 'No hierarchies yet.'}
         >
           {#snippet form()}
             <input
               type="text"
-              placeholder={translations.current['New grouping name (e.g. Storage, Glass Size)'] ?? 'New grouping name (e.g. Storage, Glass Size)'}
-              bind:value={newGroupingName}
-              disabled={creatingGrouping}
+              placeholder={translations.current['New hierarchy name (e.g. Storage, Glass Size)'] ?? 'New hierarchy name (e.g. Storage, Glass Size)'}
+              bind:value={newHierarchyName}
+              disabled={creatingHierarchy}
               onkeydown={(e) => {
-                if (e.key === 'Enter') { e.preventDefault(); addGrouping(); }
-                else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeInsertGrouping(); }
+                if (e.key === 'Enter') { e.preventDefault(); addHierarchy(); }
+                else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeInsertHierarchy(); }
               }}
             />
             <select
-              name="groups"
-              bind:value={newGroupingGroups}
-              disabled={creatingGrouping}
+              name="of"
+              bind:value={newHierarchyOf}
+              disabled={creatingHierarchy}
               onkeydown={(e) => {
-                if (e.key === 'Enter') { e.preventDefault(); addGrouping(); }
-                else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeInsertGrouping(); }
+                if (e.key === 'Enter') { e.preventDefault(); addHierarchy(); }
+                else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeInsertHierarchy(); }
               }}
             >
-              <option value="Items">{translations.current['Groups items'] ?? 'Groups items'}</option>
-              <option value="Locations">{translations.current['Groups locations'] ?? 'Groups locations'}</option>
+              <option value="Items">{translations.current['Of items'] ?? 'Of items'}</option>
+              <option value="Locations">{translations.current['Of locations'] ?? 'Of locations'}</option>
             </select>
           {/snippet}
           {#snippet row(g)}
-            <span>{T(g.grouping)}</span>
-            <span class="hint">({g.groups ? `${T(g.groups)}, ` : ''}{g.values.length})</span>
+            <span>{T(g.hierarchy)}</span>
+            <span class="hint">({g.of ? `${T(g.of)}, ` : ''}{g.values.length})</span>
           {/snippet}
         </SelectableListEditor>
 
-        {#if selectedGrouping}
+        {#if selectedHierarchy}
           <SelectableListEditor
-            legend={`${T('Values in')} "${T(selectedGrouping.grouping)}"`}
+            legend={`${T('Values in')} "${T(selectedHierarchy.hierarchy)}"`}
             hintText={translations.current['Insert adds a value. Delete removes the selected value.'] ?? 'Insert adds a value. Delete removes the selected value.'}
-            items={selectedGrouping.values}
+            items={selectedHierarchy.values}
             getId={(v) => v}
             selectedId={selectedValueName}
             onSelect={selectValue}
@@ -253,10 +253,10 @@
               <input
                 type="text"
                 placeholder={translations.current['New value'] ?? 'New value'}
-                bind:value={valueForGrouping[selectedGrouping.grouping]}
-                disabled={addingValueTo === selectedGrouping.grouping}
+                bind:value={valueForHierarchy[selectedHierarchy.hierarchy]}
+                disabled={addingValueTo === selectedHierarchy.hierarchy}
                 onkeydown={(e) => {
-                  if (e.key === 'Enter') { e.preventDefault(); addValue(selectedGrouping!.grouping); }
+                  if (e.key === 'Enter') { e.preventDefault(); addValue(selectedHierarchy!.hierarchy); }
                   else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeInsertValue(); }
                 }}
               />
@@ -282,8 +282,8 @@
           {#each shapes as shape}
             <div class="card">
               <ol class="shape-list">
-                {#each shape as [dimension, grouping]}
-                  <li>{dimension} <span class="hint">→ {grouping}</span></li>
+                {#each shape as [dimension, hierarchy]}
+                  <li>{dimension} <span class="hint">→ {hierarchy}</span></li>
                 {/each}
               </ol>
             </div>
@@ -295,7 +295,7 @@
         {#each newShapeRows as row, i}
           <div class="add-row">
             <input type="text" placeholder={translations.current['Dimension name (e.g. Location)'] ?? 'Dimension name (e.g. Location)'} bind:value={row.dimension} />
-            <input type="text" placeholder={translations.current['Hierarchy grouping (e.g. Location)'] ?? 'Hierarchy grouping (e.g. Location)'} bind:value={row.grouping} />
+            <input type="text" placeholder={translations.current['Hierarchy (e.g. Location)'] ?? 'Hierarchy (e.g. Location)'} bind:value={row.hierarchy} />
             {#if newShapeRows.length > 1}
               <button class="btn-secondary" onclick={() => removeShapeRow(i)}>×</button>
             {/if}

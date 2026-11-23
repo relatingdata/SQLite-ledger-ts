@@ -229,7 +229,7 @@ depends on that row's own `language` value).
 sequence of actions, run in order: a plain Playwright selector
 (clicked), `key:Name` (a key press), `select:<selector>::<value>`
 (choosing a fixed `<option>` that is itself a precondition for the
-rest of the form to render, e.g. Open Container's own Grouping
+rest of the form to render, e.g. Open Container's own Hierarchy
 dropdown must already read "Container" before its Container-value/
 Unit-value selects exist at all), or `maybe-click:<selector>` (clicks
 only if the element is visible within a short, real wait, otherwise a
@@ -438,14 +438,14 @@ the API path, rather than calling a backend function 1:1:
   is known and posted at creation, never lazily.
 - **`createItemInGroup`** creates the item flat, directly under the
   business's own `Items` root (`createItem`), then tags it with a
-  value of the item grouping the step names
-  (`setHierarchyParent(itemName, groupingName, valueName, userId)`).
-  No step names a grouping itself: each fixture creates the groupings
-  it uses ("Create Hierarchy Grouping", or the Business Structure
-  popup's "Create Location Grouping Via Structure Popup" / "Create Item
-  Grouping Via Structure Popup"), saying what each groups, and passes
-  the grouping's name to every step that uses it (*Core Domain
-  Reference*, "No grouping name is in the code").
+  value of the item hierarchy the step names
+  (`setHierarchyParent(itemName, hierarchyName, valueName, userId)`).
+  No step names a hierarchy itself: each fixture creates the hierarchies
+  it uses ("Create Hierarchy", or the Business Structure
+  popup's "Create Location Hierarchy Via Structure Popup" / "Create Item
+  Hierarchy Via Structure Popup"), saying what each is of, and passes
+  the hierarchy's name to every step that uses it (*Core Domain
+  Reference*, "No hierarchy name is in the code").
 
 ### Current limits
 
@@ -819,9 +819,9 @@ steps are skipped, so a test still builds and checks its data there.
 - `location.csv` creates the location `${location}` (`${locationType}`,
   Retail, in `${city}`), with storage space, through the API: the
   Locations form has no capacity fields.
-- `division-grouping.csv`, `division.csv` and
+- `division-hierarchy.csv`, `division.csv` and
   `two-locations-in-divisions.csv` give the business its Division
-  grouping, put `${location}` in the division `${division}`, and build
+  hierarchy, put `${location}` in the division `${division}`, and build
   Head Office and Warehouse B, each in a division of its own.
 - `item.csv`, `item-in-category.csv`, `provider.csv` and
   `customer.csv` create one item (in the category `${category}`), one
@@ -907,7 +907,7 @@ Tests (*Testing: Unit*, "Running the tests"):
 - "restock-retail-outlet" (`shared-fixtures/tests/restock-retail-outlet.csv`)
 - "stock-listing-by-division" (`shared-fixtures/tests/stock-listing-by-division.csv`)
 - "stock-listing-over-capacity" (`shared-fixtures/tests/stock-listing-over-capacity.csv`)
-- "stock-movement-by-grouping" (`shared-fixtures/tests/stock-movement-by-grouping.csv`)
+- "stock-movement-by-hierarchy" (`shared-fixtures/tests/stock-movement-by-hierarchy.csv`)
 - "user-manual-pictures" (`shared-fixtures/tests/user-manual-pictures.csv`)
 - "year-end-close-and-rollover" (`shared-fixtures/tests/year-end-close-and-rollover.csv`)
 

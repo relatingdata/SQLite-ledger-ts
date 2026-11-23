@@ -115,7 +115,7 @@ never a test-only substitute:
   `createAndConfigureLocation` (a retail outlet in Adelaide unless
   overridden), `createAndConfigureDepartment`, `createEmployee`,
   `createItem` (directly under the business's `Items` root), and
-  `ensureHierarchyGrouping`/`ensureHierarchyValue`. A test that needs a
+  `ensureHierarchy`/`ensureHierarchyValue`. A test that needs a
   categorised item makes a `Category` value with `freshHierarchyValue`
   and tags the item with `setHierarchyParent`.
 - **`getAccountBalance`**, **`findChild`**, **`findByName`**,

@@ -4,7 +4,7 @@
   categoryTree, rendered on the web via StructureTreeNode.svelte's
   indented tree). Category is a pure, optional Hierarchy of tags on
   items (see docs/pm-domain-reference.md) - a value can itself be
-  tagged under a further value of the same grouping, to any depth. A
+  tagged under a further value of the same hierarchy, to any depth. A
   terminal can't usefully draw an indented recursive tree alongside
   everything else on screen, so this is a drill-down list instead:
   each level shows the categories directly under the current one (or,
@@ -17,19 +17,19 @@
   import { onDestroy } from 'svelte';
   import {
     ApiError,
-    createHierarchyGrouping,
+    createHierarchy,
     createHierarchyValue,
     deleteHierarchyValue,
     getHierarchy,
-    firstGroupingOf,
+    firstHierarchyOf,
     getHierarchyAssignments,
   } from '../api.ts';
   import Panel from '../components/Panel.svelte';
   import TextInput from '../components/TextInput.svelte';
   import { brass, ink, inkSoft } from '../theme.ts';
 
-  // The business's first item grouping; until it has one, the first
-  // value added names the grouping instead.
+  // The business's first item hierarchy; until it has one, the first
+  // value added names the hierarchy instead.
   let CATEGORY = $state('');
   const ROOT = '__root__';
 
@@ -51,9 +51,9 @@
   async function refresh(): Promise<void> {
     try {
       const h = await getHierarchy(businessName);
-      CATEGORY = firstGroupingOf(h, 'Items');
+      CATEGORY = firstHierarchyOf(h, 'Items');
       const assignments = CATEGORY ? await getHierarchyAssignments(CATEGORY) : {};
-      categoryValues = h.find((g) => g.grouping === CATEGORY)?.values ?? [];
+      categoryValues = h.find((g) => g.hierarchy === CATEGORY)?.values ?? [];
       categoryParents = assignments;
       error = null;
     } catch (err) {
@@ -128,7 +128,7 @@
     busy = true; error = null;
     try {
       if (CATEGORY) await createHierarchyValue(businessName, CATEGORY, name, path.length > 0 ? path[path.length - 1] : undefined);
-      else await createHierarchyGrouping(businessName, name, 'Items');
+      else await createHierarchy(businessName, name, 'Items');
       await refresh();
       view = 'list';
     } catch (err) {

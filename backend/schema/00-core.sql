@@ -488,9 +488,9 @@ INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by
 INSERT INTO entities (row_id, entity_id, name, parent_id, created_at, created_by) VALUES (102, 102, 'Items', 1, '2026-01-01', 1);
 
 -- Per direct instruction: no privileged "Divisions" root — a real
--- business's own location-grouping hierarchy (e.g. one it chooses to
+-- business's own location hierarchy (e.g. one it chooses to
 -- call "Division") now lives entirely under its own, generic,
--- per-business Hierarchy store (ensureHierarchyGrouping/
+-- per-business Hierarchy store (ensureHierarchy/
 -- ensureHierarchyValue, db.ts), set via the exact same, real hierarchy
 -- link (setHierarchyParent/getHierarchyParent) used for Location and
 -- any other named hierarchy. The former, global "Divisions" root

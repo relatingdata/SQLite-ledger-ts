@@ -897,7 +897,7 @@ export function revokeEntity(id: number, userId: UserId): void {
   const entity = getEntity(id);
   if (!entity) throw new NotFoundError(`Entity ${id} not found.`);
   const childNames = Entity.children(id).map((c) => c.name);
-  // A hierarchy link record (`${name} — Hierarchy: {grouping}`) only
+  // A hierarchy link record (`${name} — Hierarchy: {hierarchy}`) only
   // classifies the entity, so it never blocks deleting it; it stays as
   // history, untagged below, so the value can then be deleted too.
   const hierarchyLinkPrefix = `${entity.name} — Hierarchy: `;
@@ -1910,9 +1910,9 @@ export function isDescendantOf(entityName: string, rootName: string): boolean {
 // Resolves where an item's Sales/COGS leaf account should post: the
 // named root (Sales Revenue / Cost of Goods Sold), under its real
 // Profit Center sub-account if one applies (Department is the one
-// genuine "needs its own real balance" grouping, same reasoning as
+// genuine "needs its own real balance" hierarchy, same reasoning as
 // Location — see docs/pm-domain-reference.md). No further real
-// sub-account nesting happens here for any reporting-only grouping
+// sub-account nesting happens here for any reporting-only hierarchy
 // (Category, Division, or any other business-defined Hierarchy) —
 // those are never real account structure, only ever a generic,
 // optional setHierarchyParent tag read back by the matrix-report
@@ -2024,97 +2024,97 @@ function ensureBusinessRoot(businessName: BusinessName, rootName: string, userId
   return Entity.getUnder(rootName, business.id) ?? Entity.create(rootName, business.id, userId);
 }
 
-/** What a grouping of the business's own groups: its items or its
- * locations (docs/pm-domain-reference.md, "A grouping records what it
- * groups"). The application's own groupings (Department, Storage Tier,
+/** What a hierarchy of the business's own is of: its items or its
+ * locations (docs/pm-domain-reference.md, "A hierarchy records what it is
+ * of"). The application's own hierarchies (Department, Storage Tier,
  * ...) record nothing. */
-export type GroupingKind = 'Items' | 'Locations';
-export const GROUPING_KINDS: readonly GroupingKind[] = ['Items', 'Locations'];
-/** The relation records under a grouping, which are not its values. */
-const GROUPING_RELATIONS = new Set(['Groups', 'Kind']);
+export type HierarchyKind = 'Items' | 'Locations';
+export const HIERARCHY_KINDS: readonly HierarchyKind[] = ['Items', 'Locations'];
+/** The relation records under a hierarchy, which are not its values. */
+const HIERARCHY_RELATIONS = new Set(['Hierarchy Of', 'Kind']);
 
-export function groupingKind(groupingId: number): GroupingKind | undefined {
-  const record = Entity.getUnder('Groups', groupingId);
+export function hierarchyKind(hierarchyId: number): HierarchyKind | undefined {
+  const record = Entity.getUnder('Hierarchy Of', hierarchyId);
   const target = record?.relation_id != null ? Entity.get(record.relation_id) : undefined;
   if (!target) return undefined;
   return target.name === 'Locations' ? 'Locations' : target.name === 'Items' || target.name.endsWith(' Items') ? 'Items' : undefined;
 }
 
-export function ensureHierarchyGrouping(businessName: BusinessName, groupingName: string, userId: UserId, groups?: GroupingKind): { id: number; name: string } {
+export function ensureHierarchy(businessName: BusinessName, hierarchyName: string, userId: UserId, of?: HierarchyKind): { id: number; name: string } {
   const hierarchyRoot = ensureBusinessRoot(businessName, 'Hierarchy', userId);
-  const grouping = Entity.getUnder(groupingName, hierarchyRoot.id) ?? Entity.create(groupingName, hierarchyRoot.id, userId);
-  if (groups) {
-    const recorded = groupingKind(grouping.id);
-    if (recorded && recorded !== groups) throw new ValidationError(`"${groupingName}" groups ${recorded.toLowerCase()}, not ${groups.toLowerCase()}.`);
+  const hierarchy = Entity.getUnder(hierarchyName, hierarchyRoot.id) ?? Entity.create(hierarchyName, hierarchyRoot.id, userId);
+  if (of) {
+    const recorded = hierarchyKind(hierarchy.id);
+    if (recorded && recorded !== of) throw new ValidationError(`"${hierarchyName}" is a hierarchy of ${recorded.toLowerCase()}, not of ${of.toLowerCase()}.`);
     if (!recorded) {
-      const branch = ensureBusinessRoot(businessName, groups, userId);
-      const record = Entity.getUnder('Groups', grouping.id) ?? Entity.create('Groups', grouping.id, userId);
+      const branch = ensureBusinessRoot(businessName, of, userId);
+      const record = Entity.getUnder('Hierarchy Of', hierarchy.id) ?? Entity.create('Hierarchy Of', hierarchy.id, userId);
       Entity.relate(record.id, null, userId, branch.id);
     }
   }
-  return grouping;
+  return hierarchy;
 }
 
-/** Refuses to tag an item with a location grouping or a location with
- * an item grouping; a value may be tagged under a value of its own
- * grouping, to nest. */
-export function checkGroupingTag(businessName: string, groupingName: string, entityName: string): void {
+/** Refuses to tag an item with a location hierarchy or a location with
+ * an item hierarchy; a value may be tagged under a value of its own
+ * hierarchy, to nest. */
+export function checkHierarchyTag(businessName: string, hierarchyName: string, entityName: string): void {
   const businessId = Entity.get(businessName, 'Businesses')?.id;
   const hierarchyRoot = businessId !== undefined ? Entity.getUnder('Hierarchy', businessId) : undefined;
-  const grouping = hierarchyRoot ? Entity.getUnder(groupingName, hierarchyRoot.id) : undefined;
-  const kind = grouping ? groupingKind(grouping.id) : undefined;
-  if (!grouping || !kind || Entity.getUnder(entityName, grouping.id)) return;
+  const hierarchy = hierarchyRoot ? Entity.getUnder(hierarchyName, hierarchyRoot.id) : undefined;
+  const kind = hierarchy ? hierarchyKind(hierarchy.id) : undefined;
+  if (!hierarchy || !kind || Entity.getUnder(entityName, hierarchy.id)) return;
   const isLocation = resolveBusinessLocationId(businessName, entityName) !== undefined;
-  if (kind === 'Locations' && !isLocation) throw new ValidationError(`"${groupingName}" groups locations; "${entityName}" is not one.`);
-  if (kind === 'Items' && isLocation) throw new ValidationError(`"${groupingName}" groups items; "${entityName}" is a location.`);
+  if (kind === 'Locations' && !isLocation) throw new ValidationError(`"${hierarchyName}" is a hierarchy of locations; "${entityName}" is not one.`);
+  if (kind === 'Items' && isLocation) throw new ValidationError(`"${hierarchyName}" is a hierarchy of items; "${entityName}" is a location.`);
 }
 
-/** The business's grouping of this name, or a NotFoundError: a value is
- * only added to a grouping that exists. */
-function requireHierarchyGrouping(businessName: BusinessName, groupingName: string): { id: number; name: string } {
+/** The business's hierarchy of this name, or a NotFoundError: a value is
+ * only added to a hierarchy that exists. */
+function requireHierarchy(businessName: BusinessName, hierarchyName: string): { id: number; name: string } {
   const businessId = Entity.get(businessName, 'Businesses')?.id;
   const hierarchyRoot = businessId !== undefined ? Entity.getUnder('Hierarchy', businessId) : undefined;
-  const grouping = hierarchyRoot ? Entity.getUnder(groupingName, hierarchyRoot.id) : undefined;
-  if (!grouping) throw new NotFoundError(`"${businessName}" has no grouping named "${groupingName}".`);
-  return grouping;
+  const hierarchy = hierarchyRoot ? Entity.getUnder(hierarchyName, hierarchyRoot.id) : undefined;
+  if (!hierarchy) throw new NotFoundError(`"${businessName}" has no hierarchy named "${hierarchyName}".`);
+  return hierarchy;
 }
 
-// The business's own value of this grouping, or undefined; never creates.
-export function resolveHierarchyValueId(businessName: string, groupingName: string, valueName: string): number | undefined {
+// The business's own value of this hierarchy, or undefined; never creates.
+export function resolveHierarchyValueId(businessName: string, hierarchyName: string, valueName: string): number | undefined {
   const businessId = Entity.get(businessName, 'Businesses')?.id;
   const hierarchyRoot = businessId ? Entity.getUnder('Hierarchy', businessId) : undefined;
-  const grouping = hierarchyRoot ? Entity.getUnder(groupingName, hierarchyRoot.id) : undefined;
-  return grouping ? Entity.getUnder(valueName, grouping.id)?.id : undefined;
+  const hierarchy = hierarchyRoot ? Entity.getUnder(hierarchyName, hierarchyRoot.id) : undefined;
+  return hierarchy ? Entity.getUnder(valueName, hierarchy.id)?.id : undefined;
 }
 
-export function ensureHierarchyValue(businessName: BusinessName, groupingName: string, valueName: string, userId: UserId): { id: number; name: string } {
-  const grouping = requireHierarchyGrouping(businessName, groupingName);
-  return Entity.getUnder(valueName, grouping.id) ?? Entity.create(valueName, grouping.id, userId);
+export function ensureHierarchyValue(businessName: BusinessName, hierarchyName: string, valueName: string, userId: UserId): { id: number; name: string } {
+  const hierarchy = requireHierarchy(businessName, hierarchyName);
+  return Entity.getUnder(valueName, hierarchy.id) ?? Entity.create(valueName, hierarchy.id, userId);
 }
 
 // Name-based delete wrappers for the two, since getBusinessHierarchy's own
-// HierarchyGroupingWithValues response (what the Hierarchy screen actually
+// HierarchyWithValues response (what the Hierarchy screen actually
 // has in hand) carries no entity ids at all — changing that shared shape
 // for this alone would ripple into every other consumer, so these resolve
-// the id internally instead, the same way ensureHierarchyGrouping/Value
+// the id internally instead, the same way ensureHierarchy/Value
 // above already do. revokeEntity's own guards (children, postings,
 // incoming links via getEntityLinksPointingAt) do the real safety work —
-// a grouping with live values is already blocked by the children check; a
+// a hierarchy with live values is already blocked by the children check; a
 // value some entity is still actually tagged with (e.g. a Location) is now
 // caught by the incoming-links check. See
 // /root/.claude/plans/stateful-snacking-adleman.md.
-export function deleteHierarchyValue(businessName: BusinessName, groupingName: string, valueName: string, userId: UserId): void {
-  const grouping = requireHierarchyGrouping(businessName, groupingName);
-  const value = Entity.getUnder(valueName, grouping.id);
-  if (!value) throw new NotFoundError(`No real value named "${valueName}" under "${groupingName}".`);
+export function deleteHierarchyValue(businessName: BusinessName, hierarchyName: string, valueName: string, userId: UserId): void {
+  const hierarchy = requireHierarchy(businessName, hierarchyName);
+  const value = Entity.getUnder(valueName, hierarchy.id);
+  if (!value) throw new NotFoundError(`No real value named "${valueName}" under "${hierarchyName}".`);
   Entity.revoke(value.id, userId);
 }
 
-export function deleteHierarchyGrouping(businessName: BusinessName, groupingName: string, userId: UserId): void {
+export function deleteHierarchy(businessName: BusinessName, hierarchyName: string, userId: UserId): void {
   const hierarchyRoot = ensureBusinessRoot(businessName, 'Hierarchy', userId);
-  const grouping = Entity.getUnder(groupingName, hierarchyRoot.id);
-  if (!grouping) throw new NotFoundError(`No real hierarchy grouping named "${groupingName}" for "${businessName}".`);
-  Entity.revoke(grouping.id, userId);
+  const hierarchy = Entity.getUnder(hierarchyName, hierarchyRoot.id);
+  if (!hierarchy) throw new NotFoundError(`No real hierarchy named "${hierarchyName}" for "${businessName}".`);
+  Entity.revoke(hierarchy.id, userId);
 }
 
 export function createProfitCenter(businessName: BusinessName, profitCenterName: string, userId: UserId): { id: number; name: string } {
@@ -2164,12 +2164,12 @@ export function defineProductShape(businessName: BusinessName, dimensions: [stri
   const product = ensureBusinessRoot(businessName, 'Product', userId);
   const chain: { id: number; name: string }[] = [];
   let parentId = product.id;
-  for (const [dimensionName, groupingName] of dimensions) {
-    const grouping = ensureHierarchyGrouping(businessName, groupingName, userId);
+  for (const [dimensionName, hierarchyName] of dimensions) {
+    const hierarchy = ensureHierarchy(businessName, hierarchyName, userId);
     let node = Entity.getUnder(dimensionName, parentId);
     if (!node) {
       node = Entity.create(dimensionName, parentId, userId);
-      Entity.relate(node.id, grouping.name, userId, grouping.id);
+      Entity.relate(node.id, hierarchy.name, userId, hierarchy.id);
     }
     chain.push(node);
     parentId = node.id;
@@ -2183,8 +2183,8 @@ export function ensureProductInstance(businessName: BusinessName, definitionDime
   const product = ensureBusinessRoot(businessName, 'Product', userId);
   const hierarchyValueIds: number[] = [];
   for (let i = 0; i < values.length; i++) {
-    const groupingName = definitionDimensions[i][1];
-    const hierarchyValue = ensureHierarchyValue(businessName, groupingName, values[i], userId);
+    const hierarchyName = definitionDimensions[i][1];
+    const hierarchyValue = ensureHierarchyValue(businessName, hierarchyName, values[i], userId);
     hierarchyValueIds.push(hierarchyValue.id);
   }
   const combinationIdsJson = JSON.stringify(hierarchyValueIds);
@@ -2210,7 +2210,7 @@ export function climbInstanceTree(instanceId: number): { combinationValues: stri
   const ids = JSON.parse(row.combination_ids) as number[];
   // Was a self-join on current_entities (e LEFT JOIN current_entities g ON
   // g.id = e.parent_id) — Entity.getMany already returns parent_id on every
-  // record, so the "grouping" (each id's own parent's name) needs only a
+  // record, so the "hierarchy" (each id's own parent's name) needs only a
   // second Entity.getMany over those parent ids, no SQL join at all.
   const records = Entity.getMany(ids);
   const byId = new Map(records.map((r) => [r.id, r]));
@@ -2219,8 +2219,8 @@ export function climbInstanceTree(instanceId: number): { combinationValues: stri
   const combinationValues = ids.map((id) => byId.get(id)?.name ?? '?');
   const combinationShape: [string, string][] = ids.map((id) => {
     const parentId = byId.get(id)?.parent_id;
-    const grouping = (parentId != null ? parentNameById.get(parentId) : undefined) ?? '?';
-    return [grouping, grouping];
+    const hierarchy = (parentId != null ? parentNameById.get(parentId) : undefined) ?? '?';
+    return [hierarchy, hierarchy];
   });
   return { combinationValues, combinationShape };
 }
@@ -2460,28 +2460,28 @@ export function resolveOpenContainerAccounts(
   };
 }
 
-export interface HierarchyGroupingWithValues {
-  grouping: string;
-  /** What it groups; undefined for the application's own groupings. */
-  groups?: GroupingKind;
+export interface HierarchyWithValues {
+  hierarchy: string;
+  /** What it groups; undefined for the application's own hierarchies. */
+  of?: HierarchyKind;
   values: string[];
 }
 
-// The two groupings of the per-business role matrix (auth.ts,
+// The two hierarchies of the per-business role matrix (auth.ts,
 // USER_ROLE_SHAPE): stored in the business's Hierarchy like any
-// grouping, but they classify users, never locations or items, so the
+// hierarchy, but they classify users, never locations or items, so the
 // business's own hierarchies leave them out.
-export const ROLE_MATRIX_GROUPINGS = ['User', 'Role'] as const;
+export const ROLE_MATRIX_HIERARCHIES = ['User', 'Role'] as const;
 
-export function getBusinessHierarchy(businessName: BusinessName): HierarchyGroupingWithValues[] {
+export function getBusinessHierarchy(businessName: BusinessName): HierarchyWithValues[] {
   const businessId = Entity.get(businessName, 'Businesses')?.id;
   const hierarchyId = businessId !== undefined ? Entity.getUnder('Hierarchy', businessId)?.id : undefined;
   if (!hierarchyId) return [];
-  const groupings = Entity.children(hierarchyId).filter((g) => !(ROLE_MATRIX_GROUPINGS as readonly string[]).includes(g.name));
-  return groupings.map((g) => ({
-    grouping: g.name,
-    groups: groupingKind(g.id),
-    values: Entity.children(g.id).filter((v) => !GROUPING_RELATIONS.has(v.name)).map((v) => v.name),
+  const hierarchies = Entity.children(hierarchyId).filter((g) => !(ROLE_MATRIX_HIERARCHIES as readonly string[]).includes(g.name));
+  return hierarchies.map((g) => ({
+    hierarchy: g.name,
+    of: hierarchyKind(g.id),
+    values: Entity.children(g.id).filter((v) => !HIERARCHY_RELATIONS.has(v.name)).map((v) => v.name),
   }));
 }
 
@@ -4124,15 +4124,15 @@ export function getHierarchyLinksPointingAt(targetName: string): { entityName: s
     .map((l) => ({ entityName: l.entityName, hierarchyName: l.linkType.slice('Hierarchy: '.length) }));
 }
 
-// The business's own values of one grouping, each with the value it is
+// The business's own values of one hierarchy, each with the value it is
 // tagged under (null at the top). See docs/pm-domain-reference.md,
 // "Hierarchies and multi-dimensional reporting".
 export function getHierarchyGroups(businessName: string, hierarchyName: string): { name: string; parentName: string | null }[] {
   const businessId = Entity.get(businessName, 'Businesses')?.id;
   const hierarchyRoot = businessId ? Entity.getUnder('Hierarchy', businessId) : undefined;
-  const grouping = hierarchyRoot ? Entity.getUnder(hierarchyName, hierarchyRoot.id) : undefined;
-  if (!grouping) return [];
-  return Entity.children(grouping.id).map((value) => ({ name: value.name, parentName: getHierarchyParent(value.name, hierarchyName) ?? null }));
+  const hierarchy = hierarchyRoot ? Entity.getUnder(hierarchyName, hierarchyRoot.id) : undefined;
+  if (!hierarchy) return [];
+  return Entity.children(hierarchy.id).map((value) => ({ name: value.name, parentName: getHierarchyParent(value.name, hierarchyName) ?? null }));
 }
 
 export function getHierarchyAncestorChain(entityName: string, hierarchyName: string): string[] {
@@ -4997,11 +4997,11 @@ export function getCurrencyExchangeRate(businessName: BusinessName, fromCurrency
   const business = requireEntity(businessName, typeBusinessName, requireEntity('Businesses', typeRootName));
   const hierarchyRoot = Entity.getUnder('Hierarchy', business.id);
   if (!hierarchyRoot) return null;
-  const currencyGrouping = Entity.getUnder('Currency', hierarchyRoot.id);
-  if (!currencyGrouping) return null;
-  const fromValue = Entity.getUnder(fromCurrency, currencyGrouping.id);
+  const currencyHierarchy = Entity.getUnder('Currency', hierarchyRoot.id);
+  if (!currencyHierarchy) return null;
+  const fromValue = Entity.getUnder(fromCurrency, currencyHierarchy.id);
   if (!fromValue) return null;
-  const toValue = Entity.getUnder(toCurrency, currencyGrouping.id);
+  const toValue = Entity.getUnder(toCurrency, currencyHierarchy.id);
   if (!toValue) return null;
   const product = Entity.getUnder('Product', business.id);
   if (!product) return null;
@@ -5476,7 +5476,7 @@ export function createLocation(businessName: BusinessName, locationName: string,
   return create({ id: asEntityId(locationsRootId), name: 'Locations' as string & { __brand: 'RootName' } }, typeLocationEntityName, locationName, userId);
 }
 
-export function createAndConfigureLocation(businessName: BusinessName, locationName: string, location: StockLocation, userId: UserId, group?: string, groupingName?: string): TypedNode<'LocationEntityName'> {
+export function createAndConfigureLocation(businessName: BusinessName, locationName: string, location: StockLocation, userId: UserId, group?: string, hierarchyName?: string): TypedNode<'LocationEntityName'> {
   return db.transaction(() => {
     const entity = createLocation(businessName, locationName, userId);
     setLocation(locationName, location, businessName);
@@ -5486,10 +5486,10 @@ export function createAndConfigureLocation(businessName: BusinessName, locationN
     // ledger once a rollover has moved the business into a later period
     // (see docs/user-manual-ch3-tutorial.md's Ice-business mini year-end).
     ensureLocationCapacityAccount(businessName, getActiveLedger(businessName) ?? asLedgerName('Actual'), asLocationName(locationName), userId);
-    if (group && groupingName) {
-      ensureHierarchyGrouping(businessName, groupingName, userId, 'Locations');
-      const value = ensureHierarchyValue(businessName, groupingName, group, userId);
-      setHierarchyParent(locationName, groupingName, group, userId, entity.id, value.id);
+    if (group && hierarchyName) {
+      ensureHierarchy(businessName, hierarchyName, userId, 'Locations');
+      const value = ensureHierarchyValue(businessName, hierarchyName, group, userId);
+      setHierarchyParent(locationName, hierarchyName, group, userId, entity.id, value.id);
       setRelationship(group, 'Belongs To Business', businessName, userId);
     }
     setRelationship(locationName, 'Belongs To Group', group || locationName, userId);
@@ -5497,7 +5497,7 @@ export function createAndConfigureLocation(businessName: BusinessName, locationN
   })();
 }
 
-// Name-based, for the same reason deleteHierarchyValue/deleteHierarchyGrouping
+// Name-based, for the same reason deleteHierarchyValue/deleteHierarchy
 // above are: the Locations screen and the Business Structure popup both work
 // from listLocations's LocationRecord shape, which carries no entity id.
 // revokeEntity's own guards do the real safety work here too — a location
@@ -5756,7 +5756,7 @@ export interface BusinessConfigurationReport {
   bankAccounts: { name: string; routingDetail: string; accountNumber: string }[];
   homeCurrency: string | null;
   secondaryCurrencies: string[];
-  hierarchies: HierarchyGroupingWithValues[];
+  hierarchies: HierarchyWithValues[];
   locations: { name: string; city: string; locationType: string }[];
   /** The items that are the parent of other items. */
   products: string[];

@@ -148,7 +148,7 @@ Tests (*Testing: Unit*, "Running the tests"):
 
 # The axis reports — `backend/src/db-matrix-reports.ts`
 
-`getCube`, `getStockOnHandMatrix`, `getProfitAndLossByAxis` and `getAxisValues` break figures down along two axes at once: one for what (`Item`, `Consolidated`, or a business's grouping such as `Category`) and one for where (`Location`, `Consolidated`, or a grouping such as `Division`). Only Item and Location are structural in the Chart of Accounts; every other grouping is a `Hierarchy:` tag lookup. `getCube` and its measures are in *Application Configuration*, "The general report cube".
+`getCube`, `getStockOnHandMatrix`, `getProfitAndLossByAxis` and `getAxisValues` break figures down along two axes at once: one for what (`Item`, `Consolidated`, or a business's hierarchy such as `Category`) and one for where (`Location`, `Consolidated`, or a hierarchy such as `Division`). Only Item and Location are structural in the Chart of Accounts; every other hierarchy is a `Hierarchy:` tag lookup. `getCube` and its measures are in *Application Configuration*, "The general report cube".
 
 ## Axes are open-ended, not a closed enum
 

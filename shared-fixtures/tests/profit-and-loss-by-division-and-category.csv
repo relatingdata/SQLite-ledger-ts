@@ -1,4 +1,4 @@
-# The Profit and Loss groups by two groupings at once: here each
+# The Profit and Loss groups by two hierarchies at once: here each
 # division, and within it each category. Only Warehouse B Division sold
 # anything.
 "Include","../common/business.csv"

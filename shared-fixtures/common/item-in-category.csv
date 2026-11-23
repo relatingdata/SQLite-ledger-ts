@@ -1,7 +1,7 @@
 # The item ${item} in the new value ${category} of the business's item
-# grouping Category. Needs common/business.csv.
+# hierarchy Category. Needs common/business.csv.
 "Default","category","Test Category"
 "Default","item","Test Item"
-"Create Hierarchy Grouping","${business}","Category","Items"
+"Create Hierarchy","${business}","Category","Items"
 "Create Item Group Value","${business}","Category","${category}"
 "Create Item In Group","${business}","${item}","Category","${category}"

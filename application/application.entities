@@ -22,7 +22,7 @@ Root
     - :Parameter Name=departmentName Type=text
    addItemGroupValueViaStructurePopup :Call
     - :Parameter Name=businessName Type=text
-    - :Parameter Name=groupingName Type=select
+    - :Parameter Name=hierarchyName Type=select
     - :Parameter Name=valueName Type=text
    addItemSourceSimple :Call
     - :Parameter Name=itemName Type=text
@@ -31,7 +31,7 @@ Root
     - :Parameter Name=preferred Type=text
    addLocationGroupValueViaStructurePopup :Call
     - :Parameter Name=businessName Type=text
-    - :Parameter Name=groupingName Type=select
+    - :Parameter Name=hierarchyName Type=select
     - :Parameter Name=valueName Type=text
    addOrUpdateItemSource :Call Client=addOrUpdateItemSource
     - :Parameter Name=itemName
@@ -216,22 +216,22 @@ Root
    createEntitySimple :Call
     - :Parameter Name=name Type=text
     - :Parameter Name=parent Type=text
-   createHierarchyGrouping :Call Client=createHierarchyGrouping
+   createHierarchy :Call Client=createHierarchy
     - :Parameter Name=business
-    - :Parameter Name=groupingName
-    - :Parameter Name=groups
-   createHierarchyGroupingSimple :Call
+    - :Parameter Name=hierarchyName
+    - :Parameter Name=of
+   createHierarchySimple :Call
     - :Parameter Name=businessName Type=text
-    - :Parameter Name=groupingName Type=text
-    - :Parameter Name=groups Type=text
+    - :Parameter Name=hierarchyName Type=text
+    - :Parameter Name=of Type=text
    createHierarchyValue :Call Client=createHierarchyValue
     - :Parameter Name=business
-    - :Parameter Name=groupingName
+    - :Parameter Name=hierarchyName
     - :Parameter Name=valueName
     - :Parameter Name="parentValueName ?? undefined"
    createHierarchyValueSimple :Call
     - :Parameter Name=businessName Type=text
-    - :Parameter Name=groupingName Type=text
+    - :Parameter Name=hierarchyName Type=text
     - :Parameter Name=valueName Type=text
    createInvoice :Call Client=createInvoice
     - :Parameter Name=input.invoiceType
@@ -243,12 +243,12 @@ Root
     - :Parameter Name=input.description
    createItemGroupValue :Call
     - :Parameter Name=businessName Type=text
-    - :Parameter Name=groupingName Type=select
+    - :Parameter Name=hierarchyName Type=select
     - :Parameter Name=valueName Type=text
    createItemInGroup :Call
     - :Parameter Name=businessName Type=text
     - :Parameter Name=itemName Type=text
-    - :Parameter Name=groupingName Type=select
+    - :Parameter Name=hierarchyName Type=select
     - :Parameter Name=valueName Type=text
    createLedger :Call Client=createLedger
     - :Parameter Name=business
@@ -366,15 +366,15 @@ Root
     - :Parameter Name=employeeName
    deleteEmployeeManager :Call Client=deleteEmployeeManager
     - :Parameter Name=employeeName
-   deleteHierarchyGrouping :Call Client=deleteHierarchyGrouping
+   deleteHierarchy :Call Client=deleteHierarchy
     - :Parameter Name=business
-    - :Parameter Name=groupingName
+    - :Parameter Name=hierarchyName
    deleteHierarchyTag :Call Client=deleteHierarchyTag
     - :Parameter Name=entityName
     - :Parameter Name=hierarchyName
    deleteHierarchyValue :Call Client=deleteHierarchyValue
     - :Parameter Name=business
-    - :Parameter Name=groupingName
+    - :Parameter Name=hierarchyName
     - :Parameter Name=valueName
    deleteItemSource :Call Client=deleteItemSource
     - :Parameter Name="String(id)"
@@ -691,7 +691,7 @@ Root
     - :Parameter Name=unitValue Type=select
     - :Parameter Name=unitsProduced Type=text
     - :Parameter Name=ledger Type=text
-    - :Parameter Name=groupingName Type=text
+    - :Parameter Name=hierarchyName Type=text
    openStorageContainer :Call Client=openStorageContainer
     - :Parameter Name=input.business
     - :Parameter Name=input.ledger
@@ -827,7 +827,7 @@ Root
     - :Parameter Name=itemName Type=text
     - :Parameter Name=locationName Type=select
     - :Parameter Name=quantity Type=text
-    - :Parameter Name=groupingName Type=select
+    - :Parameter Name=hierarchyName Type=select
     - :Parameter Name=storageValue Type=select
     - :Parameter Name=ledger Type=text
    recordStockTakeCount :Call Client=recordStockTakeCount
@@ -990,7 +990,7 @@ Root
    setLocationGroup :Call
     - :Parameter Name=businessName Type=text
     - :Parameter Name=locationName Type=text
-    - :Parameter Name=groupingName Type=select
+    - :Parameter Name=hierarchyName Type=select
     - :Parameter Name=valueName Type=select
    setLocationOpenHours :Call Client=setLocationOpenHours
     - :Parameter Name=locationName
@@ -1147,7 +1147,7 @@ Root
    tagItemHierarchy :Call
     - :Parameter Name=businessName Type=text
     - :Parameter Name=itemName Type=text
-    - :Parameter Name=groupingName Type=text
+    - :Parameter Name=hierarchyName Type=text
     - :Parameter Name=valueName Type=text
    tagSkillSimple :Call
     - :Parameter Name=contactName Type=text
@@ -1209,7 +1209,7 @@ Root
     - :Action Handler="() => (open = !open)"
     - :Use Component>/Root/Application/Components/ProfitAndLossTable "Prop pl"="{node.profitAndLoss}"
     - :Use Component>/Root/Application/Components/AxisPLNode "Prop depth"="{depth + 1}" "Prop node"="{child}"
-   BusinessStructurePopup :Component "Calls createDepartment">/Root/Application/Calls/createDepartment "Calls createHierarchyGrouping">/Root/Application/Calls/createHierarchyGrouping "Calls createHierarchyValue">/Root/Application/Calls/createHierarchyValue "Calls createLocation">/Root/Application/Calls/createLocation "Calls deleteDepartment">/Root/Application/Calls/deleteDepartment "Calls deleteEmployeeDepartment">/Root/Application/Calls/deleteEmployeeDepartment "Calls deleteEmployeeManager">/Root/Application/Calls/deleteEmployeeManager "Calls deleteHierarchyGrouping">/Root/Application/Calls/deleteHierarchyGrouping "Calls deleteHierarchyTag">/Root/Application/Calls/deleteHierarchyTag "Calls deleteHierarchyValue">/Root/Application/Calls/deleteHierarchyValue "Calls deleteLocation">/Root/Application/Calls/deleteLocation "Calls getHierarchy">/Root/Application/Calls/getHierarchy "Calls getHierarchyAssignments">/Root/Application/Calls/getHierarchyAssignments "Calls getHierarchyTag">/Root/Application/Calls/getHierarchyTag "Calls getLocationTypes">/Root/Application/Calls/getLocationTypes "Calls getOrgChartStructure">/Root/Application/Calls/getOrgChartStructure "Calls listDepartments">/Root/Application/Calls/listDepartments "Calls listLocations">/Root/Application/Calls/listLocations "Calls setEmployeeDepartment">/Root/Application/Calls/setEmployeeDepartment "Calls setEmployeeManager">/Root/Application/Calls/setEmployeeManager "Calls setHierarchyTag">/Root/Application/Calls/setHierarchyTag Source="frontend/src/lib/components/BusinessStructurePopup.svelte"
+   BusinessStructurePopup :Component "Calls createDepartment">/Root/Application/Calls/createDepartment "Calls createHierarchy">/Root/Application/Calls/createHierarchy "Calls createHierarchyValue">/Root/Application/Calls/createHierarchyValue "Calls createLocation">/Root/Application/Calls/createLocation "Calls deleteDepartment">/Root/Application/Calls/deleteDepartment "Calls deleteEmployeeDepartment">/Root/Application/Calls/deleteEmployeeDepartment "Calls deleteEmployeeManager">/Root/Application/Calls/deleteEmployeeManager "Calls deleteHierarchy">/Root/Application/Calls/deleteHierarchy "Calls deleteHierarchyTag">/Root/Application/Calls/deleteHierarchyTag "Calls deleteHierarchyValue">/Root/Application/Calls/deleteHierarchyValue "Calls deleteLocation">/Root/Application/Calls/deleteLocation "Calls getHierarchy">/Root/Application/Calls/getHierarchy "Calls getHierarchyAssignments">/Root/Application/Calls/getHierarchyAssignments "Calls getHierarchyTag">/Root/Application/Calls/getHierarchyTag "Calls getLocationTypes">/Root/Application/Calls/getLocationTypes "Calls getOrgChartStructure">/Root/Application/Calls/getOrgChartStructure "Calls listDepartments">/Root/Application/Calls/listDepartments "Calls listLocations">/Root/Application/Calls/listLocations "Calls setEmployeeDepartment">/Root/Application/Calls/setEmployeeDepartment "Calls setEmployeeManager">/Root/Application/Calls/setEmployeeManager "Calls setHierarchyTag">/Root/Application/Calls/setHierarchyTag Source="frontend/src/lib/components/BusinessStructurePopup.svelte"
     - :Heading Text="Business Structure"
     - :Action Handler=onClose Label="\u00d7"
     - :Action Handler="() => goToStep(i)"
@@ -1230,13 +1230,13 @@ Root
     - :Action Handler=submitNewCategory Label=Create
     - :Action Handler="() => (addingCategoryUnder = null)" Label=Cancel
     - :Use Component>/Root/Application/Components/StructureTreeNode "Prop moveOptions"="{[]}" "Prop movingKey"="{null}" "Prop node"="{node}" "Prop onAddChild"="{onAddChildHierarchiesTab}" "Prop onCancelMove"="{() => {}}" "Prop onConfirmMove"="{() => {}}" "Prop onSelect"="{selectNode}" "Prop onStartMove"="{() => {}}" "Prop selectedKey"="{selectedKey}"
-    - :Action Handler="() => (addingGrouping = true)" Label=+
-    - :Field Bind=newGroupingName Control=input Placeholder="{translations.current['Hierarchy name, e.g. Storage'] ?? 'Hierarchy name, e.g. Storage'}"
-    - :Action Handler=submitNewGrouping Label=Create
-    - :Action Handler="() => (addingGrouping = false)" Label=Cancel
+    - :Action Handler="() => (addingHierarchy = true)" Label=+
+    - :Field Bind=newHierarchyName Control=input Placeholder="{translations.current['Hierarchy name, e.g. Storage'] ?? 'Hierarchy name, e.g. Storage'}"
+    - :Action Handler=submitNewHierarchy Label=Create
+    - :Action Handler="() => (addingHierarchy = false)" Label=Cancel
     - :Field Bind=newHierarchyValueName Control=input Placeholder="{translations.current['Value name, e.g. Secure'] ?? 'Value name, e.g. Secure'}"
     - :Action Handler=submitNewHierarchyValue Label=Create
-    - :Action Handler="() => (addingValueUnderGrouping = null)" Label=Cancel
+    - :Action Handler="() => (addingValueUnderHierarchy = null)" Label=Cancel
     - :Action Handler=prevStep Label=Back
     - :Action Handler=nextStep Label=Finish
    CashTransaction :Component "Calls completeCashPurchase">/Root/Application/Calls/completeCashPurchase "Calls completePosSale">/Root/Application/Calls/completePosSale "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls listItems">/Root/Application/Calls/listItems "Calls listLocations">/Root/Application/Calls/listLocations Source="frontend/src/lib/components/CashTransaction.svelte"
@@ -1635,8 +1635,8 @@ Root
     - :Field Bind=receiveLocation Control=select Label=Location
     - :Heading Text=Quantity
     - :Field Bind=receiveQuantity Control=input Label=Quantity Placeholder="e.g. 24"
-    - :Heading Text="Storage grouping (optional)"
-    - :Field Bind=receiveGrouping Control=select Label="Storage grouping (optional)"
+    - :Heading Text="Storage hierarchy (optional)"
+    - :Field Bind=receiveHierarchy Control=select Label="Storage hierarchy (optional)"
     - :Heading Text=Value
     - :Field Bind=receiveStorageValue Control=select Label=Value
     - :Action Handler=doReceiveIntoStorage Label=Receive
@@ -1701,14 +1701,14 @@ Root
     - :Heading Text="Storage Actions"
     - :Heading Text="Open a Container"
     - :Field Bind=openContainerItem Control=input Label="Storage Actions" Placeholder="{translations.current['Item name\u2026'] ?? 'Item name\u2026'}"
-    - :Field Bind=openContainerGrouping Control=select Label="Storage Actions"
+    - :Field Bind=openContainerHierarchy Control=select Label="Storage Actions"
     - :Field Bind=openContainerFrom Control=select Label="Storage Actions"
     - :Field Bind=openContainerCartonsOpened Control=input Label="Storage Actions" Placeholder=1
     - :Field Bind=openContainerTo Control=select Label="Storage Actions"
     - :Field Bind=openContainerUnitsProduced Control=input Label="Storage Actions" Placeholder="e.g. 24"
     - :Action Handler=doOpenContainer Label="Open Container"
     - :Heading Text="Convert Storage"
-    - :Field Bind=convertGrouping Control=select Label="Storage Actions"
+    - :Field Bind=convertHierarchy Control=select Label="Storage Actions"
     - :Field Bind=convertFrom Control=select Label="Storage Actions"
     - :Field Bind=convertTo Control=select Label="Storage Actions"
     - :Field Bind=convertQuantity Control=input Label="Storage Actions" Placeholder="{translations.current['Quantity'] ?? 'Quantity'}"
@@ -1868,10 +1868,10 @@ Root
     - :Entry Control=amount Label=Realizable Name=realizable Source="onHandAt:retail" Summary=yes
    "/reports/profit-and-loss" :Screen Source="frontend/src/routes/reports/profit-and-loss/+page.svelte" Title="Profit and Loss"
     - :Heading Text="Profit and Loss"
-    - :Heading Text="Outer grouping"
-    - :Field Bind=outerSelection Control=select Label="Outer grouping"
-    - :Heading Text="Inner grouping"
-    - :Field Bind=innerSelection Control=select Label="Inner grouping"
+    - :Heading Text="Outer hierarchy"
+    - :Field Bind=outerSelection Control=select Label="Outer hierarchy"
+    - :Heading Text="Inner hierarchy"
+    - :Field Bind=innerSelection Control=select Label="Inner hierarchy"
     - :Use Component>/Root/Application/Components/FromToDateFields "Prop onchange"="{load}"
     - :Action Handler="() => { fromDate = ''; toDate = ''; load(); }" Label="Clear (show all time)"
     - :Use Component>/Root/Application/Components/AxisPLNode "Prop node"="{node}" "Prop openByDefault"="{true}"
@@ -1885,10 +1885,10 @@ Root
     - :Entry Label=Next Name=next
     - :Command Command=sendReminder Label="Send reminder" Name=send
     - :Command Command=resetReminder Label=Reset Name=reset Style=link-button When=sent
-   "/reports/sales" :Screen "Empty Text"="No sales in this period." Intro="Every posted sale for {NAME} in the selected period, summed by a grouping of the items, and line by line." "Intro Name"=business Report=sales Template=report Title="Sales Report"
+   "/reports/sales" :Screen "Empty Text"="No sales in this period." Intro="Every posted sale for {NAME} in the selected period, summed by a hierarchy of the items, and line by line." "Intro Name"=business Report=sales Template=report Title="Sales Report"
     - :Field Control=date Default=today Label=From Name=fromDate
     - :Field Control=date Default=today Label=To Name=toDate
-    - :Field Choices=itemGroupings Control=choose Default=first Label=Grouping Name=grouping
+    - :Field Choices=itemHierarchies Control=choose Default=first Label=Hierarchy Name=hierarchy
     - :Field Control=toggle Default=summary Label=View Name=view Options="summary=Summary detailed=Detailed"
     - :Entry Label=Group Name=group
     - :Entry Control=amount Label=Quantity Name=quantity
@@ -1993,14 +1993,14 @@ Root
     - :Field Bind=newLocationCity Control=input Label="Business Setup" Placeholder="{translations.current['City'] ?? 'City'}"
     - :Field Bind=newLocationType Control=select Label="Business Setup"
     - :Field Bind=newLocationTimezone Control=select Label="Business Setup"
-    - :Field Bind="newLocationDimensionValues[h.grouping]" Control=select Label="Business Setup"
+    - :Field Bind="newLocationDimensionValues[h.hierarchy]" Control=select Label="Business Setup"
     - :Field Bind=newGroupName Control=input Label="Business Setup" Placeholder="{`${translations.current[locationHierarchyName] ?? locationHierarchyName} ${translations.current['Name'] ?? 'Name'}`}"
     - :Heading Text=Details
     - :Heading Text=City
     - :Field Bind=locationRecord.city Control=input Label=City
     - :Heading Text=Type
     - :Field Bind=locationRecord.location_type Control=select Label=Type
-    - :Field Bind="locationDimensionValues[h.grouping]" Control=select Label=Details
+    - :Field Bind="locationDimensionValues[h.hierarchy]" Control=select Label=Details
     - :Heading Text="Open hours"
     - :Use Component>/Root/Application/Components/WeeklyHoursGrid "Prop fromLabel"=Opens "Prop toLabel"=Closes
     - :Action Handler=saveLocationDetail Label=Save
@@ -2041,16 +2041,16 @@ Root
     - :Heading Text=Rename
     - :Field Bind=renameValue Control=input Label=Rename
    "/setup/currencies" :Screen Description="Managing which currencies this business actually transacts in \u2014 registering a new currency's own Cash at Bank/Clearing/Gain-Loss accounts (ensureItemSalesCogsAccounts' currency equivalent, still a prototype) through a real screen instead of a script." Template=not-implemented Title=Currencies
-   "/setup/hierarchy" :Screen "Calls createHierarchyGrouping">/Root/Application/Calls/createHierarchyGrouping "Calls createHierarchyValue">/Root/Application/Calls/createHierarchyValue "Calls deleteHierarchyGrouping">/Root/Application/Calls/deleteHierarchyGrouping "Calls deleteHierarchyValue">/Root/Application/Calls/deleteHierarchyValue "Calls getHierarchy">/Root/Application/Calls/getHierarchy "Calls getProductShapes">/Root/Application/Calls/getProductShapes Source="frontend/src/routes/setup/hierarchy/+page.svelte" Title=Hierarchies
+   "/setup/hierarchy" :Screen "Calls createHierarchy">/Root/Application/Calls/createHierarchy "Calls createHierarchyValue">/Root/Application/Calls/createHierarchyValue "Calls deleteHierarchy">/Root/Application/Calls/deleteHierarchy "Calls deleteHierarchyValue">/Root/Application/Calls/deleteHierarchyValue "Calls getHierarchy">/Root/Application/Calls/getHierarchy "Calls getProductShapes">/Root/Application/Calls/getProductShapes Source="frontend/src/routes/setup/hierarchy/+page.svelte" Title=Hierarchies
     - :Heading Text=Hierarchies
-    - :Heading Text=Groupings
-    - :Use Component>/Root/Application/Components/SelectableListEditor "Prop emptyText"="{translations.current['No real hierarchy groupings yet.'] ?? 'No real hierarchy groupings yet.'}" "Prop getId"="{(g) => g.grouping}" "Prop hintText"="{translations.current['Insert adds a grouping. Delete removes the selected grouping.'] ?? 'Insert adds a grouping. Delete removes the selected grouping.'}" "Prop inserting"="{insertingGrouping}" "Prop items"="{groupings}" "Prop legend"="{translations.current['Groupings'] ?? 'Groupings'}" "Prop onDelete"="{deleteGrouping}" "Prop onInsert"="{openInsertGrouping}" "Prop onSelect"="{selectGrouping}" "Prop selectedId"="{selectedGroupingName}"
-    - :Field Bind=newGroupingName Control=input Label=Hierarchies Placeholder="{translations.current['New grouping name (e.g. Storage, Glass Size)'] ?? 'New grouping name (e.g. Storage, Glass Size)'}" Type=text
-    - :Use Component>/Root/Application/Components/SelectableListEditor "Prop emptyText"="{translations.current['No real values yet.'] ?? 'No real values yet.'}" "Prop getId"="{(v) => v}" "Prop hintText"="{translations.current['Insert adds a value. Delete removes the selected value.'] ?? 'Insert adds a value. Delete removes the selected value.'}" "Prop inserting"="{insertingValue}" "Prop items"="{selectedGrouping.values}" "Prop legend"="{`${T('Values in')} \"${T(selectedGrouping.grouping)}\"`}" "Prop onDelete"="{deleteValue}" "Prop onInsert"="{openInsertValue}" "Prop onSelect"="{selectValue}" "Prop selectedId"="{selectedValueName}"
-    - :Field Bind="valueForGrouping[selectedGrouping.grouping]" Control=input Label=Hierarchies Placeholder="{translations.current['New value'] ?? 'New value'}" Type=text
+    - :Heading Text=Hierarchies
+    - :Use Component>/Root/Application/Components/SelectableListEditor "Prop emptyText"="{translations.current['No hierarchies yet.'] ?? 'No hierarchies yet.'}" "Prop getId"="{(g) => g.hierarchy}" "Prop hintText"="{translations.current['Insert adds a hierarchy. Delete removes the selected hierarchy.'] ?? 'Insert adds a hierarchy. Delete removes the selected hierarchy.'}" "Prop inserting"="{insertingHierarchy}" "Prop items"="{hierarchies}" "Prop legend"="{translations.current['Hierarchies'] ?? 'Hierarchies'}" "Prop onDelete"="{deleteHierarchyRow}" "Prop onInsert"="{openInsertHierarchy}" "Prop onSelect"="{selectHierarchy}" "Prop selectedId"="{selectedHierarchyName}"
+    - :Field Bind=newHierarchyName Control=input Label=Hierarchies Placeholder="{translations.current['New hierarchy name (e.g. Storage, Glass Size)'] ?? 'New hierarchy name (e.g. Storage, Glass Size)'}" Type=text
+    - :Use Component>/Root/Application/Components/SelectableListEditor "Prop emptyText"="{translations.current['No real values yet.'] ?? 'No real values yet.'}" "Prop getId"="{(v) => v}" "Prop hintText"="{translations.current['Insert adds a value. Delete removes the selected value.'] ?? 'Insert adds a value. Delete removes the selected value.'}" "Prop inserting"="{insertingValue}" "Prop items"="{selectedHierarchy.values}" "Prop legend"="{`${T('Values in')} \"${T(selectedHierarchy.hierarchy)}\"`}" "Prop onDelete"="{deleteValue}" "Prop onInsert"="{openInsertValue}" "Prop onSelect"="{selectValue}" "Prop selectedId"="{selectedValueName}"
+    - :Field Bind="valueForHierarchy[selectedHierarchy.hierarchy]" Control=input Label=Hierarchies Placeholder="{translations.current['New value'] ?? 'New value'}" Type=text
     - :Heading Text="Product Shapes"
     - :Field Bind=row.dimension Control=input Label=Hierarchies Placeholder="{translations.current['Dimension name (e.g. Location)'] ?? 'Dimension name (e.g. Location)'}" Type=text
-    - :Field Bind=row.grouping Control=input Label=Hierarchies Placeholder="{translations.current['Hierarchy grouping (e.g. Location)'] ?? 'Hierarchy grouping (e.g. Location)'}" Type=text
+    - :Field Bind=row.hierarchy Control=input Label=Hierarchies Placeholder="{translations.current['Hierarchy (e.g. Location)'] ?? 'Hierarchy (e.g. Location)'}" Type=text
     - :Action Handler="() => removeShapeRow(i)" Label="\u00d7"
     - :Action Handler=addShapeRow Label="+ Add dimension"
     - :Action Handler=saveShape Label="Save shape"

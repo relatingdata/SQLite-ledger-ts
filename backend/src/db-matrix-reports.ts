@@ -18,7 +18,7 @@ function resolveLedgerEntityId(business: string, ledger: string): number | undef
   return ledgersRoot ? Entity.getUnder(ledger, ledgersRoot.id)?.id : undefined;
 }
 
-// Every grouping of the business flows through the same generic branch
+// Every hierarchy of the business flows through the same generic branch
 // below; only Consolidated/Item/Location are axes of their own.
 export type MatrixAxis = 'Item' | 'Location' | 'Consolidated' | (string & {});
 
@@ -263,9 +263,9 @@ export interface AxisValues {
   [hierarchyName: string]: string[];
 }
 
-/** Which side each grouping is on: items or locations — two axes of the
- * same side never cross. Filled in by getAxisValues: what a grouping of
- * the business's own records it groups; an application grouping by how
+/** Which side each hierarchy is on: items or locations — two axes of the
+ * same side never cross. Filled in by getAxisValues: what a hierarchy of
+ * the business's own records it groups; an application hierarchy by how
  * its values were reached. */
 export type AxisGroups = Record<string, 'item' | 'location'>;
 
@@ -277,8 +277,8 @@ export function getAxisValues(businessName: BusinessName, ledgerName: LedgerName
   const products = new Set<string>();
   const locations = new Set<string>();
   const hierarchy = getBusinessHierarchy(businessName);
-  for (const g of hierarchy) if (g.groups) groups[g.grouping] = g.groups === 'Items' ? 'item' : 'location';
-  const hierarchyNames = hierarchy.map((g) => g.grouping);
+  for (const g of hierarchy) if (g.of) groups[g.hierarchy] = g.of === 'Items' ? 'item' : 'location';
+  const hierarchyNames = hierarchy.map((g) => g.hierarchy);
   const hierarchyValues = new Map<string, Set<string>>(hierarchyNames.map((n) => [n, new Set<string>()]));
 
   for (const [id, balance] of balances.entries()) {
@@ -307,7 +307,7 @@ export function getAxisValues(businessName: BusinessName, ledgerName: LedgerName
 //
 // Every financial event is a journal posting to an account, and an
 // account resolves to an Item, a Location and each of the business's
-// groupings (resolveKey above). So any report on sales, cost of goods sold
+// hierarchies (resolveKey above). So any report on sales, cost of goods sold
 // or stock is: some measures, each a total over a set of accounts (or the
 // on-hand quantity of stock, possibly valued at a price), broken down by a
 // row axis and a column axis. getStockOnHandMatrix is one fixed instance;

@@ -1,0 +1,2 @@
+# The business's hierarchy of its locations, which it calls Division.
+"Create Hierarchy","${business}","Division","Locations"

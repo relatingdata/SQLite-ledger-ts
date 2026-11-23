@@ -50,7 +50,7 @@ export const departmentsFunctions: Record<string, BackendCall> = {
   // one row with employeeName='' (a real employee name is never the
   // empty string, confirmed by createEmployee's own validation).
   // Zero unassigned employees need no placeholder row - "unassigned" is
-  // a derived grouping, not a named thing the frontend needs to remember
+  // a derived hierarchy, not a named thing the frontend needs to remember
   // across an empty list. OrgChartStructure.business is dropped entirely
   // - confirmed via grep that the frontend never reads it back (it
   // already knows which business it asked about).

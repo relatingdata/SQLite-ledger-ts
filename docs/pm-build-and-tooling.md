@@ -189,7 +189,7 @@ when the manual and the code agree.
 | `check-step-tests` | No Playwright spec (`*.spec.ts`) and no use of `@playwright/test`; every page of the app is opened by `shared-fixtures/tests/every-page-opens.csv`, and every page it opens exists (`scripts/check-step-tests.ts`; it runs `make generate` first, as some pages are generated). |
 | `check-manual-pictures` | Every picture a chapter shows is taken by a test or tutorial's screenshot column (`scripts/manual-pictures.ts check`). |
 | `check-translations` | Every menu, screen and frontend text has a translation in every language, English included (*Translations*). |
-| `check-grouping-names` | No grouping a business names for itself (the fixtures' Division, Category, Size, ...) is a string literal in the code (*Core Domain Reference*, "Hierarchies and multi-dimensional reporting"). |
+| `check-hierarchy-names` | No hierarchy a business names for itself (the fixtures' Division, Category, Size, ...) is a string literal in the code (*Core Domain Reference*, "Hierarchies and multi-dimensional reporting"). |
 | `check-unit-levels` | Every unit test file is in exactly one level of `make test-unit` (`scripts/check-unit-levels.ts`). |
 | `check-backend-types` | `backend/src`, `shared-fixtures` and every script in `backend/scripts` type-check (`tsc --noEmit`, then `tsc -p backend/tsconfig.scripts.json`, which also allows `.ts` import paths as tsx does). A script that imports or calls something `db.ts` no longer has fails here. |
 

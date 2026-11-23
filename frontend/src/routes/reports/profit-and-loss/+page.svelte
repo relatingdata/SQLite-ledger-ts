@@ -21,11 +21,11 @@
   let error = $state('');
 
   // Hierarchy-redundancy guard — see docs/pm-frontend-reference.md: Item
-  // and the item groupings on one side, Location and the location
-  // groupings on the other.
-  const groupingsOn = (side: string) => (axisValues ? Object.keys(axisValues).filter((k) => !['Item', 'Location'].includes(k) && axisGroups[k] === side) : []) as Exclude<MatrixAxis, 'Consolidated'>[];
-  let itemHierarchy = $derived(['Item', ...groupingsOn('item')] as Exclude<MatrixAxis, 'Consolidated'>[]);
-  let locationHierarchy = $derived(['Location', ...groupingsOn('location')] as Exclude<MatrixAxis, 'Consolidated'>[]);
+  // and the item hierarchies on one side, Location and the location
+  // hierarchies on the other.
+  const hierarchiesOn = (side: string) => (axisValues ? Object.keys(axisValues).filter((k) => !['Item', 'Location'].includes(k) && axisGroups[k] === side) : []) as Exclude<MatrixAxis, 'Consolidated'>[];
+  let itemHierarchy = $derived(['Item', ...hierarchiesOn('item')] as Exclude<MatrixAxis, 'Consolidated'>[]);
+  let locationHierarchy = $derived(['Location', ...hierarchiesOn('location')] as Exclude<MatrixAxis, 'Consolidated'>[]);
   let groupableAxes = $derived([...itemHierarchy, ...locationHierarchy] as Exclude<MatrixAxis, 'Consolidated'>[]);
   function opposingHierarchyAxes(axis: Exclude<MatrixAxis, 'Consolidated'> | 'Consolidated'): (Exclude<MatrixAxis, 'Consolidated'> | 'Consolidated')[] {
     if (locationHierarchy.includes(axis as never)) return ['Consolidated', ...itemHierarchy];
@@ -78,7 +78,7 @@
   let allowedOuterAxes = $derived(opposingHierarchyAxes(innerAxis).filter((a): a is Exclude<MatrixAxis, 'Consolidated'> => a !== 'Consolidated'));
   let totalProfitLoss = $derived(nodes.reduce((s, n) => s + n.profitAndLoss.net_income_minor, 0));
 
-  // Resets the other grouping to Consolidated on conflict — see docs/pm-frontend-reference.md.
+  // Resets the other hierarchy to Consolidated on conflict — see docs/pm-frontend-reference.md.
   function onOuterChange() {
     const newOuterAxis = parseSelection(outerSelection).axis;
     const currentInnerAxis = parseSelection(innerSelection).axis;
@@ -102,12 +102,12 @@
 <fieldset class="page-title">
   <legend>{translations.current['Profit and Loss'] ?? 'Profit and Loss'}</legend>
   <p class="intro">
-    {translations.current['A real P&L statement, in the same, vertical, drillable layout as the original — but grouped by two, real, independent, nested groupings at once. Pick what each level breaks down by, or narrow either one down to a single, particular value directly.'] ??
-      'A real P&L statement, in the same, vertical, drillable layout as the original — but grouped by two, real, independent, nested groupings at once. Pick what each level breaks down by, or narrow either one down to a single, particular value directly.'}
+    {translations.current['A P&L statement, in the same vertical, drillable layout as the original — but broken down by two independent, nested hierarchies at once. Pick what each level breaks down by, or narrow either one down to a single value directly.'] ??
+      'A P&L statement, in the same vertical, drillable layout as the original — but broken down by two independent, nested hierarchies at once. Pick what each level breaks down by, or narrow either one down to a single value directly.'}
   </p>
 <div class="controls">
   <fieldset>
-    <legend>{translations.current['Outer grouping'] ?? 'Outer grouping'}</legend>
+    <legend>{translations.current['Outer hierarchy'] ?? 'Outer hierarchy'}</legend>
     <select bind:value={outerSelection} onchange={onOuterChange}>
       <option value="Consolidated">{translations.current['Consolidated'] ?? 'Consolidated'}</option>
       {#each allowedOuterAxes as axis}
@@ -123,7 +123,7 @@
     </select>
   </fieldset>
   <fieldset>
-    <legend>{translations.current['Inner grouping'] ?? 'Inner grouping'}</legend>
+    <legend>{translations.current['Inner hierarchy'] ?? 'Inner hierarchy'}</legend>
     <select bind:value={innerSelection} onchange={onInnerChange}>
       <option value="Consolidated">{translations.current['Consolidated'] ?? 'Consolidated'}</option>
       {#each allowedInnerAxes as axis}
@@ -159,7 +159,7 @@
         <p class="empty">{translations.current['No real activity for this combination.'] ?? 'No real activity for this combination.'}</p>
       {:else}
         {#if outerAxis === 'Consolidated'}
-          <!-- A real, single Consolidated outer grouping renders its
+          <!-- A real, single Consolidated outer hierarchy renders its
                own drill-down table directly, with no real, extra,
                redundant "Consolidated" click-to-expand wrapper around
                the one, only real section there could ever be. -->

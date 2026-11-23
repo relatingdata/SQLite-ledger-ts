@@ -472,35 +472,35 @@ export const deleteLocation = (name: string, business: string) => callRow('delet
 
 // --- Hierarchy -------------------------------------------------------------
 // Mirrors frontend/src/lib/api.ts's own Hierarchy section: the business's
-// own groupings, each of its items or of its locations, none named in the
+// own hierarchies, each of its items or of its locations, none named in the
 // code (docs/pm-domain-reference.md).
 
-export type GroupingKind = 'Items' | 'Locations';
-export interface HierarchyGroupingWithValues {
-  grouping: string;
-  groups?: GroupingKind;
+export type HierarchyKind = 'Items' | 'Locations';
+export interface HierarchyWithValues {
+  hierarchy: string;
+  of?: HierarchyKind;
   values: string[];
 }
-export const getHierarchy = async (business: string): Promise<HierarchyGroupingWithValues[]> => {
-  const rows = await callTable('getHierarchy', [business], (f) => ({ grouping: f.grouping, groups: f.groups, value: f.value }));
-  const byGrouping = new Map<string, HierarchyGroupingWithValues>();
+export const getHierarchy = async (business: string): Promise<HierarchyWithValues[]> => {
+  const rows = await callTable('getHierarchy', [business], (f) => ({ hierarchy: f.hierarchy, of: f.of, value: f.value }));
+  const byHierarchy = new Map<string, HierarchyWithValues>();
   for (const r of rows) {
-    if (!byGrouping.has(r.grouping)) byGrouping.set(r.grouping, { grouping: r.grouping, groups: (r.groups || undefined) as GroupingKind | undefined, values: [] });
-    if (r.value !== '') byGrouping.get(r.grouping)!.values.push(r.value);
+    if (!byHierarchy.has(r.hierarchy)) byHierarchy.set(r.hierarchy, { hierarchy: r.hierarchy, of: (r.of || undefined) as HierarchyKind | undefined, values: [] });
+    if (r.value !== '') byHierarchy.get(r.hierarchy)!.values.push(r.value);
   }
-  return [...byGrouping.values()];
+  return [...byHierarchy.values()];
 };
-/** The first grouping of the business's items, or of its locations. */
-export const firstGroupingOf = (h: HierarchyGroupingWithValues[], kind: GroupingKind): string => h.find((g) => g.groups === kind)?.grouping ?? '';
+/** The first hierarchy of the business's items, or of its locations. */
+export const firstHierarchyOf = (h: HierarchyWithValues[], kind: HierarchyKind): string => h.find((g) => g.of === kind)?.hierarchy ?? '';
 
-export const createHierarchyGrouping = (business: string, groupingName: string, groups: GroupingKind) =>
-  callRow('createHierarchyGrouping', [business, groupingName, groups], (f): { name: string } => ({ name: f[0] }));
-export const createHierarchyValue = (business: string, groupingName: string, valueName: string, parentValueName?: string | null) =>
-  callRow('createHierarchyValue', [business, groupingName, valueName, parentValueName ?? undefined], (f): { name: string } => ({ name: f[0] }));
+export const createHierarchy = (business: string, hierarchyName: string, of: HierarchyKind) =>
+  callRow('createHierarchy', [business, hierarchyName, of], (f): { name: string } => ({ name: f[0] }));
+export const createHierarchyValue = (business: string, hierarchyName: string, valueName: string, parentValueName?: string | null) =>
+  callRow('createHierarchyValue', [business, hierarchyName, valueName, parentValueName ?? undefined], (f): { name: string } => ({ name: f[0] }));
 
-export const deleteHierarchyGrouping = (business: string, groupingName: string) => callRow('deleteHierarchyGrouping', [business, groupingName], () => undefined);
-export const deleteHierarchyValue = (business: string, groupingName: string, valueName: string) =>
-  callRow('deleteHierarchyValue', [business, groupingName, valueName], () => undefined);
+export const deleteHierarchy = (business: string, hierarchyName: string) => callRow('deleteHierarchy', [business, hierarchyName], () => undefined);
+export const deleteHierarchyValue = (business: string, hierarchyName: string, valueName: string) =>
+  callRow('deleteHierarchyValue', [business, hierarchyName, valueName], () => undefined);
 
 export const setHierarchyTag = (entityName: string, hierarchyName: string, parentName: string) =>
   callRow('setHierarchyTag', [entityName, hierarchyName, parentName], (f): { entityName: string; hierarchyName: string; parentName: string } => ({ entityName: f[0], hierarchyName: f[1], parentName: f[2] }));

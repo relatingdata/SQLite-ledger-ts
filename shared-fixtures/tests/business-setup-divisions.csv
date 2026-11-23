@@ -1,9 +1,9 @@
 # Business Setup shows the business's locations grouped by its own
-# location grouping, here named Division (not by the User grouping of
+# location hierarchy, here named Division (not by the User hierarchy of
 # its role matrix); Insert adds a value, selecting it explains that it
-# is a reporting grouping, and Delete removes it again.
+# is a reporting hierarchy, and Delete removes it again.
 "Include","../common/business.csv"
-"Include","../common/division-grouping.csv"
+"Include","../common/division-hierarchy.csv"
 "Open Page","/setup/business-setup"
 "Page Shows","body","${business} \u{2014} Division for Locations"
 "Focus","[aria-keyshortcuts='Insert Delete']"

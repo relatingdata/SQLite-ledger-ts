@@ -1,5 +1,5 @@
 # Puts ${location} in the value ${division} of the business's location
-# grouping Division, creating the value. Needs common/division-grouping.csv
+# hierarchy Division, creating the value. Needs common/division-hierarchy.csv
 # first.
 "Create Hierarchy Value","${business}","Division","${division}"
 "Move Location To Group","${business}","${location}","Division","${division}"

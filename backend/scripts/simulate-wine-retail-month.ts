@@ -59,7 +59,7 @@ import {
   stageBomComponent,
   postBomComponents,
   ensureItemLocationInventoryAccount,
-  ensureHierarchyGrouping,
+  ensureHierarchy,
   ensureHierarchyValue,
   setHierarchyParent,
   setCurrencyExchangeRate,
@@ -257,15 +257,15 @@ async function main() {
   // correct fixture data.
   const categoryOfSubcategory = new Map<string, string>();
   let categoriesCreated = 0;
-  // 'Category' as a real Hierarchy grouping, alongside (never instead of)
+  // 'Category' as a real Hierarchy, alongside (never instead of)
   // the structural Items/category/subcategory tree above — confirmed
   // directly: the Items screen's own category picker and getSalesReport's
-  // own category grouping (db-reports.ts) both read a product's Category
+  // own category hierarchy (db-reports.ts) both read a product's Category
   // through getHierarchyParent(itemName, 'Category'), the exact same
   // generic tag mechanism Division already uses for locations, never the
   // structural tree position. Without this, every product has no
   // Category tag at all and genuinely, correctly falls back to 'Other'.
-  ensureHierarchyGrouping(BUSINESS, 'Category', USER, 'Items');
+  ensureHierarchy(BUSINESS, 'Category', USER, 'Items');
   for (const cat of loadDemoCategories()) {
     categoryOfSubcategory.set(cat.subcategory, cat.category);
     if (!existingNames.has(cat.category)) {

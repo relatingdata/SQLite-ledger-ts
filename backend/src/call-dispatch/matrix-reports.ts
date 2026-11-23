@@ -91,7 +91,7 @@ export const matrixReportsFunctions: Record<string, BackendCall> = {
     const [business, ledger] = v;
     if (!business || !ledger) throw new CallError(400, 'business and ledger are both required.');
     // A third column, group, says which side an axis is on (item or
-    // location; empty for an application grouping with no values here).
+    // location; empty for an application hierarchy with no values here).
     const groups: Record<string, string> = { Item: 'item', Location: 'location' };
     const axisValues = getAxisValues(asBusinessName(business), asLedgerName(ledger), groups as never);
     const rows: { axis: string; value: string; group: string }[] = [];

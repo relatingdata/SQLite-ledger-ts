@@ -253,24 +253,24 @@ export function itemSource(inst: Instance, itemName: string, providerName: strin
 
 // --- hierarchy ----------------------------------------------------------------
 
-/** Puts a thing in a group: one relation, named after the grouping. An
- * item goes only in an item grouping, a location only in a location
- * grouping (docs/pm-domain-reference.md). */
-export function setGroup(inst: Instance, thingName: string, grouping: string, value: string): void {
+/** Puts a thing in a group: one relation, named after the hierarchy. An
+ * item goes only in an item hierarchy, a location only in a location
+ * hierarchy (docs/pm-domain-reference.md). */
+export function setGroup(inst: Instance, thingName: string, hierarchy: string, value: string): void {
   inst.store.tx(() => {
     const thing = inst.anything(thingName);
-    if (!thing) throw new NotFound(`Nothing named "${thingName}" to put in ${grouping}.`);
-    const kind = inst.groupingKind(grouping);
+    if (!thing) throw new NotFound(`Nothing named "${thingName}" to put in ${hierarchy}.`);
+    const kind = inst.hierarchyKind(hierarchy);
     const isLocation = inst.existing('Locations', thingName)?.id === thing.id;
-    if (kind === 'Locations' && !isLocation) throw new Refused(`"${grouping}" groups locations; "${thingName}" is not one.`);
-    if (kind === 'Items' && isLocation) throw new Refused(`"${grouping}" groups items; "${thingName}" is a location.`);
-    inst.core.relate(thing.id, grouping, inst.valueOf(grouping, value).id, inst.id);
+    if (kind === 'Locations' && !isLocation) throw new Refused(`"${hierarchy}" is a hierarchy of locations; "${thingName}" is not one.`);
+    if (kind === 'Items' && isLocation) throw new Refused(`"${hierarchy}" is a hierarchy of items; "${thingName}" is a location.`);
+    inst.core.relate(thing.id, hierarchy, inst.valueOf(hierarchy, value).id, inst.id);
   });
 }
 
-export function groupOf(inst: Instance, thingName: string, grouping: string): string | undefined {
+export function groupOf(inst: Instance, thingName: string, hierarchy: string): string | undefined {
   const thing = inst.anything(thingName);
-  return thing && inst.core.value(thing.id, grouping);
+  return thing && inst.core.value(thing.id, hierarchy);
 }
 
 const DEPARTMENT_ACCOUNTS = ['Payroll', 'Other Expenses'];
@@ -295,8 +295,8 @@ export function createDepartment(inst: Instance, name: string): Node {
 
 export function deleteDepartment(inst: Instance, name: string): void {
   inst.store.tx(() => {
-    const grouping = inst.existing('Hierarchy', 'Department');
-    const value = grouping && inst.core.things(grouping.id, 'Value').find((v) => v.name === name);
+    const hierarchy = inst.existing('Hierarchy', 'Department');
+    const value = hierarchy && inst.core.things(hierarchy.id, 'Value').find((v) => v.name === name);
     if (!value) throw new NotFound(`No department named "${name}".`);
     const folder = inst.core.things(departmentFolder(inst).id, 'Account').find((a) => inst.core.related(a.id, 'Department')?.id === value.id);
     const accounts = folder ? [...inst.core.all(folder.id, 'Account'), folder] : [];
@@ -311,8 +311,8 @@ export function deleteDepartment(inst: Instance, name: string): void {
 
 export function setEmployeeDepartment(inst: Instance, employeeName: string, departmentName: string): void {
   inst.store.tx(() => {
-    const grouping = inst.existing('Hierarchy', 'Department');
-    const value = grouping && inst.core.things(grouping.id, 'Value').find((v) => v.name === departmentName);
+    const hierarchy = inst.existing('Hierarchy', 'Department');
+    const value = hierarchy && inst.core.things(hierarchy.id, 'Value').find((v) => v.name === departmentName);
     if (!value) throw new NotFound(`No department named "${departmentName}".`);
     inst.core.relate(inst.contact(employeeName).id, 'Department', value.id, inst.id);
   });

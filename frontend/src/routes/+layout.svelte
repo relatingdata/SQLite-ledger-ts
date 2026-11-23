@@ -23,7 +23,7 @@
     href: string;
     label: string;
     notImplemented?: boolean;
-    isSubheading?: boolean; // non-clickable grouping heading; href ignored — see docs/pm-frontend-reference.md
+    isSubheading?: boolean; // non-clickable hierarchy heading; href ignored — see docs/pm-frontend-reference.md
   }
   interface NavSection {
     key: string;
