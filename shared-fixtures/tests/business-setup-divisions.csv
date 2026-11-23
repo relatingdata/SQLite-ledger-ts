@@ -1,7 +1,7 @@
 # Business Setup shows the business's locations grouped by its own
 # location hierarchy, here named Division (not by the User hierarchy of
 # its role matrix); Insert adds a value, selecting it explains that it
-# is a reporting hierarchy, and Delete removes it again.
+# is a value of that reporting hierarchy, and Delete removes it again.
 "Include","../common/business.csv"
 "Include","../common/division-hierarchy.csv"
 "Open Page","/setup/business-setup"
@@ -12,7 +12,7 @@
 "Press Key","Enter"
 "Page Count","button:text-is('Testburg')","1"
 "Click","button:text-is('Testburg')"
-"Page Shows","body","is purely a reporting grouping"
+"Page Shows","body","is a value of the Division reporting hierarchy"
 "Focus","[aria-keyshortcuts='Insert Delete']"
 "Press Key","Delete"
 "Page Count","button:text-is('Testburg')","0"

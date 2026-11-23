@@ -537,7 +537,7 @@
       {#if !selection}
         <p class="hint">{translations.current['Select a group, location, or employee on the left — Insert adds within whatever\'s selected, Delete removes it.'] ?? `Select a ${locationHierarchyName.toLowerCase()}, location, or employee on the left — Insert adds within whatever's selected, Delete removes it.`}</p>
       {:else if selection.type === 'group'}
-        <p class="hint">{`A ${locationHierarchyName.toLowerCase()} is purely a reporting hierarchy — press Insert to add a real location within it, or Delete to remove this ${locationHierarchyName.toLowerCase()}.`}</p>
+        <p class="hint">{`"${selection.name}" is a value of the ${locationHierarchyName} reporting hierarchy — press Insert to add a location within it, or Delete to remove it.`}</p>
       {:else if selection.type === 'location' && locationRecord}
         <fieldset>
           <legend>{translations.current['City'] ?? 'City'}</legend>
