@@ -38,9 +38,17 @@ export function getSession(): SessionState | null {
   return session;
 }
 
+/** Called when the session ends: logged out, or refused by the backend. */
+const onSessionEnd: (() => void)[] = [];
+export function whenSessionEnds(callback: () => void): void {
+  onSessionEnd.push(callback);
+}
+
 export function setSession(next: SessionState | null): void {
+  const ended = session !== null && next === null;
   session = next;
   saveSession(next);
+  if (ended) for (const callback of onSessionEnd) callback();
 }
 
 // Business/ledger selection is pure client-side state in the real,

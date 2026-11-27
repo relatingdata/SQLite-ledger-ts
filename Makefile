@@ -401,6 +401,7 @@ test-e2e-project-builder-full: reset-db
 # and runs step-runner.ts --path text (docs/pm-testing-e2e.md, "`--path
 # text` — driving the terminal UI", which says why only one step runs).
 test-e2e-tutorial-text: reset-db
+	@rm -f $(HOME)/.sql-ledger-ts-tui/session.json
 	cd tui && $(RUN_NPM_SCRIPT) build
 	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path text --non-interactive --only 1
 

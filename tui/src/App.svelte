@@ -1,6 +1,6 @@
 <script lang="ts">
   import { Box, Text } from 'sveltui';
-  import { getSession } from './api.ts';
+  import { getSession, whenSessionEnds } from './api.ts';
   import Login from './screens/Login.svelte';
   import ChooseBusiness from './screens/ChooseBusiness.svelte';
   import Menu, { type MenuScreenKey } from './screens/Menu.svelte';
@@ -36,6 +36,9 @@
   }
 
   let screen: ScreenState = $state(initialScreen());
+  // A saved session the backend no longer accepts (an old token, a
+  // business since removed) goes back to the login screen.
+  whenSessionEnds(() => (screen = { name: 'login' }));
 
   function backToMenu() {
     if ('businessName' in screen) screen = { name: 'menu', businessName: screen.businessName, ledgerName: screen.ledgerName };

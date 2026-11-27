@@ -285,6 +285,32 @@ background stays whatever the terminal already is, with `--paper-raised`/
 states, not literal hex fills, so they read correctly on light or dark
 terminals alike.
 
+### Running on Svelte 5.56
+
+sveltui 0.1.7 is its latest release. It starts its root with
+`$effect.root` and calls the root component itself, bypassing Svelte's
+own `mount()`. From Svelte 5.56 that leaves two things undone, and
+`tui/src/cli.ts` does them before handing the root to sveltui:
+
+- Svelte initialises its DOM operations only inside its own `mount()`,
+  so the empty component `tui/src/components/Nothing.svelte` is mounted
+  once into a detached element, and unmounted at once.
+- A component appends its nodes before an anchor, which sveltui never
+  passes, so the root `App` is called with a comment anchor in a
+  detached element. sveltui draws from its own state, not from these
+  nodes.
+
+Pinning an older Svelte does not help: releases up to 5.56.0 cannot
+compile sveltui's TypeScript.
+
+### A saved session the backend no longer accepts
+
+The TUI keeps its session in `~/.sql-ledger-ts-tui/session.json`. When
+the backend refuses that session's token (an old token, a business
+since removed), any call answered 401 ends the session and the TUI goes
+back to its login screen. `make test-e2e-tutorial-text` removes the
+file first, so every run starts at the login screen.
+
 ## Architecture
 
 ```
@@ -423,16 +449,14 @@ beyond `Login`, the mechanism depends on `screens.csv`'s own
 labels and step sequences exactly — and for several rows, they don't
 (see *Testing: The Test-Runner*, "`--path text` — driving the terminal UI"
 in `docs/pm-testing-e2e.md`). Running the full, 75-step fixture
-confirms this concretely: step 2, `Select Business`, fails because its
-one real value (`"admin"`, a placeholder — this row is a no-op for
-`--path api`/`--path ui` too, since no business exists yet on a fresh
-database) matches no real picker item; every later row then fails
-loudly waiting for `Menu — ` to reappear, since the session never
-leaves the Choose Business screen. `Create Business` has the same
-kind of mismatch for a different reason — the TUI's own
-`NewBusinessWizard` has more real steps (financial-year start date,
-reporting frequency, …) than `screens.csv`'s flat field list for this
-row has values for. None of this is a step-runner bug: it's
+confirms this concretely: step 2, `Create Business`, fails. After
+`Login` the TUI shows its Choose a business screen, and on a fresh
+database there is no business to choose; the TUI's own
+`NewBusinessWizard` is opened from the Menu, which needs a business,
+and has more real steps (financial-year start date, reporting
+frequency, …) than `screens.csv`'s flat field list for this row has
+values for. Every later row then fails loudly waiting for `Menu — `,
+since the session never leaves Choose a business. None of this is a step-runner bug: it's
 `screens.csv`/`tutorial-steps.csv`'s own row design (written against
 the web frontend first) genuinely not lining up with the TUI's own
 screens yet, for several rows. Closing that gap is a real, further
