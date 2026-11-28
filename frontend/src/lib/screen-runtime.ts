@@ -32,6 +32,10 @@ import {
   getStockOutRiskReport,
   listJournalEntries,
   getLedgers,
+  getStockMovementReport,
+  type OrderReceiptRow,
+  type StockTransferRow,
+  type StockSaleRow,
   getTrialBalanceComparison,
   getProfitAndLossComparison,
   getAgedInvoices,
@@ -118,6 +122,9 @@ const t = (word: string) => translations.current[word] ?? word;
 const named = (es: { name: string }[]): Choice[] => es.map((e) => ({ value: e.name, label: e.name }));
 const under = (es: EntityNode[], parentName: string) => es.filter((e) => es.find((p) => p.id === e.parent_id)?.name === parentName);
 
+const STOCK_BY_LOCATION = '\u0000location';
+const STOCK_BY_PROVIDER = '\u0000provider';
+
 /** Report axes as choices: Consolidated, then each axis that can group a
  * report (Item, Location and the business's hierarchies) under its own
  * heading, the whole axis first and then each of its values
@@ -161,6 +168,18 @@ const againstAxis = (choices: Choice[], other: string): Choice[] => {
 export const sources: Record<string, (business: string, ledger: string) => Promise<Choice[]>> = {
   /** Report axes (axisChoices). */
   axes: axisChoices,
+  /** What stock movements group by: the business's location hierarchies,
+   * Location, Provider, then its item hierarchies. */
+  stockGroupings: async (business) => {
+    let hierarchies: { hierarchy: string; of?: string | null }[] = [];
+    try {
+      hierarchies = (await getHierarchy(business)).filter((g) => g.of);
+    } catch {
+      // grouping by location or provider still works
+    }
+    const named = (of: string) => hierarchies.filter((g) => g.of === of).map((g) => ({ value: g.hierarchy, label: g.hierarchy }));
+    return [...named('Locations'), { value: STOCK_BY_LOCATION, label: 'Location' }, { value: STOCK_BY_PROVIDER, label: 'Provider' }, ...named('Items')];
+  },
   /** The business's ledgers, the session's own first. */
   ledgers: async (business, ledger) =>
     (await getLedgers(asBusinessName(business)))
@@ -558,15 +577,23 @@ export interface ReportSection {
   key: string;
   name: string;
   figure: string;
+  /** More figures after the first (a quantity, then an amount). */
+  figures?: string[];
   negative?: boolean;
   open?: boolean;
   rows: ReportRow[];
+  /** The table's columns; none: an account (a tree), its debit and credit. */
+  columns?: { name: string; label: string; numeric?: boolean }[];
+  /** A line under the table (rows left out, say). */
+  note?: string;
   children: ReportSection[];
 }
 export interface Report {
   columns: ReportColumn[];
   /** A drillable report's sections (Template=drill), and its total line. */
   sections?: ReportSection[];
+  /** Shown instead of the sections (why there are none to show). */
+  message?: string;
   grandTotal?: { label: string; value: string; negative: boolean };
   /** For a report paged on the server (Paged=server): how many rows in all. */
   total?: number;
@@ -754,6 +781,63 @@ export const reports: Record<string, (c: Context, v: Values) => Promise<Report>>
           { mark: r.min_level != null && r.quantity_on_hand <= r.min_level ? 'critical' : undefined })),
       }],
     }] };
+  },
+  /** Stock's journey over a period: purchases received, transfers or
+   * sales (movement), grouped by a hierarchy, location or provider
+   * (groupBy), each group showing its quantity (and a sale's amount) and
+   * opening to its first 100 rows. */
+  stockMovement: async (c, v) => {
+    const report = await getStockMovementReport(asBusinessName(c.business), asLedgerName(c.ledger), v.fromDate || undefined, v.toDate || undefined);
+    let itemHierarchies: string[] = [];
+    try {
+      itemHierarchies = (await getHierarchy(c.business)).filter((g) => g.of === 'Items').map((g) => g.hierarchy);
+    } catch {
+      // only Location and item hierarchies can group transfers
+    }
+    const movement = v.movement || 'receipts';
+    const groupBy = v.groupBy || STOCK_BY_LOCATION;
+    if (movement === 'transfers' && groupBy !== STOCK_BY_LOCATION && !itemHierarchies.includes(groupBy)) {
+      return { columns: [], sections: [], message: t('A transfer is between two locations: group transfers by Location or by a hierarchy of the items.') };
+    }
+    type Row = OrderReceiptRow | StockTransferRow | StockSaleRow;
+    const keyOf = (row: Row): string => {
+      if (groupBy === STOCK_BY_LOCATION) return 'from_location' in row ? row.to_location : row.location;
+      if (groupBy === STOCK_BY_PROVIDER) return ('vendor' in row ? row.vendor : null) ?? '(No provider on file)';
+      return row.hierarchyValues[groupBy] ?? `(${t('No')} ${t(groupBy)})`;
+    };
+    const rows: Row[] = movement === 'transfers' ? report.transfers : movement === 'sales' ? report.sales : report.receipts;
+    const amount = (minor: number) => (minor / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const columns = [
+      { name: 'item', label: t('Item') },
+      { name: 'date', label: t('Date') },
+      ...(movement === 'receipts' ? [{ name: 'location', label: t('Location') }, { name: 'provider', label: t('Provider') }]
+        : movement === 'transfers' ? [{ name: 'from', label: t('From') }, { name: 'to', label: 'To' }]
+        : [{ name: 'location', label: t('Location') }]),
+      { name: 'quantity', label: t('Qty'), numeric: true },
+      ...(movement === 'sales' ? [{ name: 'amount', label: t('Amount'), numeric: true }] : []),
+    ];
+    const groups = new Map<string, Row[]>();
+    for (const row of rows) groups.set(keyOf(row), [...(groups.get(keyOf(row)) ?? []), row]);
+    const sections = [...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([name, members]): ReportSection => {
+      const quantity = members.reduce((sum, r) => sum + r.quantity, 0);
+      const total = members.reduce((sum, r) => sum + ('amount_minor' in r ? r.amount_minor : 0), 0);
+      return {
+        key: name,
+        name: t(name),
+        figure: quantity.toLocaleString(),
+        figures: movement === 'sales' ? [amount(total)] : [],
+        columns,
+        rows: members.slice(0, 100).map((r, i) => line(`${name}/${i}`, {
+          item: r.item, date: r.date, quantity: r.quantity.toLocaleString(),
+          ...('from_location' in r ? { from: r.from_location, to: r.to_location } : { location: r.location }),
+          ...('vendor' in r && !('amount_minor' in r) ? { provider: r.vendor ?? '\u2014' } : {}),
+          ...('amount_minor' in r ? { amount: amount(r.amount_minor) } : {}),
+        })),
+        note: members.length > 100 ? `Showing the first 100 of ${members.length} real rows \u2014 narrow the date range or group by a finer dimension to see the rest.` : undefined,
+        children: [],
+      };
+    });
+    return { columns: [], sections, message: sections.length === 0 ? `No ${movement} in the selected period.` : undefined };
   },
   /** Two ledgers side by side (ledgerA, ledgerB): their Profit and Loss
    * with each line's variance, and their Trial Balances. */

@@ -743,13 +743,14 @@
       #"  import { session, translations } from '$lib/state.svelte';\n"
       #"  import { ApiError } from '$lib/api';\n"
       #"  import DrillSection from '$lib/DrillSection.svelte';\n"
+      #"  import { todayIsoDate } from '$lib/format';\n"
       #"  import { reports, sources, filters, reactions, groupsOf, type Choice, type Patch, type Report } from '$lib/screen-runtime';\n\n"
       #"  const t = (word: string) => translations.current[word] ?? word;\n"
       #"  let business = $state('');\n  let ledger = $state('');\n"
       #"  let ready = $state(false);\n  let loading = $state(true);\n  let error = $state('');\n"
       #"  let report: Report | null = $state(null);\n"
       #"  let values: Record<string, string> = $state({ "
-      (lists:join #", " (lists:map (lambda (f) (list (val s f #"Name") #": " (js (val s f #"Default" #"")))) fields))
+      (lists:join #", " (lists:map (lambda (f) (list (val s f #"Name") #": " (report-default s f))) fields))
       #" });\n"
       #"  let choices: Record<string, Choice[]> = $state({});\n"
       #"  let narrowed: Record<string, Choice[] | undefined> = $state({});\n"
@@ -788,11 +789,24 @@
       #"  {:else if error}\n    <p class='error center-text'>{error}</p>\n"
       #"  {:else if report}\n"
       #"    <div class='report-wrap'>\n      <div class='report card'>\n"
-      #"        <div class='title-block'>\n          <p class='title-line'>" (t (val s id #"Title Line" (val s id #"Title"))) #"</p>\n"
-      #"          <p class='title-line company'>{business}</p>\n        </div>\n"
-      #"        {#if (report.sections ?? []).length === 0}\n          <p class='empty'>" (t (val s id #"Empty Text" #"None")) #"</p>\n"
+      ;; A Title Line puts a title block naming the business above the sections.
+      (case (val s id #"Title Line")
+        ('undefined #"")
+        (title-line (list #"        <div class='title-block'>\n          <p class='title-line'>" (t title-line) #"</p>\n"
+                    #"          <p class='title-line company'>{business}</p>\n        </div>\n")))
+      #"        {#if report.message}\n          <p class='center-text empty'>{report.message}</p>\n"
+      #"        {:else if (report.sections ?? []).length === 0}\n          <p class='empty'>" (t (val s id #"Empty Text" #"None")) #"</p>\n"
       #"        {:else}\n          {#each report.sections ?? [] as section (section.key)}<DrillSection {section} />{/each}\n"
       #"          {#if report.grandTotal}<div class='grand-total' class:negative={report.grandTotal.negative}><span>{report.grandTotal.label}</span><span>{report.grandTotal.value}</span></div>{/if}\n"
       #"        {/if}\n      </div>\n    </div>\n"
       #"  {/if}\n"
       #"</fieldset>\n")))
+
+;; A parameter's first value: today for Default=today on a date, nothing
+;; for Default=first (the first choice, once loaded) or no Default.
+(defun report-default (s f)
+  (case (tuple (val s f #"Control") (val s f #"Default"))
+    ((tuple #"date" #"today") #"todayIsoDate()")
+    ((tuple #"choose" #"first") #"''")
+    ((tuple _ 'undefined) #"''")
+    ((tuple _ d) (js d))))

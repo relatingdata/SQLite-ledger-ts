@@ -1937,24 +1937,11 @@ Root
     - :Entry Control=amount Label=Paid Name=paid
     - :Entry Control=amount Label=Outstanding Name=outstanding
     - :Entry Label=Status Name=status
-   "/reports/stock-movement" :Screen "Calls getHierarchy">/Root/Application/Calls/getHierarchy "Calls getStockMovementReport">/Root/Application/Calls/getStockMovementReport Source="frontend/src/routes/reports/stock-movement/+page.svelte" Title="Stock Movement Report"
-    - :Heading Text="Stock Movement Report"
-    - :Action Handler="() => (tab = 'receipts')" Label=Purchases
-    - :Action Handler="() => (tab = 'transfers')" Label=Transfers
-    - :Action Handler="() => (tab = 'sales')" Label=Sales
-    - :Heading Text="Group by"
-    - :Field Bind=groupBy Control=select Label="Group by"
-    - :Use Component>/Root/Application/Components/FromToDateFields "Prop onchange"="{load}"
-    - :Action Handler="() => toggleGroup(g.name)"
-    - :Column Label=Item
-    - :Column Label=Date
-    - :Column Label=Location
-    - :Column Label=Provider
-    - :Column Label=From
-    - :Column Label=To
-    - :Column Label=Location
-    - :Column Label=Qty
-    - :Column Label=Amount
+   "/reports/stock-movement" :Screen Intro="The real, physical journey of stock \u2014 purchases received into each real warehouse, transfers on to retail outlets, and real sales \u2014 groupable by a business's own configured hierarchy (such as Division), location, provider, or category." Report=stockMovement Template=drill Title="Stock Movement Report"
+    - :Field Control=toggle Default=receipts Label=Movement Name=movement Options="receipts=Purchases transfers=Transfers sales=Sales"
+    - :Field Choices=stockGroupings Control=choose Default=first Label="Group by" Name=groupBy
+    - :Field Control=date Label=From Name=fromDate
+    - :Field Control=date Label=To Name=toDate
    "/reports/stock-out-risk" :Screen "Empty Text"="Nothing is genuinely at risk of running out right now." Intro="Every item genuinely on track to run out before a fresh order, placed today, could arrive \u2014 based on real, recent consumption and the shortest known provider lead time, not just a fixed reorder threshold." Report=stockOutRisk Template=report Title="Stock-Out Risk"
     - :Entry Label=Item Name=item
     - :Entry Label=Locations Name=location

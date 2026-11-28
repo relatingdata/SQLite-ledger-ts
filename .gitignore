@@ -52,6 +52,7 @@ frontend/src/routes/reports/stock-out-risk/+page.svelte
 frontend/src/routes/journal/+page.svelte
 frontend/src/routes/reports/profit-and-loss/+page.svelte
 frontend/src/routes/reports/compare/+page.svelte
+frontend/src/routes/reports/stock-movement/+page.svelte
 frontend/src/routes/arap/cash-sale/+page.svelte
 frontend/src/routes/arap/quotations/+page.svelte
 frontend/src/routes/arap/rfq/+page.svelte
