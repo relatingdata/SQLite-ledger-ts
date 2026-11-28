@@ -24,6 +24,7 @@
     (#"compose" (compose s id))
     (#"report" (report s id))
     (#"drill" (drill s id))
+    (#"forms" (forms s id))
     (#"pivot" (pivot s id))
     (other (error (tuple 'no-template other (app-entities:name s id))))))
 
@@ -813,3 +814,75 @@
     ((tuple #"choose" #"first") #"''")
     ((tuple _ 'undefined) #"''")
     ((tuple _ d) (js d))))
+
+;; --- the forms template ------------------------------------------------------
+;;
+;; A column of forms ($lib/components/Form), one per Section of the screen:
+;; its Title as a heading, its Fields (Control text, number, select,
+;; password or date; a select's options from its Choices source), its
+;; Submit Label, and its Action, Initial values and Preview line from the
+;; runtime's formActions, formInitials and previews. "No Session"=yes: the
+;; screen needs no business chosen.
+
+(defun forms (s id)
+  (let ((sections (lists:filter (lambda (p) (== (kind s p) #"Section")) (app-view:things s id))))
+    (list
+      #"<script lang='ts'>\n" (header s id)
+      #"  import { onMount } from 'svelte';\n"
+      #"  import '$lib/generated.css';\n"
+      #"  import { session, translations } from '$lib/state.svelte';\n"
+      #"  import Form from '$lib/components/Form.svelte';\n"
+      #"  import { formActions, formInitials, previews, sources, type Values } from '$lib/screen-runtime';\n\n"
+      #"  const t = (word: string) => translations.current[word] ?? word;\n"
+      #"  const context = () => ({ business: session.current?.businessName ?? '', ledger: session.current?.ledgerName ?? '', party: '' });\n"
+      #"  let options: Record<string, string[]> = $state({});\n"
+      (lists:map (lambda (sec) (form-state s sec)) sections)
+      #"  onMount(async () => {\n"
+      (lists:map (lambda (f) (list #"    try {\n      options." (val s f #"Name") #" = (await sources." (val s f #"Choices")
+                                   #"(context().business, context().ledger)).map((c) => c.value);\n    } catch {\n      /* the field offers nothing to choose */\n    }\n"))
+                 (lists:filter (lambda (f) (=/= (val s f #"Choices") 'undefined)) (lists:append (lists:map (lambda (sec) (app-view:things s sec)) sections))))
+      #"  });\n"
+      #"</script>\n\n"
+      #"<svelte:head><title>{t(" (js (val s id #"Title")) #")}</title></svelte:head>\n\n"
+      #"<fieldset class='page-title generated'>\n"
+      #"  <legend>{t(" (js (val s id #"Title")) #")}</legend>\n"
+      (intro-line s id)
+      (lists:map (lambda (sec) (form-section s sec)) sections)
+      #"</fieldset>\n")))
+
+(defun form-values (s sec) (list #"values_" (val s sec #"Name")))
+
+(defun form-state (s sec)
+  (let ((fields (app-view:things s sec)))
+    (list #"  let " (form-values s sec) #": Record<string, string | number | string[]> = $state("
+          (case (val s sec #"Initial")
+            ('undefined #"")
+            (initial (list #"formInitials." initial #"() ?? ")))
+          #"{ " (lists:join #", " (lists:map (lambda (f) (list (val s f #"Name") #": ''")) fields)) #" });\n")))
+
+(defun form-section (s sec)
+  (let ((fields (app-view:things s sec)))
+    (list
+      #"  <h3>{t(" (js (val s sec #"Title")) #")}</h3>\n"
+      #"  <Form\n    fields={[\n"
+      (lists:map (lambda (f)
+                   (list #"      { name: " (js (val s f #"Name")) #", label: " (js (val s f #"Label" (val s f #"Name")))
+                         #", type: " (js (val s f #"Control" #"text"))
+                         (if (=/= (val s f #"Choices") 'undefined) (list #", options: options." (val s f #"Name") #" ?? []") #"")
+                         (case (val s f #"Min") ('undefined #"") (n (list #", min: " n)))
+                         (case (val s f #"Max") ('undefined #"") (n (list #", max: " n)))
+                         (case (val s f #"Autocomplete") ('undefined #"") (a (list #", autocomplete: " (js a))))
+                         (case (val s f #"Hint") ('undefined #"") (h (list #", hint: " (js h))))
+                         #" },\n"))
+                 fields)
+      #"    ]}\n"
+      #"    bind:values={" (form-values s sec) #"}\n"
+      #"    onSubmit={async (v) => {\n"
+      #"      const next = await formActions." (val s sec #"Action") #"(context(), Object.fromEntries(Object.entries(v).map(([k, x]) => [k, String(x)])) as Values);\n"
+      #"      if (next) " (form-values s sec) #" = next;\n"
+      #"    }}\n"
+      #"    submitLabel=" (js (val s sec #"Submit Label" #"Save")) #"\n"
+      #"  />\n"
+      (case (val s sec #"Preview")
+        ('undefined #"")
+        (preview (list #"  <p class='preview'>{previews." preview #"(Object.fromEntries(Object.entries(" (form-values s sec) #").map(([k, x]) => [k, String(x)])))}</p>\n"))))))

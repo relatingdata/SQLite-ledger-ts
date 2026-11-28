@@ -301,7 +301,6 @@ Hand-written web pages (`frontend/src/routes`, by route):
 
 <!-- hand-written-web -->
 - `/`
-- `/account/password`
 - `/contacts`
 - `/customer-terminal`
 - `/editor`

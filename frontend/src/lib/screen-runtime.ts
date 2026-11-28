@@ -10,7 +10,7 @@
 // Invalid, whose message is shown as is.
 
 import { auth, translations } from '$lib/state.svelte';
-import { formatAmount } from '$lib/format';
+import { formatAmount, formatDate } from '$lib/format';
 import {
   getEntityTree,
   listItems,
@@ -33,6 +33,11 @@ import {
   listJournalEntries,
   getLedgers,
   getStockMovementReport,
+  changeOwnPassword,
+  ApiError,
+  setOwnPageSize,
+  setOwnNumberFormat,
+  setOwnDateFormat,
   getInventoryListingByLocation,
   setItemLocationLevels,
   type OrderReceiptRow,
@@ -170,6 +175,10 @@ const againstAxis = (choices: Choice[], other: string): Choice[] => {
 export const sources: Record<string, (business: string, ledger: string) => Promise<Choice[]>> = {
   /** Report axes (axisChoices). */
   axes: axisChoices,
+  /** How a user's amounts can be written. */
+  numberFormats: async () => ['1,000.00', '1 000.00', '1.000,00', '1000,00', "1'000.00", '1000.00'].map((f) => ({ value: f, label: f })),
+  /** How a user's dates can be written. */
+  dateFormats: async () => ['dd/mm/yyyy', 'mm/dd/yyyy', 'dd.mm.yyyy', 'dd-mm-yyyy', 'yyyy-mm-dd'].map((f) => ({ value: f, label: f })),
   /** What stock movements group by: the business's location hierarchies,
    * Location, Provider, then its item hierarchies. */
   stockGroupings: async (business) => {
@@ -1168,3 +1177,53 @@ export async function loadAxes(c: Context): Promise<Axes> {
 
 export const sameGroup = (axes: Axes, a: string, b: string): boolean =>
   a !== 'Consolidated' && b !== 'Consolidated' && axes.groups.some((g) => g.includes(a) && g.includes(b));
+
+// --- forms (the forms template) ----------------------------------------------
+//
+// A forms screen is a column of forms, each a Section of the screen's
+// description with its fields: its Action saves it (an Error's message is
+// shown under the form; a returned Values replaces the form's values),
+// its Initial gives its first values, its Preview a line shown under it.
+
+/** A form's first values. */
+export const formInitials: Record<string, () => Values> = {
+  /** The user's page size. */
+  pageSize: () => ({ pageSize: String(auth.current?.user.page_size ?? 20) }),
+  /** The user's number and date formats. */
+  formats: () => ({ numberFormat: auth.current?.user.number_format ?? '1 000.00', dateFormat: auth.current?.user.date_format ?? 'dd/mm/yyyy' }),
+};
+
+/** A form's saving. */
+export const formActions: Record<string, (c: Context, v: Values) => Promise<Values | void>> = {
+  /** The user's page size: a whole number from 5 to 200. */
+  savePageSize: async (_c, v) => {
+    const pageSize = Number(v.pageSize);
+    if (!Number.isInteger(pageSize) || pageSize < 5 || pageSize > 200) throw new Error('Page size must be a whole number between 5 and 200.');
+    await setOwnPageSize(pageSize);
+    if (auth.current) auth.set({ ...auth.current, user: { ...auth.current.user, page_size: pageSize } });
+  },
+  /** The user's number and date formats. */
+  saveFormats: async (_c, v) => {
+    await setOwnNumberFormat(v.numberFormat);
+    await setOwnDateFormat(v.dateFormat);
+    if (auth.current) auth.set({ ...auth.current, user: { ...auth.current.user, number_format: v.numberFormat, date_format: v.dateFormat } });
+  },
+  /** The user's password: at least 8 characters, confirmed; the form is
+   * cleared once it is changed. */
+  changePassword: async (_c, v) => {
+    if ((v.newPassword ?? '').length < 8) throw new Error('New password must be at least 8 characters.');
+    if (v.newPassword !== v.confirmPassword) throw new Error('New password and confirmation do not match.');
+    try {
+      await changeOwnPassword(v.currentPassword ?? '', v.newPassword);
+    } catch (e) {
+      throw e instanceof ApiError ? new Error(e.message) : new Error('Could not change password.');
+    }
+    return { currentPassword: '', newPassword: '', confirmPassword: '' };
+  },
+};
+
+/** A line shown under a form, from its values. */
+export const previews: Record<string, (v: Values) => string> = {
+  /** An amount and a date in the chosen formats. */
+  formats: (v) => `Preview: ${formatAmount(123456789, v.numberFormat ?? '')} \u00b7 ${formatDate('2027-08-03', v.dateFormat ?? '')}`,
+};

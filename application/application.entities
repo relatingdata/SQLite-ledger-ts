@@ -1379,19 +1379,22 @@ Root
    Parameter
    Rule
    Screen Ordered>/Root/Active
+   Section
    Tile
    Use
   Screens
    "/" :Screen Source="frontend/src/routes/+page.svelte"
     - :Heading Text=Welcome
-   "/account/password" :Screen "Calls changeOwnPassword">/Root/Application/Calls/changeOwnPassword "Calls setOwnDateFormat">/Root/Application/Calls/setOwnDateFormat "Calls setOwnNumberFormat">/Root/Application/Calls/setOwnNumberFormat "Calls setOwnPageSize">/Root/Application/Calls/setOwnPageSize Source="frontend/src/routes/account/password/+page.svelte" Title="Account Settings"
-    - :Heading Text="Account Settings"
-    - :Heading Text="Page size"
-    - :Use Component>/Root/Application/Components/Form "Prop fields"="{[\n      {\n        name: 'pageSize',\n        label: 'Rows per page',\n        type: 'number',\n        min: 5,\n        max: 200,\n        hint: 'How many rows any paginated list (journal, stock listing, and more) shows per page.',\n      },\n    ]}" "Prop onSubmit"="{savePageSize}" "Prop submitLabel"="Save page size"
-    - :Heading Text="Number and date format"
-    - :Use Component>/Root/Application/Components/Form "Prop fields"="{[\n      { name: 'numberFormat', label: 'Number format', type: 'select', options: NUMBER_FORMAT_OPTIONS },\n      { name: 'dateFormat', label: 'Date format', type: 'select', options: DATE_FORMAT_OPTIONS },\n    ]}" "Prop onSubmit"="{saveFormats}" "Prop submitLabel"="Save format"
-    - :Heading Text="Change password"
-    - :Use Component>/Root/Application/Components/Form "Prop fields"="{[\n      { name: 'currentPassword', label: 'Current password', type: 'password', autocomplete: 'current-password' },\n      { name: 'newPassword', label: 'New password', type: 'password', autocomplete: 'new-password' },\n      { name: 'confirmPassword', label: 'Confirm new password', type: 'password', autocomplete: 'new-password' },\n    ]}" "Prop onSubmit"="{savePassword}" "Prop submitLabel"="Change password"
+   "/account/password" :Screen "No Session"=yes Template=forms Title="Account Settings"
+    - :Section Action=savePageSize Initial=pageSize Name=pageSize "Submit Label"="Save page size" Title="Page size"
+     a0 :Field Control=number Hint="How many rows any paginated list (journal, stock listing, and more) shows per page." Label="Rows per page" Max=200 Min=5 Name=pageSize
+    - :Section Action=saveFormats Initial=formats Name=formats Preview=formats "Submit Label"="Save format" Title="Number and date format"
+     a0 :Field Choices=numberFormats Control=select Label="Number format" Name=numberFormat
+     a1 :Field Choices=dateFormats Control=select Label="Date format" Name=dateFormat
+    - :Section Action=changePassword Name=password "Submit Label"="Change password" Title="Change password"
+     a0 :Field Autocomplete=current-password Control=password Label="Current password" Name=currentPassword
+     a1 :Field Autocomplete=new-password Control=password Label="New password" Name=newPassword
+     a2 :Field Autocomplete=new-password Control=password Label="Confirm new password" Name=confirmPassword
    "/arap" :Screen Intro="Purpose-built entry screens for the most common transactions \u2014 each posts through the same atomic journal mechanism as everything else." Template=tiles Title="AR / AP"
     - :Tile Description="Sell to a customer on credit \u2014 debits Accounts Receivable, credits Sales Revenue." Href="/arap/ar-sale" Title="AR Sale"
     - :Tile Description="Record a payment received from a customer \u2014 debits Cash, credits their AR balance." Href="/arap/ar-receipt" Title="AR Receipt"
@@ -2348,6 +2351,7 @@ Root
    "/vouchers/payment" :Screen Description="Batch approval of a group of provider payments together, mirroring Payable Batch on the payment side." Template=not-implemented Title="Payment Batch"
   Styles Ordered>/Root/Active
    - :Rule Selector=".report-table .group-heading td" font-weight=700 padding-top=0.6rem
+   - :Rule Selector=.preview font-family="var(--font-mono)" font-size="var(--font-size-medium)" margin=0
    - :Rule Selector=.controls align-items=flex-end display=flex flex-wrap=wrap gap=0.8rem justify-content=center margin-bottom=1.2rem
    - :Rule Selector=".controls select" max-width=220px
    - :Rule Selector=".controls .link" background=none border=none color="var(--brass-dark)" cursor=pointer font-size="var(--font-size-base)" padding="0.4rem 0" text-decoration=underline
