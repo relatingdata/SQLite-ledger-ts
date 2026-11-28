@@ -146,8 +146,9 @@
   ];
   function sectionText(section: ReportSection, depth = 0): string {
     const pad = '  '.repeat(depth);
-    const table = section.rows.length > 0 ? groupText({ title: '', rows: section.rows }, STATEMENT).split('\n').map((l) => pad + '  ' + l) : [];
-    return [`${pad}${section.name.padEnd(40 - pad.length)}${section.figure.padStart(14)}`, ...table, ...section.children.map((c) => sectionText(c, depth + 1))].join('\n');
+    const table = section.rows.length > 0 ? groupText({ title: '', rows: section.rows }, section.columns ? section.columns.map((c, i) => ({ name: c.name, label: c.label, control: i === 0 ? 'tree' : c.numeric ? 'amount' : 'text' })) : STATEMENT).split('\n').map((l) => pad + '  ' + l) : [];
+    const head = [section.name, section.detail, ...(section.tags ?? []).map((tag) => tag.text)].filter(Boolean).join('  ');
+    return [`${pad}${head.padEnd(40 - pad.length)}${[section.figure, ...(section.figures ?? [])].map((f) => f.padStart(14)).join('')}`, ...table, ...section.children.map((c) => sectionText(c, depth + 1))].join('\n');
   }
   const reportText = $derived(
     error

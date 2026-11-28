@@ -10,11 +10,14 @@
   given: an account, its debit and its credit). The first column is a
   tree: a parent line opens and closes the lines under it. A row marked
   section-head, rule-row, heavy-rule-row or empty is one cell across the
-  table. The heading carries both axis-head and group-head.
+  table. The heading carries both axis-head and group-head, or the
+  section's own headClass, and the section's detail and tags. An input
+  column is a number field: changing one saves the row (section.save),
+  showing the error under the row if that fails.
 -->
 <script lang="ts">
   import { translations } from '$lib/state.svelte';
-  import type { ReportSection } from '$lib/screen-runtime';
+  import type { ReportSection, ReportRow } from '$lib/screen-runtime';
   import DrillSection from '$lib/DrillSection.svelte';
 
   let { section, depth = 0 }: { section: ReportSection; depth?: number } = $props();
@@ -32,14 +35,33 @@
   const columns = $derived(section.columns ?? [{ name: 'name', label: '' }, { name: 'debit', label: t('Debit'), numeric: true }, { name: 'credit', label: t('Credit'), numeric: true }]);
   // A total line is drawn bold.
   const strong = (row: { mark?: string }) => !!row.mark && (row.mark.startsWith('total') || row.mark.startsWith('grand'));
+  let edits: Record<string, Record<string, string>> = $state({});
+  let saving: Record<string, boolean> = $state({});
+  let saveError: Record<string, string> = $state({});
+  const valueOf = (row: { key: string; cells: Record<string, string> }, name: string) => edits[row.key]?.[name] ?? row.cells[name] ?? '';
+  async function saveRow(row: ReportRow, name: string, value: string) {
+    if (!section.save) return;
+    edits[row.key] = { ...(edits[row.key] ?? {}), [name]: value };
+    saving[row.key] = true;
+    saveError[row.key] = '';
+    try {
+      await section.save(row, { ...row.cells, ...edits[row.key] });
+    } catch (e) {
+      saveError[row.key] = e instanceof Error ? e.message : 'Failed to save.';
+    } finally {
+      saving[row.key] = false;
+    }
+  }
   const across = new Set(['section-head', 'rule-row', 'heavy-rule-row', 'empty']);
   const shown = $derived(section.rows.filter((r) => r.ancestors.every((a) => expanded.has(a))));
 </script>
 
 <div class="axis-section" style="margin-left: {depth * 1.2}rem">
-  <button type="button" class="axis-head group-head" class:open onclick={() => (open = !open)}>
+  <button type="button" class={section.headClass ?? 'axis-head group-head'} class:open onclick={() => (open = !open)}>
     <span class="disclosure">{open ? '▾' : '▸'}</span>
     <span class="axis-name">{section.name}</span>
+    {#if section.detail}<span class="detail">{section.detail}</span>{/if}
+    {#each section.tags ?? [] as tag}<span class={tag.class} title={tag.title}>{tag.text}</span>{/each}
     <span class="axis-figures"><span class:negative={section.negative}>{section.figure}</span></span>
     {#each section.figures ?? [] as figure}<span class="axis-figures">{figure}</span>{/each}
   </button>
@@ -61,7 +83,14 @@
                         {#if row.parent}<span class="disclosure">{expanded.has(row.key) ? '▾' : '▸'}</span>{/if}{#if strong(row)}<strong>{row.cells[c.name] ?? ''}</strong>{:else}{row.cells[c.name] ?? ''}{/if}
                       </td>
                     {:else}
-                      <td class={c.numeric ? 'num mono' : ''} class:contra={row.contra?.includes(c.name)}>{#if strong(row)}<strong>{row.cells[c.name] ?? ''}</strong>{:else}{row.cells[c.name] ?? ''}{/if}</td>
+                      {#if c.input}
+                        <td class="num">
+                          <input class="level-input" type="number" min="0" value={valueOf(row, c.name)} disabled={saving[row.key]} onchange={(e) => saveRow(row, c.name, e.currentTarget.value)} />
+                          {#if saveError[row.key] && c === columns[columns.length - 1]}<span class="row-error">{saveError[row.key]}</span>{/if}
+                        </td>
+                      {:else}
+                        <td class={c.numeric ? 'num mono' : ''} class:contra={row.contra?.includes(c.name)}>{#if strong(row)}<strong>{row.cells[c.name] ?? ''}</strong>{:else}{row.cells[c.name] ?? ''}{/if}</td>
+                      {/if}
                     {/if}
                   {/each}
                 </tr>
@@ -88,6 +117,20 @@
   .disclosure { display: inline-block; width: 1rem; color: var(--ink-soft); }
   .axis-name { flex: 1; font-weight: 600; }
   .axis-figures { font-variant-numeric: tabular-nums; font-weight: 600; margin-left: 1rem; }
+  .location-head {
+    width: 100%; display: flex; align-items: center; gap: 0.5rem; background: none; border: none; cursor: pointer;
+    text-align: left; font-family: inherit; font-size: var(--font-size-base); padding: 0.45rem 0.9rem 0.45rem 0.4rem; font-weight: 600;
+  }
+  .location-head:hover { background: var(--paper-dim, #f2ede1); }
+  .location-head .axis-name { font-weight: 600; }
+  .detail { color: var(--ink-soft); font-size: var(--font-size-small); font-weight: 400; }
+  .capacity-warning {
+    font-size: var(--font-size-small); font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;
+    padding: 0.1rem 0.4rem; border-radius: 4px; background: #fdecea; color: #a33a2e; margin-left: 0.5rem;
+  }
+  tr.below td { color: var(--debit); }
+  .level-input { width: 4.5rem; text-align: right; }
+  .row-error { display: block; color: var(--debit); font-size: var(--font-size-small); }
   .truncation-note { color: var(--ink-soft); font-size: var(--font-size-small); }
   .negative { color: var(--debit); }
   .axis-body { padding: 0 0.2rem 0.8rem 1.6rem; }

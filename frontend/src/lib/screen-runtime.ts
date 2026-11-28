@@ -33,6 +33,8 @@ import {
   listJournalEntries,
   getLedgers,
   getStockMovementReport,
+  getInventoryListingByLocation,
+  setItemLocationLevels,
   type OrderReceiptRow,
   type StockTransferRow,
   type StockSaleRow,
@@ -582,8 +584,18 @@ export interface ReportSection {
   negative?: boolean;
   open?: boolean;
   rows: ReportRow[];
-  /** The table's columns; none: an account (a tree), its debit and credit. */
-  columns?: { name: string; label: string; numeric?: boolean }[];
+  /** The table's columns; none: an account (a tree), its debit and credit.
+   * An `input` column is a number field: changing it calls `save`. */
+  columns?: { name: string; label: string; numeric?: boolean; input?: boolean }[];
+  /** Saves a row's changed cells (an input column's value), throwing an
+   * Error whose message the row shows. */
+  save?: (row: ReportRow, cells: Record<string, string>) => Promise<void>;
+  /** The heading's class, in place of axis-head and group-head. */
+  headClass?: string;
+  /** A detail beside the name (a location's city). */
+  detail?: string;
+  /** Tags beside the name (a warning). */
+  tags?: { text: string; class: string; title?: string }[];
   /** A line under the table (rows left out, say). */
   note?: string;
   children: ReportSection[];
@@ -838,6 +850,58 @@ export const reports: Record<string, (c: Context, v: Values) => Promise<Report>>
       };
     });
     return { columns: [], sections, message: sections.length === 0 ? `No ${movement} in the selected period.` : undefined };
+  },
+  /** Every item at every location that carries stock, grouped by the
+   * business's first location hierarchy, then by location: each item's
+   * quantity on hand, and its min, max and reorder levels, which save as
+   * they are changed. A location over its capacity is tagged so. */
+  inventoryListing: async (c) => {
+    let hierarchy: string | undefined;
+    try {
+      hierarchy = hierarchiesOf(await getHierarchy(c.business), 'Locations')[0]?.hierarchy;
+    } catch {
+      // the listing still works without its groups
+    }
+    const locations = await getInventoryListingByLocation(c.business, hierarchy);
+    const NO_GROUP = '\u0000none';
+    const byGroup = new Map<string, typeof locations>();
+    for (const l of locations) byGroup.set(l.group ?? NO_GROUP, [...(byGroup.get(l.group ?? NO_GROUP) ?? []), l]);
+    const level = (n: number | null) => (n == null ? '' : String(n));
+    const columns = [
+      { name: 'item', label: t('Item') },
+      { name: 'onHand', label: t('On hand'), numeric: true },
+      { name: 'min', label: t('Min'), numeric: true, input: true },
+      { name: 'max', label: t('Max'), numeric: true, input: true },
+      { name: 'reorder', label: t('Reorder level'), numeric: true, input: true },
+    ];
+    const toLevel = (text: string) => (text.trim() === '' ? null : Number(text));
+    const save = async (row: ReportRow, cells: Record<string, string>) => {
+      await setItemLocationLevels(asItemName(cells.item), asLocationName(cells.location),
+        { minLevel: toLevel(cells.min), maxLevel: toLevel(cells.max), reorderLevel: toLevel(cells.reorder) }, c.business, c.ledger);
+    };
+    const sections = [...byGroup.entries()]
+      .sort(([a], [b]) => (a === NO_GROUP ? 1 : b === NO_GROUP ? -1 : a.localeCompare(b)))
+      .map(([group, locs]): ReportSection => ({
+        key: group,
+        name: group === NO_GROUP ? t('No group') : group,
+        figure: locs.reduce((sum, l) => sum + l.total_on_hand, 0).toLocaleString(),
+        rows: [],
+        children: locs.map((l): ReportSection => ({
+          key: `${group}/${l.location}`,
+          name: l.location,
+          headClass: 'location-head',
+          detail: l.city ?? undefined,
+          tags: l.capacity.bottleOverCapacity || l.capacity.cartonOverCapacity ? [{ text: t('Over capacity'), class: 'capacity-warning', title: 'Over its own, real configured capacity' }] : [],
+          figure: l.total_on_hand.toLocaleString(),
+          columns,
+          save,
+          rows: l.rows.map((r) => line(`${l.location}/${r.item}`,
+            { item: r.item, location: r.location, onHand: String(r.quantity_on_hand), min: level(r.min_level), max: level(r.max_level), reorder: level(r.reorder_level) },
+            { mark: r.reorder_level != null && r.quantity_on_hand <= r.reorder_level ? 'below' : undefined })),
+          children: [],
+        })),
+      }));
+    return { columns: [], sections };
   },
   /** Two ledgers side by side (ledgerA, ledgerB): their Profit and Loss
    * with each line's variance, and their Trial Balances. */

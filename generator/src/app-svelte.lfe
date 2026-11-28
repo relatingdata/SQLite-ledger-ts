@@ -776,6 +776,9 @@
       #"<fieldset class='page-title generated'>\n"
       #"  <legend>" (t (val s id #"Title")) #"</legend>\n"
       (intro-line s id)
+      ;; The parameters, if any, in a row of controls.
+      (if (== fields '()) #""
+        (list
       #"  <div class='controls'>\n"
       (lists:map (lambda (f) (field s f)) fields)
       (case (val s id #"Clear Label")
@@ -784,7 +787,7 @@
                      #"<button type='button' class='link' onclick={() => { "
                      (lists:map (lambda (d) (list #"values." (val s d #"Name") #" = ''; ")) dates)
                      #"}}>" (t label) #"</button>{/if}\n")))
-      #"  </div>\n\n"
+      #"  </div>\n\n"))
       #"  {#if loading && !report}\n    <p class='center-text'>Loading&hellip;</p>\n"
       #"  {:else if error}\n    <p class='error center-text'>{error}</p>\n"
       #"  {:else if report}\n"

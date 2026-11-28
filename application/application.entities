@@ -2200,18 +2200,7 @@ Root
     - :Tile Description="Fulfill a Purchase Order \u2014 receives goods or a service, real posting." Href="/stock/stock-receipt" Title="Stock Receipt"
     - :Tile Description="A customer's committed order \u2014 memo only, until a Stock Dispatch fulfills it." Href="/stock/so" Title="Sales Order"
     - :Tile Description="Fulfill a Sales Order \u2014 ships and invoices in one action, real posting." Href="/stock/stock-dispatch" Title="Stock Dispatch"
-   "/stock/listing" :Screen "Calls getHierarchy">/Root/Application/Calls/getHierarchy "Calls getInventoryListingByLocation">/Root/Application/Calls/getInventoryListingByLocation "Calls setItemLocationLevels">/Root/Application/Calls/setItemLocationLevels Source="frontend/src/routes/stock/listing/+page.svelte" Title="Inventory Listing"
-    - :Heading Text="Inventory Listing"
-    - :Action Handler="() => toggleGroup(dg.name)" Label="No group"
-    - :Action Handler="() => toggleLocation(loc.location)"
-    - :Column Label=Item
-    - :Column Label="On hand"
-    - :Column Label=Min
-    - :Column Label=Max
-    - :Column Label="Reorder level"
-    - :Field Bind=row.min_level Control=input Label="Inventory Listing" Type=number
-    - :Field Bind=row.max_level Control=input Label="Inventory Listing" Type=number
-    - :Field Bind=row.reorder_level Control=input Label="Inventory Listing" Type=number
+   "/stock/listing" :Screen "Empty Text"="No stock recorded anywhere yet." Intro="Every item at every location that carries real stock \u2014 what you have, and where. Min, max, and reorder levels are editable directly here \u2014 change a value and it saves as soon as you leave the field." Report=inventoryListing Template=drill Title="Inventory Listing"
    "/stock/po" :Screen Action=purchaseOrder "Fail Text"="Could not place this order." Intro="Commits to buying from a provider \u2014 memo only, no real ledger effect until a Stock Receipt fulfills it (all or item)." "Submit Label"=Save Template=transaction Title="Purchase Order" "Total Label"="Total committed" Totals=quantityTimesPrice
     - :Field Control=date Label=Date Name=transdate
     - :Field Control=text Label=Reference Name=reference Placeholder="e.g. PO-1001" Reset=yes

@@ -328,7 +328,6 @@ Hand-written web pages (`frontend/src/routes`, by route):
 - `/setup/users`
 - `/setup/vocabulary`
 - `/setup/yearend`
-- `/stock/listing`
 - `/stock/restock`
 - `/stock/stock-dispatch`
 - `/stock/stock-take`
