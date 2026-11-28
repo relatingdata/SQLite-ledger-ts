@@ -64,7 +64,7 @@ build output, ignored by git, written by `make generate`.
 
 ### Templates
 
-50 of the 81 routes are generated. Each screen names its template, or
+51 of the 81 routes are generated. Each screen names its template, or
 takes its base screen's (Variants, below):
 
 | Template | Screens | Reads |
@@ -72,7 +72,7 @@ takes its base screen's (Variants, below):
 | `transaction` | Cash Purchase, Cash Sale, AP Purchase, AR Sale, Purchase Order, Sales Order, Stock Receipt, Stock Transfer, Quotations, RFQ | `Title`, `Intro`, `Action`, `Totals`, `Total Label`, `Party` / `Party Label`, `Submit Label`, `Fail Text`; its `Field` and `Column` things |
 | `report` | Trial Balance, Balance Sheet, Below Reorder, Inventory and Storage, Aged Receivables/Payables, Reminders, Customer Statement, Sales Report, Cash Flow Forecast, Business Configuration Report, Stock-Out Risk, Journal Entries, Compare Ledgers | `Title`, `Intro` (`{NAME}` in it is the business or ledger, by `Intro Name`; optional), `Report`, `Clear Label`, `Empty Text` with an `Empty Link` to `Empty Href`; parameter `Field`s (`Control=ledger` chooses the ledger); one `Entry` per column |
 | `drill` | Profit and Loss, Stock Movement Report, Inventory Listing | `Title`, `Intro`, `Report`, `Title Line`, `Empty Text`, `Clear Label`; parameter `Field`s in a row of controls |
-| `forms` | Account Settings | `Title`, `Intro`; one `Section` per form (`Title`, `Action`, `Submit Label`, `Initial`, `Preview`), its `Field`s under it |
+| `forms` | Account Settings, Accounting Periods | `Title`, `Intro`, `Status`; one `Section` per form (`Title`, `Action`, `Submit Label`, `Initial`, `Preview`), its `Field`s under it |
 | `pivot` | Stock on Hand (`/reports/new-stock-on-hand`), Sales and Margin (`/reports/sales-margin`) | `Title`, `Intro`, `Row Axis`, `Column Axis`, `Axis Chooser` (`drag` or `select`), `Highlight`, `Highlight Across`, `Empty Text`, `Clear Label`; date `Field`s `fromDate`/`toDate`; one `Entry` per measure |
 | `tiles` | AR / AP, Stock, Reports (section index pages) | `Title`, `Intro`; one `Tile` (`Href`, `Title`, `Description`) per link |
 | `compose` | AP Payment, AR Receipt | One `Use` per component, its props as `Prop <name>` |
@@ -134,7 +134,10 @@ In `forms`, each `Section` is a form drawn by
 (`Control` `text`, `number`, `select` with options from its `Choices`
 source, `password` or `date`; `Min`, `Max`, `Hint`, `Autocomplete`), saved
 by its `Action` (`formActions`), started from its `Initial`
-(`formInitials`), with a line from its `Preview` (`previews`) under it.
+(`formInitials`), with a line from its `Preview` (`previews`) under it. A screen's `Status`
+names a line (`statuses`: `periodStatus`) shown above its forms and
+reloaded after each is saved; a `Section` with no fields is its button
+(Reopen period).
 
 ### The general report cube, and the `pivot` template
 
@@ -263,8 +266,9 @@ hand, in the runtime module:
   `purchaseOrder`, `salesOrder`, `orderReceipt`, `quotation`);
 - `reports`: `trialBalance`, `balanceSheet`, `belowReorder`, `storageSpace`, `aged`, `reminders`, `statement`, `sales`, `cashFlow`, `businessConfiguration`, `stockOutRisk`, `journalEntries`, `compareLedgers`, and for `drill` `profitAndLossByAxis`, `stockMovement`, `inventoryListing` (a row can carry a class, `mark`, and cells classes, `marks`);
 - `formInitials`, `formActions`, `previews`: a `forms` screen's forms
-  (`pageSize`, `formats`; `savePageSize`, `saveFormats`, `changePassword`;
-  `formats`);
+  (`pageSize`, `formats`, `closeThrough`; `savePageSize`, `saveFormats`,
+  `changePassword`, `closePeriod`, `reopenPeriod`; `formats`), and
+  `statuses` (`periodStatus`);
 - `records`: what a screen lists (`quotations`), and `commands`: what its
   record buttons do (`markSent`, `accept`, `reject`, `sendReminder`, `resetReminder`). A validation
   failure throws `Invalid`, whose message is shown.
@@ -355,7 +359,6 @@ Hand-written web pages (`frontend/src/routes`, by route):
 - `/setup/chart-of-accounts`
 - `/setup/hierarchy`
 - `/setup/new-business`
-- `/setup/periods`
 - `/setup/translations`
 - `/setup/tree`
 - `/setup/users`

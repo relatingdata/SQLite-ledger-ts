@@ -821,8 +821,9 @@
 ;; its Title as a heading, its Fields (Control text, number, select,
 ;; password or date; a select's options from its Choices source), its
 ;; Submit Label, and its Action, Initial values and Preview line from the
-;; runtime's formActions, formInitials and previews. "No Session"=yes: the
-;; screen needs no business chosen.
+;; runtime's formActions, formInitials and previews. A screen's Status
+;; names a line from the runtime's statuses, shown above the forms and
+;; reloaded after each is saved. A Section with no fields is its button.
 
 (defun forms (s id)
   (let ((sections (lists:filter (lambda (p) (== (kind s p) #"Section")) (app-view:things s id))))
@@ -832,12 +833,18 @@
       #"  import '$lib/generated.css';\n"
       #"  import { session, translations } from '$lib/state.svelte';\n"
       #"  import Form from '$lib/components/Form.svelte';\n"
-      #"  import { formActions, formInitials, previews, sources, type Values } from '$lib/screen-runtime';\n\n"
+      #"  import { formActions, formInitials, previews, sources, statuses, type Values } from '$lib/screen-runtime';\n\n"
       #"  const t = (word: string) => translations.current[word] ?? word;\n"
       #"  const context = () => ({ business: session.current?.businessName ?? '', ledger: session.current?.ledgerName ?? '', party: '' });\n"
       #"  let options: Record<string, string[]> = $state({});\n"
+      #"  let status = $state('');\n"
+      #"  async function refresh() {\n"
+      (case (val s id #"Status")
+        ('undefined #"")
+        (name (list #"    try {\n      status = await statuses." name #"(context());\n    } catch {\n      status = '';\n    }\n")))
+      #"  }\n"
       (lists:map (lambda (sec) (form-state s sec)) sections)
-      #"  onMount(async () => {\n"
+      #"  onMount(async () => {\n    await refresh();\n"
       (lists:map (lambda (f) (list #"    try {\n      options." (val s f #"Name") #" = (await sources." (val s f #"Choices")
                                    #"(context().business, context().ledger)).map((c) => c.value);\n    } catch {\n      /* the field offers nothing to choose */\n    }\n"))
                  (lists:filter (lambda (f) (=/= (val s f #"Choices") 'undefined)) (lists:append (lists:map (lambda (sec) (app-view:things s sec)) sections))))
@@ -847,6 +854,7 @@
       #"<fieldset class='page-title generated'>\n"
       #"  <legend>{t(" (js (val s id #"Title")) #")}</legend>\n"
       (intro-line s id)
+      (if (== (val s id #"Status") 'undefined) #"" #"  {#if status}<p class='status form-status'>{status}</p>{/if}\n")
       (lists:map (lambda (sec) (form-section s sec)) sections)
       #"</fieldset>\n")))
 
@@ -880,6 +888,7 @@
       #"    onSubmit={async (v) => {\n"
       #"      const next = await formActions." (val s sec #"Action") #"(context(), Object.fromEntries(Object.entries(v).map(([k, x]) => [k, String(x)])) as Values);\n"
       #"      if (next) " (form-values s sec) #" = next;\n"
+      #"      await refresh();\n"
       #"    }}\n"
       #"    submitLabel=" (js (val s sec #"Submit Label" #"Save")) #"\n"
       #"  />\n"

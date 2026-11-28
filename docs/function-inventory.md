@@ -21,7 +21,7 @@ It uses the TypeScript compiler, not a text search. A prototype is printed by th
 ## Summary
 
 - **Backend:** 1215 functions (1031 exported); 850 are called from production code; 46 only from tests or tooling; 319 from nowhere the compiler could find.
-- **Frontend library:** 419 functions (341 exported); 294 are called from production code; 3 only from tests or tooling; 122 from nowhere the compiler could find.
+- **Frontend library:** 423 functions (345 exported); 292 are called from production code; 3 only from tests or tooling; 128 from nowhere the compiler could find.
 
 ### Backend: functions with no callers found
 
@@ -64,10 +64,10 @@ Candidates to review, not proof of dead code: a function may be reached in a way
 
 Candidates to review, not proof of dead code: a function may be reached in a way the limits above cannot see.
 
-- `frontend/src/lib/api.ts`: `getCashFlowForecast`, `getTrialBalance`, `getSalesReport`, `getBalanceSheet`, `getProfitAndLoss`, `getProfitAndLossByHierarchy`, `getProfitAndLossByHierarchyTree`, `getLedgerDateRange`, `createProfitCenter`, `setSessionProfitCenter`, `getBusinessConfigurationReport`, `listJournalEntries`, `getTrialBalanceComparison`, `getProfitAndLossComparison`, `stagePurchaseOrder`, `postPurchaseOrder`, `stageOrderReceipt`, `postOrderReceipt`, `stageSalesOrder`, `postSalesOrder`, `listQuotations`, `getQuotation`, `createQuotation`, `createRfq`, `markQuotationSent`, `acceptQuotation`, `rejectQuotation`, `changeOwnPassword`, `setOwnPageSize`, `setOwnNumberFormat`, `setOwnDateFormat`, `postOnAccountInvoice`, `getAgedInvoices`, `getAgedSummary`, `getCustomerStatement`, `getReminderCandidates`, `sendReminder`, `resetReminder`, `openStorageContainer`, `getItemLocation`, `setItemLocationLevels`, `receiveItems`, `transferItems`, `getStockOutRiskReport`, `closeBooks`, `getInventoryListingByLocation`, `getStorageSpaceReport`, `getStockMovementReport`
+- `frontend/src/lib/api.ts`: `getCashFlowForecast`, `getTrialBalance`, `getSalesReport`, `getBalanceSheet`, `getProfitAndLoss`, `getProfitAndLossByHierarchy`, `getProfitAndLossByHierarchyTree`, `getLedgerDateRange`, `createProfitCenter`, `setSessionProfitCenter`, `getBusinessConfigurationReport`, `listJournalEntries`, `getTrialBalanceComparison`, `getProfitAndLossComparison`, `stagePurchaseOrder`, `postPurchaseOrder`, `stageOrderReceipt`, `postOrderReceipt`, `stageSalesOrder`, `postSalesOrder`, `listQuotations`, `getQuotation`, `createQuotation`, `createRfq`, `markQuotationSent`, `acceptQuotation`, `rejectQuotation`, `closePeriod`, `reopenPeriod`, `changeOwnPassword`, `setOwnPageSize`, `setOwnNumberFormat`, `setOwnDateFormat`, `postOnAccountInvoice`, `getAgedInvoices`, `getAgedSummary`, `getCustomerStatement`, `getReminderCandidates`, `sendReminder`, `resetReminder`, `openStorageContainer`, `getItemLocation`, `setItemLocationLevels`, `receiveItems`, `transferItems`, `getStockOutRiskReport`, `closeBooks`, `getInventoryListingByLocation`, `getStorageSpaceReport`, `getStockMovementReport`
 - `frontend/src/lib/matrix-api.ts`: `getStockOnHandMatrix`, `getProfitAndLossByAxis`, `getCube`, `getAxisValues`, `getAxes`
 - `frontend/src/lib/pagination.ts`: `createPaginator`
-- `frontend/src/lib/screen-runtime.ts`: `sources.numberFormats`, `sources.dateFormats`, `sources.stockGroupings`, `sources.ledgers`, `sources.itemHierarchies`, `sources.locations`, `sources.items`, `sources.providers`, `sources.customers`, `sources.postableAccounts`, `filters.otherThanLedgerA`, `filters.againstInner`, `filters.againstOuter`, `filters.sameCityAsFrom`, `reactions.ledgerAChanged`, `reactions.outerAxisChanged`, `reactions.innerAxisChanged`, `reactions.orderStatus`, `reactions.onHand`, `reactions.fromLocationChanged`, `reactions.itemSources`, `reactions.providerPrice`, `totals.lineTax`, `totals.quantityTimesPrice`, `totals.valueTaxRate`, `totals.taxRate`, `actions.purchase`, `actions.sale`, `actions.transfer`, `actions.orderReceipt`, `actions.salesOrder`, `actions.quotation`, `actions.purchaseOrder`, `records.quotations`, `commands.sendReminder`, `commands.resetReminder`, `commands.markSent`, `commands.accept`, `commands.reject`, `reports.aged`, `reports.businessConfiguration`, `reports.cashFlow`, `reports.sales`, `reports.statement`, `reports.reminders`, `reports.belowReorder`, `reports.stockMovement`, `reports.inventoryListing`, `reports.compareLedgers`, `reports.profitAndLossByAxis`, `reports.journalEntries`, `reports.stockOutRisk`, `reports.storageSpace`, `reports.trialBalance`, `reports.balanceSheet`, `formInitials.pageSize`, `formInitials.formats`, `formActions.savePageSize`, `formActions.saveFormats`, `formActions.changePassword`, `previews.formats`
+- `frontend/src/lib/screen-runtime.ts`: `sources.numberFormats`, `sources.dateFormats`, `sources.stockGroupings`, `sources.ledgers`, `sources.itemHierarchies`, `sources.locations`, `sources.items`, `sources.providers`, `sources.customers`, `sources.postableAccounts`, `filters.otherThanLedgerA`, `filters.againstInner`, `filters.againstOuter`, `filters.sameCityAsFrom`, `reactions.ledgerAChanged`, `reactions.outerAxisChanged`, `reactions.innerAxisChanged`, `reactions.orderStatus`, `reactions.onHand`, `reactions.fromLocationChanged`, `reactions.itemSources`, `reactions.providerPrice`, `totals.lineTax`, `totals.quantityTimesPrice`, `totals.valueTaxRate`, `totals.taxRate`, `actions.purchase`, `actions.sale`, `actions.transfer`, `actions.orderReceipt`, `actions.salesOrder`, `actions.quotation`, `actions.purchaseOrder`, `records.quotations`, `commands.sendReminder`, `commands.resetReminder`, `commands.markSent`, `commands.accept`, `commands.reject`, `reports.aged`, `reports.businessConfiguration`, `reports.cashFlow`, `reports.sales`, `reports.statement`, `reports.reminders`, `reports.belowReorder`, `reports.stockMovement`, `reports.inventoryListing`, `reports.compareLedgers`, `reports.profitAndLossByAxis`, `reports.journalEntries`, `reports.stockOutRisk`, `reports.storageSpace`, `reports.trialBalance`, `reports.balanceSheet`, `formInitials.closeThrough`, `formInitials.pageSize`, `formInitials.formats`, `formActions.closePeriod`, `formActions.reopenPeriod`, `formActions.savePageSize`, `formActions.saveFormats`, `formActions.changePassword`, `previews.formats`, `statuses.periodStatus`
 - `frontend/src/lib/state.svelte.ts`: `auth.set`, `hasUnsavedEdit.set`, `menuTree.set`, `screenTitle`, `session.set`, `session.clear`, `translations.set`
 
 ## Backend
@@ -9918,7 +9918,7 @@ Called from: production: db.ts (postBomComponents ×1)
 asBusinessName(name: string): BusinessName
 ```
 
-Called from: production: state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, CashTransaction.svelte ×4, PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/arap/quotations ×1, and 29 more
+Called from: production: state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, CashTransaction.svelte ×4, PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/arap/quotations ×1, and 28 more
 
 **`asLedgerName`** *(exported)*
 
@@ -9926,7 +9926,7 @@ Called from: production: state.svelte.ts (loadStoredSession ×1) · Svelte pages
 asLedgerName(name: string): LedgerName
 ```
 
-Called from: production: state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): CashTransaction.svelte ×2, PaymentReceipt.svelte ×5, routes/items ×1, routes/locations ×1, routes/post ×4, routes/projects ×2, routes/session ×1, routes/setup/periods ×3, and 3 more
+Called from: production: state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): CashTransaction.svelte ×2, PaymentReceipt.svelte ×5, routes/items ×1, routes/locations ×1, routes/post ×4, routes/projects ×2, routes/session ×1, routes/setup/yearend ×3, and 2 more
 
 **`asAccountName`** *(exported)*
 
@@ -10534,7 +10534,7 @@ Called from: Svelte pages (by name in the file's imports): BusinessStructurePopu
 getBusinesses(): Promise<{ id: number; name: string; }[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/post ×1, routes/projects ×1, routes/session ×1, routes/setup/periods ×1, routes/setup/users ×1, routes/stock/stock-dispatch ×1
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/post ×1, routes/projects ×1, routes/session ×1, routes/setup/users ×1, routes/stock/stock-dispatch ×1
 
 **`getBusinessTypes`** *(exported)*
 
@@ -10558,7 +10558,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/new-busi
 getLedgers(businessName: string): Promise<{ id: number; name: string; }[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, and 23 more
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, and 22 more
 
 **`getActiveLedger`** *(exported)*
 
@@ -11118,7 +11118,7 @@ Called from: Svelte pages (by name in the file's imports): routes/stock/stock-di
 getPeriodStatus(business: BusinessName, ledger: LedgerName): Promise<PeriodLockStatus>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/post ×1, routes/setup/periods ×1
+Called from: Svelte pages (by name in the file's imports): routes/post ×1
 
 **`closePeriod`** *(exported)*
 
@@ -11126,7 +11126,7 @@ Called from: Svelte pages (by name in the file's imports): routes/post ×1, rout
 closePeriod(business: BusinessName, ledger: LedgerName, throughDate: string): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/setup/periods ×1
+Called from: nowhere the compiler could find.
 
 **`reopenPeriod`** *(exported)*
 
@@ -11134,7 +11134,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/periods 
 reopenPeriod(business: BusinessName, ledger: LedgerName): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/setup/periods ×1
+Called from: nowhere the compiler could find.
 
 **`changeOwnPassword`** *(exported)*
 
@@ -12488,7 +12488,7 @@ Called from: Svelte pages (by name in the file's imports): routes/arap/quotation
 t(word: string): any
 ```
 
-Called from: production: screen-runtime.ts (actions.purchase ×1, actions.sale ×1, actions.transfer ×1, heading ×1, keyOf ×2, lines ×1, and 20 more)
+Called from: production: screen-runtime.ts (actions.purchase ×1, actions.sale ×1, actions.transfer ×1, heading ×1, keyOf ×2, lines ×1, and 21 more)
 
 **`named`**
 
@@ -13138,6 +13138,14 @@ sameGroup(axes: Axes, a: string, b: string): boolean
 
 Called from: Svelte pages (by name in the file's imports): AxisChooser.svelte ×4
 
+**`formInitials.closeThrough`** *(exported)*
+
+```
+formInitials.closeThrough(): { throughDate: string; }
+```
+
+Called from: nowhere the compiler could find.
+
 **`formInitials.pageSize`** *(exported)*
 
 ```
@@ -13150,6 +13158,22 @@ Called from: nowhere the compiler could find.
 
 ```
 formInitials.formats(): { numberFormat: any; dateFormat: any; }
+```
+
+Called from: nowhere the compiler could find.
+
+**`formActions.closePeriod`** *(exported)*
+
+```
+formActions.closePeriod(c: Context, v: Values): Promise<void>
+```
+
+Called from: nowhere the compiler could find.
+
+**`formActions.reopenPeriod`** *(exported)*
+
+```
+formActions.reopenPeriod(c: Context): Promise<void>
 ```
 
 Called from: nowhere the compiler could find.
@@ -13182,6 +13206,14 @@ Called from: nowhere the compiler could find.
 
 ```
 previews.formats(v: Values): string
+```
+
+Called from: nowhere the compiler could find.
+
+**`statuses.periodStatus`** *(exported)*
+
+```
+statuses.periodStatus(c: Context): Promise<string>
 ```
 
 Called from: nowhere the compiler could find.

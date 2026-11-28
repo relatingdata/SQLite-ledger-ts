@@ -2108,12 +2108,10 @@ Root
     - :Field Bind=newCurrencyCode Control=input Label="Additional currencies accepted as cash" Placeholder="e.g. EUR"
     - :Action Handler=addCurrency Label=Add
     - :Action Handler=submit
-   "/setup/periods" :Screen "Calls closePeriod">/Root/Application/Calls/closePeriod "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls getPeriodStatus">/Root/Application/Calls/getPeriodStatus "Calls reopenPeriod">/Root/Application/Calls/reopenPeriod Source="frontend/src/routes/setup/periods/+page.svelte" Title="Accounting Periods"
-    - :Heading Text="Accounting Periods"
-    - :Heading Text="Close through date"
-    - :Field Bind=throughDate Control=input Label="Close through date" Type=date
-    - :Action Handler=doClose Label="Close period"
-    - :Action Handler=doReopen Label="Reopen period"
+   "/setup/periods" :Screen Intro="Closing a period rejects normal posting on or before the date you choose \u2014 protecting finalized history from being altered. It's never permanent: reopening lifts the block immediately, for a genuine correction (a reversal, a reposted entry, a contra), then you can close it again afterward." Status=periodStatus Template=forms Title="Accounting Periods"
+    - :Section Action=closePeriod Initial=closeThrough Name=close "Submit Label"="Close period" Title="Close period"
+     a0 :Field Control=date Label="Close through date" Name=throughDate
+    - :Section Action=reopenPeriod Name=reopen "Submit Label"="Reopen period" Title="Reopen period"
    "/setup/taxes" :Screen Description="Configuring real tax rates and jurisdictions as their own maintained list, rather than the current fixed Sales Tax Payable account used throughout the simulation." Template=not-implemented Title=Taxes
    "/setup/translations" :Screen "Calls createEntity">/Root/Application/Calls/createEntity "Calls deleteVocabularyWord">/Root/Application/Calls/deleteVocabularyWord "Calls getLanguageDirection">/Root/Application/Calls/getLanguageDirection "Calls getLanguages">/Root/Application/Calls/getLanguages "Calls getVocabularyWords">/Root/Application/Calls/getVocabularyWords "Calls revokeEntity">/Root/Application/Calls/revokeEntity "Calls setLanguageDirection">/Root/Application/Calls/setLanguageDirection "Calls setTranslation">/Root/Application/Calls/setTranslation Source="frontend/src/routes/setup/translations/+page.svelte" Title=Translations
     - :Heading Text=Translations
@@ -2351,6 +2349,7 @@ Root
    "/vouchers/payment" :Screen Description="Batch approval of a group of provider payments together, mirroring Payable Batch on the payment side." Template=not-implemented Title="Payment Batch"
   Styles Ordered>/Root/Active
    - :Rule Selector=".report-table .group-heading td" font-weight=700 padding-top=0.6rem
+   - :Rule Selector=.form-status background="var(--paper-dim, #f2ede1)" border-radius=4px margin="0 0 1rem" padding="0.6rem 0.9rem"
    - :Rule Selector=.preview font-family="var(--font-mono)" font-size="var(--font-size-medium)" margin=0
    - :Rule Selector=.controls align-items=flex-end display=flex flex-wrap=wrap gap=0.8rem justify-content=center margin-bottom=1.2rem
    - :Rule Selector=".controls select" max-width=220px

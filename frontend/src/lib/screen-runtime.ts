@@ -34,6 +34,9 @@ import {
   getLedgers,
   getStockMovementReport,
   changeOwnPassword,
+  getPeriodStatus,
+  closePeriod,
+  reopenPeriod,
   ApiError,
   setOwnPageSize,
   setOwnNumberFormat,
@@ -1187,6 +1190,8 @@ export const sameGroup = (axes: Axes, a: string, b: string): boolean =>
 
 /** A form's first values. */
 export const formInitials: Record<string, () => Values> = {
+  /** Closing through today. */
+  closeThrough: () => ({ throughDate: new Date().toISOString().slice(0, 10) }),
   /** The user's page size. */
   pageSize: () => ({ pageSize: String(auth.current?.user.page_size ?? 20) }),
   /** The user's number and date formats. */
@@ -1195,6 +1200,15 @@ export const formInitials: Record<string, () => Values> = {
 
 /** A form's saving. */
 export const formActions: Record<string, (c: Context, v: Values) => Promise<Values | void>> = {
+  /** Closes the session's ledger through a date: normal posting on or
+   * before it is rejected. */
+  closePeriod: async (c, v) => {
+    await closePeriod(asBusinessName(c.business), asLedgerName(c.ledger), v.throughDate);
+  },
+  /** Reopens the session's ledger: normal posting is allowed again. */
+  reopenPeriod: async (c) => {
+    await reopenPeriod(asBusinessName(c.business), asLedgerName(c.ledger));
+  },
   /** The user's page size: a whole number from 5 to 200. */
   savePageSize: async (_c, v) => {
     const pageSize = Number(v.pageSize);
@@ -1226,4 +1240,16 @@ export const formActions: Record<string, (c: Context, v: Values) => Promise<Valu
 export const previews: Record<string, (v: Values) => string> = {
   /** An amount and a date in the chosen formats. */
   formats: (v) => `Preview: ${formatAmount(123456789, v.numberFormat ?? '')} \u00b7 ${formatDate('2027-08-03', v.dateFormat ?? '')}`,
+};
+
+/** A forms screen's status line, reloaded after each form is saved. */
+export const statuses: Record<string, (c: Context) => Promise<string>> = {
+  /** Whether the session's ledger is closed, through when, and since when. */
+  periodStatus: async (c) => {
+    const status = await getPeriodStatus(asBusinessName(c.business), asLedgerName(c.ledger));
+    const where = `${c.business} \u2014 ${c.ledger}: `;
+    return status.locked_through_date
+      ? `${where}${t('Closed')} through ${status.locked_through_date}${status.changed_at ? ` \u2014 set ${status.changed_at}` : ''}`
+      : `${where}${t('Open')} \u2014 normal posting is allowed on any date${status.changed_at ? ` \u2014 last changed ${status.changed_at}` : ''}`;
+  },
 };
