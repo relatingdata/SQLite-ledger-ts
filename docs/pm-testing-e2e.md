@@ -119,7 +119,7 @@ to `--screenshot-dir`.
 
 `skip` applies to every path: a row cannot be skipped on `--path text`
 only, which is one reason `make test-e2e-tutorial-text` runs only the
-steps the terminal UI can already take (`--until 8`).
+steps the terminal UI can already take (`--until 15`).
 
 ### The CLI
 
@@ -346,7 +346,15 @@ presence of two web columns:
 
 - A field with a blank `field_selector` is skipped, as on the `ui` path.
 - A screen with no `submit_selector` adds one line: `i` opens the line
-  form and Enter on its last field adds the line.
+  form and Enter on its last field adds the line. A screen whose web form
+  opens with an `open_selector` (Insert on a list, a "+ Item" button)
+  opens it with `i` too.
+- A `submit_selector` of the form `button:has-text('X')` that the TUI
+  shows as a list row X below its form: after the fields, Enter moves
+  past the form's remaining fields (left blank, as on the web) until a
+  row is highlighted, and X is chosen. A form with no such row submitted
+  on its last field's Enter. A SelectList shows its highlight only while
+  it has focus, which is what marks the moment.
 - A `money` field is typed in dollars (`500000` as `5000.00`), as on the
   `ui` path. A `signed_money` field is the TUI's two inputs, debit then
   credit: a positive amount is typed in the debit and the credit left
@@ -367,7 +375,15 @@ Business"), it selects that item; otherwise it presses Escape, up to
 five times, until the Menu's top level shows, and
 `navigateMenuGenerically` searches each top-level Menu section for an
 item matching the label, and throws when none does. A `select` field's
-value is looked for over up to 200 rows. A step fails when the screen shows the TUI's
+value is looked for over up to 200 rows. When two menu links share the
+screen's `ui_path` (Locations and Warehouses both open `/locations`),
+the first is used.
+
+A data step with an `api_function` must change the database: the runner
+counts entities, journal entries, journal lines and staged lines before
+the step and, for up to five seconds, after it, and fails the step when
+nothing changed ("the terminal UI did not carry it out"). Without this a
+step whose keys a screen ignored passed. A step fails when the screen shows the TUI's
 runtime-error banner.
 
 `make test-e2e-tutorial-text` removes the TUI's saved session, starts
@@ -375,21 +391,22 @@ the servers (`ensure-servers`, since `reset-db` stops the backend),
 builds the TUI and runs the tutorial's steps 1 to 8 (`--until 8`): Log
 in, Create Business (from Choose a business, through the TUI's New
 Business wizard), Switch Session (the wizard's "Work in …", then the
-ledger), the two API steps that set up the bank account, and the
-owner's capital entry: two Stage Journal Line steps and Post Journal
-Entry, through the TUI's General Journal. It is in
+ledger), the two API steps that set up the bank account, the owner's
+capital entry (two Stage Journal Line steps and Post Journal Entry,
+through the TUI's General Journal), Create Location (the TUI's
+Locations), Create Item No Category (Inventory Catalog's I), Cash
+Purchase, Cash Sale, and the rent entry. It is in
 no gate and not in CI.
 
 The TUI runs on the Svelte the workspace installs (5.56.8) through a
 start-up workaround for `@rlabs-inc/sveltui` 0.1.7, its latest release
 (`docs/tui-design.md`, "Running on Svelte 5.56").
 
-Past step 8, `screens.csv` (written against the web screens) does not
+Past step 15, `screens.csv` (written against the web screens) does not
 match the TUI's screens:
 
-- Step 9, `Create Location`, has no TUI screen (the Menu's Locations
-  link opens none), and the Cash Purchase and Cash Sale steps after it
-  then find no "Main Street Cellar" to pick.
+- Step 16, `Check Trial Balance Balanced`, has no TUI screen: the TUI
+  has no Trial Balance report to pick a ledger in.
 - `Select Business` picks a business only; the TUI's `ChooseBusiness`
   picks a business and a ledger (`onChosen(businessName, ledgerName)`).
 - `Create Purchase Order` is one call (`createPurchaseOrderInCartons`);

@@ -659,6 +659,20 @@ export const getItem = (name: string) =>
   callRow('getItem', [name], (f): Item | null => (f[0] === '0' ? null : { description: f[1] || null, unit_of_measure: f[2] || null, upc: f[3] || null }));
 export const setItem = (name: string, item: Partial<Item>) =>
   callRow('setItem', [name, item.description ?? undefined, item.unit_of_measure ?? undefined, item.upc ?? undefined], () => undefined);
+/** Creates a node by name under a parent given by id, as the web's
+ * createEntity does. */
+export const createEntity = (name: string, parentId: number) => callRow('createEntity', [name, undefined, String(parentId)], () => undefined);
+/** Creates an item with no category: under the business's own Items
+ * node, with its item record, as the web's Inventory Catalog does for
+ * "+ Item (unassigned)" (frontend/src/routes/items/+page.svelte). */
+export async function createUncategorizedItem(businessName: string, name: string): Promise<void> {
+  const tree = await getEntityTree();
+  const business = tree.find((e) => e.name === businessName);
+  const itemsRoot = business ? tree.find((e) => e.name === 'Items' && e.parent_id === business.id) : undefined;
+  if (!itemsRoot) throw new ApiError(404, `"${businessName}" has no Items.`);
+  await createEntity(name, itemsRoot.id);
+  await setItem(name, { description: null, unit_of_measure: null, upc: null });
+}
 
 export interface BomComponent {
   component: string;

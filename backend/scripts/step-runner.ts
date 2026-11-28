@@ -1260,13 +1260,25 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
  * "General Journal" menu label, for one). Fails loudly either way —
  * `navigateMenuGenerically` throws rather than guessing, same as every
  * other real failure path here. */
-/** The label the menu shows for a screen: the one menu link whose href
- * is the screen's ui_path, as getMenuTree gives it; the screen's own
- * name when no single link has that href. */
+/** How many entities, journal entries, journal lines and staged lines
+ * the database holds: a data step with an api_function (one that writes)
+ * on the text path must change it, or
+ * it did nothing (a screen that ignored the keys, a form never
+ * submitted) however cleanly its keys were sent. */
+function databaseFingerprint(): string {
+  const row = db.db
+    .prepare('SELECT (SELECT count(*) FROM entities) AS e, (SELECT count(*) FROM journal) AS j, (SELECT count(*) FROM journal_line) AS l, (SELECT count(*) FROM journal_entry_staging) AS s')
+    .get() as Record<string, number>;
+  return `${row.e}/${row.j}/${row.l}/${row.s}`;
+}
+
+/** The label the menu shows for a screen: the first menu link whose
+ * href is the screen's ui_path, as getMenuTree gives it; the screen's own
+ * name when no link has that href. */
 function menuLabelFor(screen: Screen): string {
   if (!screen.ui_path) return screen.screen_name;
   const links = db.getMenuTree().flatMap((section) => section.links).filter((l) => l.href === screen.ui_path);
-  return links.length === 1 ? links[0].label : screen.screen_name;
+  return links.length > 0 ? links[0].label : screen.screen_name;
 }
 
 export async function runStepViaText(terminal: TuiTest, step: Step, screens: Map<string, Screen>): Promise<{ ok: boolean; error?: string }> {
@@ -1275,12 +1287,17 @@ export async function runStepViaText(terminal: TuiTest, step: Step, screens: Map
     const args = buildArgs(step, screen);
     if (!screen) return { ok: false, error: `No real screen registry entry for "${step.screen_name}".` };
     if (screen.screen_kind === 'api') return runStepViaApi(step, screens);
+    const before = screen.screen_kind === 'data' && screen.api_function ? databaseFingerprint() : undefined;
     if (screen.screen_kind !== 'session') {
       await openScreenGenerically(terminal, menuLabelFor(screen));
     }
     const realFields = screen.fields.filter((f) => f.field_selector);
-    if (!screen.submit_selector && realFields.length > 0) {
-      await press(terminal, 'i'); // the one, real, uniform "add a line" key — never screen-specific
+    // A screen with no submit_selector adds one line, and a web screen
+    // that opens its form with an open_selector (Insert on a list, a
+    // "+ Item" button) opens it in the TUI with I: the one, uniform
+    // "add" key, never screen-specific.
+    if ((screen.open_selector || !screen.submit_selector) && realFields.length > 0) {
+      await press(terminal, 'i');
     }
     for (const field of realFields) {
       const value = step.values[field.position - 1] ?? '';
@@ -1315,12 +1332,37 @@ export async function runStepViaText(terminal: TuiTest, step: Step, screens: Map
         await typeAndEnter(terminal, value);
       }
     }
+    // A web submit button (button:has-text('X')) the TUI shows as a list
+    // row X below the form: Enter moves past the form's remaining fields
+    // (left blank, as on the web) until a row is highlighted, then X is
+    // chosen. A form with no such row submitted on its last field's Enter.
+    const submitLabel = /button:has-text\('([^']+)'\)\s*$/.exec(screen.submit_selector)?.[1];
+    if (submitLabel && realFields.length > 0) {
+      const rows = (text: string) => text.split('\n').filter((l) => /^│ (❯ | {2})/.test(l));
+      for (let i = 0; i < 8; i++) {
+        const shown = rows(await terminal.text());
+        if (!shown.some((l) => l.includes(submitLabel))) break;
+        if (shown.some((l) => l.includes('❯'))) {
+          if (await findItemByText(terminal, submitLabel, 10)) await press(terminal, 'Enter');
+          break;
+        }
+        await press(terminal, 'Enter');
+      }
+    }
     if (screen.submit_selector && realFields.length === 0) {
       // A pure finalize row with no real fields of its own — the one,
       // standalone Enter every TUI screen now uses uniformly.
       await press(terminal, 'Enter');
     }
     if ((await terminal.text()).includes('RUNTIME ERROR')) return { ok: false, error: 'The terminal UI stopped with a runtime error.' };
+    if (before !== undefined) {
+      let changed = false;
+      for (let waited = 0; waited <= 5000 && !changed; waited += 250) {
+        changed = databaseFingerprint() !== before;
+        if (!changed) await new Promise((r) => setTimeout(r, 250));
+      }
+      if (!changed) return { ok: false, error: 'The step changed nothing in the database: the terminal UI did not carry it out.' };
+    }
     if (step.verify) {
       const verifyFn = VERIFY_REGISTRY[step.verify];
       if (!verifyFn) return { ok: false, error: `No real verify registry entry for "${step.verify}".` };

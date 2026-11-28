@@ -7,13 +7,11 @@
   stage-then-post mechanism setBomComponent's own backend call already
   collapses into one round trip).
 
-  New items aren't created here, same real, confirmed-live limit the
-  rest of this TUI already has for customers and providers: no
-  createItem call is exposed anywhere in this app's real API surface —
-  a new item is created today only via the Structured Editor or an
-  API-side fixture step. This screen only lists and edits ones that
-  already exist, and only ever adds BOM *component* lines to them
-  (each component itself must also already exist as a real item).
+  I on the list creates an item with no category, as the web
+  Inventory Catalog's "+ Item (unassigned)" does: its name, then Enter
+  (createUncategorizedItem in tui/src/api.ts). Giving it a category is
+  done in Business Structure's Item Categories. BOM *component* lines
+  name items that already exist.
 -->
 <script lang="ts">
   import { Box, Text } from 'sveltui';
@@ -25,6 +23,7 @@
     getBomComponents,
     getItem,
     listItems,
+    createUncategorizedItem,
     setBomComponent,
     setItem,
     deleteBomComponent,
@@ -37,7 +36,7 @@
   import SelectList from '../components/SelectList.svelte';
   import { brass, ink, inkSoft } from '../theme.ts';
 
-  type Step = 'list' | 'description' | 'unit' | 'upc' | 'bom' | 'component-name' | 'component-qty' | 'component-unit' | 'saved';
+  type Step = 'list' | 'new-item' | 'description' | 'unit' | 'upc' | 'bom' | 'component-name' | 'component-qty' | 'component-unit' | 'saved';
 
   let { businessName, onBack }: { businessName: string; onBack: () => void } = $props();
 
@@ -60,19 +59,48 @@
   let busy = $state(false);
   let message: string | null = $state(null);
 
-  void listItems(businessName)
-    .then((r) => (items = r.rows))
-    .catch((err) => (listError = err instanceof ApiError ? err.message : 'Could not load items.'));
+  function loadItems() {
+    return listItems(businessName)
+      .then((r) => (items = r.rows))
+      .catch((err) => (listError = err instanceof ApiError ? err.message : 'Could not load items.'));
+  }
+  void loadItems();
+
+  let newItemName = $state('');
+  async function createItem() {
+    const name = newItemName.trim();
+    if (!name || busy) return;
+    busy = true;
+    error = null;
+    step = 'list';
+    try {
+      await createUncategorizedItem(businessName, name);
+      message = `Created ${name}.`;
+      await loadItems();
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Could not create the item.';
+    } finally {
+      busy = false;
+    }
+  }
 
   const unsubscribe = keyboard.on((event) => {
     if (event.key === 'Escape') {
       if (step === 'list') { onBack(); return true; }
+      if (step === 'new-item') { step = 'list'; return true; }
       if (step === 'description') { step = 'list'; return true; }
       if (step === 'unit') { step = 'description'; return true; }
       if (step === 'upc') { step = 'unit'; return true; }
       if (step === 'bom') { step = 'upc'; return true; }
       if (step === 'component-name' || step === 'component-qty' || step === 'component-unit') { step = 'bom'; return true; }
       if (step === 'saved') { step = 'list'; return true; }
+      return true;
+    }
+    if (step === 'list' && event.key === 'i') {
+      newItemName = '';
+      error = null;
+      message = null;
+      step = 'new-item';
       return true;
     }
     if (step !== 'bom') return;
@@ -203,25 +231,30 @@
 <!-- Loading, none and the list each have a Panel of its own: content that
      appears inside a Panel that stays mounted draws blank
      (docs/tui-design.md, "Running on Svelte 5.56"). -->
+{:else if step === 'new-item'}
+  <Panel title={`${title} — new item`} focused>
+    <Box flexDirection="row"><Box width={10}><Text text="Name" color={brass} /></Box><TextInput bind:value={newItemName} focused onSubmit={() => void createItem()} /></Box>
+    <Text text="Enter creates the item, with no category · Escape cancels" color={inkSoft} dim />
+  </Panel>
 {:else if items === null}
   <Panel title={title} focused>
-    <Text text="The real, per-business item catalog — new items aren't created here (no createItem call exists); this only edits ones that already exist." color={inkSoft} />
-    <Text text="Enter opens an item's fields and BOM · Escape back to menu" color={inkSoft} dim />
-    <Text text={listError ?? error ?? ''} color="red" />
+    <Text text="The business's item catalog — I adds an item with no category; Enter opens an item's fields and BOM." color={inkSoft} />
+    <Text text="I add an item · Enter opens an item · Escape back to menu" color={inkSoft} dim />
+    <Text text={listError ?? error ?? message ?? (busy ? 'Working…' : '')} color={listError || error ? 'red' : inkSoft} />
     <Text text="Loading…" color={inkSoft} />
   </Panel>
 {:else if items.length === 0}
   <Panel title={title} focused>
-    <Text text="The real, per-business item catalog — new items aren't created here (no createItem call exists); this only edits ones that already exist." color={inkSoft} />
-    <Text text="Enter opens an item's fields and BOM · Escape back to menu" color={inkSoft} dim />
-    <Text text={listError ?? error ?? ''} color="red" />
+    <Text text="The business's item catalog — I adds an item with no category; Enter opens an item's fields and BOM." color={inkSoft} />
+    <Text text="I add an item · Enter opens an item · Escape back to menu" color={inkSoft} dim />
+    <Text text={listError ?? error ?? message ?? (busy ? 'Working…' : '')} color={listError || error ? 'red' : inkSoft} />
     <Text text="None yet." color={inkSoft} />
   </Panel>
 {:else}
   <Panel title={title} focused>
-    <Text text="The real, per-business item catalog — new items aren't created here (no createItem call exists); this only edits ones that already exist." color={inkSoft} />
-    <Text text="Enter opens an item's fields and BOM · Escape back to menu" color={inkSoft} dim />
-    <Text text={listError ?? error ?? ''} color="red" />
+    <Text text="The business's item catalog — I adds an item with no category; Enter opens an item's fields and BOM." color={inkSoft} />
+    <Text text="I add an item · Enter opens an item · Escape back to menu" color={inkSoft} dim />
+    <Text text={listError ?? error ?? message ?? (busy ? 'Working…' : '')} color={listError || error ? 'red' : inkSoft} />
     <SelectList items={items.map((i) => ({ label: i.name, value: i.name }))} onSelect={(item) => void selectItem(item.value)} />
   </Panel>
 {/if}

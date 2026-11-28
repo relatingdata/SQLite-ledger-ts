@@ -2,7 +2,7 @@
 
 The previous chapter walked through building Tutorial Wine Retail Business entirely through the web app, screenshot by screenshot. This application also has a second, real, independent client of the exact same backend: a terminal (text) user interface, in `tui/`, built with the same real screens, the same real menu, against the same real data. This short chapter is its own, honest companion --- not a second walk through the whole story, but a real look at what the terminal frontend covers today, and what it doesn't yet.
 
-**The TUI does not yet cover everything the web app does.** It has twelve real, working screens: Login, the Menu, General Journal, Balance Sheet, New Business, Business Structure (Org Chart / Item Categories / Other Hierarchies), Purchase, Cash Purchase, Purchase Order, Payment, AR Sale ("Sale" on screen), Cash Sale, Customers, and POS Terminal. It has no screen yet for Vendors/Providers, setting an item's unit cost or pack size, Transfer Items, Open Container, Close Books, Rollover To New Period, or the Profit and Loss report grouped two ways --- all of those still need the web app. Where this chapter shows a real screen, it is genuinely real; where the web tutorial's own narrative goes somewhere the TUI can't follow yet, this chapter says so plainly rather than skip past it.
+**The TUI does not yet cover everything the web app does.** Its screens are Login, Choose a business and a ledger, the Menu, General Journal, Balance Sheet, New Business, Business Structure (Org Chart / Item Categories / Other Hierarchies), Locations, Inventory Catalog (Items & BOM), Purchase, Cash Purchase, Purchase Order, Payment, AR Sale ("Sale" on screen), Cash Sale, Customers, POS Terminal, and Transfer Items. It has no screen yet for Vendors/Providers, setting an item's unit cost or pack size, the Trial Balance and Profit and Loss reports, Open Container, Close Books, Rollover To New Period, or the Profit and Loss report grouped two ways --- all of those still need the web app. Where this chapter shows a real screen, it is genuinely real; where the web tutorial's own narrative goes somewhere the TUI can't follow yet, this chapter says so plainly rather than skip past it.
 
 Every transcript below is real text, captured directly from a live, passing run of the real terminal program --- never hand-typed --- against the exact same **Tutorial Wine Retail Business** the web chapter builds (created fresh via the same, shared `shared-fixtures/tutorial-steps.csv` fixture, run through the fast, backend-only `--path api` route rather than re-driven screenshot by screenshot, so the figures below are the same real figures the web chapter's own screenshots show by the time its story is finished). A terminal's own natural "screenshot" is its real text output, captured with `terminal.text()` against a genuine, running `@microsoft/tui-test` session rather than a bitmap of one --- see `backend/scripts/capture-tui-transcripts.ts`, run fresh by `make tutorial-section-user-manual-tui`.
 
@@ -13,7 +13,7 @@ The same account, the same backend --- just a different, real client of it.
 ```
 sql-ledger-ts — text user interface (SvelTUI: Login, Menu, General Journal, Balance Sheet, New
 Business, Business Structure, Purchase, Cash Purchase, Purchase Order, Payment, AR Sale, Cash Sale,
-Customers, POS Terminal, Items & BOM, Transfer Items)
+Customers, POS Terminal, Items & BOM, Transfer Items, Locations)
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ sql-ledger-ts — Log in                                                                           │
 │ Username                                                                                         │
@@ -179,7 +179,7 @@ Four real screens, each shown here exactly as it first opens --- this chapter do
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
-**Cash Purchase** (from the 'Cash' provider, posted and paid off in full the same instant) --- already offering this business's own two real locations to receive stock at:
+**Cash Purchase** (from the 'Cash' provider, posted and paid off in full the same instant) --- already offering this business's own locations to receive stock at. Once a location is chosen it asks, as the web form does, for a line's item, quantity, unit price and tax, and offers **Complete purchase** with cash or EFT, or **Add another line**:
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
@@ -267,6 +267,22 @@ The everyday retail register, scoped to a real location of type Retail --- this 
 │ The everyday retail register — a real location of type 'Retail'.                                 │
 │ ❯ Main Street Cellar                                                                             │
 │ Escape back to menu                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
+```
+
+## Locations
+
+The business's own locations, as the web app's Locations screen lists them; **I** adds one, asking as the web form does for its name, its city and its location type, and creating it on the type's Enter. Editing a location, its addresses, capacities and currencies still needs the web app:
+
+```
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Locations — Tutorial Wine Retail Business                                                        │
+│   Location                    City            Type                                               │
+│   Head Office                 Adelaide        Warehouse                                          │
+│   Main Street Cellar          Adelaide        Retail                                             │
+│   Mount Barker Depot          Mount Barker    Warehouse                                          │
+│ I add a location · Escape back to menu                                                           │
+│                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 

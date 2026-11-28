@@ -18,6 +18,7 @@
   import POS from './screens/POS.svelte';
   import ItemsBom from './screens/ItemsBom.svelte';
   import TransferItems from './screens/TransferItems.svelte';
+  import Locations from './screens/Locations.svelte';
   import { inkSoft } from './theme.ts';
 
   type ScreenState =
@@ -48,7 +49,7 @@
 
 <Box flexDirection="column">
   <Text
-    text="sql-ledger-ts — text user interface (SvelTUI: Login, Menu, General Journal, Balance Sheet, New Business, Business Structure, Purchase, Cash Purchase, Purchase Order, Payment, AR Sale, Cash Sale, Customers, POS Terminal, Items & BOM, Transfer Items)"
+    text="sql-ledger-ts — text user interface (SvelTUI: Login, Menu, General Journal, Balance Sheet, New Business, Business Structure, Purchase, Cash Purchase, Purchase Order, Payment, AR Sale, Cash Sale, Customers, POS Terminal, Items & BOM, Transfer Items, Locations)"
     color={inkSoft}
     dim
   />
@@ -90,6 +91,8 @@
     <POS businessName={screen.businessName} ledgerName={screen.ledgerName} onBack={backToMenu} />
   {:else if screen.name === 'items-bom'}
     <ItemsBom businessName={screen.businessName} onBack={backToMenu} />
+  {:else if screen.name === 'locations'}
+    <Locations businessName={screen.businessName} onBack={backToMenu} />
   {:else if screen.name === 'transfer-items'}
     <TransferItems businessName={screen.businessName} ledgerName={screen.ledgerName} onBack={backToMenu} />
   {/if}

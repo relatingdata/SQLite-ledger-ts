@@ -13,7 +13,8 @@
     | 'customers'
     | 'pos'
     | 'items-bom'
-    | 'transfer-items';
+    | 'transfer-items'
+    | 'locations';
 
   // Which real menu-link hrefs this TUI actually knows how to open —
   // matched on href (the real, stable, hand-authored route path),
@@ -35,6 +36,7 @@
     '/pos': 'pos',
     '/items': 'items-bom',
     '/stock/transfer': 'transfer-items',
+    '/locations': 'locations',
   };
 </script>
 

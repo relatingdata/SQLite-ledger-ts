@@ -154,6 +154,12 @@ async function main() {
   await navigateMenuGenerically(terminal, 'POS Terminal');
   await sleep(500);
   await dump(terminal, '18-pos-terminal');
+  await returnToMenu(terminal);
+
+  // Locations
+  await navigateMenuGenerically(terminal, 'Locations');
+  await sleep(500);
+  await dump(terminal, '19-locations');
 
   await terminal.close();
   console.log('done');

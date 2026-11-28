@@ -467,10 +467,23 @@ the browser), purely from `screens.csv`'s existing columns:
   (e.g. "Post Journal Entry") is a pure finalize action — one,
   standalone Enter press at the screen's own list.
 
-**Proven live** (`make test-e2e-tutorial-text`, `--until 8`): Log in,
-Create Business, Switch Session, the two API steps after them, and the
+**Proven live** (`make test-e2e-tutorial-text`, `--until 15`): Log in,
+Create Business, Switch Session, the two API steps after them, the
 owner's capital entry (two Stage Journal Line steps and Post Journal
-Entry) run end to end from this generic mechanism. Create Business opens from the
+Entry), Create Location, Create Item No Category, Cash Purchase, Cash
+Sale and the rent entry run end to end from this generic mechanism, and
+each step that writes is seen to change the database.
+
+Locations (`tui/src/screens/Locations.svelte`, from the Menu's
+Locations link) lists the business's locations; I adds one, asking for
+the web form's fields in its order (name, city, location type) and
+creating it on the type's Enter. Inventory Catalog (Items & BOM) adds
+an item with no category with I, as the web's "+ Item (unassigned)"
+does. Cash Purchase and Cash Sale share `components/CashTransaction.svelte`,
+as the web's two screens share `CashTransaction.svelte`: the location,
+then a line's item, quantity, unit price and tax, and below them the web
+form's actions, Complete purchase (or sale) with cash or EFT and Add
+another line. Create Business opens from the
 Choose a business screen, whose last entry is "New Business" as on the
 web's session page; the New Business wizard asks for the web form's
 fields in its order (name, financial year label, legal structure,
@@ -491,8 +504,8 @@ remembered while the TUI runs, so the next Stage Journal Line step,
 which opens the screen again from the Menu, finds its lines; Enter on
 the lines posts what the server has staged, once it balances.
 
-**The real, current limit**: step 9, `Create Location`, has no TUI
-screen, and the later rows that need its location fail. None of this is a step-runner bug: it's
+**The real, current limit**: step 16, `Check Trial Balance Balanced`,
+has no TUI screen. None of this is a step-runner bug: it's
 `screens.csv`/`tutorial-steps.csv`'s own row design (written against
 the web frontend first) genuinely not lining up with the TUI's own
 screens yet, for several rows. Closing that gap is a real, further

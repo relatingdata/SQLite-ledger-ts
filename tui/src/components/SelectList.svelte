@@ -79,6 +79,8 @@
 
 <Box flexDirection="column">
   {#each visible as item, i (i)}
-    <Text text={`${first + i === highlighted ? '❯ ' : '  '}${item.label}`} color={first + i === highlighted ? brass : ink} bold={first + i === highlighted} />
+    <!-- The highlight shows only while the list has focus, so a form's
+         list of actions below its fields is marked once Enter reaches it. -->
+    <Text text={`${focused && first + i === highlighted ? '❯ ' : '  '}${item.label}`} color={focused && first + i === highlighted ? brass : ink} bold={focused && first + i === highlighted} />
   {/each}
 </Box>

@@ -15,7 +15,7 @@ The same account, the same backend --- just a different, real client of it.
 ```
 sql-ledger-ts — text user interface (SvelTUI: Login, Menu, General Journal, Balance Sheet, New
 Business, Business Structure, Purchase, Cash Purchase, Purchase Order, Payment, AR Sale, Cash Sale,
-Customers, POS Terminal, Items & BOM, Transfer Items)
+Customers, POS Terminal, Items & BOM, Transfer Items, Locations)
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ sql-ledger-ts — Log in                                                                           │
 │ Username                                                                                         │
