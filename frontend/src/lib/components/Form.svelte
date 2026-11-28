@@ -6,11 +6,15 @@
   export interface FormField {
     name: string;
     label: string;
-    type: 'text' | 'number' | 'select' | 'password' | 'date' | 'multiselect';
+    type: 'text' | 'number' | 'select' | 'password' | 'date' | 'multiselect' | 'radio';
     /** Required for type: 'select' or 'multiselect'. */
     options?: string[];
     /** A select's first, empty choice: nothing chosen yet. */
     empty?: string;
+    /** What a select's or radio's options are called (by option). */
+    labels?: Record<string, string>;
+    /** Shown in an empty text or number input. */
+    placeholder?: string;
     min?: number; // passed straight through, never reinterpreted
     max?: number;
     step?: number;
@@ -96,8 +100,14 @@
       {#if field.type === 'select'}
         <select bind:value={values[field.name]}>
           {#if field.empty !== undefined}<option value="">{translations.current[field.empty] ?? field.empty}</option>{/if}
-          {#each field.options ?? [] as opt}<option value={opt}>{translations.current[opt] ?? opt}</option>{/each}
+          {#each field.options ?? [] as opt}<option value={opt}>{translations.current[field.labels?.[opt] ?? opt] ?? field.labels?.[opt] ?? opt}</option>{/each}
         </select>
+      {:else if field.type === 'radio'}
+        <div class="radios">
+          {#each field.options ?? [] as opt}
+            <label><input type="radio" name={field.name} value={opt} bind:group={values[field.name]} /> {translations.current[field.labels?.[opt] ?? opt] ?? field.labels?.[opt] ?? opt}</label>
+          {/each}
+        </div>
       {:else if field.type === 'multiselect'}
         <div class="multiselect">
           {#each field.options ?? [] as opt}
@@ -116,13 +126,13 @@
           {/each}
         </div>
       {:else if field.type === 'number'}
-        <input type="number" min={field.min} max={field.max} step={field.step ?? 1} bind:value={values[field.name]} />
+        <input type="number" min={field.min} max={field.max} step={field.step ?? 1} placeholder={field.placeholder} bind:value={values[field.name]} />
       {:else if field.type === 'password'}
         <input type="password" autocomplete={field.autocomplete} bind:value={values[field.name]} />
       {:else if field.type === 'date'}
         <input type="date" bind:value={values[field.name]} />
       {:else}
-        <input type="text" autocomplete={field.autocomplete} bind:value={values[field.name]} />
+        <input type="text" autocomplete={field.autocomplete} placeholder={field.placeholder} bind:value={values[field.name]} />
       {/if}
     </fieldset>
   {/each}

@@ -1543,22 +1543,13 @@ Root
    "/exchange-rates" :Screen Description="Recording and looking up historical exchange rates for the real, working multi-currency mechanism already built \u2014 the rates themselves currently have to be known and entered directly on each transaction." Template=not-implemented Title="Exchange Rates"
    "/gl/fx-adjustment" :Screen Description="A period-end revaluation of foreign-currency balances against a current exchange rate. Related to the real, working multi-currency validator already built, but this specific adjustment posting is not yet implemented." Template=not-implemented Title="FX Adjustment"
    "/goods-services" :Screen Description="A dedicated product/service catalog \u2014 pricing, categories, barcodes \u2014 distinct from creating a stock item through the general Structured Editor." Template=not-implemented Title="Goods &amp; Services"
-   "/hr" :Screen "Calls getContact">/Root/Application/Calls/getContact "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getOrganizationChart">/Root/Application/Calls/getOrganizationChart "Calls payEmployeeWages">/Root/Application/Calls/payEmployeeWages Source="frontend/src/routes/hr/+page.svelte" Title="HR / Payroll"
-    - :Heading Text="HR / Payroll"
-    - :Action Handler="() => switchTab('pay')" Label="Pay Wages"
-    - :Action Handler="() => switchTab('directory')" Label="Org Chart"
-    - :Heading Text=Employee
-    - :Field Control=select Label=Employee
-    - :Heading Text=Date
-    - :Field Bind=transdate Control=input Label=Date Type=date
-    - :Heading Text="Hours worked"
-    - :Field Bind=hours Control=input Label="Hours worked" Placeholder="e.g. 38.5" Type=number
-    - :Heading Text="Payment method"
-    - :Field Bind=paymentMethod Control=input Label="On account (pay later)" Type=radio
-    - :Field Bind=paymentMethod Control=input Label=Cash Type=radio
-    - :Field Bind=paymentMethod Control=input Label=EFT Type=radio
-    - :Action Handler=submitPayment Label="Pay employee"
-    - :Heading Text="Company-wide staff"
+   "/hr" :Screen Intro="A real employee is treated as a real Accounts Payable counterparty \u2014 the same mechanism a provider invoice already uses. Paying wages debits Wages (or the employee's own monthly salary), withholds a real Medicare levy from their own pay, and accrues real superannuation as a separate, additional employer cost." State=employeePay "State Class"=pay-rate Tabs="pay=Pay_Wages directory=Org_Chart" Template=forms Title="HR / Payroll"
+    - :Field Choices=employees Empty="Select employee\u2026" Label=Employee Name=employee Tab=pay
+    - :Field Control=date Default=today Label=Date Name=transdate Tab=pay
+    - :Section Name=pay Outcome=payWages "Result Class"=pay-result "Submit Label"="Pay employee" Tab=pay "When State"="hourly salaried"
+     a0 :Field Control=number Label="Hours worked" Min=0 Name=hours Placeholder="e.g. 38.5" Reset=yes Step=0.25 "When State"=hourly
+     a1 :Field Control=radio Default=onaccount Label="Payment method" Name=paymentMethod Options="onaccount=On_account_(pay_later) cash=Cash eft=EFT"
+    - :Section Name=chart Outline=orgChart Tab=directory
    "/invoices" :Screen "Calls allocatePaymentToInvoice">/Root/Application/Calls/allocatePaymentToInvoice "Calls createInvoice">/Root/Application/Calls/createInvoice "Calls exportInvoiceAsEInvoice">/Root/Application/Calls/exportInvoiceAsEInvoice "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getInvoiceById">/Root/Application/Calls/getInvoiceById "Calls getInvoiceOutstanding">/Root/Application/Calls/getInvoiceOutstanding "Calls importEInvoice">/Root/Application/Calls/importEInvoice "Calls listInvoices">/Root/Application/Calls/listInvoices "Calls postInvoiceById">/Root/Application/Calls/postInvoiceById Source="frontend/src/routes/invoices/+page.svelte" Title=Invoices
     - :Action Handler="() => { invoiceTypeFilter = 'AR'; selected = null; changeFilter(); }" Label="AR (Sales)"
     - :Action Handler="() => { invoiceTypeFilter = 'AP'; selected = null; changeFilter(); }" Label="AP (Purchases)"
@@ -2143,7 +2134,7 @@ Root
     - :Section Delete=deactivateUser Grid=users Hint="Insert adds a new user. Delete deactivates the selected, active user." Insert=yes Name=users Toggle=userRole
     - :Section Grid=businessRoles Intro="Which roles a user holds in one specific business \u2014 a separate fact from the global role above, additive and independent of it." Name=matrix Title="Roles per business" Toggle=businessRole
      a0 :Field Choices=businesses Control=select Default=first Label=Business Name=business
-    - :Section Action=createUser Card=form-card "Form Of"=users Name=newUser Title="New user"
+    - :Section Action=createUser Card="form-card narrow" "Form Of"=users Name=newUser Title="New user"
      a0 :Field Control=text Label=Username Name=username
      a1 :Field Control=password Hint="at least 8 characters" Label=Password Name=password
      a2 :Field Choices=roles Control=multiselect Label=Roles Name=roles
@@ -2350,8 +2341,17 @@ Root
    - :Rule Selector=.edit-card padding="1.1rem 1.2rem 1.3rem" width=420px
    - :Rule Selector=".new-language-card, .new-word-card" padding="1.1rem 1.2rem 1.3rem" width=260px
    - :Rule Selector=.translate-card max-height=650px max-width=900px overflow-y=auto padding="1rem 1.2rem" width="100%"
-   - :Rule Selector=.form-card display=flex flex-direction=column gap=0.7rem margin-top=1.2rem max-width=400px padding="1.1rem 1.2rem 1.3rem"
+   - :Rule Selector=.form-card.narrow display=flex flex-direction=column gap=0.7rem margin-top=1.2rem max-width=400px padding="1.1rem 1.2rem 1.3rem"
    - :Rule Selector=".form-card h3" margin=0
+   - :Rule Selector=.tab-bar border-bottom="1px solid var(--rule)" display=flex gap=0.5rem margin="0 auto 1rem" max-width=720px
+   - :Rule Selector=".tab-bar button" background=none border=none border-bottom="3px solid transparent" color="var(--ink-soft)" cursor=pointer font-size="var(--font-size-medium)" font-weight=600 padding="0.6rem 0.9rem"
+   - :Rule Selector=".tab-bar button.active" border-bottom-color="var(--brass-dark, #8a6d3b)" color="var(--ink)"
+   - :Rule Selector=.pay-rate color="var(--ink-soft)" font-size="var(--font-size-medium)" margin="0.6rem 0"
+   - :Rule Selector=.hint.over color="var(--debit, #a33a2e)"
+   - :Rule Selector=.radios display=flex flex-direction=column gap=0.5rem
+   - :Rule Selector=".outline-section ul, .outline-part ul" margin="0.2rem 0 0.8rem" padding-left=1.2rem
+   - :Rule Selector=.outline-part-name font-weight=600 margin="0.4rem 0 0"
+   - :Rule Selector=.pay-result background="#eaf5ea" border-radius=5px color="#2a5c2a" margin="0.8rem 0" padding="0.6rem 0.8rem"
    - :Rule Selector=.grid-card margin-bottom=1.2rem padding="1rem 1.2rem"
    - :Rule Selector=".grid tr[tabindex]" cursor=pointer
    - :Rule Selector=".grid tr.selected" background="var(--accent-soft, #f0e6cf)"

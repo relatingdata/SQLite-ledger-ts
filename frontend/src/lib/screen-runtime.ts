@@ -10,7 +10,7 @@
 // Invalid, whose message is shown as is.
 
 import { auth, translations } from '$lib/state.svelte';
-import { formatAmount, formatDate } from '$lib/format';
+import { formatAmount, formatDate, todayIsoDate } from '$lib/format';
 import {
   getEntityTree,
   listItems,
@@ -127,6 +127,9 @@ import {
   clockOutOfProject,
   getOpenProjectClock,
   asEmployeeName,
+  getContact,
+  payEmployeeWages,
+  getOrganizationChart,
 } from '$lib/api';
 import { getCube, getAxes, getProfitAndLossByAxis, type ProfitAndLossByAxisNode } from '$lib/matrix-api';
 import { parseMinorUnits, parseQuantity } from '$lib/money';
@@ -280,7 +283,7 @@ export const sources: Record<string, (business: string, ledger: string) => Promi
   employees: async () => {
     const entities = await getEntityTree();
     const root = entities.find((e) => e.name === 'Employees');
-    return entities.filter((e) => e.parent_id === root?.id).map((e) => ({ value: e.name, label: e.name }));
+    return entities.filter((e) => e.parent_id === root?.id).map((e) => ({ value: e.name, label: e.name })).sort((a, b) => a.value.localeCompare(b.value));
   },
   /** The postable accounts under Expense: what a project is charged to. */
   expenseAccounts: async () => {
@@ -1850,9 +1853,75 @@ export const accepts: Record<string, (c: Context, v: Values, p: Proposal) => Pro
   },
 };
 
+/** A form whose saving says what was done (an Outcome shown under it). */
+export const formOutcomes: Record<string, (c: Context, v: Values) => Promise<Outcome>> = {
+  /** Pays the employee chosen (employee) on a date (transdate): an hourly
+   * employee for the hours worked (hours), a salaried one a month of the
+   * yearly salary; on account, or paid at once (paymentMethod cash or
+   * eft). Gross, the Medicare levy withheld, the superannuation accrued
+   * on top, and the net paid. */
+  payWages: async (c, v) => {
+    const contact = v.employee ? await getContact(v.employee) : null;
+    if (!contact) throw new Error(t('Select employee\u2026'));
+    const hourly = !!contact.wage_minor_per_hour;
+    if (hourly && !(Number(v.hours) > 0)) throw new Error('Enter real hours worked first.');
+    const paid = await payEmployeeWages({
+      business: asBusinessName(c.business),
+      ledger: asLedgerName(c.ledger),
+      employeeName: asEmployeeName(v.employee),
+      hours: hourly ? Number(v.hours) : undefined,
+      paymentMethod: !v.paymentMethod || v.paymentMethod === 'onaccount' ? undefined : v.paymentMethod,
+      transdate: v.transdate || todayIsoDate(),
+    });
+    return {
+      title: `${t('Paid')}: ${paid.reference}`,
+      lines: [
+        { label: t('Gross'), value: amount(paid.grossMinor) },
+        { label: t('Medicare levy withheld'), value: amount(paid.medicareLevyMinor) },
+        { label: t('Superannuation (employer cost)'), value: amount(paid.superannuationMinor) },
+        { label: t('Net paid to employee'), value: amount(paid.netMinor) },
+      ],
+    };
+  },
+};
+
+/** Headings, and lists or further headings with lists under them. */
+export interface OutlinePart {
+  heading: string;
+  items?: string[];
+  parts?: OutlinePart[];
+}
+
+/** What a forms screen shows as an outline. */
+export const outlines: Record<string, (c: Context) => Promise<OutlinePart[]>> = {
+  /** The business's staff: those company-wide, then each group of its
+   * locations, each location and who works there. */
+  orgChart: async (c) => {
+    const chart = await getOrganizationChart(c.business);
+    return [
+      ...(chart.companyWideEmployees.length > 0 ? [{ heading: t('Company-wide staff'), items: chart.companyWideEmployees }] : []),
+      ...chart.groups.map((g) => ({ heading: g.group, parts: g.locations.map((l) => ({ heading: l.location, items: l.employees })) })),
+    ];
+  },
+};
+
 /** A forms screen's state, from its parameters: a name its sections'
  * When State matches, and lines to show. */
-export const states: Record<string, (c: Context, v: Values) => Promise<{ state: string; lines?: { label: string; value: string }[] }>> = {
+export const states: Record<string, (c: Context, v: Values) => Promise<{ state: string; lines?: { label: string; value: string }[]; note?: string }>> = {
+  /** How the employee chosen (employee) is paid: hourly (the wage), salaried
+   * (the salary, and the month a payment covers), or norate (neither set
+   * yet); nothing until one is chosen. */
+  employeePay: async (_c, v) => {
+    if (!v.employee) return { state: '' };
+    const contact = await getContact(v.employee);
+    if (!contact) return { state: '' };
+    if (contact.wage_minor_per_hour) return { state: 'hourly', lines: [{ label: t('Hourly wage'), value: `${amount(contact.wage_minor_per_hour)}/hour` }] };
+    if (contact.salary_minor_per_year) {
+      const year = contact.salary_minor_per_year;
+      return { state: 'salaried', lines: [{ label: t('Annual salary'), value: `${amount(year)}/year \u2014 ${t('this pays one real month')}: ${amount(Math.round(year / 12))}` }] };
+    }
+    return { state: 'norate', note: t('No real wage or salary configured for this employee yet \u2014 set one on the Contacts page first.') };
+  },
   /** Whether the employee chosen (employee) is clocked in (in: against
    * which project, since when) or not (out); nothing until one is. */
   projectClock: async (_c, v) => {

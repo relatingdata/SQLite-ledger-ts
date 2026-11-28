@@ -64,7 +64,7 @@ build output, ignored by git, written by `make generate`.
 
 ### Templates
 
-58 of the 81 routes are generated. Each screen names its template, or
+59 of the 81 routes are generated. Each screen names its template, or
 takes its base screen's (Variants, below):
 
 | Template | Screens | Reads |
@@ -72,7 +72,7 @@ takes its base screen's (Variants, below):
 | `transaction` | Cash Purchase, Cash Sale, AP Purchase, AR Sale, Purchase Order, Sales Order, Stock Receipt, Stock Transfer, Quotations, RFQ | `Title`, `Intro`, `Action`, `Totals`, `Total Label`, `Party` / `Party Label`, `Submit Label`, `Fail Text`; its `Field` and `Column` things |
 | `report` | Trial Balance, Balance Sheet, Below Reorder, Inventory and Storage, Aged Receivables/Payables, Reminders, Customer Statement, Sales Report, Cash Flow Forecast, Business Configuration Report, Stock-Out Risk, Journal Entries, Compare Ledgers | `Title`, `Intro` (`{NAME}` in it is the business or ledger, by `Intro Name`; optional), `Report`, `Clear Label`, `Empty Text` with an `Empty Link` to `Empty Href`; parameter `Field`s (`Control=ledger` chooses the ledger); one `Entry` per column |
 | `drill` | Profit and Loss, Stock Movement Report, Inventory Listing | `Title`, `Intro`, `Report`, `Title Line`, `Empty Text`, `Clear Label`; parameter `Field`s in a row of controls |
-| `forms` | Account Settings, Accounting Periods, Vocabulary, Projects | `Title`, `Intro`, `Status`, `State`, parameter `Field`s; one `Section` per form (`When State`) (`Title`, `Action`, `Submit Label`, `Initial`, `Preview`; or `Each`, `Empty Text`: a form per record), its `Field`s under it |
+| `forms` | Account Settings, Accounting Periods, Vocabulary, Projects, HR / Payroll | `Title`, `Intro`, `Status`, `State`, `State Class`, `Tabs`, parameter `Field`s; one `Section` per form (`When State`, `Tab`, `Outcome`, `Outline`) (`Title`, `Action`, `Submit Label`, `Initial`, `Preview`; or `Each`, `Empty Text`: a form per record), its `Field`s under it |
 | `list` | Bank Accounts, Hierarchies, Translations, Users | `Title`, `Intro`, `Records`, `Key`, `Insert`, `Delete`, `List Title`, `Hint`, `Empty Text`, `Lists Title`, `Lists Class`, `Modes`, `Needs Role`; `Entry` columns, `Field`s of the insert form; `Section`s with `Records` (more lists, `Of` another), `Table`, `Button`, `Cards`, `Lines`, `Each`, `Search`, `Pickers`, `Grid`, `Form Of`, or an always-open `Card` form |
 | `review` | Year End Close | `Title`, `Intro`, `Intro Note`; parameter `Field`s; one `Section` per entry proposed (`Title`, `Intro`, `Hint`, `Propose`, `Propose Label`, `Proposal Title`, `Accept`, `Accept Label`), its own `Field`s under it |
 | `pivot` | Stock on Hand (`/reports/new-stock-on-hand`), Sales and Margin (`/reports/sales-margin`) | `Title`, `Intro`, `Row Axis`, `Column Axis`, `Axis Chooser` (`drag` or `select`), `Highlight`, `Highlight Across`, `Empty Text`, `Clear Label`; date `Field`s `fromDate`/`toDate`; one `Entry` per measure |
@@ -149,8 +149,20 @@ the forms (`Choices`, `Empty`), passed to every form's action. Its
 `State` names a state (`states`) worked out from the parameters and
 reloaded as they change and after each save: a name, and lines shown
 above the forms; a `Section` with `When State` is shown only in that
-state. A select field's `Empty` is its first choice, nothing chosen
-yet; an action returning a `message` shows it under the forms.
+state (or, several separated by spaces, in any of them); a field with
+`When State` is in its form only then. The state may also give a note,
+and its lines carry the screen's `State Class`. A select field's `Empty`
+is its first choice, nothing chosen yet; a field's `Default` its first
+value (`today` for a date parameter); `Options` (`value=Label`) gives a
+select's or radio's choices; `Placeholder` and `Reset` (cleared after
+each save) apply to inputs. An action returning a `message` shows it
+under the forms. A `Section` with `Outcome` saves through `formOutcomes`
+and shows what was done (a title and lines) under it, in its `Result
+Class`; it is cleared when a parameter changes. A `Section` with
+`Outline` shows `outlines`: headings, each with a list, or further
+headings with lists. The screen's `Tabs` (`value=Label ...`) are a tab
+bar: a parameter or `Section` with `Tab` is shown only in that tab, each
+tab's in a card (`form-card`).
 
 In `list`, records are selectable lists
 (`$lib/components/SelectableListEditor`), a line per record with its
@@ -370,7 +382,8 @@ hand, in the runtime module:
   `formats`),
   `formRecords` (`vocabularyConcepts`, `wordTranslations`,
   `wordsToTranslate`), and
-  `statuses` (`periodStatus`), `states` (`projectClock`);
+  `statuses` (`periodStatus`), `states` (`projectClock`, `employeePay`),
+  `formOutcomes` (`payWages`) and `outlines` (`orgChart`);
 - `proposals`, `accepts`: a `review` screen's entries proposed and
   posted (`closeBooks`, `rollover`);
 - `grids`, `gridToggles`, `rowActions`: a list screen's grids (`users`,
@@ -455,7 +468,6 @@ Hand-written web pages (`frontend/src/routes`, by route):
 - `/contacts`
 - `/customer-terminal`
 - `/editor`
-- `/hr`
 - `/invoices`
 - `/items`
 - `/journal/[id]/[date]`

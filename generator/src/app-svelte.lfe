@@ -828,28 +828,38 @@
 ;; reloaded after each is saved. A Section with no fields is its button.
 
 (defun forms (s id)
-  (let ((sections (lists:filter (lambda (p) (== (kind s p) #"Section")) (app-view:things s id)))
-        (params (lists:filter (lambda (p) (== (kind s p) #"Field")) (app-view:things s id))))
+  (let* ((sections (lists:filter (lambda (p) (== (kind s p) #"Section")) (app-view:things s id)))
+         (params (lists:filter (lambda (p) (== (kind s p) #"Field")) (app-view:things s id)))
+         (tabs (case (val s id #"Tabs") ('undefined '()) (ts (lists:map (lambda (x) (binary:split x #"=")) (binary:split ts #" " '(global trim_all))))))
+         (outcomes (lists:filter (lambda (sec) (=/= (val s sec #"Outcome") 'undefined)) sections))
+         (outlines (lists:filter (lambda (sec) (=/= (val s sec #"Outline") 'undefined)) sections)))
     (list
       #"<script lang='ts'>\n" (header s id)
       #"  import { onMount } from 'svelte';\n"
       #"  import '$lib/generated.css';\n"
       #"  import { session, translations } from '$lib/state.svelte';\n"
+      #"  import { todayIsoDate } from '$lib/format';\n"
       #"  import Form from '$lib/components/Form.svelte';\n"
-      #"  import { formActions, formInitials, formRecords, previews, sources, states, statuses, type Choice, type FormRecord, type Values } from '$lib/screen-runtime';\n\n"
+      #"  import { formActions, formInitials, formOutcomes, formRecords, outlines, previews, sources, states, statuses, type Choice, type FormRecord, type OutlinePart, type Outcome, type Values } from '$lib/screen-runtime';\n\n"
       #"  const t = (word: string) => translations.current[word] ?? word;\n"
       #"  const context = () => ({ business: session.current?.businessName ?? '', ledger: session.current?.ledgerName ?? '', party: '' });\n"
       #"  let options: Record<string, string[]> = $state({});\n"
       #"  let status = $state('');\n"
-      #"  let params: Values = $state(" (blank s params) #");\n"
+      #"  let params: Values = $state({ "
+      (lists:join #", " (lists:map (lambda (f) (list (val s f #"Name") #": " (report-default s f))) params))
+      #" });\n"
       #"  let paramChoices: Record<string, Choice[]> = $state({});\n"
       #"  let screenState = $state('');\n"
       #"  let stateLines: { label: string; value: string }[] = $state([]);\n"
+      #"  let stateNote = $state('');\n"
       #"  let done = $state('');\n"
+      #"  let tab = $state(" (case tabs ('() #"''") ((cons (list v _) _) (js v))) #");\n"
+      (lists:map (lambda (sec) (list #"  let outcome_" (val s sec #"Name") #": Outcome | null = $state(null);\n")) outcomes)
+      (lists:map (lambda (sec) (list #"  let outline_" (val s sec #"Name") #": OutlinePart[] = $state([]);\n")) outlines)
       #"  async function refresh() {\n"
       (case (val s id #"State")
         ('undefined #"")
-        (name (list #"    try {\n      const now = await states." name #"(context(), { ...params });\n      screenState = now.state;\n      stateLines = now.lines ?? [];\n    } catch {\n      screenState = '';\n      stateLines = [];\n    }\n")))
+        (name (list #"    try {\n      const now = await states." name #"(context(), { ...params });\n      screenState = now.state;\n      stateLines = now.lines ?? [];\n      stateNote = now.note ?? '';\n    } catch {\n      screenState = '';\n      stateLines = [];\n      stateNote = '';\n    }\n")))
       (case (val s id #"Status")
         ('undefined #"")
         (name (list #"    try {\n      status = await statuses." name #"(context());\n    } catch {\n      status = '';\n    }\n")))
@@ -858,9 +868,13 @@
                      ('undefined #"")
                      (each (list #"    try {\n      " (form-records s sec) #" = await formRecords." each #"(context());\n    } catch {\n      " (form-records s sec) #" = [];\n    }\n"))))
                  sections)
+      (lists:map (lambda (sec) (list #"    try {\n      outline_" (val s sec #"Name") #" = await outlines." (val s sec #"Outline") #"(context());\n    } catch {\n      outline_" (val s sec #"Name") #" = [];\n    }\n")) outlines)
       #"  }\n"
-      (lists:map (lambda (sec) (form-state s sec)) sections)
-      (if (== params '()) #"" #"  $effect(() => {\n    JSON.stringify(params);\n    refresh();\n  });\n")
+      (lists:map (lambda (sec) (form-state s sec)) (lists:filter (lambda (sec) (== (val s sec #"Outline") 'undefined)) sections))
+      (if (== params '()) #""
+        (list #"  $effect(() => {\n    JSON.stringify(params);\n"
+              (lists:map (lambda (sec) (list #"    outcome_" (val s sec #"Name") #" = null;\n")) outcomes)
+              #"    refresh();\n  });\n"))
       #"  onMount(async () => {\n    await refresh();\n"
       (lists:map (lambda (f) (list #"    try {\n      paramChoices." (val s f #"Name") #" = await sources." (val s f #"Choices") #"(context().business, context().ledger);\n    } catch {\n      /* nothing to choose */\n    }\n"))
                  (lists:filter (lambda (f) (=/= (val s f #"Choices") 'undefined)) params))
@@ -874,20 +888,59 @@
       #"  <legend>{t(" (js (val s id #"Title")) #")}</legend>\n"
       (intro-line s id)
       (if (== (val s id #"Status") 'undefined) #"" #"  {#if status}<p class='status form-status'>{status}</p>{/if}\n")
-      (if (== params '()) #""
-        (list #"  <div class='controls'>\n"
-              (lists:map (lambda (f) (list #"    <fieldset><legend>" (t (val s f #"Label" (val s f #"Name"))) #"</legend><select bind:value={params." (val s f #"Name") #"}>"
-                                           (case (val s f #"Empty") ('undefined #"") (e (list #"<option value=''>" (t e) #"</option>")))
-                                           #"{#each paramChoices." (val s f #"Name") #" ?? [] as c}<option value={c.value}>{t(c.label)}</option>{/each}</select></fieldset>\n"))
-                         params)
-              #"  </div>\n"))
-      (if (== (val s id #"State") 'undefined) #"" #"  {#each stateLines as line}<p class='state-line'>{line.label}: <strong>{line.value}</strong></p>{/each}\n")
-      (lists:map (lambda (sec) (case (val s sec #"When State")
-                                 ('undefined (form-section s sec))
-                                 (w (list #"  {#if screenState === " (js w) #"}\n" (form-section s sec) #"  {/if}\n"))))
-                 sections)
+      (case tabs
+        ('() (list (params-block s id params) (forms-body s id sections)))
+        (_ (list #"  <div class='tab-bar'>\n"
+                 (lists:map (lambda (x) (let (((list v l) x)) (list #"    <button type='button' class:active={tab === " (js v) #"} onclick={() => (tab = " (js v) #")}>" (t (binary:replace l #"_" #" " '(global))) #"</button>\n"))) tabs)
+                 #"  </div>\n"
+                 (lists:map (lambda (x)
+                              (let* (((list v _) x)
+                                     (here (lambda (p) (orelse (== (val s p #"Tab") v) (== (val s p #"Tab") 'undefined)))))
+                                (list #"  {#if tab === " (js v) #"}\n  <div class='card form-card'>\n"
+                                      (params-block s id (lists:filter here params))
+                                      (forms-body s id (lists:filter here sections))
+                                      #"  </div>\n  {/if}\n")))
+                            tabs))))
       #"  {#if done}<p class='success'>{done}</p>{/if}\n"
       #"</fieldset>\n")))
+
+;; The parameter controls, and the state's lines and note under them.
+(defun params-block (s id params)
+  (if (== params '()) #""
+    (list #"  <div class='controls'>\n"
+          (lists:map (lambda (f)
+                       (list #"    <fieldset><legend>" (t (val s f #"Label" (val s f #"Name"))) #"</legend>"
+                             (case (val s f #"Control" #"select")
+                               (#"select" (list #"<select bind:value={params." (val s f #"Name") #"}>"
+                                                (case (val s f #"Empty") ('undefined #"") (e (list #"<option value=''>" (t e) #"</option>")))
+                                                #"{#each paramChoices." (val s f #"Name") #" ?? [] as c}<option value={c.value}>{t(c.label)}</option>{/each}</select>"))
+                               (c (list #"<input type=" (js c) #" bind:value={params." (val s f #"Name") #"} />")))
+                             #"</fieldset>\n"))
+                     params)
+          #"  </div>\n"
+          (if (== (val s id #"State") 'undefined) #""
+            (list #"  {#each stateLines as line}<p class=" (js (val s id #"State Class" #"state-line")) #">{line.label}: <strong>{line.value}</strong></p>{/each}\n"
+                  #"  {#if stateNote}<p class='hint over'>{stateNote}</p>{/if}\n")))))
+
+(defun forms-body (s id sections)
+  (lists:map (lambda (sec)
+               (let ((body (if (=/= (val s sec #"Outline") 'undefined) (outline-block s sec) (form-section s sec))))
+                 (case (val s sec #"When State")
+                   ('undefined body)
+                   (w (list #"  {#if " (states-test w) #"}\n" body #"  {/if}\n")))))
+             sections))
+
+;; When State: one state, or several separated by spaces.
+(defun states-test (w)
+  (list #"[" (lists:join #", " (lists:map (lambda (x) (js x)) (binary:split w #" " '(global trim_all)))) #"].includes(screenState)"))
+
+(defun outline-block (s sec)
+  (let ((n (list #"outline_" (val s sec #"Name"))))
+    (list #"  {#each " n #" as part}\n"
+          #"    <div class='outline-section'>\n      <h3>{part.heading}</h3>\n"
+          #"      {#if part.items}<ul>{#each part.items as item}<li>{item}</li>{/each}</ul>{/if}\n"
+          #"      {#each part.parts ?? [] as sub}<div class='outline-part'><p class='outline-part-name'>{sub.heading}</p><ul>{#each sub.items ?? [] as item}<li>{item}</li>{/each}</ul></div>{/each}\n"
+          #"    </div>\n  {/each}\n")))
 
 (defun form-values (s sec) (list #"values_" (val s sec #"Name")))
 (defun form-records (s sec) (list #"records_" (val s sec #"Name")))
@@ -903,7 +956,7 @@
           (case (val s sec #"Initial")
             ('undefined #"")
             (initial (list #"formInitials." initial #"() ?? ")))
-          #"{ " (lists:join #", " (lists:map (lambda (f) (list (val s f #"Name") #": ''")) fields)) #" });\n")))
+          (blank-defaults s fields) #");\n")))
 
 (defun form-section (s sec)
   (case (val s sec #"Each")
@@ -940,9 +993,16 @@
 ;; record's own).
 (defun form-field (s f from)
   (list #"{ name: " (js (val s f #"Name")) #", label: " (js (val s f #"Label" (val s f #"Name")))
-        #", type: " (js (val s f #"Control" #"text"))
-        (if (orelse (=/= (val s f #"Choices") 'undefined) (== from #"record.options"))
-          (list #", options: " from #"." (val s f #"Name") #" ?? []") #"")
+        #", type: " (js (val s f #"Control" #"text")) #" as const"
+        (case (val s f #"Options")
+          ('undefined
+           (if (orelse (=/= (val s f #"Choices") 'undefined) (== from #"record.options"))
+             (list #", options: " from #"." (val s f #"Name") #" ?? []") #""))
+          (opts (let ((pairs (lists:map (lambda (o) (binary:split o #"=")) (binary:split opts #" " '(global trim_all)))))
+                  (list #", options: [" (lists:join #", " (lists:map (lambda (p) (js (car p))) pairs)) #"]"
+                        #", labels: { " (lists:join #", " (lists:map (lambda (p) (let (((list v l) p)) (list (js v) #": " (js (binary:replace l #"_" #" " '(global)))))) pairs)) #" }"))))
+        (case (val s f #"Empty") ('undefined #"") (e (list #", empty: " (js e))))
+        (case (val s f #"Placeholder") ('undefined #"") (ph (list #", placeholder: " (js ph))))
         (case (val s f #"Min") ('undefined #"") (n (list #", min: " n)))
         (case (val s f #"Max") ('undefined #"") (n (list #", max: " n)))
         (case (val s f #"Step") ('undefined #"") (n (list #", step: " n)))
@@ -950,35 +1010,48 @@
         (case (val s f #"Hint") ('undefined #"") (h (list #", hint: " (js h))))
         #" }"))
 
+;; A form's fields; a field with When State is there only in that state.
+(defun form-fields (s fields from pad)
+  (lists:map (lambda (f)
+               (case (val s f #"When State")
+                 ('undefined (list pad (form-field s f from) #",\n"))
+                 (w (list pad #"...(" (states-test w) #" ? [" (form-field s f from) #"] : []),\n"))))
+             fields))
+
 (defun form-section-one (s sec)
-  (let ((fields (app-view:things s sec)))
+  (let* ((fields (app-view:things s sec))
+         (n (val s sec #"Name"))
+         (stringified (list #"(Object.fromEntries(Object.entries(v).map(([k, x]) => [k, String(x)])) as Values)"))
+         (resets (lists:filter (lambda (f) (=/= (val s f #"Reset") 'undefined)) fields)))
     (list
       (case (val s sec #"Title") ('undefined #"") (ti (list #"  <h3>{t(" (js ti) #")}</h3>\n")))
       #"  <Form\n    fields={[\n"
-      (lists:map (lambda (f)
-                   (list #"      { name: " (js (val s f #"Name")) #", label: " (js (val s f #"Label" (val s f #"Name")))
-                         #", type: " (js (val s f #"Control" #"text"))
-                         (if (=/= (val s f #"Choices") 'undefined) (list #", options: options." (val s f #"Name") #" ?? []") #"")
-                         (case (val s f #"Empty") ('undefined #"") (e (list #", empty: " (js e))))
-                         (case (val s f #"Min") ('undefined #"") (n (list #", min: " n)))
-                         (case (val s f #"Max") ('undefined #"") (n (list #", max: " n)))
-                         (case (val s f #"Autocomplete") ('undefined #"") (a (list #", autocomplete: " (js a))))
-                         (case (val s f #"Hint") ('undefined #"") (h (list #", hint: " (js h))))
-                         #" },\n"))
-                 fields)
+      (form-fields s fields #"options" #"      ")
       #"    ]}\n"
       #"    bind:values={" (form-values s sec) #"}\n"
       #"    onSubmit={async (v) => {\n"
       #"      done = '';\n"
-      #"      const next = await formActions." (val s sec #"Action") #"(context(), { ...params, ...(Object.fromEntries(Object.entries(v).map(([k, x]) => [k, String(x)])) as Values) });\n"
-      #"      if (next?.message) done = next.message;\n      else if (next) " (form-values s sec) #" = next;\n"
+      (case (val s sec #"Outcome")
+        ('undefined
+         (list #"      const next = await formActions." (val s sec #"Action") #"(context(), { ...params, ..." stringified #" });\n"
+               #"      if (next?.message) done = next.message;\n      else if (next) " (form-values s sec) #" = next;\n"))
+        (o (list #"      outcome_" n #" = null;\n"
+                 #"      outcome_" n #" = await formOutcomes." o #"(context(), { ...params, ..." stringified #" });\n")))
+      (lists:map (lambda (f) (list #"      " (form-values s sec) #"." (val s f #"Name") #" = '';\n")) resets)
       #"      await refresh();\n"
       #"    }}\n"
       #"    submitLabel=" (js (val s sec #"Submit Label" #"Save")) #"\n"
       #"  />\n"
+      (case (val s sec #"Outcome")
+        ('undefined #"")
+        (_ (list #"  {#if outcome_" n #"}\n    <div class=" (js (val s sec #"Result Class" #"outcome")) #">\n"
+                 #"      <p><strong>{outcome_" n #".title}</strong></p>\n"
+                 #"      {#each outcome_" n #".lines as line}<p>{line.label}: {line.value}</p>{/each}\n"
+                 #"    </div>\n  {/if}\n")))
       (case (val s sec #"Preview")
         ('undefined #"")
         (preview (list #"  <p class='preview'>{previews." preview #"(Object.fromEntries(Object.entries(" (form-values s sec) #").map(([k, x]) => [k, String(x)])))}</p>\n"))))))
+
 ;; --- the review template -----------------------------------------------------
 ;;
 ;; The screen's Fields, its parameters, in a card; then a card per Section:
