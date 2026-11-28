@@ -64,7 +64,7 @@ build output, ignored by git, written by `make generate`.
 
 ### Templates
 
-56 of the 81 routes are generated. Each screen names its template, or
+57 of the 81 routes are generated. Each screen names its template, or
 takes its base screen's (Variants, below):
 
 | Template | Screens | Reads |
@@ -73,7 +73,7 @@ takes its base screen's (Variants, below):
 | `report` | Trial Balance, Balance Sheet, Below Reorder, Inventory and Storage, Aged Receivables/Payables, Reminders, Customer Statement, Sales Report, Cash Flow Forecast, Business Configuration Report, Stock-Out Risk, Journal Entries, Compare Ledgers | `Title`, `Intro` (`{NAME}` in it is the business or ledger, by `Intro Name`; optional), `Report`, `Clear Label`, `Empty Text` with an `Empty Link` to `Empty Href`; parameter `Field`s (`Control=ledger` chooses the ledger); one `Entry` per column |
 | `drill` | Profit and Loss, Stock Movement Report, Inventory Listing | `Title`, `Intro`, `Report`, `Title Line`, `Empty Text`, `Clear Label`; parameter `Field`s in a row of controls |
 | `forms` | Account Settings, Accounting Periods, Vocabulary | `Title`, `Intro`, `Status`; one `Section` per form (`Title`, `Action`, `Submit Label`, `Initial`, `Preview`; or `Each`, `Empty Text`: a form per record), its `Field`s under it |
-| `list` | Bank Accounts, Hierarchies, Translations | `Title`, `Intro`, `Records`, `Key`, `Insert`, `Delete`, `List Title`, `Hint`, `Empty Text`, `Lists Title`, `Lists Class`, `Modes`; `Entry` columns, `Field`s of the insert form; `Section`s with `Records` (more lists, `Of` another), `Table`, `Button`, `Cards`, `Lines`, `Each`, `Search`, `Pickers`, or an always-open `Card` form |
+| `list` | Bank Accounts, Hierarchies, Translations, Users | `Title`, `Intro`, `Records`, `Key`, `Insert`, `Delete`, `List Title`, `Hint`, `Empty Text`, `Lists Title`, `Lists Class`, `Modes`, `Needs Role`; `Entry` columns, `Field`s of the insert form; `Section`s with `Records` (more lists, `Of` another), `Table`, `Button`, `Cards`, `Lines`, `Each`, `Search`, `Pickers`, `Grid`, `Form Of`, or an always-open `Card` form |
 | `review` | Year End Close | `Title`, `Intro`, `Intro Note`; parameter `Field`s; one `Section` per entry proposed (`Title`, `Intro`, `Hint`, `Propose`, `Propose Label`, `Proposal Title`, `Accept`, `Accept Label`), its own `Field`s under it |
 | `pivot` | Stock on Hand (`/reports/new-stock-on-hand`), Sales and Margin (`/reports/sales-margin`) | `Title`, `Intro`, `Row Axis`, `Column Axis`, `Axis Chooser` (`drag` or `select`), `Highlight`, `Highlight Across`, `Empty Text`, `Clear Label`; date `Field`s `fromDate`/`toDate`; one `Entry` per measure |
 | `tiles` | AR / AP, Stock, Reports (section index pages) | `Title`, `Intro`; one `Tile` (`Href`, `Title`, `Description`) per link |
@@ -192,6 +192,20 @@ open under its `Title`. `Card` puts a section in a card of that class
 (`Card Title` above it). The screen's `Modes` (`value=Label ...`) are
 buttons choosing what is shown: a `Section` with `Mode` is shown only
 in that mode, and one with `Pickers` holds that mode's choices.
+
+A `Section` with `Grid` is a table from the runtime's `grids`: text
+columns, a checkbox per check column, and each row's buttons, under its
+`Title` and `Intro`, with its own `Field`s as its parameters above it
+(the grid is reloaded as they change). Ticking a box runs its `Toggle`
+(`gridToggles`); a row's button runs a `rowActions` entry, first asking
+for a value when the button says so (Reset password), and a text it
+returns is shown as done. With `Insert`, the Insert key opens the
+`Section` whose `Form Of` names the grid: a `Form` of its fields in a
+card under its `Title`, saved by its `Action` (a multiselect's values
+comma-separated). Its `Delete` (`rowActions`) runs on the selected row
+when that row allows it. The keys work anywhere in the grid's card; its
+`Hint` line is the toolbar to focus. A screen with `Needs Role` shows
+only its `Needs Role Text` to a user without that role.
 Everything is reloaded after each change.
 
 In `review`, the screen's `Field`s are parameters in a card at the top
@@ -325,7 +339,7 @@ hand, in the runtime module:
   (`locations`, `items`, `providers`, `customers`, `postableAccounts`,
   `axes`, `ledgers`, `stockGroupings`, `numberFormats`, `dateFormats`,
   `reportingPeriods`, `equityAccounts`, `bankAccountCandidates`,
-  `bankScopes`, `hierarchyPrototypes`, `languages`);
+  `bankScopes`, `hierarchyPrototypes`, `languages`, `roles`, `businesses`);
   a choice can name its `group`;
 - `filters`: narrowing one field's choices by the others (`sameCityAsFrom`,
   `againstInner`, `againstOuter`, `otherThanLedgerA`, `otherThanReference`);
@@ -343,12 +357,16 @@ hand, in the runtime module:
   `changePassword`, `closePeriod`, `reopenPeriod`, `saveVocabulary`,
   `registerBankAccount`, `createHierarchy`, `createHierarchyValue`,
   `saveHierarchyPrototype`, `createHierarchyFromPrototype`,
-  `addVocabularyWord`, `addLanguage`, `setTranslation`; `formats`),
+  `addVocabularyWord`, `addLanguage`, `setTranslation`, `createUser`;
+  `formats`),
   `formRecords` (`vocabularyConcepts`, `wordTranslations`,
   `wordsToTranslate`), and
   `statuses` (`periodStatus`);
 - `proposals`, `accepts`: a `review` screen's entries proposed and
   posted (`closeBooks`, `rollover`);
+- `grids`, `gridToggles`, `rowActions`: a list screen's grids (`users`,
+  `businessRoles`), their ticks (`userRole`, `businessRole`) and their
+  rows' buttons (`reactivateUser`, `deactivateUser`, `resetPassword`);
 - `tables`, `cards`, `lineActions`: a list screen's tables of figures
   (`cashPosition`), groups of items (`productShapes`), and growable rows
   saved together (`defineProductShape`);
@@ -444,7 +462,6 @@ Hand-written web pages (`frontend/src/routes`, by route):
 - `/setup/chart-of-accounts`
 - `/setup/new-business`
 - `/setup/tree`
-- `/setup/users`
 - `/stock/restock`
 - `/stock/stock-dispatch`
 - `/stock/stock-take`

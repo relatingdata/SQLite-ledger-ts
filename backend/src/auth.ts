@@ -88,21 +88,29 @@ export function createUser(username: string, password: string, roleNames: string
 }
 
 export function setUserRoles(userId: number, roleNames: string[]): void {
-  const roleIds = roleNames.map((name) => {
-    const row = Entity.get(name, 'System Roles');
-    if (!row) throw new ValidationError(`No such role "${name}".`);
-    return { id: row.id, name };
-  });
-  const existingLinks = Entity.children(userId).filter((link) => Entity.hasTag(link.id, 'Role'));
-  for (const link of existingLinks) {
-    const tagNode = Entity.getUnder('Role', link.id);
-    if (tagNode) Entity.revoke(tagNode.id, 1 as never);
-    Entity.revoke(link.id, 1 as never);
+  for (const name of roleNames) {
+    if (!Entity.get(name, 'System Roles')) throw new ValidationError(`No such role "${name}".`);
   }
+  const wanted = new Set(roleNames);
   const userRow = Entity.get(userId)!;
-  for (const role of roleIds) {
-    const created = Entity.create(`${userRow.name} — Role — ${role.name}`, userId, 1 as never);
-    Entity.relate(created.id, role.name, 1 as never);
+  const prefix = `${userRow.name} — Role — `;
+  // A role link is kept once made: removing the role untags it, granting
+  // it again tags it again, so a role can be removed and granted any
+  // number of times (a revoked link would collide by name with an earlier
+  // one under Revoked).
+  const links = Entity.children(userId).filter((link) => link.name.startsWith(prefix));
+  for (const link of links) {
+    const held = Entity.hasTag(link.id, 'Role');
+    if (wanted.has(link.name.slice(prefix.length))) {
+      if (!held) Entity.tag(link.id, 'Role', 1 as never);
+    } else if (held) {
+      Entity.untag(link.id, 'Role', 1 as never);
+    }
+  }
+  for (const role of wanted) {
+    if (links.some((link) => link.name === `${prefix}${role}`)) continue;
+    const created = Entity.create(`${prefix}${role}`, userId, 1 as never);
+    Entity.relate(created.id, role, 1 as never);
     Entity.tag(created.id, 'Role', 1 as never);
   }
 }

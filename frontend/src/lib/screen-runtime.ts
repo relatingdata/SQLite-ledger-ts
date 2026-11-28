@@ -113,6 +113,16 @@ import {
   revokeEntity,
   deleteVocabularyWord,
   type VocabularyWord,
+  getUsers,
+  getRoles,
+  createUserAccount,
+  setUserRolesApi,
+  setUserActiveApi,
+  changeUserPassword,
+  getBusinesses,
+  getUserRoleMatrix,
+  setUserRoleInBusiness,
+  unsetUserRoleInBusiness,
 } from '$lib/api';
 import { getCube, getAxes, getProfitAndLossByAxis, type ProfitAndLossByAxisNode } from '$lib/matrix-api';
 import { parseMinorUnits, parseQuantity } from '$lib/money';
@@ -262,6 +272,10 @@ export const sources: Record<string, (business: string, ledger: string) => Promi
     }
     return [business, ...groups].map((name) => ({ value: name, label: name }));
   },
+  /** The roles, by name. */
+  roles: async () => (await getRoles()).map((r) => ({ value: r.name, label: r.name })),
+  /** Every business, by name. */
+  businesses: async () => (await getBusinesses()).map((b) => ({ value: b.name, label: b.name })),
   /** The languages, by name. */
   languages: async () => (await getLanguages()).map((l) => ({ value: l.name, label: l.name })),
   /** The saved hierarchy prototypes: what each groups and how many values. */
@@ -1376,6 +1390,15 @@ export const formActions: Record<string, (c: Context, v: Values) => Promise<Valu
     else await setVocabularyPreference(v.key, 'business', business.id, v.preferred);
     window.location.reload();
   },
+  /** A new user (username) with a password (password, at least 8
+   * characters) and at least one role (roles, comma-separated). */
+  createUser: async (_c, v) => {
+    const roleNames = (v.roles ?? '').split(',').filter(Boolean);
+    if (!v.username || (v.password ?? '').length < 8 || roleNames.length === 0) {
+      throw new Error('Username, a password of at least 8 characters, and at least one role are all required.');
+    }
+    await createUserAccount(v.username, v.password, roleNames);
+  },
   /** A new vocabulary word (word). */
   addVocabularyWord: async (_c, v) => {
     if (!(v.word ?? '').trim()) return;
@@ -1466,6 +1489,97 @@ export interface Table {
   columns: { name: string; label: string; numeric?: boolean }[];
   rows: { cells: Row; classes?: Record<string, string> }[];
 }
+
+/** A grid's row: its key, text cells, which check columns are ticked,
+ * its buttons (one with `input` first asks for a value, that kind of
+ * input), and whether Delete applies to it. */
+export interface GridRow {
+  key: string;
+  cells: Row;
+  checked: Record<string, boolean>;
+  actions: { name: string; label: string; input?: string; placeholder?: string }[];
+  deletable?: boolean;
+}
+/** A grid: text columns, check columns, and its rows. */
+export interface Grid {
+  columns: { name: string; label: string }[];
+  checks: { name: string; label: string }[];
+  rows: GridRow[];
+}
+
+/** The grids a list screen shows, from its values (its own fields). */
+export const grids: Record<string, (c: Context, v: Values) => Promise<Grid>> = {
+  /** Every user: username and whether active, a tick per role held, and
+   * Reactivate (when inactive) and Reset password; Delete deactivates an
+   * active user. */
+  users: async () => {
+    const [users, roles] = await Promise.all([getUsers(), getRoles()]);
+    return {
+      columns: [{ name: 'username', label: t('Username') }, { name: 'active', label: t('Active') }],
+      checks: roles.map((r) => ({ name: r.name, label: t(r.name) })),
+      rows: users.map((u) => ({
+        key: String(u.id),
+        cells: { username: u.username, active: u.active ? t('Active') : '' },
+        checked: Object.fromEntries(roles.map((r) => [r.name, u.roles.includes(r.name)])),
+        actions: [
+          ...(u.active ? [] : [{ name: 'reactivateUser', label: t('Reactivate') }]),
+          { name: 'resetPassword', label: t('Reset password'), input: 'password', placeholder: t('New password') },
+        ],
+        deletable: u.active,
+      })),
+    };
+  },
+  /** The roles each user holds in one business (business), beside their
+   * global roles. */
+  businessRoles: async (_c, v) => {
+    if (!v.business) return { columns: [], checks: [], rows: [] };
+    const matrix = await getUserRoleMatrix(v.business);
+    return {
+      columns: [{ name: 'username', label: t('Username') }],
+      checks: matrix.roles.map((r) => ({ name: r, label: t(r) })),
+      rows: matrix.users.map((u) => ({
+        key: u,
+        cells: { username: u },
+        checked: Object.fromEntries(matrix.roles.map((r) => [r, matrix.assignments.some((a) => a.user === u && a.role === r)])),
+        actions: [],
+      })),
+    };
+  },
+};
+
+/** Ticking or clearing a grid's check (row key, check name). */
+export const gridToggles: Record<string, (c: Context, v: Values, key: string, check: string, on: boolean) => Promise<void>> = {
+  /** A user's global role. */
+  userRole: async (_c, _v, key, role, on) => {
+    const user = (await getUsers()).find((u) => String(u.id) === key);
+    if (!user) return;
+    await setUserRolesApi(user.id, on ? [...user.roles.filter((r) => r !== role), role] : user.roles.filter((r) => r !== role));
+  },
+  /** A user's role in the business chosen (business). */
+  businessRole: async (_c, v, user, role, on) => {
+    if (on) await setUserRoleInBusiness(v.business, user, role);
+    else await unsetUserRoleInBusiness(v.business, user, role);
+  },
+};
+
+/** A grid row's buttons (row key, and the value asked for); a returned
+ * text is shown as done. */
+export const rowActions: Record<string, (c: Context, v: Values, key: string, input?: string) => Promise<string | void>> = {
+  /** Lets an inactive user sign in again. */
+  reactivateUser: async (_c, _v, key) => {
+    await setUserActiveApi(Number(key), true);
+  },
+  /** Stops a user signing in; nothing of theirs is removed. */
+  deactivateUser: async (_c, _v, key) => {
+    await setUserActiveApi(Number(key), false);
+  },
+  /** A user's new password: at least 8 characters. */
+  resetPassword: async (_c, _v, key, input) => {
+    if ((input ?? '').length < 8) throw new Error('Password must be at least 8 characters.');
+    await changeUserPassword(Number(key), input ?? '');
+    return 'Password changed.';
+  },
+};
 
 /** A card's items: a text and a note beside it. */
 export type Card = { text: string; note?: string }[];

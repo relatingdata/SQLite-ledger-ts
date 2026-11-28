@@ -1,0 +1,11 @@
+# A user's roles can be changed again and again, for any number of
+# users: removing a role untags its link and granting it again tags the
+# same link (docs/pm-domain-reference.md, setUserRoles).
+"Include","../common/business.csv"
+"Create User","rolechanger","a-good-password","Bookkeeper"
+"Set User Roles","rolechanger","Bookkeeper,Administrator"
+"Set User Roles","rolechanger","Bookkeeper"
+"Set User Roles","rolechanger","Bookkeeper,Administrator"
+"Create User","secondchanger","a-good-password","Bookkeeper"
+"Set User Roles","secondchanger","Administrator"
+"Set User Roles","secondchanger","Bookkeeper,Administrator"

@@ -348,7 +348,8 @@ Tests (*Testing: Unit*, "Running the tests"):
 
 ## Smaller files: short design notes
 
-- **`setup/users/+page.svelte`**: the per-business User × Role matrix
+- **`/setup/users`** (generated, list template: `grids.users` and
+  `grids.businessRoles`): the per-business User × Role matrix
   is kept beside the global roles and never changes them
   (`docs/user-business-role-matrix-design.md`).
 - **`/setup/hierarchy`** (generated, list template): "Save as prototype" saves the

@@ -2143,21 +2143,14 @@ Root
    "/setup/tree" :Screen "Calls getEntityTree">/Root/Application/Calls/getEntityTree Source="frontend/src/routes/setup/tree/+page.svelte" Title="Entity Tree"
     - :Heading Text="Entity Tree"
     - :Use Component>/Root/Application/Components/Tree "Prop data"="{treeData}" "Prop displayValueMember"=name "Prop idMember"=path "Prop pathMember"=path
-   "/setup/users" :Screen "Calls changeUserPassword">/Root/Application/Calls/changeUserPassword "Calls createUser">/Root/Application/Calls/createUser "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getRoles">/Root/Application/Calls/getRoles "Calls getUserRoleMatrix">/Root/Application/Calls/getUserRoleMatrix "Calls getUsers">/Root/Application/Calls/getUsers "Calls setUserActiveApi">/Root/Application/Calls/setUserActiveApi "Calls setUserRoleInBusiness">/Root/Application/Calls/setUserRoleInBusiness "Calls setUserRolesApi">/Root/Application/Calls/setUserRolesApi "Calls unsetUserRoleInBusiness">/Root/Application/Calls/unsetUserRoleInBusiness Source="frontend/src/routes/setup/users/+page.svelte" Title=Users
-    - :Heading Text=Users
-    - :Column Label=Username
-    - :Column Label=Active
-    - :Action Handler="(e) => { e.stopPropagation(); reactivate(u); }" Label=Reactivate
-    - :Field Control=input Label=Users Type=checkbox
-    - :Field Bind=resetPassword Control=input Label=Users Placeholder="New password" Type=password
-    - :Action Handler="(e) => { e.stopPropagation(); submitReset(u.id); }" Label=Save
-    - :Action Handler="(e) => { e.stopPropagation(); resettingId = u.id; resetPassword = ''; }" Label="Reset password"
-    - :Heading Text="Roles per business"
-    - :Field Bind=matrixBusiness Control=select Label=Business
-    - :Column Label=Username
-    - :Field Control=input Label=Business Type=checkbox
-    - :Heading Text="New user"
-    - :Use Component>/Root/Application/Components/Form "Prop fields"="{[\n          { name: 'username', label: 'Username', type: 'text' },\n          { name: 'password', label: 'Password', type: 'password', hint: 'at least 8 characters' },\n          { name: 'roles', label: 'Roles', type: 'multiselect', options: roles.map((r) => r.name) },\n        ]}" "Prop onCancel"="{closeInsert}" "Prop onSubmit"="{create}" "Prop showSubmitButton"="{false}"
+   "/setup/users" :Screen "Needs Role"=Administrator "Needs Role Text"="Only an Administrator can manage users." Template=list Title=Users
+    - :Section Delete=deactivateUser Grid=users Hint="Insert adds a new user. Delete deactivates the selected, active user." Insert=yes Name=users Toggle=userRole
+    - :Section Grid=businessRoles Intro="Which roles a user holds in one specific business \u2014 a separate fact from the global role above, additive and independent of it." Name=matrix Title="Roles per business" Toggle=businessRole
+     a0 :Field Choices=businesses Control=select Default=first Label=Business Name=business
+    - :Section Action=createUser Card=form-card "Form Of"=users Name=newUser Title="New user"
+     a0 :Field Control=text Label=Username Name=username
+     a1 :Field Control=password Hint="at least 8 characters" Label=Password Name=password
+     a2 :Field Choices=roles Control=multiselect Label=Roles Name=roles
    "/setup/vocabulary" :Screen Intro="Some real, business concepts already have more than one, real, valid English name \u2014 pick which one this business prefers to see everywhere, not just in the menu." Template=forms Title=Vocabulary
     - :Section Action=saveVocabulary Each=vocabularyConcepts "Empty Text"="No real concept currently has more than one, known, alternate name." Name=concepts
      a0 :Field Control=select Label="This business prefers:" Name=preferred
@@ -2361,6 +2354,13 @@ Root
    - :Rule Selector=.edit-card padding="1.1rem 1.2rem 1.3rem" width=420px
    - :Rule Selector=".new-language-card, .new-word-card" padding="1.1rem 1.2rem 1.3rem" width=260px
    - :Rule Selector=.translate-card max-height=650px max-width=900px overflow-y=auto padding="1rem 1.2rem" width="100%"
+   - :Rule Selector=.form-card display=flex flex-direction=column gap=0.7rem margin-top=1.2rem max-width=400px padding="1.1rem 1.2rem 1.3rem"
+   - :Rule Selector=".form-card h3" margin=0
+   - :Rule Selector=.grid-card margin-bottom=1.2rem padding="1rem 1.2rem"
+   - :Rule Selector=".grid tr[tabindex]" cursor=pointer
+   - :Rule Selector=".grid tr.selected" background="var(--accent-soft, #f0e6cf)"
+   - :Rule Selector=.link background=none border=none color="var(--brass-dark)" cursor=pointer font-size="var(--font-size-base)" text-decoration=underline
+   - :Rule Selector=.keyboard-hint color="var(--ink-soft)" font-size="var(--font-size-small)" margin-top=0.6rem
    - :Rule Selector=".record-card h3" margin=0
    - :Rule Selector=.fields-row display=flex flex-wrap=wrap gap=1rem
    - :Rule Selector=".fields-row > fieldset" flex="1 1 12rem"

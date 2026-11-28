@@ -54,7 +54,7 @@ statement notes and nominated bank accounts. Each global role a user
 holds is a child of the user whose `relation_id` points at the role.
 
 - `listUsers()` / `listRoles()` — every active user, every available role.
-- `setUserRoles(userId, roleNames)` / `setUserActive(userId, active)` — admin control over roles and login. Removing a role revokes the role link (its tag child first), so the same role can be granted again later.
+- `setUserRoles(userId, roleNames)` / `setUserActive(userId, active)` — admin control over roles and login. A role link (`<user> — Role — <role>`) is kept once made: removing the role untags it, and granting it again tags the same link again, so a role can be removed and granted any number of times. (Revoking the link instead would collide by name with an earlier revoked one under `Revoked`.)
 - `changePassword(userId, newPassword)` — admin reset, no current password required.
 - `changeOwnPassword(userId, currentPassword, newPassword)` — self-service, requires the current password.
 - `logout(token)` — closes one session record.
@@ -74,6 +74,7 @@ Tests (*Testing: Unit*, "Running the tests"):
 - "setUserRoles changes what a session created afterward reflects" (`backend/test/auth.test.ts`)
 - "deactivating a user immediately kills their existing sessions and blocks new logins" (`backend/test/auth.test.ts`)
 - "changePassword replaces the password — the old one stops working, the new one works" (`backend/test/auth.test.ts`)
+- "user-roles-change-again" (`shared-fixtures/tests/user-roles-change-again.csv`)
 - "changeOwnPassword requires proving the current password first — unlike the admin path, which does not need to" (`backend/test/auth.test.ts`)
 - "setOwnPageSize: a real, user-settable preference, defaulting to 20, rejecting nonsense values" (`backend/test/auth.test.ts`)
 - "setOwnNumberFormat/setOwnDateFormat: explicit, fixed-choice patterns — not locale inference — defaulting to 1 000.00 / dd/mm/yyyy, rejecting anything outside the fixed list" (`backend/test/auth.test.ts`)

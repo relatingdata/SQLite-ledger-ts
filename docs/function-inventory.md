@@ -21,7 +21,7 @@ It uses the TypeScript compiler, not a text search. A prototype is printed by th
 ## Summary
 
 - **Backend:** 1215 functions (1031 exported); 850 are called from production code; 46 only from tests or tooling; 319 from nowhere the compiler could find.
-- **Frontend library:** 467 functions (382 exported); 281 are called from production code; 3 only from tests or tooling; 183 from nowhere the compiler could find.
+- **Frontend library:** 477 functions (392 exported); 272 are called from production code; 3 only from tests or tooling; 202 from nowhere the compiler could find.
 
 ### Backend: functions with no callers found
 
@@ -64,10 +64,10 @@ Candidates to review, not proof of dead code: a function may be reached in a way
 
 Candidates to review, not proof of dead code: a function may be reached in a way the limits above cannot see.
 
-- `frontend/src/lib/api.ts`: `getBankAccounts`, `getCashPosition`, `getCashFlowForecast`, `registerBankAccount`, `unregisterBankAccount`, `getTrialBalance`, `getSalesReport`, `getBalanceSheet`, `getProfitAndLoss`, `getProfitAndLossByHierarchy`, `getProfitAndLossByHierarchyTree`, `getLedgerDateRange`, `setLanguageDirection`, `getConceptsWithAlternates`, `getVocabularyWords`, `deleteVocabularyWord`, `setVocabularyPreference`, `deleteVocabularyPreference`, `setTranslation`, `getProductShapes`, `defineProductShape`, `saveHierarchyPrototype`, `createProfitCenter`, `setSessionProfitCenter`, `getReportingPeriods`, `getBusinessConfigurationReport`, `listJournalEntries`, `getTrialBalanceComparison`, `getProfitAndLossComparison`, `stagePurchaseOrder`, `postPurchaseOrder`, `stageOrderReceipt`, `postOrderReceipt`, `stageSalesOrder`, `postSalesOrder`, `listQuotations`, `getQuotation`, `createQuotation`, `createRfq`, `markQuotationSent`, `acceptQuotation`, `rejectQuotation`, `closePeriod`, `reopenPeriod`, `changeOwnPassword`, `setOwnPageSize`, `setOwnNumberFormat`, `setOwnDateFormat`, `postOnAccountInvoice`, `getAgedInvoices`, `getAgedSummary`, `getCustomerStatement`, `getReminderCandidates`, `sendReminder`, `resetReminder`, `openStorageContainer`, `getItemLocation`, `setItemLocationLevels`, `receiveItems`, `transferItems`, `getStockOutRiskReport`, `closeBooks`, `previewCloseBooks`, `resolveRolloverLines`, `createLedger`, `getInventoryListingByLocation`, `getStorageSpaceReport`, `getStockMovementReport`
+- `frontend/src/lib/api.ts`: `getBankAccounts`, `getCashPosition`, `getCashFlowForecast`, `registerBankAccount`, `unregisterBankAccount`, `getTrialBalance`, `getSalesReport`, `getBalanceSheet`, `getProfitAndLoss`, `getProfitAndLossByHierarchy`, `getProfitAndLossByHierarchyTree`, `getLedgerDateRange`, `setLanguageDirection`, `getConceptsWithAlternates`, `getVocabularyWords`, `deleteVocabularyWord`, `setVocabularyPreference`, `deleteVocabularyPreference`, `setTranslation`, `getProductShapes`, `defineProductShape`, `saveHierarchyPrototype`, `createProfitCenter`, `setSessionProfitCenter`, `getReportingPeriods`, `getBusinessConfigurationReport`, `listJournalEntries`, `getTrialBalanceComparison`, `getProfitAndLossComparison`, `getUsers`, `getRoles`, `createUserAccount`, `setUserRolesApi`, `setUserActiveApi`, `changeUserPassword`, `getUserRoleMatrix`, `setUserRoleInBusiness`, `unsetUserRoleInBusiness`, `stagePurchaseOrder`, `postPurchaseOrder`, `stageOrderReceipt`, `postOrderReceipt`, `stageSalesOrder`, `postSalesOrder`, `listQuotations`, `getQuotation`, `createQuotation`, `createRfq`, `markQuotationSent`, `acceptQuotation`, `rejectQuotation`, `closePeriod`, `reopenPeriod`, `changeOwnPassword`, `setOwnPageSize`, `setOwnNumberFormat`, `setOwnDateFormat`, `postOnAccountInvoice`, `getAgedInvoices`, `getAgedSummary`, `getCustomerStatement`, `getReminderCandidates`, `sendReminder`, `resetReminder`, `openStorageContainer`, `getItemLocation`, `setItemLocationLevels`, `receiveItems`, `transferItems`, `getStockOutRiskReport`, `closeBooks`, `previewCloseBooks`, `resolveRolloverLines`, `createLedger`, `getInventoryListingByLocation`, `getStorageSpaceReport`, `getStockMovementReport`
 - `frontend/src/lib/matrix-api.ts`: `getStockOnHandMatrix`, `getProfitAndLossByAxis`, `getCube`, `getAxisValues`, `getAxes`
 - `frontend/src/lib/pagination.ts`: `createPaginator`
-- `frontend/src/lib/screen-runtime.ts`: `sources.numberFormats`, `sources.dateFormats`, `sources.stockGroupings`, `sources.ledgers`, `sources.reportingPeriods`, `sources.bankAccountCandidates`, `sources.bankScopes`, `sources.languages`, `sources.hierarchyPrototypes`, `sources.equityAccounts`, `sources.itemHierarchies`, `sources.locations`, `sources.items`, `sources.providers`, `sources.customers`, `sources.postableAccounts`, `filters.otherThanLedgerA`, `filters.otherThanReference`, `filters.againstInner`, `filters.againstOuter`, `filters.sameCityAsFrom`, `reactions.periodChosen`, `reactions.ledgerAChanged`, `reactions.outerAxisChanged`, `reactions.innerAxisChanged`, `reactions.orderStatus`, `reactions.onHand`, `reactions.fromLocationChanged`, `reactions.itemSources`, `reactions.providerPrice`, `totals.lineTax`, `totals.quantityTimesPrice`, `totals.valueTaxRate`, `totals.taxRate`, `actions.purchase`, `actions.sale`, `actions.transfer`, `actions.orderReceipt`, `actions.salesOrder`, `actions.quotation`, `actions.purchaseOrder`, `records.hierarchies`, `records.vocabularyWords`, `records.languages`, `records.hierarchyValues`, `records.bankAccounts`, `records.quotations`, `commands.deleteVocabularyWord`, `commands.removeLanguage`, `commands.deleteHierarchy`, `commands.deleteHierarchyValue`, `commands.unregisterBankAccount`, `commands.sendReminder`, `commands.resetReminder`, `commands.markSent`, `commands.accept`, `commands.reject`, `reports.aged`, `reports.businessConfiguration`, `reports.cashFlow`, `reports.sales`, `reports.statement`, `reports.reminders`, `reports.belowReorder`, `reports.stockMovement`, `reports.inventoryListing`, `reports.compareLedgers`, `reports.profitAndLossByAxis`, `reports.journalEntries`, `reports.stockOutRisk`, `reports.storageSpace`, `reports.trialBalance`, `reports.balanceSheet`, `formInitials.closeThrough`, `formInitials.pageSize`, `formInitials.formats`, `formActions.closePeriod`, `formActions.reopenPeriod`, `formActions.saveVocabulary`, `formActions.addVocabularyWord`, `formActions.addLanguage`, `formActions.setTranslation`, `formActions.createHierarchy`, `formActions.createHierarchyValue`, `formActions.saveHierarchyPrototype`, `formActions.createHierarchyFromPrototype`, `formActions.registerBankAccount`, `formActions.savePageSize`, `formActions.saveFormats`, `formActions.changePassword`, `cards.productShapes`, `lineActions.defineProductShape`, `tables.cashPosition`, `formRecords.wordTranslations`, `formRecords.wordsToTranslate`, `formRecords.vocabularyConcepts`, `previews.formats`, `proposals.closeBooks`, `proposals.rollover`, `accepts.closeBooks`, `accepts.rollover`, `statuses.periodStatus`
+- `frontend/src/lib/screen-runtime.ts`: `sources.numberFormats`, `sources.dateFormats`, `sources.stockGroupings`, `sources.ledgers`, `sources.reportingPeriods`, `sources.bankAccountCandidates`, `sources.bankScopes`, `sources.roles`, `sources.businesses`, `sources.languages`, `sources.hierarchyPrototypes`, `sources.equityAccounts`, `sources.itemHierarchies`, `sources.locations`, `sources.items`, `sources.providers`, `sources.customers`, `sources.postableAccounts`, `filters.otherThanLedgerA`, `filters.otherThanReference`, `filters.againstInner`, `filters.againstOuter`, `filters.sameCityAsFrom`, `reactions.periodChosen`, `reactions.ledgerAChanged`, `reactions.outerAxisChanged`, `reactions.innerAxisChanged`, `reactions.orderStatus`, `reactions.onHand`, `reactions.fromLocationChanged`, `reactions.itemSources`, `reactions.providerPrice`, `totals.lineTax`, `totals.quantityTimesPrice`, `totals.valueTaxRate`, `totals.taxRate`, `actions.purchase`, `actions.sale`, `actions.transfer`, `actions.orderReceipt`, `actions.salesOrder`, `actions.quotation`, `actions.purchaseOrder`, `records.hierarchies`, `records.vocabularyWords`, `records.languages`, `records.hierarchyValues`, `records.bankAccounts`, `records.quotations`, `commands.deleteVocabularyWord`, `commands.removeLanguage`, `commands.deleteHierarchy`, `commands.deleteHierarchyValue`, `commands.unregisterBankAccount`, `commands.sendReminder`, `commands.resetReminder`, `commands.markSent`, `commands.accept`, `commands.reject`, `reports.aged`, `reports.businessConfiguration`, `reports.cashFlow`, `reports.sales`, `reports.statement`, `reports.reminders`, `reports.belowReorder`, `reports.stockMovement`, `reports.inventoryListing`, `reports.compareLedgers`, `reports.profitAndLossByAxis`, `reports.journalEntries`, `reports.stockOutRisk`, `reports.storageSpace`, `reports.trialBalance`, `reports.balanceSheet`, `formInitials.closeThrough`, `formInitials.pageSize`, `formInitials.formats`, `formActions.closePeriod`, `formActions.reopenPeriod`, `formActions.saveVocabulary`, `formActions.createUser`, `formActions.addVocabularyWord`, `formActions.addLanguage`, `formActions.setTranslation`, `formActions.createHierarchy`, `formActions.createHierarchyValue`, `formActions.saveHierarchyPrototype`, `formActions.createHierarchyFromPrototype`, `formActions.registerBankAccount`, `formActions.savePageSize`, `formActions.saveFormats`, `formActions.changePassword`, `grids.users`, `grids.businessRoles`, `gridToggles.userRole`, `gridToggles.businessRole`, `rowActions.reactivateUser`, `rowActions.deactivateUser`, `rowActions.resetPassword`, `cards.productShapes`, `lineActions.defineProductShape`, `tables.cashPosition`, `formRecords.wordTranslations`, `formRecords.wordsToTranslate`, `formRecords.vocabularyConcepts`, `previews.formats`, `proposals.closeBooks`, `proposals.rollover`, `accepts.closeBooks`, `accepts.rollover`, `statuses.periodStatus`
 - `frontend/src/lib/state.svelte.ts`: `auth.set`, `hasUnsavedEdit.set`, `menuTree.set`, `screenTitle`, `session.set`, `session.clear`, `translations.set`
 
 ## Backend
@@ -9490,7 +9490,7 @@ Called from: production: auth.ts (createUser ×1, findSessionByToken ×1, getSes
 Entity.getUnder(name: string, parentId: number): EntityNode | undefined
 ```
 
-Called from: production: auth.ts (createUser ×1, getUserRoleMatrix ×1, setUserRoles ×1, unsetUserRoleInBusiness ×6); db-hierarchy-prototypes.ts (createHierarchyFromPrototype ×1, kindOf ×1, prototypesRoot ×1, saveHierarchyPrototype ×1); db-journal.ts (findLedgerScopedAccount ×1, resolveLedgerEntity ×2, resolveStagedAccountId ×1, resolveStagingBusinessId ×1, resolveStagingLedgerId ×2); db-matrix-reports.ts (ours ×1, resolveLedgerEntityId ×2); db-projects.ts (createLiveProject ×1); db-prototypes.ts (createPrototype ×1); db-quotations.ts (draftQuotation ×1, ensureQuotationsRoot ×1, getQuotationEntityId ×1); db-reports.ts (ensureCurrencyAccount ×1, ensureProfitCenterRetainedEarningsAccount ×1, resolveBusinessReportsCoaRootId ×1, resolveCashAtBankAccount ×2, resolveLedgerEntityId ×2, resolveRolloverLines ×3); and 4 more file(s) · tests: 2 call(s) in 1 file(s)
+Called from: production: auth.ts (createUser ×1, getUserRoleMatrix ×1, unsetUserRoleInBusiness ×6); db-hierarchy-prototypes.ts (createHierarchyFromPrototype ×1, kindOf ×1, prototypesRoot ×1, saveHierarchyPrototype ×1); db-journal.ts (findLedgerScopedAccount ×1, resolveLedgerEntity ×2, resolveStagedAccountId ×1, resolveStagingBusinessId ×1, resolveStagingLedgerId ×2); db-matrix-reports.ts (ours ×1, resolveLedgerEntityId ×2); db-projects.ts (createLiveProject ×1); db-prototypes.ts (createPrototype ×1); db-quotations.ts (draftQuotation ×1, ensureQuotationsRoot ×1, getQuotationEntityId ×1); db-reports.ts (ensureCurrencyAccount ×1, ensureProfitCenterRetainedEarningsAccount ×1, resolveBusinessReportsCoaRootId ×1, resolveCashAtBankAccount ×2, resolveLedgerEntityId ×2, resolveRolloverLines ×3); and 4 more file(s) · tests: 2 call(s) in 1 file(s)
 
 **`Entity.ensureUnder`** *(exported)*
 
@@ -9530,7 +9530,7 @@ Called from: production: auth.ts (getSessionUser ×1, login ×1, logout ×1, set
 Entity.revoke(id: number, userId: UserId): void
 ```
 
-Called from: production: auth.ts (setUserRoles ×2); db-seed.ts (retire ×1); db.ts (deleteDepartment ×3, deleteHierarchy ×1, deleteHierarchyValue ×1, deleteLocation ×1, deleteTranslationConcept ×1); primitives.ts (Entity.clearAttr ×1)
+Called from: production: db-seed.ts (retire ×1); db.ts (deleteDepartment ×3, deleteHierarchy ×1, deleteHierarchyValue ×1, deleteLocation ×1, deleteTranslationConcept ×1); primitives.ts (Entity.clearAttr ×1)
 
 **`Entity.children`** *(exported)*
 
@@ -9546,7 +9546,7 @@ Called from: production: auth.ts (getUserRoleNames ×1, listRoles ×1, listUsers
 Entity.tag(id: number, tagName: string, userId: UserId): void
 ```
 
-Called from: production: auth.ts (setUserRoles ×1); db-stock.ts (setItemSourceLeadTime ×1); db.ts (addOrUpdateItemSource ×1, mergeContactDetail ×1, nominateLocationCurrency ×1, postBomComponents ×1, setEntityLink ×1, setMenuOverride ×1, and 3 more)
+Called from: production: auth.ts (setUserRoles ×2); db-stock.ts (setItemSourceLeadTime ×1); db.ts (addOrUpdateItemSource ×1, mergeContactDetail ×1, nominateLocationCurrency ×1, postBomComponents ×1, setEntityLink ×1, setMenuOverride ×1, and 3 more)
 
 **`Entity.untag`** *(exported)*
 
@@ -9554,7 +9554,7 @@ Called from: production: auth.ts (setUserRoles ×1); db-stock.ts (setItemSourceL
 Entity.untag(id: number, tagName: string, userId: UserId): void
 ```
 
-Called from: production: db.ts (deleteBomComponent ×1, deleteEntityLink ×1, deleteItemSource ×1, deleteMenuOverride ×1, deleteVocabularyPreference ×1, revokeEntity ×1, and 3 more)
+Called from: production: auth.ts (setUserRoles ×1); db.ts (deleteBomComponent ×1, deleteEntityLink ×1, deleteItemSource ×1, deleteMenuOverride ×1, deleteVocabularyPreference ×1, revokeEntity ×1, and 3 more)
 
 **`Entity.hasTag`** *(exported)*
 
@@ -10534,7 +10534,7 @@ Called from: Svelte pages (by name in the file's imports): BusinessStructurePopu
 getBusinesses(): Promise<{ id: number; name: string; }[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/post ×1, routes/projects ×1, routes/session ×1, routes/setup/users ×1, routes/stock/stock-dispatch ×1
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/post ×1, routes/projects ×1, routes/session ×1, routes/stock/stock-dispatch ×1
 
 **`getBusinessTypes`** *(exported)*
 
@@ -10902,7 +10902,7 @@ Called from: Svelte pages (by name in the file's imports): routes/+layout.svelte
 getUsers(): Promise<UserSummary[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/setup/users ×1
+Called from: nowhere the compiler could find.
 
 **`getRoles`** *(exported)*
 
@@ -10910,7 +10910,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/users ×
 getRoles(): Promise<{ id: number; name: string; }[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/setup/users ×1
+Called from: nowhere the compiler could find.
 
 **`createUserAccount`** *(exported)*
 
@@ -10918,7 +10918,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/users ×
 createUserAccount(username: string, password: string, roles: string[]): Promise<UserSummary>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/setup/users ×1
+Called from: nowhere the compiler could find.
 
 **`setUserRolesApi`** *(exported)*
 
@@ -10926,7 +10926,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/users ×
 setUserRolesApi(userId: number, roles: string[]): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/setup/users ×1
+Called from: nowhere the compiler could find.
 
 **`setUserActiveApi`** *(exported)*
 
@@ -10934,7 +10934,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/users ×
 setUserActiveApi(userId: number, active: boolean): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/setup/users ×2
+Called from: nowhere the compiler could find.
 
 **`changeUserPassword`** *(exported)*
 
@@ -10942,7 +10942,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/users ×
 changeUserPassword(userId: number, password: string): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/setup/users ×1
+Called from: nowhere the compiler could find.
 
 **`getUserRoleMatrix`** *(exported)*
 
@@ -10950,7 +10950,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/users ×
 getUserRoleMatrix(business: string): Promise<UserRoleMatrix>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/setup/users ×1
+Called from: nowhere the compiler could find.
 
 **`setUserRoleInBusiness`** *(exported)*
 
@@ -10958,7 +10958,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/users ×
 setUserRoleInBusiness(business: string, username: string, roleName: string): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/setup/users ×1
+Called from: nowhere the compiler could find.
 
 **`unsetUserRoleInBusiness`** *(exported)*
 
@@ -10966,7 +10966,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/users ×
 unsetUserRoleInBusiness(business: string, username: string, roleName: string): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/setup/users ×1
+Called from: nowhere the compiler could find.
 
 **`reverseJournalEntry`** *(exported)*
 
@@ -12488,7 +12488,7 @@ Called from: Svelte pages (by name in the file's imports): routes/arap/quotation
 t(word: string): any
 ```
 
-Called from: production: screen-runtime.ts (accepts.closeBooks ×5, accepts.rollover ×3, actions.purchase ×1, actions.sale ×1, actions.transfer ×1, breakdown ×1, and 38 more)
+Called from: production: screen-runtime.ts (accepts.closeBooks ×5, accepts.rollover ×3, actions.purchase ×1, actions.sale ×1, actions.transfer ×1, breakdown ×1, and 40 more)
 
 **`named`**
 
@@ -12590,6 +12590,22 @@ Called from: nowhere the compiler could find.
 
 ```
 sources.bankScopes(business: string): Promise<{ value: string; label: string; }[]>
+```
+
+Called from: nowhere the compiler could find.
+
+**`sources.roles`** *(exported)*
+
+```
+sources.roles(): Promise<any>
+```
+
+Called from: nowhere the compiler could find.
+
+**`sources.businesses`** *(exported)*
+
+```
+sources.businesses(): Promise<any>
 ```
 
 Called from: nowhere the compiler could find.
@@ -13354,6 +13370,14 @@ formActions.saveVocabulary(c: Context, v: Values): Promise<void>
 
 Called from: nowhere the compiler could find.
 
+**`formActions.createUser`** *(exported)*
+
+```
+formActions.createUser(_c: Context, v: Values): Promise<void>
+```
+
+Called from: nowhere the compiler could find.
+
 **`formActions.addVocabularyWord`** *(exported)*
 
 ```
@@ -13438,6 +13462,62 @@ Called from: nowhere the compiler could find.
 
 ```
 formActions.changePassword(_c: Context, v: Values): Promise<{ currentPassword: string; newPassword: string; confirmPassword: string; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`grids.users`** *(exported)*
+
+```
+grids.users(): Promise<{ columns: { name: string; label: any; }[]; checks: any; rows: any; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`grids.businessRoles`** *(exported)*
+
+```
+grids.businessRoles(_c: Context, v: Values): Promise<{ columns: { name: string; label: any; }[]; checks: any; rows: any; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`gridToggles.userRole`** *(exported)*
+
+```
+gridToggles.userRole(_c: Context, _v: Values, key: string, role: string, on: boolean): Promise<void>
+```
+
+Called from: nowhere the compiler could find.
+
+**`gridToggles.businessRole`** *(exported)*
+
+```
+gridToggles.businessRole(_c: Context, v: Values, user: string, role: string, on: boolean): Promise<void>
+```
+
+Called from: nowhere the compiler could find.
+
+**`rowActions.reactivateUser`** *(exported)*
+
+```
+rowActions.reactivateUser(_c: Context, _v: Values, key: string): Promise<void>
+```
+
+Called from: nowhere the compiler could find.
+
+**`rowActions.deactivateUser`** *(exported)*
+
+```
+rowActions.deactivateUser(_c: Context, _v: Values, key: string): Promise<void>
+```
+
+Called from: nowhere the compiler could find.
+
+**`rowActions.resetPassword`** *(exported)*
+
+```
+rowActions.resetPassword(_c: Context, _v: Values, key: string, input: string): Promise<string>
 ```
 
 Called from: nowhere the compiler could find.
@@ -13602,7 +13682,7 @@ Called from: production: api.ts (callRaw ×1, callRawWithLines ×1, request ×1)
 hasRole(state: AuthState | null, ...roles: string[]): boolean
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/+layout.svelte ×1, routes/journal/[id]/[date] ×1, routes/post ×1, routes/session ×1, routes/setup ×4, routes/setup/users ×1
+Called from: Svelte pages (by name in the file's imports): routes/+layout.svelte ×1, routes/journal/[id]/[date] ×1, routes/post ×1, routes/session ×1, routes/setup ×4, routes/setup/bank-accounts ×0, routes/setup/hierarchy ×0, routes/setup/translations ×0, and 1 more
 
 **`hasUnsavedEdit.set`** *(exported)*
 

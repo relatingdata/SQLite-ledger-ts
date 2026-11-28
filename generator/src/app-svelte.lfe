@@ -929,7 +929,7 @@
 (defun form-section-one (s sec)
   (let ((fields (app-view:things s sec)))
     (list
-      #"  <h3>{t(" (js (val s sec #"Title")) #")}</h3>\n"
+      (case (val s sec #"Title") ('undefined #"") (ti (list #"  <h3>{t(" (js ti) #")}</h3>\n")))
       #"  <Form\n    fields={[\n"
       (lists:map (lambda (f)
                    (list #"      { name: " (js (val s f #"Name")) #", label: " (js (val s f #"Label" (val s f #"Name")))
@@ -1147,20 +1147,22 @@
          (liness (sections-with s id #"Lines"))
          (eaches (sections-with s id #"Each"))
          (pickers (sections-with s id #"Pickers"))
+         (gridss (sections-with s id #"Grid"))
+         (formofs (sections-with s id #"Form Of"))
          (panels (lists:filter (lambda (p) (panel? s p)) (sections-with s id #"Action")))
          (layout (lists:filter (lambda (p) (orelse (lists:any (lambda (r) (=/= (val s p r) 'undefined)) (list #"Records" #"Each" #"Search")) (lists:member p panels)))
                                (lists:filter (lambda (p) (== (kind s p) #"Section")) (app-view:things s id))))
-         (forms (lists:append (list lists buttons panels pickers)))
+         (forms (lists:append (list lists buttons panels pickers gridss formofs)))
          (fields (lists:append (lists:map (lambda (l) (list-fields s l)) (lists:append forms liness))))
          (chosen (lists:filter (lambda (f) (=/= (val s f #"Choices") 'undefined)) fields))
          (modes (case (val s id #"Modes") ('undefined '()) (m (binary:split m #" " '(global trim_all))))))
     (list
       #"<script lang='ts'>\n" (header s id)
       #"  import '$lib/generated.css';\n"
-      #"  import { session, translations } from '$lib/state.svelte';\n"
+      #"  import { auth, hasRole, session, translations } from '$lib/state.svelte';\n"
       #"  import Form from '$lib/components/Form.svelte';\n"
       #"  import SelectableListEditor from '$lib/components/SelectableListEditor.svelte';\n"
-      #"  import { cards, commands, filters, formActions, formRecords, lineActions, records, sources, tables, type Card, type Choice, type FormRecord, type Row, type Table, type Values } from '$lib/screen-runtime';\n\n"
+      #"  import { cards, commands, filters, formActions, formRecords, gridToggles, grids, lineActions, records, rowActions, sources, tables, type Card, type Choice, type FormRecord, type Grid, type GridRow, type Row, type Table, type Values } from '$lib/screen-runtime';\n\n"
       #"  const t = (word: string) => translations.current[word] ?? word;\n"
       #"  const context = () => ({ business: session.current?.businessName ?? '', ledger: session.current?.ledgerName ?? '', party: '' });\n"
       #"  const message = (e: unknown) => (e instanceof Error ? e.message : t('Could not complete.'));\n"
@@ -1186,6 +1188,10 @@
       (lists:join #", " (lists:map (lambda (l) (list (val s l #"Name") #": [" (blank s (list-fields s l)) #"]")) liness))
       #" });\n"
       #"  let busy: Record<string, boolean> = $state({});\n"
+      #"  let gridData: Record<string, Grid> = $state({});\n"
+      #"  let asking: Record<string, string> = $state({});\n"
+      #"  let answers: Record<string, string> = $state({});\n"
+      #"  let done = $state('');\n"
       #"  const keys: Record<string, string> = { "
       (lists:join #", " (lists:map (lambda (l) (list (list-name s id l) #": " (js (val s l #"Key")))) lists))
       #" };\n"
@@ -1200,6 +1206,8 @@
       (lists:map (lambda (b) (button-function s b)) (lists:append buttons panels))
       (lists:map (lambda (l) (lines-function s l)) liness)
       (lists:map (lambda (e) (each-functions s id e)) eaches)
+      (lists:map (lambda (g) (grid-functions s g)) gridss)
+      (lists:map (lambda (f) (form-of-functions s f)) formofs)
       #"  let latest = 0;\n"
       #"  async function load() {\n"
       #"    const request = ++latest;\n"
@@ -1220,17 +1228,24 @@
                                (list #"      if (!values." form #"." (val s f #"Name") #") values." form #"." (val s f #"Name") #" = " offered #"[0]?.value ?? '';\n")))
                  (lists:filter (lambda (f) (andalso (== (val s f #"Default") #"first") (=/= (field-form s f forms) 'undefined))) chosen))
       (lists:map (lambda (e) (list #"      await load_" (val s e #"Name") #"();\n")) eaches)
+      (lists:map (lambda (g) (list #"      await loadGrid_" (val s g #"Name") #"();\n")) gridss)
       #"    } catch (e) {\n      if (request === latest) error = message(e);\n"
       #"    } finally {\n      if (request === latest) loading = false;\n    }\n  }\n"
       #"  $effect(() => {\n    if (session.current) load();\n  });\n"
       (lists:map (lambda (e) (list #"  $effect(() => {\n    JSON.stringify(pickerValues());\n    if (!loading) load_" (val s e #"Name") #"().catch((err) => (error = message(err)));\n  });\n"))
                  (lists:filter (lambda (e) (== (val s e #"Of") 'undefined)) eaches))
+      (lists:map (lambda (g) (list #"  $effect(() => {\n    JSON.stringify(values." (val s g #"Name") #");\n    if (!loading) loadGrid_" (val s g #"Name") #"().catch((err) => (error = message(err)));\n  });\n"))
+                 (lists:filter (lambda (g) (=/= (list-fields s g) '())) gridss))
       #"</script>\n\n"
       #"<svelte:head><title>{t(" (js (val s id #"Title")) #")}</title></svelte:head>\n\n"
       #"<fieldset class='page-title generated'>\n"
       #"  <legend>{t(" (js (val s id #"Title")) #")}</legend>\n"
       (intro-line s id)
+      (case (val s id #"Needs Role")
+        ('undefined #"")
+        (r (list #"  {#if !hasRole(auth.current, " (js r) #")}\n  <p class='error'>" (t (val s id #"Needs Role Text" #"")) #"</p>\n  {:else}\n")))
       #"  {#if error}<p class='error'>{error}</p>{/if}\n"
+      #"  {#if done}<p class='success'>{done}</p>{/if}\n"
       (case modes
         ('() #"")
         (ms (list #"  <fieldset class='mode-toggle'>\n    <legend>{t('Mode')}</legend>\n    <div class='mode-buttons'>\n"
@@ -1257,17 +1272,120 @@
         (bs (list #"    <div class='action-bar'>\n" (lists:map (lambda (b) (button-block s b)) bs) #"    </div>\n")))
       (lists:map (lambda (c) (cards-block s c)) cardss)
       (lists:map (lambda (l) (lines-block s l)) liness)
+      (lists:map (lambda (g) (if (=/= (val s g #"Grid") 'undefined) (grid-block s g) (form-of-block s g)))
+                 (lists:filter (lambda (p) (orelse (lists:member p gridss) (lists:member p formofs))) (app-view:things s id)))
       #"  {/if}\n"
+      (if (== (val s id #"Needs Role") 'undefined) #"" #"  {/if}\n")
       #"</fieldset>\n")))
 
-;; A section with Action, a Card and no Button: a form always open.
+;; --- grids: rows by check columns (grids), each tick saved as it changes
+;; (gridToggles: its Toggle), each row's buttons (rowActions), under its
+;; Title and Hint, with its own fields as its parameters above it. With
+;; Insert, the Insert key opens the Section whose Form Of names it; its
+;; Delete (rowActions) runs on the selected row when that row allows it.
+;; The keys work anywhere in the grid's card; its Hint line is the
+;; toolbar to focus, so focusing it never ticks a check or presses a
+;; row's button.
+
+(defun grid-functions (s g)
+  (let ((n (val s g #"Name"))
+        (v (stringify (list #"values." (val s g #"Name")))))
+    (list
+      #"  async function loadGrid_" n #"() {\n    gridData." n #" = await grids." (val s g #"Grid") #"(context(), " v #");\n  }\n"
+      #"  async function toggle_" n #"(row: GridRow, check: string, on: boolean) {\n    error = '';\n"
+      #"    try {\n      await gridToggles." (val s g #"Toggle") #"(context(), " v #", row.key, check, on);\n"
+      #"    } catch (e) {\n      error = message(e);\n    }\n    await loadGrid_" n #"();\n  }\n"
+      #"  async function rowAct_" n #"(row: GridRow, action: string, input?: string) {\n    error = '';\n    done = '';\n"
+      #"    try {\n      const said = await rowActions[action](context(), " v #", row.key, input);\n"
+      #"      if (said) done = t(said);\n      asking = {};\n      answers = {};\n      await loadGrid_" n #"();\n"
+      #"    } catch (e) {\n      error = message(e);\n    }\n  }\n"
+      #"  function gridKeys_" n #"(e: KeyboardEvent) {\n"
+      #"    const target = e.target as HTMLElement;\n"
+      #"    if (target.tagName === 'INPUT' || target.tagName === 'SELECT' || target.tagName === 'TEXTAREA') return;\n"
+      (if (== (val s g #"Insert") 'undefined) #""
+        (list #"    if (e.key === 'Insert') {\n      e.preventDefault();\n      inserting." n #" = true;\n    }\n"))
+      (case (val s g #"Delete")
+        ('undefined #"")
+        (d (list #"    if (e.key === 'Delete') {\n      const row = gridData." n #"?.rows.find((r) => r.key === selected." n #");\n"
+                 #"      if (row?.deletable) {\n        e.preventDefault();\n        rowAct_" n #"(row, " (js d) #");\n      }\n    }\n")))
+      #"  }\n")))
+
+(defun grid-block (s g)
+  (let* ((n (val s g #"Name"))
+         (grid (list #"gridData." n))
+         (keyed (orelse (=/= (val s g #"Insert") 'undefined) (=/= (val s g #"Delete") 'undefined))))
+    (list
+      #"    <div class='card grid-card'" (if keyed (list #" role='toolbar' tabindex='-1' onkeydown={gridKeys_" n #"}") #"") #">\n"
+      (case (val s g #"Title") ('undefined #"") (ti (list #"      <h3>" (t ti) #"</h3>\n")))
+      (case (val s g #"Intro") ('undefined #"") (h (list #"      <p class='hint'>" (t h) #"</p>\n")))
+      (lists:map (lambda (f) (inline-control s f n 'none 'none #"      ")) (list-fields s g))
+      #"      {#if " grid #"}\n"
+      #"        <table class='grid'>\n"
+      #"          <thead><tr>{#each " grid #".columns as c}<th>{c.label}</th>{/each}{#each " grid #".checks as c}<th>{c.label}</th>{/each}"
+      #"{#if " grid #".rows.some((r) => r.actions.length > 0)}<th></th>{/if}</tr></thead>\n"
+      #"          <tbody>\n"
+      #"            {#each " grid #".rows as row (row.key)}\n"
+      #"              <tr tabindex='0' class:selected={selected." n #" === row.key} onclick={() => (selected." n #" = row.key)} onkeydown={(e) => e.key === 'Enter' && (selected." n #" = row.key)}>\n"
+      #"                {#each " grid #".columns as c}<td>{row.cells[c.name] ?? ''}</td>{/each}\n"
+      #"                {#each " grid #".checks as c}<td><input type='checkbox' checked={row.checked[c.name]} onchange={(e) => toggle_" n #"(row, c.name, e.currentTarget.checked)} onclick={(e) => e.stopPropagation()} /></td>{/each}\n"
+      #"                {#if " grid #".rows.some((r) => r.actions.length > 0)}\n                  <td>\n"
+      #"                    {#each row.actions as a}\n"
+      #"                      {#if a.input && asking[row.key] === a.name}\n"
+      #"                        <input type={a.input} bind:value={answers[row.key]} placeholder={a.placeholder ?? ''} onclick={(e) => e.stopPropagation()} />\n"
+      #"                        <button class='link' onclick={(e) => { e.stopPropagation(); rowAct_" n #"(row, a.name, answers[row.key] ?? ''); }}>{t('Save')}</button>\n"
+      #"                      {:else}\n"
+      #"                        <button class='link' onclick={(e) => { e.stopPropagation(); if (a.input) { asking = { [row.key]: a.name }; answers = {}; } else rowAct_" n #"(row, a.name); }}>{a.label}</button>\n"
+      #"                      {/if}\n"
+      #"                    {/each}\n"
+      #"                  </td>\n                {/if}\n"
+      #"              </tr>\n"
+      #"            {/each}\n"
+      #"          </tbody>\n"
+      #"        </table>\n"
+      #"      {/if}\n"
+      (case (val s g #"Hint")
+        ('undefined #"")
+        (h (if keyed
+             (list #"      <div class='keyboard-hint' role='toolbar' tabindex='0' aria-keyshortcuts='Insert Delete'>" (t h) #"</div>\n")
+             (list #"      <p class='keyboard-hint'>" (t h) #"</p>\n"))))
+      #"    </div>\n")))
+
+;; The insert form of the grid its Form Of names, in a card under its
+;; Title while that grid is inserting: a Form of its fields (Choices: a
+;; source's values; a multiselect's values are passed comma-separated),
+;; saved by its Action.
+(defun form-of-functions (s f)
+  (let ((n (val s f #"Name")))
+    (list
+      #"  function closeForm_" n #"() {\n    inserting." (val s f #"Form Of") #" = false;\n    values." n #" = " (blank-defaults s (list-fields s f)) #";\n  }\n"
+      #"  async function submitForm_" n #"(v: Record<string, string | number | string[]>) {\n"
+      #"    await formActions." (val s f #"Action") #"(context(), " (stringify #"v") #");\n"
+      #"    closeForm_" n #"();\n    await load();\n  }\n")))
+
+(defun form-of-block (s f)
+  (let ((n (val s f #"Name")))
+    (list
+      #"    {#if inserting." (val s f #"Form Of") #"}\n"
+      #"      <div class='card " (val s f #"Card" #"form-card") #"'>\n"
+      (case (val s f #"Title") ('undefined #"") (ti (list #"        <h3>" (t ti) #"</h3>\n")))
+      #"        <Form\n          fields={[\n"
+      (lists:map (lambda (x) (list #"            " (form-field s x #"options") #",\n")) (list-fields s f))
+      #"          ]}\n"
+      #"          bind:values={values." n #"}\n          onSubmit={submitForm_" n #"}\n          showSubmitButton={false}\n          onCancel={closeForm_" n #"}\n        />\n"
+      #"      </div>\n    {/if}\n")))
+
+;; A section with Action, a Card and no Button (nor Form Of): a form always open.
 (defun panel? (s p)
   (andalso (=/= (val s p #"Card") 'undefined) (== (val s p #"Button") 'undefined) (== (val s p #"Lines") 'undefined)
-           (== (val s p #"Each") 'undefined) (== (val s p #"Records") 'undefined)))
+           (== (val s p #"Each") 'undefined) (== (val s p #"Records") 'undefined) (== (val s p #"Form Of") 'undefined)))
 
 (defun blank-defaults (s fields)
   (list #"{ " (lists:join #", " (lists:map (lambda (f) (list (val s f #"Name") #": "
-                                                             (case (val s f #"Default") ('undefined #"''") (#"first" #"''") (d (js d)))))
+                                                             (case (tuple (val s f #"Control") (val s f #"Default"))
+                                                               ((tuple #"multiselect" _) #"[]")
+                                                               ((tuple _ 'undefined) #"''")
+                                                               ((tuple _ #"first") #"''")
+                                                               ((tuple _ d) (js d)))))
                                            fields)) #" }"))
 
 ;; Shown only in its Mode, when it has one.
