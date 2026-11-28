@@ -902,7 +902,8 @@ posts the invoice to `revenueOrExpenseAccount` and `taxAccount`. A
 catalog item with no location is refused before anything is written;
 a failed receipt or dispatch rolls the invoice back. The web screens
 (`onAccount`, `frontend/src/lib/screen-runtime.ts`) and the terminal
-screens (`tui/src/screens/Purchase.svelte`, `ARSale.svelte`) call it
+screens generated from the same descriptions (the TUI's transaction
+form calls the same `onAccount`) call it
 through the `postOnAccountInvoice` dispatch entry
 (`call-dispatch/invoices.ts`).
 

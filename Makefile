@@ -1,4 +1,4 @@
-.PHONY: all install clean seed seed-pivot-demo print-screen dev dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-unit test-unit-frontend test-unit-store test-unit-core test-unit-backend test-unit-calls check-unit-levels check-translations check-hierarchy-names test-e2e test-e2e-tutorial test-e2e-tutorials test-e2e-tutorials-http test-storage-engine storage-engine-deps generator generate format-application-config test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs test-e2e-manufacturing-tutorial test-e2e-manufacturing-tutorial-browser test-e2e-manufacturing-full test-e2e-project-builder-tutorial test-e2e-project-builder-tutorial-browser test-e2e-project-builder-full reset-db manual programmer-manual historical-manual entity-tree-svg entity-tree-sample-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch proof-year-end check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles analyze-vocabulary strip-comments check-test-docs check-manual test-steps test-steps-browser test-one release check-manual-pictures check-step-tests
+.PHONY: all install clean seed seed-pivot-demo print-screen dev dev-verbose backend load-translations-api load-translations-ui backend-verbose frontend web-frontend text-frontend test test-unit test-unit-frontend test-unit-store test-unit-core test-unit-backend test-unit-calls check-unit-levels check-translations check-hierarchy-names check-screens-described test-e2e test-e2e-tutorial test-e2e-tutorials test-e2e-tutorials-http test-storage-engine storage-engine-deps generator generate format-application-config test-e2e-tutorial-browser test-e2e-tutorial-text test-e2e-tutorial-docs test-e2e-manufacturing-tutorial test-e2e-manufacturing-tutorial-browser test-e2e-manufacturing-full test-e2e-project-builder-tutorial test-e2e-project-builder-tutorial-browser test-e2e-project-builder-full reset-db manual programmer-manual historical-manual entity-tree-svg entity-tree-sample-svg check-db-consistency check-node-refs verify-fresh checkpoint untrack search list-menu-labels add-menu-translations add-journal-translations check-frontend add-journal-remaining-translations add-header-translations check-backend-types check-unused add-brand-translation branch proof-year-end check-docs-coverage call-graph svelte-call-trace source-reference manual-diagrams servers-status ensure-servers stop-servers check-schema-table-count screens-inventory role-routes-matrix check-no-python analyze-classification measure-comments show-comments find-symbols find-uses function-inventory check-function-inventory explain-function comment-out-functions rename-identifiers sim-golden check-sim-unchanged knip check-cycles analyze-vocabulary strip-comments check-test-docs check-manual test-steps test-steps-browser test-one release check-manual-pictures check-step-tests
 
 # A real, direct, explicit RUNTIME variable, per direct instruction:
 # some real, potential customers' own corporate policy insists on
@@ -127,7 +127,7 @@ frontend: web-frontend
 
 # The terminal UI (tui/), built and run in this terminal; it needs the
 # backend running (`make backend` in another terminal).
-text-frontend:
+text-frontend: generate
 	cd tui && $(RUN_NPM_SCRIPT) dev
 
 # The unit tests in five levels, each building on the one before, so a
@@ -164,6 +164,11 @@ test-unit: test-unit-calls
 check-hierarchy-names:
 	cd backend && $(RUN_SCRIPT) ../scripts/check-hierarchy-names.ts
 
+# Every hand-written screen, web or TUI, is listed as debt in the manual
+# (docs/pm-application-config.md, "One description, two front ends").
+check-screens-described:
+	cd backend && $(RUN_SCRIPT) ../scripts/check-screens-described.ts
+
 # Every menu, screen and frontend text in every language
 # (docs/pm-translations.md).
 check-translations: generate
@@ -181,7 +186,7 @@ test: generate
 # one failing gate never hides another; `make test`, the pre-commit hook
 # (githooks/pre-commit) and CI (.github/workflows/check.yml) all run this.
 # See docs/pm-build-and-tooling.md, "Gates".
-MANUAL_GATES = check-translations check-hierarchy-names check-unit-levels check-backend-types check-docs-coverage check-docs-staleness check-test-docs check-function-inventory check-cycles check-schema-table-count check-unused check-no-python check-journal-staging-only check-step-tests check-manual-pictures
+MANUAL_GATES = check-translations check-hierarchy-names check-screens-described check-unit-levels check-backend-types check-docs-coverage check-docs-staleness check-test-docs check-function-inventory check-cycles check-schema-table-count check-unused check-no-python check-journal-staging-only check-step-tests check-manual-pictures
 check-manual:
 	@fail=0; for g in $(MANUAL_GATES); do \
 	  $(MAKE) -s $$g || { echo "GATE FAILED: $$g"; fail=1; }; \
@@ -268,8 +273,9 @@ test-e2e-tutorials-http: reset-db
 # --- The frontends, generated from application/application.entities -----
 #
 # The screens that have a Template in the configuration entities are
-# generated by the LFE generator (generator/) into frontend/src/routes;
-# those files are build output, ignored by git. See "Application
+# generated by the LFE generator (generator/) into frontend/src/routes,
+# and those the TUI has a form for into tui/src/generated; those files
+# are build output, ignored by git. See "Application
 # Configuration as Entities" in the Programmer's Manual.
 APPLICATION_CONFIG ?= application/application.entities
 GENERATOR_LFE := $(CURDIR)/generator/deps/lfe
@@ -288,7 +294,7 @@ generator: $(GENERATOR_BEAMS)
 # Make-style: regenerates only when the entities or the generator changed.
 generate: application/.generated
 application/.generated: $(APPLICATION_CONFIG) $(GENERATOR_BEAMS)
-	$(GENERATOR_ERL) -eval "'app-generate':main([\"$(APPLICATION_CONFIG)\", \"frontend\"]), halt()."
+	$(GENERATOR_ERL) -eval "'app-generate':main([\"$(APPLICATION_CONFIG)\", \"frontend\", \"tui\"]), halt()."
 	@touch $@
 
 # Demo data for the pivots (Sales and Margin, Stock on Hand): adds "Pivot
@@ -400,11 +406,11 @@ test-e2e-project-builder-full: reset-db
 # The tutorial's first step (Login) through the terminal UI: builds tui/
 # and runs step-runner.ts --path text (docs/pm-testing-e2e.md, "`--path
 # text` — driving the terminal UI", which says why only one step runs).
-test-e2e-tutorial-text: reset-db
+test-e2e-tutorial-text: generate reset-db
 	@rm -f $(HOME)/.sql-ledger-ts-tui/session.json
 	@$(MAKE) --no-print-directory ensure-servers
 	cd tui && $(RUN_NPM_SCRIPT) build
-	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path text --non-interactive --until 15
+	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path text --non-interactive --until 16
 
 # The one, real, test-runner-driven way every non-English translation
 # in shared-fixtures/translations.csv is ever loaded into a running
@@ -1234,7 +1240,7 @@ tutorial-section-user-manual: test-e2e-tutorial-browser
 # web path's own, separate run.
 # The tutorial is seeded with the legacy middleware: the backend the TUI
 # talks to (ensure-servers) serves the legacy database, not core.sqlite.
-tutorial-section-user-manual-tui:
+tutorial-section-user-manual-tui: generate
 	@$(MAKE) --no-print-directory test-e2e-tutorial MIDDLEWARE=legacy
 	@$(MAKE) --no-print-directory ensure-servers
 	@rm -f $(HOME)/.sql-ledger-ts-tui/session.json
@@ -1255,7 +1261,7 @@ tutorial-section-user-manual-tui:
 # test-e2e-tutorial (above) or test-e2e-project-builder-tutorial - only
 # one tutorial's own business may be seeded in the database a given
 # capture run actually reads from.
-tutorial-section-user-manual-manufacturing-tui:
+tutorial-section-user-manual-manufacturing-tui: generate
 	@$(MAKE) --no-print-directory test-e2e-manufacturing-tutorial MIDDLEWARE=legacy
 	@$(MAKE) --no-print-directory ensure-servers
 	@rm -f $(HOME)/.sql-ledger-ts-tui/session.json

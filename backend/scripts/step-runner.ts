@@ -1325,6 +1325,10 @@ export async function runStepViaText(terminal: TuiTest, step: Step, screens: Map
         continue;
       }
       if (field.field_type === 'select' || field.field_type === 'select_value' || field.field_type === 'search_and_select') {
+        // A form's earlier fields the row does not fill (a date before the
+        // location) keep their defaults: Enter moves on until a list shows
+        // a highlighted entry.
+        for (let i = 0; i < 5 && !(await terminal.text()).includes('❯'); i++) await press(terminal, 'Enter');
         const found = await findItemByText(terminal, value, 200);
         if (!found) return { ok: false, error: `No real picker item matching "${value}" found for field "${field.field_name}".` };
         await press(terminal, 'Enter');
@@ -1342,10 +1346,16 @@ export async function runStepViaText(terminal: TuiTest, step: Step, screens: Map
       for (let i = 0; i < 8; i++) {
         const shown = rows(await terminal.text());
         if (!shown.some((l) => l.includes(submitLabel))) break;
+        if (shown.some((l) => l.includes('❯') && l.includes(submitLabel))) {
+          await press(terminal, 'Enter');
+          break;
+        }
         if (shown.some((l) => l.includes('❯'))) {
           if (await findItemByText(terminal, submitLabel, 10)) await press(terminal, 'Enter');
           break;
         }
+        // A field still to pass, typed or a list (a payment method): Enter
+        // keeps its value and moves on.
         await press(terminal, 'Enter');
       }
     }

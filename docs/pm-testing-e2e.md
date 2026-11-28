@@ -119,7 +119,7 @@ to `--screenshot-dir`.
 
 `skip` applies to every path: a row cannot be skipped on `--path text`
 only, which is one reason `make test-e2e-tutorial-text` runs only the
-steps the terminal UI can already take (`--until 15`).
+steps the terminal UI can already take (`--until 16`).
 
 ### The CLI
 
@@ -351,8 +351,11 @@ presence of two web columns:
   opens it with `i` too.
 - A `submit_selector` of the form `button:has-text('X')` that the TUI
   shows as a list row X below its form: after the fields, Enter moves
-  past the form's remaining fields (left blank, as on the web) until a
-  row is highlighted, and X is chosen. A form with no such row submitted
+  past the form's remaining fields (left blank, or a list's current
+  choice kept, as on the web) until X is highlighted, and X is chosen.
+- A `select` field the TUI's form reaches after fields the row does not
+  fill (a generated form's date before its location): Enter keeps those
+  fields' defaults until a list shows a highlighted entry. A form with no such row submitted
   on its last field's Enter. A SelectList shows its highlight only while
   it has focus, which is what marks the moment.
 - A `money` field is typed in dollars (`500000` as `5000.00`), as on the
@@ -395,23 +398,22 @@ ledger), the two API steps that set up the bank account, the owner's
 capital entry (two Stage Journal Line steps and Post Journal Entry,
 through the TUI's General Journal), Create Location (the TUI's
 Locations), Create Item No Category (Inventory Catalog's I), Cash
-Purchase, Cash Sale, and the rent entry. It is in
+Purchase and Cash Sale (generated screens, from the same descriptions
+as the web's), the rent entry, and the first trial balance check, which
+opens the generated Trial Balance and picks its ledger. It is in
 no gate and not in CI.
 
 The TUI runs on the Svelte the workspace installs (5.56.8) through a
 start-up workaround for `@rlabs-inc/sveltui` 0.1.7, its latest release
 (`docs/tui-design.md`, "Running on Svelte 5.56").
 
-Past step 15, `screens.csv` (written against the web screens) does not
-match the TUI's screens:
-
-- Step 16, `Check Trial Balance Balanced`, has no TUI screen: the TUI
-  has no Trial Balance report to pick a ledger in.
+Past step 16 the next steps need screens that are still hand-written
+on the web and so have no TUI screen (docs/pm-application-config.md,
+"Hand-written screens: debt"): Profit and Loss (steps 17 to 19, whose
+checks pass on the books alone), Close Books (step 20) and Rollover To
+New Period (step 25). Also:
 - `Select Business` picks a business only; the TUI's `ChooseBusiness`
   picks a business and a ledger (`onChosen(businessName, ledgerName)`).
-- `Create Purchase Order` is one call (`createPurchaseOrderInCartons`);
-  the TUI's `PurchaseOrder.svelte` stages and then posts
-  (`stagePurchaseOrder`, `postPurchaseOrder`).
 - The driver's `TOP_LEVEL_SECTION_COUNT` (12) is more than the Menu
   shows to a business's administrator, so a screen in no section is
   looked for past the end of the list.

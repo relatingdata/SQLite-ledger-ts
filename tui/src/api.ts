@@ -10,6 +10,7 @@
 // See docs/tui-design.md ("Why this is a thin client, not a second
 // frontend") for why this is a port, not a reimplementation.
 import { loadSession, saveSession, type SessionState } from './session.ts';
+import { auth as webAuth } from '$lib/state.svelte';
 
 const BASE = 'http://localhost:3001/api';
 
@@ -33,6 +34,10 @@ export const asLedgerName = (name: string): LedgerName => name as LedgerName;
 export const asAccountName = (name: string): AccountName => name as AccountName;
 
 let session: SessionState | null = loadSession();
+// The web's own auth state, which the shared web code (frontend/src/lib,
+// the generated screens' API client) reads its token from, follows this
+// session.
+if (session) webAuth.set({ token: session.token, user: session.user });
 
 export function getSession(): SessionState | null {
   return session;
@@ -48,6 +53,8 @@ export function setSession(next: SessionState | null): void {
   const ended = session !== null && next === null;
   session = next;
   saveSession(next);
+  if (next) webAuth.set({ token: next.token, user: next.user });
+  else webAuth.clear();
   if (ended) for (const callback of onSessionEnd) callback();
 }
 

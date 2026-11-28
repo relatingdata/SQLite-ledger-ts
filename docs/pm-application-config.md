@@ -1,7 +1,8 @@
 # Application Configuration as Entities
 
-Part of the web frontend is generated from configuration kept as
-entities. The configuration is one ASCII file in git,
+Both front ends are generated from configuration kept as entities: part
+of the web frontend and part of the TUI today, all of both by rule (see
+"One description, two front ends"). The configuration is one ASCII file in git,
 `application/application.entities` (about 170 KB, 29 KB compressed):
 the current state of the entities, with no history. The words it refers to (labels, titles) are the existing
 vocabulary and translation entities, by key.
@@ -50,9 +51,12 @@ build output, ignored by git, written by `make generate`.
   share smaller functions (a field, a column's header and cell, a money
   input), and the templates contain no characters outside ASCII (HTML
   entities and `\u` escapes instead).
+- `app-sveltui` holds the TUI's templates (see "One description, two
+  front ends" below).
 - `app-generate` is the command line: `generate <application.entities>
-  <frontend-dir>` writes `<frontend-dir>/src/routes<route>/+page.svelte`
-  for each such screen, only when its text changed.
+  <frontend-dir> [<tui-dir>]` writes `<frontend-dir>/src/routes<route>/+page.svelte`
+  for each such screen and, given the TUI's directory, its TUI screen,
+  only when its text changed.
 
 `make generate` reruns only when the entities or the generator changed
 (stamp: `application/.generated`); `dev`, `dev-verbose`, `web-frontend`,
@@ -245,6 +249,121 @@ The step runner's browser path drives the generated pages the
 tutorials and standalone tests use (Cash Purchase, Cash Sale, Purchase
 Order, Stock Transfer, the reports); `every-page-opens` opens every
 page, and `svelte-check` (`make check-frontend`) checks them all.
+
+## One description, two front ends
+
+Every screen is described once, in `application/application.entities`,
+and both front ends are generated from that description: the web page by
+`app-svelte`, the terminal screen by `app-sveltui`. Neither front end has
+a screen of its own. A field added to a screen's description appears on
+the web and in the TUI, or in neither; nothing in either front end
+repeats what the description says.
+
+The two generated screens differ only where the two kinds of display
+differ, and that difference lives in one place per front end:
+
+- **The web** draws a template's page in HTML (`app-svelte` writes the
+  whole page).
+- **The TUI** draws a template's screen with its form for that template
+  (`tui/src/forms/TransactionForm.svelte`, `ReportForm.svelte`); `app-sveltui`
+  writes the screen's spec, which the form draws: a typed field is a
+  text input, a choice is a list, the submit button is the first of the
+  actions listed below the form, the web's Insert key is I.
+- **The behaviour** is shared, not translated: choice sources, filters,
+  reactions, totals, actions and reports are the web's
+  `frontend/src/lib/screen-runtime.ts`, which the TUI build
+  (`tui/sveltui-build`) compiles from `frontend/src/lib` together with
+  the web's API client (`api.ts`), state (`state.svelte.ts`), `format.ts`,
+  `money.ts` and `matrix-api.ts`, and imports as `$lib/...` exactly as the
+  web does (`$app/environment` is shimmed with `browser = false`). The
+  TUI's login sets the web's `auth`, so the shared API client has its
+  token.
+
+`make generate` writes the TUI's screens into `tui/src/generated`
+(`<route with / as -->.svelte`, and `screens.ts`, their index by route),
+build output ignored by git. The TUI's Menu opens a link's generated
+screen when its route has one. The generator prints the screens it did
+not make for the TUI and why: a template the TUI has no form for yet
+(tiles, compose, pivot, not-implemented) or a part its form does not do
+yet (listed Records, Commands).
+
+### Hand-written screens: debt
+
+Screens written by hand, in either front end, predate this rule. Each is
+to be described in the entities and deleted on both sides; until then
+it is listed here, and `make check-screens-described`
+(`scripts/check-screens-described.ts`, part of `make check-manual`) fails
+on a hand-written screen not listed here, on a listed screen that no
+longer exists (so the list only shrinks), and on a route that is both
+generated and hand-written.
+
+Hand-written web pages (`frontend/src/routes`, by route):
+
+<!-- hand-written-web -->
+- `/`
+- `/account/password`
+- `/contacts`
+- `/customer-terminal`
+- `/editor`
+- `/hr`
+- `/invoices`
+- `/items`
+- `/journal`
+- `/journal/[id]/[date]`
+- `/locations`
+- `/login`
+- `/pos`
+- `/post`
+- `/projects`
+- `/reports/compare`
+- `/reports/profit-and-loss`
+- `/reports/stock-movement`
+- `/reports/stock-out-risk`
+- `/session`
+- `/setup`
+- `/setup/bank-accounts`
+- `/setup/business-setup`
+- `/setup/business-structure`
+- `/setup/chart-of-accounts`
+- `/setup/hierarchy`
+- `/setup/new-business`
+- `/setup/periods`
+- `/setup/translations`
+- `/setup/tree`
+- `/setup/users`
+- `/setup/vocabulary`
+- `/setup/yearend`
+- `/stock/listing`
+- `/stock/restock`
+- `/stock/stock-dispatch`
+- `/stock/stock-take`
+- `/stock/write-offs`
+<!-- /hand-written-web -->
+
+Hand-written TUI screens (`tui/src/screens`, by file):
+
+<!-- hand-written-tui -->
+- `BusinessStructure.svelte`
+- `ChooseBusiness.svelte`
+- `Customers.svelte`
+- `GeneralJournal.svelte`
+- `ItemCategories.svelte`
+- `ItemsBom.svelte`
+- `Locations.svelte`
+- `Login.svelte`
+- `Menu.svelte`
+- `NewBusinessWizard.svelte`
+- `OrgChart.svelte`
+- `OtherHierarchies.svelte`
+- `POS.svelte`
+- `Payment.svelte`
+<!-- /hand-written-tui -->
+
+The TUI screens generated today: AP Purchase, AR Sale, Cash Purchase,
+Cash Sale, Purchase Order, Sales Order, Stock Receipt and Transfer Items
+(transaction), and Aged, Balance Sheet, Below Reorder, Business
+Configuration, Cash Flow Forecast, Sales, Statement, Storage Space and
+Trial Balance (report).
 
 ## The ASCII form (`backend/src/entities/entities-text.ts`)
 

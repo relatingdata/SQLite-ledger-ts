@@ -2,7 +2,7 @@
 
 Chapter 3b showed the terminal (text) user interface against the wine retailer, screen for screen. This chapter does the same, full, complete walk for the **Tutorial Window & Door Manufacturing** business instead --- the same real terminal client, the same real backend, a genuinely different kind of business behind it, and (per direct correction to an earlier, thinner draft of this chapter) every one of the same eighteen real screens Chapter 3b documents, captured fresh against this business's own real data rather than skipped as merely "identical."
 
-**The TUI has eighteen real, working screens**, the same list Chapter 3b names: Login, Choose a business, Choose a ledger, the Menu, General Journal, Balance Sheet, New Business, Business Structure (Org Chart / Item Categories / Other Hierarchies), Purchase, Cash Purchase, Purchase Order, Payment, AR Sale ("Sale" on screen), Cash Sale, Customers, and POS Terminal. None of those screens are business-type-specific --- every one is the exact same real mechanism, just reflecting this manufacturer's own real data: three real storage locations (a warehouse for raw materials, the real Factory floor, a warehouse for finished goods) instead of a wine retailer's single shop, eight real Departments and ten real Employees across those workshops, five real Item Categories, a real "Process" Other Hierarchy, and a Balance Sheet carrying far more real inventory accounts than one shop ever needs.
+**The TUI has the same screens Chapter 3b names**; those generated from the same descriptions as the web app's screens (Purchase, Cash Purchase, Purchase Order, AR Sale, Cash Sale, Balance Sheet and the other reports) ask for the same fields in the same order. None of those screens are business-type-specific --- every one is the exact same real mechanism, just reflecting this manufacturer's own real data: three real storage locations (a warehouse for raw materials, the real Factory floor, a warehouse for finished goods) instead of a wine retailer's single shop, eight real Departments and ten real Employees across those workshops, five real Item Categories, a real "Process" Other Hierarchy, and a Balance Sheet carrying far more real inventory accounts than one shop ever needs.
 
 **There is still no TUI screen at all for Items, the Bill of Materials, or Transfer Items.** Chapter 4's own web story is built around the Items page's BOM card --- creating every raw material (including the two real 6.1 metre bulk lengths this factory buys timber and aluminum extrusion in), defining each assembly's exact component list (including the fractional BOM lines that cut a bulk length down into ordinary stock), assembling, and selling --- and around the real Transfer Items screen that moves stock between the three real locations. None of that has a terminal screen yet. That is the one real, honest gap this chapter exists to name plainly, not paper over: the web app remains the only way to set up or inspect a Bill of Materials, or to move stock between locations, today.
 
@@ -13,9 +13,7 @@ Every transcript below is real text, captured directly from a live, passing run 
 The same account, the same backend --- just a different, real client of it.
 
 ```
-sql-ledger-ts — text user interface (SvelTUI: Login, Menu, General Journal, Balance Sheet, New
-Business, Business Structure, Purchase, Cash Purchase, Purchase Order, Payment, AR Sale, Cash Sale,
-Customers, POS Terminal, Items & BOM, Transfer Items, Locations)
+sql-ledger-ts — text user interface
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ sql-ledger-ts — Log in                                                                           │
 │ Username                                                                                         │
@@ -89,37 +87,47 @@ The same real journal every one of this tutorial's own entries posts through ---
 
 ## Balance Sheet
 
-A live report, not a form --- here it is reflecting the real, final state after every purchase, every bulk-length cut, both rounds of assembly, a full week's real wages and overhead across eight real workshops, and every real sale (including the three builder orders and a small, same-day spot sale of two extra frames) have posted. Fourteen real raw-material/assembly accounts are still carrying a genuine leftover buffer --- most visibly the Timber Rail and Timber Stile left over from cutting bulk timber lengths, and the Aluminum Extrusion left over from cutting bulk aluminum --- and the books are genuinely balanced:
+The same report as the web app's Balance Sheet, generated from the same description --- here it is reflecting the real, final state after every purchase, every bulk-length cut, both rounds of assembly, a full week's real wages and overhead across eight real workshops, and every real sale (including the three builder orders and a small, same-day spot sale of two extra frames) have posted. Fourteen real raw-material/assembly accounts are still carrying a genuine leftover buffer --- most visibly the Timber Rail and Timber Stile left over from cutting bulk timber lengths, and the Aluminum Extrusion left over from cutting bulk aluminum --- and the books are genuinely balanced:
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ Balance Sheet — Tutorial Window & Door Manufacturing / Actual                                    │
+│ Balance Sheet                                                                                    │
+│ For Actual only.                                                                                 │
+│ As of date                                  blank keeps 2026-11-28                               │
 │ Assets                                                                                           │
-│   Aluminum Extrusion              $7,532.00                                                      │
-│   Aluminum Sill                   $80.00                                                         │
-│   Cash and Bank                   ($9,327.00)                                                    │
-│   Door Hardware Kit               $135.00                                                        │
-│   Door Slab - External            $150.00                                                        │
-│   Door Slab - Internal            $140.00                                                        │
-│   Glass Pane                      $100.00                                                        │
-│   Hardware Kit                    $60.00                                                         │
-│   Hinge Set                       $120.00                                                        │
-│   Internal Door Latch Kit         $70.00                                                         │
-│   Packaging Kit                   $40.00                                                         │
-│   Sliding Door Track Kit          $240.00                                                        │
-│   Timber Rail                     $12,050.00                                                     │
-│   Timber Stile                    $18,048.00                                                     │
-│   Weatherseal Kit                 $50.00                                                         │
-│   Total Assets                    $29,488.00                                                     │
+│                                Debit      Credit                                                 │
+│ Cash and Bank                         (9 327.00)                                                 │
+│ Inventory                  38 815.00                                                             │
+│   Aluminum Extrusion        7 532.00                                                             │
+│   Aluminum Sill                80.00                                                             │
+│   Door Hardware Kit           135.00                                                             │
+│   Door Slab - External        150.00                                                             │
+│   Door Slab - Internal        140.00                                                             │
+│   Glass Pane                  100.00                                                             │
+│   Hardware Kit                 60.00                                                             │
+│   Hinge Set                   120.00                                                             │
+│   Internal Door Latch Kit      70.00                                                             │
+│   Packaging Kit                40.00                                                             │
+│   Sliding Door Track Kit      240.00                                                             │
+│   Timber Rail              12 050.00                                                             │
+│   Timber Stile             18 048.00                                                             │
+│   Weatherseal Kit              50.00                                                             │
+│ Total Assets               29 488.00                                                             │
+│                                                                                                  │
 │ Liabilities                                                                                      │
-│   (no accounts with a real balance)                                                              │
-│   Total Liabilities               $0.00                                                          │
+│                    Debit  Credit                                                                 │
+│ None                                                                                             │
+│ Total Liabilities                                                                                │
+│                                                                                                  │
 │ Equity                                                                                           │
-│   Owner's Equity                  ($20,000.00)                                                   │
-│   Current Year Earnings           ($9,488.00)                                                    │
-│   Total Equity                    $29,488.00                                                     │
-│ Balanced — Assets = Liabilities + Equity                                                         │
-│ Escape back to menu                                                                              │
+│                        Debit     Credit                                                          │
+│ Owner's Equity                20 000.00                                                          │
+│ Current Year Earnings          9 488.00                                                          │
+│ Total Equity                  29 488.00                                                          │
+│                                                                                                  │
+│ Total Liabilities + Equity  29 488.00                                                            │
+│ ✓ Assets = Liabilities + Equity                                                                  │
+│ Enter next / choose · ↑ previous · a blank field keeps its default · Escape back to menu         │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -201,23 +209,55 @@ Four real screens, each shown here exactly as it first opens --- this chapter do
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ AP Purchase — Tutorial Window & Door Manufacturing / Actual                                      │
-│ Reference                                                                                        │
-│ Enter continues · Escape back to menu                                                            │
+│ AP Purchase                                                                                      │
+│ A purchase from a provider on credit — debits an expense or asset account, credits their         │
+│ Accounts Payable balance.                                                                        │
+│ Tutorial Window & Door Manufacturing — Actual                                                    │
+│ Date                                                                                             │
+│ Reference                                               e.g. PO-1001                             │
+│ Provider                  Select provider…                                                       │
+│ Account (what this        Select account…                                                        │
+│ purchase was for)                                                                                │
+│ Tax %                                                                                            │
+│ Location                  Not yet known                                                          │
+│ Description                                             optional                                 │
+│                                                                                                  │
+│                                                                                                  │
+│ Item                                                    e.g. Golden Lager 330ml                  │
+│ Quantity                                                blank keeps 1                            │
+│ Unit price                                                                                       │
+│                                                                                                  │
+│   Save                                                                                           │
+│   Add another line                                                                               │
+│                                                                                                  │
+│ Enter next / choose · ↑ previous · a blank field keeps its default · Escape back to menu         │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
-**Cash Purchase** (from the 'Cash' provider, posted and paid off in full the same instant) --- already offering this manufacturer's own three real locations, the real Factory floor included:
+**Cash Purchase** (from the 'Cash' provider, posted and paid off in full the same instant) --- its location field chooses among this manufacturer's three locations, the Factory floor included:
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ Cash Purchase — Tutorial Window & Door Manufacturing / Actual                                    │
-│ A purchase from the 'Cash' provider — posted and paid off in full the same instant.              │
-│ Receive at location                                                                              │
-│ ❯ Factory                                                                                        │
-│   Finished Goods Store                                                                           │
-│   Raw Materials Store                                                                            │
-│ Escape back to menu                                                                              │
+│ Cash Purchase                                                                                    │
+│ A purchase from the 'Cash' provider — posted exactly like any on-account purchase, then paid off │
+│ in full the same instant, so the balance is real even if only for a moment. Choose any real      │
+│ location to receive stock at, including a warehouse — possibly the start of a real wholesale     │
+│ channel.                                                                                         │
+│ Tutorial Window & Door Manufacturing — Actual — Provider: Cash                                   │
+│ Date                                                                                             │
+│ Receive at location       Factory                                                                │
+│                                                                                                  │
+│                                                                                                  │
+│ Item                                                    e.g. Golden Lager 330ml                  │
+│ Quantity                                                blank keeps 1                            │
+│ Unit price                                                                                       │
+│ Tax                                                                                              │
+│ Payment method            Cash                                                                   │
+│                                                                                                  │
+│   Complete purchase                                                                              │
+│   Add another line                                                                               │
+│                                                                                                  │
+│ Enter next / choose · ↑ previous · a blank field keeps its default · Escape back to menu         │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -225,11 +265,23 @@ Four real screens, each shown here exactly as it first opens --- this chapter do
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ Purchase Order — Tutorial Window & Door Manufacturing / Actual                                   │
+│ Purchase Order                                                                                   │
 │ Commits to buying from a provider — memo only, no real ledger effect until a Stock Receipt       │
-│ fulfills it.                                                                                     │
-│ Reference                                                                                        │
-│ Enter continues · Escape back to menu                                                            │
+│ fulfills it (all or item).                                                                       │
+│ Tutorial Window & Door Manufacturing — Actual                                                    │
+│ Date                                                                                             │
+│ Reference                                               e.g. PO-1001                             │
+│ Item                      Select item…                                                           │
+│ Provider                  Select provider…                                                       │
+│ Quantity                                                                                         │
+│ Price per unit                                                                                   │
+│ Delivery location         Not yet known                                                          │
+│ Description                                             optional                                 │
+│                                                                                                  │
+│                                                                                                  │
+│   Save                                                                                           │
+│                                                                                                  │
+│ Enter next / choose · ↑ previous · a blank field keeps its default · Escape back to menu         │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -246,29 +298,58 @@ Four real screens, each shown here exactly as it first opens --- this chapter do
 
 ## Sales
 
-**Sale** (on screen as "Sale," reached from the menu's own **AR Sale** link --- a sale to a customer on credit):
+**AR Sale** (reached from the menu's **Sale** link --- a sale to a customer on credit):
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ AR Sale — Tutorial Window & Door Manufacturing / Actual                                          │
+│ AR Sale                                                                                          │
 │ A sale to a customer on credit — debits their Accounts Receivable balance, credits Sales         │
 │ Revenue.                                                                                         │
-│ Reference                                                                                        │
-│ Enter continues · Escape back to menu                                                            │
+│ Tutorial Window & Door Manufacturing — Actual                                                    │
+│ Date                                                                                             │
+│ Reference                                               e.g. INV-1001                            │
+│ Customer                  Select customer…                                                       │
+│ Tax %                                                                                            │
+│ Location                  Not yet known                                                          │
+│ Description                                             optional                                 │
+│                                                                                                  │
+│                                                                                                  │
+│ Item                                                    e.g. Golden Lager 330ml                  │
+│ Quantity                                                blank keeps 1                            │
+│ Unit price                                                                                       │
+│                                                                                                  │
+│   Save                                                                                           │
+│   Add another line                                                                               │
+│                                                                                                  │
+│ Enter next / choose · ↑ previous · a blank field keeps its default · Escape back to menu         │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
-**Cash Sale** (to the 'Cash' customer, posted and paid off in full the same instant) --- the same real three-location picker, from the selling side:
+**Cash Sale** (to the 'Cash' customer, posted and paid off in full the same instant) --- the same three locations to dispatch from:
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ Cash Sale — Tutorial Window & Door Manufacturing / Actual                                        │
-│ A sale to the 'Cash' customer — posted and paid off in full the same instant.                    │
-│ Dispatch from location                                                                           │
-│ ❯ Factory                                                                                        │
-│   Finished Goods Store                                                                           │
-│   Raw Materials Store                                                                            │
-│ Escape back to menu                                                                              │
+│ Cash Sale                                                                                        │
+│ A sale to the 'Cash' customer — posted exactly like any on-account sale, then paid off in full   │
+│ the same instant, so the balance is real even if only for a moment. Choose any real location to  │
+│ dispatch from, including a warehouse — possibly the start of a real wholesale channel. The       │
+│ everyday retail register is the real POS Terminal; this is the same real mechanism for a larger, │
+│ non-register sale.                                                                               │
+│ Tutorial Window & Door Manufacturing — Actual — Customer: Cash                                   │
+│ Date                                                                                             │
+│ Dispatch from location    Factory                                                                │
+│                                                                                                  │
+│                                                                                                  │
+│ Item                                                    e.g. Golden Lager 330ml                  │
+│ Quantity                                                blank keeps 1                            │
+│ Unit price                                                                                       │
+│ Tax                                                                                              │
+│ Payment method            Cash                                                                   │
+│                                                                                                  │
+│   Complete sale                                                                                  │
+│   Add another line                                                                               │
+│                                                                                                  │
+│ Enter next / choose · ↑ previous · a blank field keeps its default · Escape back to menu         │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 

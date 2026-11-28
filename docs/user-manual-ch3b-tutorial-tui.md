@@ -11,9 +11,7 @@ Every transcript below is real text, captured directly from a live, passing run 
 The same account, the same backend --- just a different, real client of it.
 
 ```
-sql-ledger-ts — text user interface (SvelTUI: Login, Menu, General Journal, Balance Sheet, New
-Business, Business Structure, Purchase, Cash Purchase, Purchase Order, Payment, AR Sale, Cash Sale,
-Customers, POS Terminal, Items & BOM, Transfer Items, Locations)
+sql-ledger-ts — text user interface
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ sql-ledger-ts — Log in                                                                           │
 │ Username                                                                                         │
@@ -88,23 +86,31 @@ The same real journal the web chapter's owner's-capital deposit, rent expense, a
 
 ## Balance Sheet
 
-A live report, not a form --- here it is reflecting the real, early state of this business, right after the owner's $5,000.00 capital contribution, the Ice stock bought and sold for cash, and the $100.00 rent expense (the same real figures the web chapter's own screenshots walk through getting to): Cash and Bank at $5,900.00, Retained Earnings of $900.00, and a genuinely balanced Assets = Liabilities + Equity.
+The same report as the web app's Balance Sheet, generated from the same description: its as-of date is a field (blank keeps today), and the report shows below it. Here it is as of today, after the owner's $5,000.00 capital contribution, the Ice stock bought and sold for cash, and the $100.00 rent expense: Cash and Bank at $5,900.00. As of a date inside a financial year that has since been closed, the balance sheet does not yet show that year's earnings, so it reports Assets ≠ Liabilities + Equity; as of the year's end, Retained Earnings of $900.00 balance it. The web app's Balance Sheet shows the same:
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ Balance Sheet — Tutorial Wine Retail Business / Actual                                           │
+│ Balance Sheet                                                                                    │
+│ For Actual only.                                                                                 │
+│ As of date                                  blank keeps 2026-11-28                               │
 │ Assets                                                                                           │
-│   Cash and Bank                   $5,900.00                                                      │
-│   Total Assets                    $5,900.00                                                      │
+│                   Debit  Credit                                                                  │
+│ Cash and Bank  5 900.00                                                                          │
+│ Total Assets   5 900.00                                                                          │
+│                                                                                                  │
 │ Liabilities                                                                                      │
-│   (no accounts with a real balance)                                                              │
-│   Total Liabilities               $0.00                                                          │
+│                    Debit  Credit                                                                 │
+│ None                                                                                             │
+│ Total Liabilities                                                                                │
+│                                                                                                  │
 │ Equity                                                                                           │
-│   Owner's Equity                  ($5,000.00)                                                    │
-│   Retained Earnings               ($900.00)                                                      │
-│   Total Equity                    $5,900.00                                                      │
-│ Balanced — Assets = Liabilities + Equity                                                         │
-│ Escape back to menu                                                                              │
+│                 Debit    Credit                                                                  │
+│ Owner's Equity         5 000.00                                                                  │
+│ Total Equity           5 000.00                                                                  │
+│                                                                                                  │
+│ Total Liabilities + Equity  5 000.00                                                             │
+│ Assets ≠ Liabilities + Equity                                                                    │
+│ Enter next / choose · ↑ previous · a blank field keeps its default · Escape back to menu         │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -167,29 +173,61 @@ And Other Hierarchies carries the real OSASCOMP-style hierarchies this tutorial'
 
 ## Purchasing
 
-Four real screens, each shown here exactly as it first opens --- this chapter doesn't carry a purchase, payment, or order through to completion on this business's own real books, so as not to disturb the figures the Balance Sheet above, and the web chapter's own figures, both depend on.
+Four screens, each shown as it first opens --- this chapter doesn't carry a purchase, payment, or order through to completion, so as not to disturb the figures the Balance Sheet above and the web chapter both depend on. Purchase, Cash Purchase and Purchase Order are generated from the same descriptions as the web app's screens of those names, so they ask for the same fields in the same order: Enter moves from one to the next (on a list, chooses the highlighted entry), a field left blank keeps its default, and the screen's action is the first of the choices listed at the bottom.
 
 **Purchase** (on account, from a real provider):
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ AP Purchase — Tutorial Wine Retail Business / Actual                                             │
-│ Reference                                                                                        │
-│ Enter continues · Escape back to menu                                                            │
+│ AP Purchase                                                                                      │
+│ A purchase from a provider on credit — debits an expense or asset account, credits their         │
+│ Accounts Payable balance.                                                                        │
+│ Tutorial Wine Retail Business — Actual                                                           │
+│ Date                                                                                             │
+│ Reference                                               e.g. PO-1001                             │
+│ Provider                  Select provider…                                                       │
+│ Account (what this        Select account…                                                        │
+│ purchase was for)                                                                                │
+│ Tax %                                                                                            │
+│ Location                  Not yet known                                                          │
+│ Description                                             optional                                 │
+│                                                                                                  │
+│                                                                                                  │
+│ Item                                                    e.g. Golden Lager 330ml                  │
+│ Quantity                                                blank keeps 1                            │
+│ Unit price                                                                                       │
+│                                                                                                  │
+│   Save                                                                                           │
+│   Add another line                                                                               │
+│                                                                                                  │
+│ Enter next / choose · ↑ previous · a blank field keeps its default · Escape back to menu         │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
-**Cash Purchase** (from the 'Cash' provider, posted and paid off in full the same instant) --- already offering this business's own locations to receive stock at. Once a location is chosen it asks, as the web form does, for a line's item, quantity, unit price and tax, and offers **Complete purchase** with cash or EFT, or **Add another line**:
+**Cash Purchase** (from the 'Cash' provider, posted and paid off in full the same instant): the date, the location to receive at, a line's item, quantity, unit price and tax, the payment method, then **Complete purchase** or **Add another line**:
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ Cash Purchase — Tutorial Wine Retail Business / Actual                                           │
-│ A purchase from the 'Cash' provider — posted and paid off in full the same instant.              │
-│ Receive at location                                                                              │
-│ ❯ Head Office                                                                                    │
-│   Main Street Cellar                                                                             │
-│   Mount Barker Depot                                                                             │
-│ Escape back to menu                                                                              │
+│ Cash Purchase                                                                                    │
+│ A purchase from the 'Cash' provider — posted exactly like any on-account purchase, then paid off │
+│ in full the same instant, so the balance is real even if only for a moment. Choose any real      │
+│ location to receive stock at, including a warehouse — possibly the start of a real wholesale     │
+│ channel.                                                                                         │
+│ Tutorial Wine Retail Business — Actual — Provider: Cash                                          │
+│ Date                                                                                             │
+│ Receive at location       Head Office                                                            │
+│                                                                                                  │
+│                                                                                                  │
+│ Item                                                    e.g. Golden Lager 330ml                  │
+│ Quantity                                                blank keeps 1                            │
+│ Unit price                                                                                       │
+│ Tax                                                                                              │
+│ Payment method            Cash                                                                   │
+│                                                                                                  │
+│   Complete purchase                                                                              │
+│   Add another line                                                                               │
+│                                                                                                  │
+│ Enter next / choose · ↑ previous · a blank field keeps its default · Escape back to menu         │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -197,11 +235,23 @@ Four real screens, each shown here exactly as it first opens --- this chapter do
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ Purchase Order — Tutorial Wine Retail Business / Actual                                          │
+│ Purchase Order                                                                                   │
 │ Commits to buying from a provider — memo only, no real ledger effect until a Stock Receipt       │
-│ fulfills it.                                                                                     │
-│ Reference                                                                                        │
-│ Enter continues · Escape back to menu                                                            │
+│ fulfills it (all or item).                                                                       │
+│ Tutorial Wine Retail Business — Actual                                                           │
+│ Date                                                                                             │
+│ Reference                                               e.g. PO-1001                             │
+│ Item                      Select item…                                                           │
+│ Provider                  Select provider…                                                       │
+│ Quantity                                                                                         │
+│ Price per unit                                                                                   │
+│ Delivery location         Not yet known                                                          │
+│ Description                                             optional                                 │
+│                                                                                                  │
+│                                                                                                  │
+│   Save                                                                                           │
+│                                                                                                  │
+│ Enter next / choose · ↑ previous · a blank field keeps its default · Escape back to menu         │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -218,15 +268,30 @@ Four real screens, each shown here exactly as it first opens --- this chapter do
 
 ## Sales
 
-**Sale** (on screen as "Sale," reached from the menu's own **AR Sale** link --- a sale to a customer on credit):
+**AR Sale** (reached from the menu's **Sale** link --- a sale to a customer on credit; generated, like Cash Sale, from the same description as the web app's):
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ AR Sale — Tutorial Wine Retail Business / Actual                                                 │
+│ AR Sale                                                                                          │
 │ A sale to a customer on credit — debits their Accounts Receivable balance, credits Sales         │
 │ Revenue.                                                                                         │
-│ Reference                                                                                        │
-│ Enter continues · Escape back to menu                                                            │
+│ Tutorial Wine Retail Business — Actual                                                           │
+│ Date                                                                                             │
+│ Reference                                               e.g. INV-1001                            │
+│ Customer                  Select customer…                                                       │
+│ Tax %                                                                                            │
+│ Location                  Not yet known                                                          │
+│ Description                                             optional                                 │
+│                                                                                                  │
+│                                                                                                  │
+│ Item                                                    e.g. Golden Lager 330ml                  │
+│ Quantity                                                blank keeps 1                            │
+│ Unit price                                                                                       │
+│                                                                                                  │
+│   Save                                                                                           │
+│   Add another line                                                                               │
+│                                                                                                  │
+│ Enter next / choose · ↑ previous · a blank field keeps its default · Escape back to menu         │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -234,13 +299,27 @@ Four real screens, each shown here exactly as it first opens --- this chapter do
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
-│ Cash Sale — Tutorial Wine Retail Business / Actual                                               │
-│ A sale to the 'Cash' customer — posted and paid off in full the same instant.                    │
-│ Dispatch from location                                                                           │
-│ ❯ Head Office                                                                                    │
-│   Main Street Cellar                                                                             │
-│   Mount Barker Depot                                                                             │
-│ Escape back to menu                                                                              │
+│ Cash Sale                                                                                        │
+│ A sale to the 'Cash' customer — posted exactly like any on-account sale, then paid off in full   │
+│ the same instant, so the balance is real even if only for a moment. Choose any real location to  │
+│ dispatch from, including a warehouse — possibly the start of a real wholesale channel. The       │
+│ everyday retail register is the real POS Terminal; this is the same real mechanism for a larger, │
+│ non-register sale.                                                                               │
+│ Tutorial Wine Retail Business — Actual — Customer: Cash                                          │
+│ Date                                                                                             │
+│ Dispatch from location    Head Office                                                            │
+│                                                                                                  │
+│                                                                                                  │
+│ Item                                                    e.g. Golden Lager 330ml                  │
+│ Quantity                                                blank keeps 1                            │
+│ Unit price                                                                                       │
+│ Tax                                                                                              │
+│ Payment method            Cash                                                                   │
+│                                                                                                  │
+│   Complete sale                                                                                  │
+│   Add another line                                                                               │
+│                                                                                                  │
+│ Enter next / choose · ↑ previous · a blank field keeps its default · Escape back to menu         │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 

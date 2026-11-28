@@ -1,5 +1,11 @@
 # A text user interface, faithful to the web frontend's own styling
 
+> **Generated, not ported.** The TUI's screens are generated from the
+> same descriptions as the web's (docs/pm-application-config.md, "One
+> description, two front ends"); what this document says about porting
+> web screens by hand describes the hand-written TUI screens that remain,
+> which are debt listed there.
+
 ## Why this is a thin client, not a second frontend
 
 The backend is already a plain, auth-gated REST API on `:3001` — the
@@ -467,23 +473,22 @@ the browser), purely from `screens.csv`'s existing columns:
   (e.g. "Post Journal Entry") is a pure finalize action — one,
   standalone Enter press at the screen's own list.
 
-**Proven live** (`make test-e2e-tutorial-text`, `--until 15`): Log in,
+**Proven live** (`make test-e2e-tutorial-text`, `--until 16`): Log in,
 Create Business, Switch Session, the two API steps after them, the
 owner's capital entry (two Stage Journal Line steps and Post Journal
 Entry), Create Location, Create Item No Category, Cash Purchase, Cash
-Sale and the rent entry run end to end from this generic mechanism, and
-each step that writes is seen to change the database.
+Sale, the rent entry and the first trial balance check run end to end
+from this generic mechanism, and each step that writes is seen to change
+the database. Cash Purchase, Cash Sale and Trial Balance are generated
+screens (docs/pm-application-config.md, "One description, two front
+ends").
 
 Locations (`tui/src/screens/Locations.svelte`, from the Menu's
 Locations link) lists the business's locations; I adds one, asking for
 the web form's fields in its order (name, city, location type) and
 creating it on the type's Enter. Inventory Catalog (Items & BOM) adds
 an item with no category with I, as the web's "+ Item (unassigned)"
-does. Cash Purchase and Cash Sale share `components/CashTransaction.svelte`,
-as the web's two screens share `CashTransaction.svelte`: the location,
-then a line's item, quantity, unit price and tax, and below them the web
-form's actions, Complete purchase (or sale) with cash or EFT and Add
-another line. Create Business opens from the
+does. Create Business opens from the
 Choose a business screen, whose last entry is "New Business" as on the
 web's session page; the New Business wizard asks for the web form's
 fields in its order (name, financial year label, legal structure,
@@ -504,8 +509,9 @@ remembered while the TUI runs, so the next Stage Journal Line step,
 which opens the screen again from the Menu, finds its lines; Enter on
 the lines posts what the server has staged, once it balances.
 
-**The real, current limit**: step 16, `Check Trial Balance Balanced`,
-has no TUI screen. None of this is a step-runner bug: it's
+**The real, current limit**: from step 17 the tutorial needs Profit
+and Loss, Close Books and Rollover, screens still hand-written on the
+web with no TUI screen. None of this is a step-runner bug: it's
 `screens.csv`/`tutorial-steps.csv`'s own row design (written against
 the web frontend first) genuinely not lining up with the TUI's own
 screens yet, for several rows. Closing that gap is a real, further

@@ -88,8 +88,12 @@
   let busy = $state(false);
 
   let businessName = $state('');
-  let fyLabel = $state(defaultFyLabel());
-  let fyStart = $state(defaultFyStart());
+  // Typed fields start blank and keep their default when left blank, as
+  // the generated forms' do, so typing never adds to a pre-filled value.
+  let fyLabelTyped = $state('');
+  const fyLabel = $derived(fyLabelTyped.trim() || defaultFyLabel());
+  let fyStartTyped = $state('');
+  const fyStart = $derived(fyStartTyped.trim() || defaultFyStart());
   let reportingFrequency: ReportingFrequency = $state('annual');
   let coaPrototype = $state('English CoA');
   let entityStructure: EntityStructure = $state('sole_trader');
@@ -226,12 +230,13 @@
   </Panel>
 {:else if step === 'fy-label'}
   <Panel title={`New Business — ${businessName} — financial year label`} focused>
-    <TextInput bind:value={fyLabel} focused onSubmit={() => { if (fyLabel.trim()) step = 'entity-structure'; }} />
-    <Text text={'Names the Budget ledger (e.g. "2026-27") · Enter continues · Escape cancels'} color={inkSoft} dim />
+    <TextInput bind:value={fyLabelTyped} focused onSubmit={() => (step = 'entity-structure')} />
+    <Text text={`Names the Budget ledger · blank keeps ${defaultFyLabel()} · Enter continues · Escape cancels`} color={inkSoft} dim />
   </Panel>
 {:else if step === 'fy-start'}
   <Panel title={`New Business — ${businessName} — financial year start date`} focused>
-    <TextInput bind:value={fyStart} focused onSubmit={() => (step = 'reporting-frequency')} />
+    <TextInput bind:value={fyStartTyped} focused onSubmit={() => (step = 'reporting-frequency')} />
+    <Text text={`blank keeps ${defaultFyStart()}`} color={inkSoft} dim />
     <Text text="YYYY-MM-DD · Enter continues · Escape goes back" color={inkSoft} dim />
   </Panel>
 {:else if step === 'reporting-frequency'}

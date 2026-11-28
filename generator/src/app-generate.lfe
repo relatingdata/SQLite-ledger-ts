@@ -1,10 +1,13 @@
 ;;; The generator's command line.
 ;;;
-;;;   generate <application.entities> <frontend-dir>
+;;;   generate <application.entities> <frontend-dir> [<tui-dir>]
 ;;;
 ;;; Writes the page of every screen that has a Template into
-;;; <frontend-dir>/src/routes<route>/+page.svelte, only when its text has
-;;; changed, and prints the paths it is responsible for.
+;;; <frontend-dir>/src/routes<route>/+page.svelte, and, given a TUI
+;;; directory, the same screen for the terminal into
+;;; <tui-dir>/src/generated (app-sveltui) with an index of them,
+;;; screens.ts; only files whose text has changed are written, and their
+;;; paths printed.
 ;;;
 ;;;   print <application.entities> <route> ...
 ;;;
@@ -14,6 +17,27 @@
   (export (main 1)))
 
 (defun main
+  (((list entities frontend tui))
+   (main (list entities frontend))
+   (let* ((s (app-entities:read entities))
+          (screens (app-entities:path s (list #"Root" #"Application" #"Screens")))
+          (templated (lists:filter (lambda (id) (=/= (app-view:val s id #"Template") 'undefined))
+                                   (app-entities:things s screens)))
+          (results (lists:map (lambda (id) (tuple id (app-sveltui:screen s id))) templated))
+          (made (lists:filter (lambda (r) (not (is_tuple (element 2 r)))) results))
+          (dir (filename:join tui "src/generated"))
+          (counts0 (lists:foldl (lambda (r acc)
+                                  (write-file (filename:join dir (unicode:characters_to_list (app-sveltui:file (app-entities:name s (element 1 r)))))
+                                              (element 2 r) acc))
+                                (tuple 0 0) made))
+          (counts (write-file (filename:join dir "screens.ts") (tui-index s made) counts0)))
+     (io:format "Generated ~p TUI screens: ~p written, ~p unchanged; not for the TUI yet:~n"
+                (list (length made) (element 1 counts) (element 2 counts)))
+     (lists:foreach (lambda (r)
+                      (case (element 2 r)
+                        ((tuple 'skip why) (io:format "  ~s (~s)~n" (list (app-entities:name s (element 1 r)) why)))
+                        (_ 'ok)))
+                    results)))
   (((list entities frontend))
    (let* ((s (app-entities:read entities))
           (screens (app-entities:path s (list #"Root" #"Application" #"Screens")))
@@ -55,3 +79,20 @@
          (file:write_file path text)
          (io:format "  ~s~n" (list path))
          (tuple (+ written 1) unchanged)))))
+
+;; The TUI's index of its generated screens, by route.
+(defun tui-index (s made)
+  (let ((routes (lists:map (lambda (r) (app-entities:name s (element 1 r))) made)))
+    (list
+      #"// Generated from application/application.entities: every screen made\n"
+      #"// for the TUI, by route. Not source: change the entities.\n"
+      #"import type { Component } from 'svelte';\n"
+      (lists:map (lambda (n)
+                   (list #"import Screen" (integer_to_binary n) #" from './" (app-sveltui:file (lists:nth n routes)) #"';\n"))
+                 (lists:seq 1 (length routes)))
+      #"\nexport type GeneratedScreen = Component<{ businessName: string; ledgerName: string; onBack: () => void }>;\n"
+      #"export const generatedScreens: Record<string, GeneratedScreen> = {\n"
+      (lists:map (lambda (n)
+                   (list #"  '" (lists:nth n routes) #"': Screen" (integer_to_binary n) #" as GeneratedScreen,\n"))
+                 (lists:seq 1 (length routes)))
+      #"};\n")))

@@ -1,19 +1,12 @@
 <script lang="ts" module>
   export type MenuScreenKey =
     | 'general-journal'
-    | 'balance-sheet'
     | 'new-business-wizard'
     | 'business-structure'
-    | 'purchase'
-    | 'cash-purchase'
-    | 'purchase-order'
     | 'payment'
-    | 'ar-sale'
-    | 'cash-sale'
     | 'customers'
     | 'pos'
     | 'items-bom'
-    | 'transfer-items'
     | 'locations';
 
   // Which real menu-link hrefs this TUI actually knows how to open —
@@ -23,25 +16,19 @@
   // reports it isn't wired up yet rather than vanishing.
   const KNOWN_SCREENS: Record<string, MenuScreenKey> = {
     '/post': 'general-journal',
-    '/reports/balance-sheet': 'balance-sheet',
     '/setup/new-business': 'new-business-wizard',
     '/setup/business-structure': 'business-structure',
-    '/arap/ap-purchase': 'purchase',
-    '/arap/cash-purchase': 'cash-purchase',
     '/arap/ap-payment': 'payment',
-    '/stock/po': 'purchase-order',
-    '/arap/ar-sale': 'ar-sale',
-    '/arap/cash-sale': 'cash-sale',
     '/contacts?focus=customers': 'customers',
     '/pos': 'pos',
     '/items': 'items-bom',
-    '/stock/transfer': 'transfer-items',
     '/locations': 'locations',
   };
 </script>
 
 <script lang="ts">
   import { Text } from 'sveltui';
+  import { generatedScreens } from '../generated/screens.ts';
   import { keyboard } from 'sveltui';
   import { onDestroy } from 'svelte';
   import { ApiError, getMenuTree, type MenuSectionRow } from '../api.ts';
@@ -49,7 +36,14 @@
   import SelectList from '../components/SelectList.svelte';
   import { inkSoft } from '../theme.ts';
 
-  let { businessName, onOpenScreen }: { businessName: string; onOpenScreen: (screen: MenuScreenKey) => void } = $props();
+  // A link whose route has a generated screen (tui/src/generated, from
+  // application/application.entities) opens it; KNOWN_SCREENS are the
+  // hand-written ones still to be described there (docs/tui-design.md).
+  let {
+    businessName,
+    onOpenScreen,
+    onOpenGenerated,
+  }: { businessName: string; onOpenScreen: (screen: MenuScreenKey) => void; onOpenGenerated: (route: string) => void } = $props();
 
   let sections: MenuSectionRow[] | null = $state(null);
   let error: string | null = $state(null);
@@ -91,7 +85,9 @@
       onSelect={(item) => {
         const link = selectableLinks.find((l) => l.key === item.value);
         const known = link ? KNOWN_SCREENS[link.href] : undefined;
-        if (known) {
+        if (link && generatedScreens[link.href]) {
+          onOpenGenerated(link.href);
+        } else if (known) {
           onOpenScreen(known);
         } else {
           notice = `"${link?.label}" is a real, live menu entry — this TUI just doesn't have that screen built yet.`;

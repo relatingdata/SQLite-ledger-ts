@@ -10,7 +10,7 @@
 import * as svelte from 'svelte/compiler'
 import { $ } from 'bun'
 import { Glob } from 'bun'
-import { join, dirname } from 'path'
+import { join, dirname, relative } from 'path'
 
 const cwd = process.cwd()
 
@@ -49,6 +49,16 @@ async function build() {
       files.push(join(sveltUIPath, file))
       sourceOf.set(join(sveltUIPath, file), join(sveltUISource, file))
     }
+  }
+
+  // The web's own library the TUI shares (docs/tui-design.md, "One
+  // description, two front ends"): its API client, state, formatting and
+  // the generated screens' runtime, compiled into dist/weblib and
+  // imported as $lib/... exactly as the web imports them.
+  const WEB_LIB = ['api.ts', 'state.svelte.ts', 'screen-runtime.ts', 'format.ts', 'money.ts', 'matrix-api.ts']
+  for (const name of WEB_LIB) {
+    files.push(join('weblib', name))
+    sourceOf.set(join('weblib', name), join('../frontend/src/lib', name))
   }
 
   console.log(`  Found ${files.length} files to compile\n`)
@@ -110,7 +120,20 @@ async function build() {
     const depth = file.split('/').length - 2  // -2 for 'dist' and filename
     const relativePrefix = '../'.repeat(depth)
 
-    const fixed = content
+    // $lib/NAME is the shared web library; $app/environment its shim.
+    const fromHere = (target) => {
+      const path = relative(dirname(file), target)
+      return path.startsWith('.') ? path : './' + path
+    }
+    const libPath = (name) => fromHere(join('dist/weblib', name.endsWith('.svelte') ? name + '.js' : name + '.mjs'))
+    let shared = content
+      .replace(/from\s+['"]\$lib\/([^'"]+)['"]/g, (_, name) => `from '${libPath(name)}'`)
+      .replace(/from\s+['"]\$app\/environment['"]/g, () => `from '${fromHere('dist/src/web-shims/app-environment.mjs')}'`)
+    if (file.startsWith('dist/weblib/')) {
+      shared = shared.replace(/from\s+['"]\.\/([^'".]+(?:\.svelte)?)['"]/g, (_, name) => `from './${name.endsWith('.svelte') ? name + '.js' : name + '.mjs'}'`)
+    }
+
+    const fixed = shared
       .replace(/from\s+['"]([^'"]+)\.svelte['"]/g, "from '$1.svelte.mjs'")
       .replace(/from\s+['"]([^'"]+)\.svelte\.ts['"]/g, "from '$1.svelte.js'")
       .replace(/from\s+['"](\.\.?\/[^'"]+)\.ts['"]/g, "from '$1.mjs'")
