@@ -665,15 +665,18 @@ the opening-balance lines, which accepting posts the same way.
 Tests (*Testing: Unit*, "Running the tests"):
 - "year-end-close-and-rollover" (`shared-fixtures/tests/year-end-close-and-rollover.csv`)
 
-## `frontend/src/routes/setup/vocabulary/+page.svelte` — per-business word-choice overrides
+## `/setup/vocabulary` — per-business word-choice overrides
 
-A choice is saved as a business-level preference
-(`setVocabularyPreference(concept, 'business', businessId, word)`),
-with the business's id taken from the entity tree. Each concept opens
-on the word the business sees now: `translations.current` for its
+The page is generated from the forms template, a card per concept with
+more than one name (`formRecords.vocabularyConcepts`, from
+`getConceptsWithAlternates`). A choice is saved as a business-level
+preference (`formActions.saveVocabulary`:
+`setVocabularyPreference(concept, 'business', businessId, word)`), with
+the business's id taken from the entity tree. Each concept opens on the
+word the business sees now: `translations.current` for its
 `defaultAlternate`, matched to the alternate that gives that text.
 Choosing the default word again removes the preference. After saving,
-the translations are reloaded.
+the page reloads, so every screen shows the new word.
 
 ## `frontend/src/lib/components/PaymentReceipt.svelte` — the shared AP Payment/AR Receipt screen
 

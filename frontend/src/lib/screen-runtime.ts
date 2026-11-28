@@ -87,6 +87,9 @@ import {
   getReportingPeriods,
   type CloseBooksPreview,
   type ResolvedRollover,
+  getConceptsWithAlternates,
+  setVocabularyPreference,
+  deleteVocabularyPreference,
 } from '$lib/api';
 import { getCube, getAxes, getProfitAndLossByAxis, type ProfitAndLossByAxisNode } from '$lib/matrix-api';
 import { parseMinorUnits, parseQuantity } from '$lib/money';
@@ -1243,6 +1246,16 @@ export const formActions: Record<string, (c: Context, v: Values) => Promise<Valu
   reopenPeriod: async (c) => {
     await reopenPeriod(asBusinessName(c.business), asLedgerName(c.ledger));
   },
+  /** The business's preferred name for a concept (key: its default
+   * name); the default itself removes the preference. The page reloads,
+   * so every screen shows the new name. */
+  saveVocabulary: async (c, v) => {
+    const business = (await getEntityTree()).find((e) => e.name === c.business);
+    if (!business) throw new Error(t('Could not complete.'));
+    if (v.preferred === v.key) await deleteVocabularyPreference(v.key, 'business', business.id);
+    else await setVocabularyPreference(v.key, 'business', business.id, v.preferred);
+    window.location.reload();
+  },
   /** The user's page size: a whole number from 5 to 200. */
   savePageSize: async (_c, v) => {
     const pageSize = Number(v.pageSize);
@@ -1268,6 +1281,33 @@ export const formActions: Record<string, (c: Context, v: Values) => Promise<Valu
     }
     return { currentPassword: '', newPassword: '', confirmPassword: '' };
   },
+};
+
+/** A record a forms Section with Each shows as its own form. */
+export interface FormRecord {
+  key: string;
+  title: string;
+  note?: string;
+  values: Values;
+  /** Each select's options. */
+  options: Record<string, string[]>;
+}
+
+/** The records of a forms Section with Each. */
+export const formRecords: Record<string, (c: Context) => Promise<FormRecord[]>> = {
+  /** Each concept with more than one name, on the name the business sees
+   * now: the alternate whose translation is what its default shows. */
+  vocabularyConcepts: async () =>
+    (await getConceptsWithAlternates()).map((concept) => {
+      const shown = t(concept.defaultAlternate);
+      return {
+        key: concept.defaultAlternate,
+        title: concept.headerAccountName,
+        note: `${t('Known, real, alternate words for this concept:')} ${concept.alternates.join(', ')}`,
+        values: { preferred: concept.alternates.find((a) => t(a) === shown) ?? concept.defaultAlternate },
+        options: { preferred: concept.alternates },
+      };
+    }),
 };
 
 /** A line shown under a form, from its values. */

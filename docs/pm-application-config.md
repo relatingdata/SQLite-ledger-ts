@@ -64,7 +64,7 @@ build output, ignored by git, written by `make generate`.
 
 ### Templates
 
-52 of the 81 routes are generated. Each screen names its template, or
+53 of the 81 routes are generated. Each screen names its template, or
 takes its base screen's (Variants, below):
 
 | Template | Screens | Reads |
@@ -72,7 +72,7 @@ takes its base screen's (Variants, below):
 | `transaction` | Cash Purchase, Cash Sale, AP Purchase, AR Sale, Purchase Order, Sales Order, Stock Receipt, Stock Transfer, Quotations, RFQ | `Title`, `Intro`, `Action`, `Totals`, `Total Label`, `Party` / `Party Label`, `Submit Label`, `Fail Text`; its `Field` and `Column` things |
 | `report` | Trial Balance, Balance Sheet, Below Reorder, Inventory and Storage, Aged Receivables/Payables, Reminders, Customer Statement, Sales Report, Cash Flow Forecast, Business Configuration Report, Stock-Out Risk, Journal Entries, Compare Ledgers | `Title`, `Intro` (`{NAME}` in it is the business or ledger, by `Intro Name`; optional), `Report`, `Clear Label`, `Empty Text` with an `Empty Link` to `Empty Href`; parameter `Field`s (`Control=ledger` chooses the ledger); one `Entry` per column |
 | `drill` | Profit and Loss, Stock Movement Report, Inventory Listing | `Title`, `Intro`, `Report`, `Title Line`, `Empty Text`, `Clear Label`; parameter `Field`s in a row of controls |
-| `forms` | Account Settings, Accounting Periods | `Title`, `Intro`, `Status`; one `Section` per form (`Title`, `Action`, `Submit Label`, `Initial`, `Preview`), its `Field`s under it |
+| `forms` | Account Settings, Accounting Periods, Vocabulary | `Title`, `Intro`, `Status`; one `Section` per form (`Title`, `Action`, `Submit Label`, `Initial`, `Preview`; or `Each`, `Empty Text`: a form per record), its `Field`s under it |
 | `review` | Year End Close | `Title`, `Intro`, `Intro Note`; parameter `Field`s; one `Section` per entry proposed (`Title`, `Intro`, `Hint`, `Propose`, `Propose Label`, `Proposal Title`, `Accept`, `Accept Label`), its own `Field`s under it |
 | `pivot` | Stock on Hand (`/reports/new-stock-on-hand`), Sales and Margin (`/reports/sales-margin`) | `Title`, `Intro`, `Row Axis`, `Column Axis`, `Axis Chooser` (`drag` or `select`), `Highlight`, `Highlight Across`, `Empty Text`, `Clear Label`; date `Field`s `fromDate`/`toDate`; one `Entry` per measure |
 | `tiles` | AR / AP, Stock, Reports (section index pages) | `Title`, `Intro`; one `Tile` (`Href`, `Title`, `Description`) per link |
@@ -138,7 +138,11 @@ by its `Action` (`formActions`), started from its `Initial`
 (`formInitials`), with a line from its `Preview` (`previews`) under it. A screen's `Status`
 names a line (`statuses`: `periodStatus`) shown above its forms and
 reloaded after each is saved; a `Section` with no fields is its button
-(Reopen period).
+(Reopen period). A `Section` with `Each` is a card per record that the
+runtime's `formRecords` returns (`key`, `title`, `note`, `values`, and
+the `options` of each select), its fields a form of that record; saving
+passes the record's `key` with the values, and the records are reloaded
+after each save. With no records it shows its `Empty Text`.
 
 In `review`, the screen's `Field`s are parameters in a card at the top
 (`Control` `select`, `date` or `text`; `Label`, `Hint`, `Placeholder`,
@@ -382,7 +386,6 @@ Hand-written web pages (`frontend/src/routes`, by route):
 - `/setup/translations`
 - `/setup/tree`
 - `/setup/users`
-- `/setup/vocabulary`
 - `/stock/restock`
 - `/stock/stock-dispatch`
 - `/stock/stock-take`

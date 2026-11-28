@@ -834,7 +834,7 @@
       #"  import '$lib/generated.css';\n"
       #"  import { session, translations } from '$lib/state.svelte';\n"
       #"  import Form from '$lib/components/Form.svelte';\n"
-      #"  import { formActions, formInitials, previews, sources, statuses, type Values } from '$lib/screen-runtime';\n\n"
+      #"  import { formActions, formInitials, formRecords, previews, sources, statuses, type FormRecord, type Values } from '$lib/screen-runtime';\n\n"
       #"  const t = (word: string) => translations.current[word] ?? word;\n"
       #"  const context = () => ({ business: session.current?.businessName ?? '', ledger: session.current?.ledgerName ?? '', party: '' });\n"
       #"  let options: Record<string, string[]> = $state({});\n"
@@ -843,6 +843,11 @@
       (case (val s id #"Status")
         ('undefined #"")
         (name (list #"    try {\n      status = await statuses." name #"(context());\n    } catch {\n      status = '';\n    }\n")))
+      (lists:map (lambda (sec)
+                   (case (val s sec #"Each")
+                     ('undefined #"")
+                     (each (list #"    try {\n      " (form-records s sec) #" = await formRecords." each #"(context());\n    } catch {\n      " (form-records s sec) #" = [];\n    }\n"))))
+                 sections)
       #"  }\n"
       (lists:map (lambda (sec) (form-state s sec)) sections)
       #"  onMount(async () => {\n    await refresh();\n"
@@ -860,8 +865,14 @@
       #"</fieldset>\n")))
 
 (defun form-values (s sec) (list #"values_" (val s sec #"Name")))
+(defun form-records (s sec) (list #"records_" (val s sec #"Name")))
 
 (defun form-state (s sec)
+  (if (=/= (val s sec #"Each") 'undefined)
+    (list #"  let " (form-records s sec) #": FormRecord[] = $state([]);\n")
+    (form-state-one s sec)))
+
+(defun form-state-one (s sec)
   (let ((fields (app-view:things s sec)))
     (list #"  let " (form-values s sec) #": Record<string, string | number | string[]> = $state("
           (case (val s sec #"Initial")
@@ -870,6 +881,50 @@
           #"{ " (lists:join #", " (lists:map (lambda (f) (list (val s f #"Name") #": ''")) fields)) #" });\n")))
 
 (defun form-section (s sec)
+  (case (val s sec #"Each")
+    ('undefined (form-section-one s sec))
+    (_ (form-section-each s sec))))
+
+;; A Section with Each: a card per record (formRecords) with its title,
+;; its note and its form, its select options the record's own; saving
+;; passes the record's key with the values.
+(defun form-section-each (s sec)
+  (let ((records (form-records s sec)))
+    (list
+      #"  {#if " records #".length === 0}<p class='empty'>" (t (val s sec #"Empty Text" #"None")) #"</p>{/if}\n"
+      #"  <div class='cards'>\n"
+      #"    {#each " records #" as record (record.key)}\n"
+      #"      <div class='card record-card'>\n"
+      #"        <h3>{record.title}</h3>\n"
+      #"        {#if record.note}<p class='hint'>{record.note}</p>{/if}\n"
+      #"        <Form\n          fields={[\n"
+      (lists:map (lambda (f) (list #"            " (form-field s f #"record.options") #",\n")) (app-view:things s sec))
+      #"          ]}\n"
+      #"          bind:values={record.values}\n"
+      #"          onSubmit={async (v) => {\n"
+      #"            await formActions." (val s sec #"Action") #"(context(), { ...(Object.fromEntries(Object.entries(v).map(([k, x]) => [k, String(x)])) as Values), key: record.key });\n"
+      #"            await refresh();\n"
+      #"          }}\n"
+      #"          submitLabel=" (js (val s sec #"Submit Label" #"Save")) #"\n"
+      #"        />\n"
+      #"      </div>\n"
+      #"    {/each}\n"
+      #"  </div>\n")))
+
+;; One field of a Form; a select's options from `from` (options, or a
+;; record's own).
+(defun form-field (s f from)
+  (list #"{ name: " (js (val s f #"Name")) #", label: " (js (val s f #"Label" (val s f #"Name")))
+        #", type: " (js (val s f #"Control" #"text"))
+        (if (orelse (=/= (val s f #"Choices") 'undefined) (== from #"record.options"))
+          (list #", options: " from #"." (val s f #"Name") #" ?? []") #"")
+        (case (val s f #"Min") ('undefined #"") (n (list #", min: " n)))
+        (case (val s f #"Max") ('undefined #"") (n (list #", max: " n)))
+        (case (val s f #"Autocomplete") ('undefined #"") (a (list #", autocomplete: " (js a))))
+        (case (val s f #"Hint") ('undefined #"") (h (list #", hint: " (js h))))
+        #" }"))
+
+(defun form-section-one (s sec)
   (let ((fields (app-view:things s sec)))
     (list
       #"  <h3>{t(" (js (val s sec #"Title")) #")}</h3>\n"

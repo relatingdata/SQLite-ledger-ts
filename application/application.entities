@@ -2166,11 +2166,9 @@ Root
     - :Field Control=input Label=Business Type=checkbox
     - :Heading Text="New user"
     - :Use Component>/Root/Application/Components/Form "Prop fields"="{[\n          { name: 'username', label: 'Username', type: 'text' },\n          { name: 'password', label: 'Password', type: 'password', hint: 'at least 8 characters' },\n          { name: 'roles', label: 'Roles', type: 'multiselect', options: roles.map((r) => r.name) },\n        ]}" "Prop onCancel"="{closeInsert}" "Prop onSubmit"="{create}" "Prop showSubmitButton"="{false}"
-   "/setup/vocabulary" :Screen "Calls deleteVocabularyPreference">/Root/Application/Calls/deleteVocabularyPreference "Calls getConceptsWithAlternates">/Root/Application/Calls/getConceptsWithAlternates "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls setVocabularyPreference">/Root/Application/Calls/setVocabularyPreference Source="frontend/src/routes/setup/vocabulary/+page.svelte" Title=Vocabulary
-    - :Heading Text=Vocabulary
-    - :Heading Text="This business prefers:"
-    - :Field Control=select Label="This business prefers:"
-    - :Action Handler="() => save(concept)" Label=Save
+   "/setup/vocabulary" :Screen Intro="Some real, business concepts already have more than one, real, valid English name \u2014 pick which one this business prefers to see everywhere, not just in the menu." Template=forms Title=Vocabulary
+    - :Section Action=saveVocabulary Each=vocabularyConcepts "Empty Text"="No real concept currently has more than one, known, alternate name." Name=concepts
+     a0 :Field Control=select Label="This business prefers:" Name=preferred
    "/setup/yearend" :Screen Intro="A real, one-time close: zeros every real income and expense account, posting the real, net difference into a real equity account as one, single, balanced entry." "Intro Note"="Real balance-sheet accounts \u2014 Cash, Inventory, Accounts Receivable/Payable, and every other real asset/liability \u2014 are never touched by this process at all. Their real, ending balance simply carries forward as-is, automatically becoming the new period's own opening balance, since a real balance-sheet account is a genuine, persistent running total, not something that resets each period the way income and expense do." Template=review Title="Year End Close"
     - :Field Choices=reportingPeriods Control=select Empty="Pick a period\u2026" Hint="Computed from this business's own financial-year start date and reporting frequency \u2014 pick one to fill in the as-of date (and, below, a suggested new ledger name) instead of working it out by hand." Label="Reporting Period" Name=period Reacts=periodChosen
     - :Field Control=date Default=today Label="As of date" Name=asOfDate
@@ -2336,6 +2334,9 @@ Root
    - :Rule Selector=.form-status background="var(--paper-dim, #f2ede1)" border-radius=4px margin="0 0 1rem" padding="0.6rem 0.9rem"
    - :Rule Selector=.preview font-family="var(--font-mono)" font-size="var(--font-size-medium)" margin=0
    - :Rule Selector=.review-card background="var(--paper)" border="1px solid var(--rule-strong, #ccc)" border-radius=8px box-sizing=border-box margin="0 auto 1.2rem" max-width=720px padding="1.2rem 1.3rem" width="100%"
+   - :Rule Selector=.cards display=flex flex-wrap=wrap gap=1rem justify-content=center
+   - :Rule Selector=.record-card display=flex flex-direction=column gap=0.6rem padding="1.1rem 1.2rem 1.3rem" width=320px
+   - :Rule Selector=".record-card h3" margin=0
    - :Rule Selector=.fields-row display=flex flex-wrap=wrap gap=1rem
    - :Rule Selector=".fields-row > fieldset" flex="1 1 12rem"
    - :Rule Selector=.field-note color="var(--ink-soft)" font-size="var(--font-size-small)" margin="0.3rem 0 0"

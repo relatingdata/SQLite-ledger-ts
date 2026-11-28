@@ -93,7 +93,7 @@
       {#if field.hint}<p class="hint">{translations.current[field.hint] ?? field.hint}</p>{/if}
       {#if field.type === 'select'}
         <select bind:value={values[field.name]}>
-          {#each field.options ?? [] as opt}<option value={opt}>{opt}</option>{/each}
+          {#each field.options ?? [] as opt}<option value={opt}>{translations.current[opt] ?? opt}</option>{/each}
         </select>
       {:else if field.type === 'multiselect'}
         <div class="multiselect">
