@@ -404,7 +404,7 @@ test-e2e-tutorial-text: reset-db
 	@rm -f $(HOME)/.sql-ledger-ts-tui/session.json
 	@$(MAKE) --no-print-directory ensure-servers
 	cd tui && $(RUN_NPM_SCRIPT) build
-	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path text --non-interactive --until 5
+	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path text --non-interactive --until 8
 
 # The one, real, test-runner-driven way every non-English translation
 # in shared-fixtures/translations.csv is ever loaded into a running

@@ -7,7 +7,23 @@
   Debit/Credit are two separate fields, mutually exclusive, the same
   way the web screen's own two columns work; amount_minor = debit -
   credit, the same real sign convention the backend expects.
+
+  It opens on the entry's lines, as the web screen opens on its grid. I
+  adds a line, asking for the web screen's fields in its order:
+  reference (blank keeps the entry's), account (picked from the
+  business's postable accounts), debit, credit; Enter on the credit
+  stages the line. Lines are staged on the server as they are added, and
+  the entry being written is remembered while the TUI runs, so leaving
+  the screen and coming back finds its lines again. Enter on the lines
+  posts the entry, read back from the server's staged lines, once it
+  balances.
 -->
+<script lang="ts" module>
+  // The entry being written in each business and ledger, kept while the
+  // TUI runs so the screen finds its staged lines again when reopened.
+  const currentReference = new Map<string, string>();
+</script>
+
 <script lang="ts">
   import { Box, Text } from 'sveltui';
   import { keyboard } from 'sveltui';
@@ -17,19 +33,24 @@
     asAccountName,
     asBusinessName,
     asLedgerName,
+    getPostableAccounts,
+    getStagedLines,
     postJournalEntry,
     removeStagedLine,
     stageLine,
+    type EntityNode,
     type StagedLine,
   } from '../api.ts';
   import Panel from '../components/Panel.svelte';
   import TextInput from '../components/TextInput.svelte';
+  import SelectList from '../components/SelectList.svelte';
   import { formatMinor } from '../components/MoneyText.svelte';
   import { brass, ink, inkSoft } from '../theme.ts';
 
-  type Step = 'reference' | 'lines' | 'line-account' | 'line-debit' | 'line-credit' | 'posted';
+  type Step = 'lines' | 'line-reference' | 'line-account' | 'line-debit' | 'line-credit' | 'posted';
 
   let { businessName, ledgerName, onBack }: { businessName: string; ledgerName: string; onBack: () => void } = $props();
+  const entryKey = `${businessName}\u0000${ledgerName}`;
 
   function todayIso(): string {
     return new Date().toISOString().slice(0, 10);
@@ -40,19 +61,21 @@
     return Math.round(n * 100);
   }
 
-  let step: Step = $state('reference');
-  let reference = $state('');
+  let step: Step = $state('lines');
+  let reference = $state(currentReference.get(entryKey) ?? '');
   let lines: StagedLine[] = $state([]);
   let selected = $state(0);
   let error: string | null = $state(null);
   let busy = $state(false);
+  let postedLines = $state(0);
+  let postedTotal = $state(0);
 
+  let accounts: EntityNode[] | null = $state(null);
+  let referenceInput = $state('');
   let account = $state('');
   let debit = $state('');
   let credit = $state('');
 
-  // Debit/Credit are mutually exclusive, same as the web screen's own
-  // two columns: typing into one clears the other.
   $effect(() => {
     if (debit) credit = '';
   });
@@ -60,21 +83,28 @@
     if (credit) debit = '';
   });
 
+  getPostableAccounts(businessName)
+    .then((rows) => (accounts = rows))
+    .catch((err) => (error = err instanceof ApiError ? err.message : 'Could not load the accounts.'));
+
+  async function loadLines() {
+    if (!reference) { lines = []; return; }
+    try {
+      lines = await getStagedLines(reference, asBusinessName(businessName), asLedgerName(ledgerName));
+    } catch (err) {
+      error = err instanceof ApiError ? err.message : 'Could not read the staged lines.';
+    }
+  }
+  void loadLines();
+
   const debitTotal = $derived(lines.reduce((sum, l) => sum + Math.max(l.amount_minor, 0), 0));
   const creditTotal = $derived(lines.reduce((sum, l) => sum + Math.max(-l.amount_minor, 0), 0));
   const balanced = $derived(lines.length > 0 && debitTotal === creditTotal);
 
-  // Escape means the same thing - "back out one level" - on every step
-  // of this screen, not just 'lines'. ↑/↓/I/D/Enter only apply while on
-  // the 'lines' step; the line-entry sub-steps use TextInput's own Enter
-  // (via onSubmit) to move between fields instead.
   const unsubscribe = keyboard.on((event) => {
     if (event.key === 'Escape') {
-      if (step === 'reference' || step === 'posted' || step === 'lines') {
-        onBack();
-      } else {
-        step = 'lines';
-      }
+      if (step === 'posted' || step === 'lines') onBack();
+      else step = 'lines';
       return true;
     }
     if (step !== 'lines') return;
@@ -86,14 +116,16 @@
         selected = Math.max(selected - 1, 0);
         return true;
       case 'Enter':
-        if (balanced) void post();
+        void post();
         return true;
       default:
         if (event.key === 'i') {
+          referenceInput = '';
           account = '';
           debit = '';
           credit = '';
-          step = 'line-account';
+          error = null;
+          step = 'line-reference';
           return true;
         }
         if (event.key === 'd' && lines[selected]) {
@@ -105,10 +137,21 @@
   });
   onDestroy(unsubscribe);
 
+  async function chooseReference() {
+    const next = referenceInput.trim() || reference;
+    if (!next) return;
+    if (next !== reference) {
+      reference = next;
+      currentReference.set(entryKey, next);
+      await loadLines();
+    }
+    step = 'line-account';
+  }
+
   async function addLine() {
     const debitMinor = dollarsToMinor(debit);
     const creditMinor = dollarsToMinor(credit);
-    if (!account.trim() || (debitMinor === 0 && creditMinor === 0)) {
+    if (!account || (debitMinor === 0 && creditMinor === 0)) {
       error = 'A line needs an account and a debit or credit amount.';
       step = 'lines';
       return;
@@ -118,18 +161,17 @@
       business: asBusinessName(businessName),
       ledger: asLedgerName(ledgerName),
       transdate: todayIso(),
-      account: asAccountName(account.trim()),
+      account: asAccountName(account),
       amount_minor: debitMinor - creditMinor,
     };
     busy = true;
     error = null;
+    step = 'lines';
     try {
       await stageLine(line);
-      lines = [...lines, line];
-      step = 'lines';
+      await loadLines();
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Could not stage that line.';
-      step = 'lines';
     } finally {
       busy = false;
     }
@@ -141,7 +183,7 @@
     error = null;
     try {
       await removeStagedLine(line.reference, line.business, line.ledger, line.account);
-      lines = lines.filter((_, i) => i !== index);
+      await loadLines();
       selected = Math.max(0, Math.min(selected, lines.length - 1));
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Could not remove that line.';
@@ -150,11 +192,22 @@
     }
   }
 
+  // Posts what the server has staged for this entry, read back first, so
+  // Enter works however soon it comes after the screen opens.
   async function post() {
+    if (busy || !reference) return;
     busy = true;
     error = null;
     try {
+      await loadLines();
+      if (!balanced) {
+        error = 'Not yet balanced — debits and credits must match before posting.';
+        return;
+      }
+      postedLines = lines.length;
+      postedTotal = debitTotal;
       await postJournalEntry(reference, asBusinessName(businessName), asLedgerName(ledgerName));
+      currentReference.delete(entryKey);
       step = 'posted';
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Could not post this entry.';
@@ -162,55 +215,49 @@
       busy = false;
     }
   }
+
+  const accountLabel = (a: EntityNode) => (a.accountnumber ? `${a.accountnumber} — ${a.name}` : a.name);
 </script>
 
-{#if step === 'reference'}
-  <Panel title={`General Journal — ${businessName} / ${ledgerName}`} focused>
+<!-- Each step has a Panel of its own: content that appears inside a Panel
+     that stays mounted draws blank (docs/tui-design.md, "Running on
+     Svelte 5.56"). -->
+{#if step === 'line-reference'}
+  <Panel title={`New line — ${businessName} / ${ledgerName}`} focused>
     <Box flexDirection="row">
-      <Box width={14}>
-        <Text text="Reference" color={brass} />
-      </Box>
-      <TextInput bind:value={reference} focused onSubmit={() => { if (reference.trim()) step = 'lines'; }} />
+      <Box width={14}><Text text="Reference" color={brass} /></Box>
+      <TextInput bind:value={referenceInput} focused onSubmit={() => void chooseReference()} />
     </Box>
-    <Text text="Enter to continue · Escape back to menu" color={inkSoft} dim />
+    <Text text={reference ? `Blank keeps ${reference} · Enter continues · Escape cancels this line` : 'e.g. GJ-1001 · Enter continues · Escape cancels this line'} color={inkSoft} dim />
   </Panel>
-{:else if step === 'line-account' || step === 'line-debit' || step === 'line-credit'}
-  <Panel title={`New line — ${reference}`} focused>
+{:else if step === 'line-account' && accounts}
+  <Panel title={`New line — ${reference} — account`} focused>
+    <SelectList limit={14} items={accounts.map((a) => ({ label: accountLabel(a), value: a.name }))} onSelect={(item) => { account = item.value; step = 'line-debit'; }} />
+    <Text text="↑/↓ move · Enter choose · Escape cancels this line" color={inkSoft} dim />
+  </Panel>
+{:else if step === 'line-account'}
+  <Panel title={`New line — ${reference} — account`} focused>
+    <Text text={error ?? 'Loading…'} color={error ? 'red' : inkSoft} />
+  </Panel>
+{:else if step === 'line-debit' || step === 'line-credit'}
+  <Panel title={`New line — ${reference} — ${account}`} focused>
     <Box flexDirection="row">
-      <Box width={10}>
-        <Text text="Account" color={step === 'line-account' ? brass : inkSoft} />
-      </Box>
-      <TextInput bind:value={account} focused={step === 'line-account'} onSubmit={() => (step = 'line-debit')} />
+      <Box width={10}><Text text="Debit" color={step === 'line-debit' ? brass : inkSoft} /></Box>
+      <TextInput bind:value={debit} focused={step === 'line-debit'} onSubmit={() => (step = 'line-credit')} />
     </Box>
     <Box flexDirection="row">
-      <Box width={10}>
-        <Text text="Debit" color={step === 'line-debit' ? brass : inkSoft} />
-      </Box>
-      <TextInput
-        bind:value={debit}
-        focused={step === 'line-debit'}
-        onSubmit={() => (step = 'line-credit')}
-      />
+      <Box width={10}><Text text="Credit" color={step === 'line-credit' ? brass : inkSoft} /></Box>
+      <TextInput bind:value={credit} focused={step === 'line-credit'} onSubmit={addLine} />
     </Box>
-    <Box flexDirection="row">
-      <Box width={10}>
-        <Text text="Credit" color={step === 'line-credit' ? brass : inkSoft} />
-      </Box>
-      <TextInput
-        bind:value={credit}
-        focused={step === 'line-credit'}
-        onSubmit={addLine}
-      />
-    </Box>
-    <Text text="Enter moves to the next field · entering one of Debit/Credit clears the other · Escape cancels this line" color={inkSoft} dim />
+    <Text text="Dollars, e.g. 5000.00 · Enter moves to the next field, then stages the line · entering one of Debit/Credit clears the other · Escape cancels this line" color={inkSoft} dim />
   </Panel>
 {:else if step === 'posted'}
   <Panel title={`General Journal — ${businessName} / ${ledgerName}`} focused>
-    <Text text={`Posted — ${reference}, ${lines.length} line${lines.length === 1 ? '' : 's'}, $${formatMinor(debitTotal)} each side.`} color={brass} bold />
+    <Text text={`Posted — ${reference}, ${postedLines} line${postedLines === 1 ? '' : 's'}, $${formatMinor(postedTotal)} each side.`} color={brass} bold />
     <Text text="Escape back to menu" color={inkSoft} dim />
   </Panel>
 {:else}
-  <Panel title={`General Journal — ${reference}`} focused>
+  <Panel title={`General Journal — ${businessName} / ${ledgerName}${reference ? ` — ${reference}` : ''}`} focused>
     <Box flexDirection="column">
       <Text text={`${'Account'.padEnd(26)}Debit / Credit`} color={inkSoft} />
       <Text text={`${'Total'.padEnd(26)}$${formatMinor(debitTotal)} debit / $${formatMinor(creditTotal)} credit`} bold />
@@ -230,8 +277,7 @@
       />
       <Text text="I add a line · ↑/↓ select · D delete selected · Enter posts (once balanced) · Escape back to menu" color={inkSoft} dim />
       <Text text={!balanced && lines.length > 0 ? 'Not yet balanced — debits and credits must match before posting.' : ''} color="yellow" />
-      <Text text={error ?? ''} color="red" />
-      {#if busy}<Text text="Working…" color={inkSoft} />{/if}
+      <Text text={error ?? (busy ? 'Working…' : '')} color={error ? 'red' : inkSoft} />
     </Box>
   </Panel>
 {/if}

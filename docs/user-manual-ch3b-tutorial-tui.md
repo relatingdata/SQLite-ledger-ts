@@ -71,13 +71,18 @@ The same real, live, server-computed menu the web app renders, the exact same se
 
 ## General Journal
 
-The same real journal the web chapter's owner's-capital deposit, rent expense, and year-end entries all post through --- staging a balanced entry line by line, then posting the whole thing in one, final step, same as the web app's own, real convention. Reached fresh, before any line is staged:
+The same real journal the web chapter's owner's-capital deposit, rent expense, and year-end entries all post through --- staging a balanced entry line by line, then posting the whole thing in one, final step, same as the web app's own, real convention. **I** adds a line, asking in turn for the reference (blank keeps the entry's), the account (picked from this business's own postable accounts), and the debit or credit in dollars; Enter on the credit stages the line. Leaving the screen keeps the entry: coming back finds its staged lines. Once debits and credits match, Enter posts it. Reached fresh, before any line is staged:
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ General Journal — Tutorial Wine Retail Business / Actual                                         │
-│ Reference                                                                                        │
-│ Enter to continue · Escape back to menu                                                          │
+│ Account                   Debit / Credit                                                         │
+│ Total                     $0.00 debit / $0.00 credit                                             │
+│ No lines staged yet — press I to add one.                                                        │
+│ I add a line · ↑/↓ select · D delete selected · Enter posts (once balanced) · Escape back to     │
+│ menu                                                                                             │
+│                                                                                                  │
+│                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 

@@ -1288,8 +1288,27 @@ export async function runStepViaText(terminal: TuiTest, step: Step, screens: Map
         await press(terminal, 'Enter'); // blank — accept whatever default this step is already on
         continue;
       }
+      if (field.field_type === 'signed_money') {
+        // The web's debit and credit columns are two inputs in the TUI,
+        // debit first: a positive amount is typed in the debit, a negative
+        // one in the credit, in dollars as on the ui path.
+        const minorUnits = Number(value);
+        const dollars = (Math.abs(minorUnits) / 100).toFixed(2);
+        if (minorUnits >= 0) {
+          await typeAndEnter(terminal, dollars);
+          await press(terminal, 'Enter');
+        } else {
+          await press(terminal, 'Enter');
+          await typeAndEnter(terminal, dollars);
+        }
+        continue;
+      }
+      if (field.field_type === 'money') {
+        await typeAndEnter(terminal, (Number(value) / 100).toFixed(2));
+        continue;
+      }
       if (field.field_type === 'select' || field.field_type === 'select_value' || field.field_type === 'search_and_select') {
-        const found = await findItemByText(terminal, value, 30);
+        const found = await findItemByText(terminal, value, 200);
         if (!found) return { ok: false, error: `No real picker item matching "${value}" found for field "${field.field_name}".` };
         await press(terminal, 'Enter');
       } else {

@@ -142,11 +142,11 @@ export async function navigateMenuGenerically(terminal: TuiTest, screenLabel: st
   );
 }
 
-/** Opens a screen by its menu label: from the Menu, through
- * navigateMenuGenerically; from any other screen that lists the label
+/** Opens a screen by its menu label: from a screen that lists the label
  * as one of its own items (Choose a business lists "New Business", as
  * the web's session page has a New Business button), by selecting it
- * there. */
+ * there; otherwise from the Menu, through navigateMenuGenerically, after
+ * backing out of whatever screen the last step left open. */
 export async function openScreenGenerically(terminal: TuiTest, label: string): Promise<void> {
   // The last step's screen may still be working (logging in, loading):
   // wait, for up to five seconds, until the screen stops changing and
@@ -158,9 +158,18 @@ export async function openScreenGenerically(terminal: TuiTest, label: string): P
     previous = text;
     await sleep(300);
   }
-  if (!(await terminal.text()).includes('Menu — ') && (await findItemByText(terminal, label, 20))) {
+  const panelLines = (text: string) => text.split('\n').filter((l) => l.startsWith('│'));
+  const atMenu = (text: string) => panelLines(text).some((l) => l.includes('Menu — ') && !/Menu — .* — /.test(l));
+  const text = await terminal.text();
+  if (!atMenu(text) && panelLines(text).some((l) => l.includes(label)) && (await findItemByText(terminal, label, 20))) {
     await press(terminal, 'Enter');
     return;
+  }
+  // Any other screen (the last step's, or a Menu section): Escape backs
+  // out one level at a time, up to five, to the Menu's top level.
+  for (let i = 0; i < 5 && !atMenu(await terminal.text()); i++) {
+    await press(terminal, 'Escape');
+    await sleep(300);
   }
   await navigateMenuGenerically(terminal, label);
 }

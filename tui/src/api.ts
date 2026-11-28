@@ -554,6 +554,28 @@ function parseEntityNode(f: Record<string, string>): EntityNode {
 }
 export const getEntityTree = (business?: string) => callTable('getEntityTree', [business], parseEntityNode);
 
+const CHART_PROTOTYPES = new Set(['English CoA', 'German CoA', 'French CoA', 'Italian CoA', 'Swiss CoA']);
+/** The accounts a journal line can post to in this business: postable,
+ * with no sub-accounts, and from the business's own Chart of Accounts
+ * prototype (or from none, as a customer's or provider's account is) -
+ * the same choice the web's General Journal offers
+ * (frontend/src/routes/post/+page.svelte). A rollover's ledger node under
+ * a carried-forward account is not a sub-account and is not offered. */
+export async function getPostableAccounts(businessName: string): Promise<EntityNode[]> {
+  const accounts = await getEntityTree();
+  const prototypeName = (id: number | null) => (id == null ? null : accounts.find((a) => a.id === id)?.name ?? null);
+  const businessPrototype = prototypeName(accounts.find((a) => a.name === businessName)?.relation_id ?? null);
+  const ledgerIds = new Set(accounts.filter((a) => accounts.find((p) => p.id === a.parent_id)?.name === 'Ledgers').map((a) => a.id));
+  const isLedgerNode = (a: EntityNode) => a.relation_id != null && ledgerIds.has(a.relation_id);
+  const hasSubAccounts = new Set(accounts.filter((c) => !isLedgerNode(c) && c.parent_id != null).map((c) => c.parent_id));
+  return accounts.filter((a) => {
+    if (isLedgerNode(a) || !a.is_postable_account || hasSubAccounts.has(a.id)) return false;
+    const accountPrototype = prototypeName(a.relation_id);
+    if (accountPrototype == null || !CHART_PROTOTYPES.has(accountPrototype)) return true;
+    return accountPrototype === businessPrototype;
+  });
+}
+
 export interface ItemSummary {
   name: string;
   description: string | null;

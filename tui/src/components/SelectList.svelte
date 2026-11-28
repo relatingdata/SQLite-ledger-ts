@@ -71,11 +71,14 @@
   });
   onDestroy(unsubscribe);
 
-  const visible = $derived(limit ? items.slice(0, limit) : items);
+  // At most `limit` rows are shown, scrolled so the highlighted one is
+  // among them.
+  const first = $derived(limit && highlighted >= limit ? highlighted - limit + 1 : 0);
+  const visible = $derived(limit ? items.slice(first, first + limit) : items);
 </script>
 
 <Box flexDirection="column">
   {#each visible as item, i (i)}
-    <Text text={`${i === highlighted ? '❯ ' : '  '}${item.label}`} color={i === highlighted ? brass : ink} bold={i === highlighted} />
+    <Text text={`${first + i === highlighted ? '❯ ' : '  '}${item.label}`} color={first + i === highlighted ? brass : ink} bold={first + i === highlighted} />
   {/each}
 </Box>

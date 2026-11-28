@@ -77,8 +77,13 @@ The same real journal every one of this tutorial's own entries posts through ---
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ General Journal — Tutorial Window & Door Manufacturing / Actual                                  │
-│ Reference                                                                                        │
-│ Enter to continue · Escape back to menu                                                          │
+│ Account                   Debit / Credit                                                         │
+│ Total                     $0.00 debit / $0.00 credit                                             │
+│ No lines staged yet — press I to add one.                                                        │
+│ I add a line · ↑/↓ select · D delete selected · Enter posts (once balanced) · Escape back to     │
+│ menu                                                                                             │
+│                                                                                                  │
+│                                                                                                  │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 

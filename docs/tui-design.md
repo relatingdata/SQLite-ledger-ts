@@ -467,9 +467,10 @@ the browser), purely from `screens.csv`'s existing columns:
   (e.g. "Post Journal Entry") is a pure finalize action — one,
   standalone Enter press at the screen's own list.
 
-**Proven live** (`make test-e2e-tutorial-text`, `--until 5`): Log in,
-Create Business, Switch Session and the two API steps after them run
-end to end from this generic mechanism. Create Business opens from the
+**Proven live** (`make test-e2e-tutorial-text`, `--until 8`): Log in,
+Create Business, Switch Session, the two API steps after them, and the
+owner's capital entry (two Stage Journal Line steps and Post Journal
+Entry) run end to end from this generic mechanism. Create Business opens from the
 Choose a business screen, whose last entry is "New Business" as on the
 web's session page; the New Business wizard asks for the web form's
 fields in its order (name, financial year label, legal structure,
@@ -480,9 +481,18 @@ reporting frequency, home currency and additional currencies. After the
 business is created, "Work in …" opens its ledger choice, which is how
 Switch Session continues.
 
-**The real, current limit**: from step 6, `Stage Journal Line`, the
-fixture's field order does not match the TUI's General Journal, and
-every later row fails waiting for its screen. None of this is a step-runner bug: it's
+The General Journal opens on the entry's lines, as the web screen opens
+on its grid. I adds a line, asking for the web screen's fields in its
+order: reference (blank keeps the entry's), account (picked from the
+business's postable accounts, `getPostableAccounts` in `tui/src/api.ts`,
+the same choice as the web screen's), debit, credit. Enter on the
+credit stages the line on the server. The entry being written is
+remembered while the TUI runs, so the next Stage Journal Line step,
+which opens the screen again from the Menu, finds its lines; Enter on
+the lines posts what the server has staged, once it balances.
+
+**The real, current limit**: step 9, `Create Location`, has no TUI
+screen, and the later rows that need its location fail. None of this is a step-runner bug: it's
 `screens.csv`/`tutorial-steps.csv`'s own row design (written against
 the web frontend first) genuinely not lining up with the TUI's own
 screens yet, for several rows. Closing that gap is a real, further
