@@ -64,13 +64,15 @@ build output, ignored by git, written by `make generate`.
 
 ### Templates
 
-43 of the 81 routes are generated. Each screen names its template, or
+49 of the 81 routes are generated. Each screen names its template, or
 takes its base screen's (Variants, below):
 
 | Template | Screens | Reads |
 |---|---|---|
 | `transaction` | Cash Purchase, Cash Sale, AP Purchase, AR Sale, Purchase Order, Sales Order, Stock Receipt, Stock Transfer, Quotations, RFQ | `Title`, `Intro`, `Action`, `Totals`, `Total Label`, `Party` / `Party Label`, `Submit Label`, `Fail Text`; its `Field` and `Column` things |
-| `report` | Trial Balance, Balance Sheet, Below Reorder, Inventory and Storage, Aged Receivables/Payables, Reminders, Customer Statement, Sales Report, Cash Flow Forecast, Business Configuration Report | `Title`, `Intro` (`{NAME}` in it is the business or ledger, by `Intro Name`), `Report`, `Clear Label`; parameter `Field`s (`Control=ledger` chooses the ledger); one `Entry` per column |
+| `report` | Trial Balance, Balance Sheet, Below Reorder, Inventory and Storage, Aged Receivables/Payables, Reminders, Customer Statement, Sales Report, Cash Flow Forecast, Business Configuration Report, Stock-Out Risk, Journal Entries, Compare Ledgers | `Title`, `Intro` (`{NAME}` in it is the business or ledger, by `Intro Name`; optional), `Report`, `Clear Label`, `Empty Text` with an `Empty Link` to `Empty Href`; parameter `Field`s (`Control=ledger` chooses the ledger); one `Entry` per column |
+| `drill` | Profit and Loss, Stock Movement Report, Inventory Listing | `Title`, `Intro`, `Report`, `Title Line`, `Empty Text`, `Clear Label`; parameter `Field`s in a row of controls |
+| `forms` | Account Settings | `Title`, `Intro`; one `Section` per form (`Title`, `Action`, `Submit Label`, `Initial`, `Preview`), its `Field`s under it |
 | `pivot` | Stock on Hand (`/reports/new-stock-on-hand`), Sales and Margin (`/reports/sales-margin`) | `Title`, `Intro`, `Row Axis`, `Column Axis`, `Axis Chooser` (`drag` or `select`), `Highlight`, `Highlight Across`, `Empty Text`, `Clear Label`; date `Field`s `fromDate`/`toDate`; one `Entry` per measure |
 | `tiles` | AR / AP, Stock, Reports (section index pages) | `Title`, `Intro`; one `Tile` (`Href`, `Title`, `Description`) per link |
 | `compose` | AP Payment, AR Receipt | One `Use` per component, its props as `Prop <name>` |
@@ -105,10 +107,34 @@ relabel headings (`labels`), and the report can give a title and intro of
 its own for its parameters (Aged Payables). `Command` things are buttons
 on each row, as in listed records; a `toggle` field is a row of buttons
 (`Options`), and a field's `Query` takes its first value from the page
-address (`/reports/aged?type=AP`). A `Print Label` adds a print button; a group's
+address (`/reports/aged?type=AP`). A parameter that `Reacts` runs its
+reaction when it changes (Compare Ledgers keeps Ledger B other than
+Ledger A). An `Entry` with `Control=link` links each cell to its `Href`,
+where `{name}` stands for the row's cell of that name (Journal Entries:
+`/journal/{id}/{date}`). A `Print Label` adds a print button; a group's
 `meta` lines show above its table (who and when, on a statement). A table whose entries all have an empty
 `Label` has no heading row. In
 `Options`, an underscore in a label stands for a space.
+
+In `drill`, the parameters sit in a row of controls (`.controls`; none,
+none shown); a `choose` field can `React`, be `Filter`ed and show its
+choices under headings (`Grouped=yes`). A `Title Line` puts a title block
+naming the business above the report. The named report returns sections:
+each a heading line with its name and figures (and a detail and tags)
+that opens to its table and the sections under it, drawn by
+`frontend/src/lib/DrillSection.svelte`, a building block that knows no
+one report. A section's table has its own columns (none given: an
+account as a tree, its debit and its credit); an `input` column is a
+number field whose change saves the row through the section's `save`.
+The report can end with a total line (`grandTotal`, class `grand-total`)
+or give a message in place of its sections.
+
+In `forms`, each `Section` is a form drawn by
+`frontend/src/lib/components/Form.svelte` under its `Title`: its fields
+(`Control` `text`, `number`, `select` with options from its `Choices`
+source, `password` or `date`; `Min`, `Max`, `Hint`, `Autocomplete`), saved
+by its `Action` (`formActions`), started from its `Initial`
+(`formInitials`), with a line from its `Preview` (`previews`) under it.
 
 ### The general report cube, and the `pivot` template
 
@@ -189,8 +215,9 @@ m", next, last). It applies to every report group and every listed-records
 table; a screen that should show everything at once says `Paged=no`
 (Trial Balance, Balance Sheet). Generated screens page rows they have
 already loaded (`pageRows`, `pageCount` and `movePage` in
-`frontend/src/lib/pagination.ts`); the journal's server-side `Pager`
-draws the same buttons.
+`frontend/src/lib/pagination.ts`); a report that pages on the server says
+`Paged=server` (Journal Entries): it is asked for one page (`limit`,
+`offset`) and returns its `total`.
 
 ### Variants
 
@@ -220,17 +247,24 @@ the entities stay the source.
 What a screen does is named in its configuration and written once, by
 hand, in the runtime module:
 
-- `sources`: a choose field's choices (`locations`, `items`, `providers`,
-  `customers`, `postableAccounts`);
-- `filters`: narrowing one field's choices by the others (`sameCityAsFrom`);
+- `sources`: a choose field's choices, given the business and ledger
+  (`locations`, `items`, `providers`, `customers`, `postableAccounts`,
+  `axes`, `ledgers`, `stockGroupings`, `numberFormats`, `dateFormats`);
+  a choice can name its `group`;
+- `filters`: narrowing one field's choices by the others (`sameCityAsFrom`,
+  `againstInner`, `againstOuter`, `otherThanLedgerA`);
 - `reactions`: run when a field changes, returning a patch of values,
   narrowed choices and an information line (`onHand`,
-  `fromLocationChanged`, `itemSources`, `providerPrice`, `orderStatus`);
+  `fromLocationChanged`, `itemSources`, `providerPrice`, `orderStatus`,
+  `outerAxisChanged`, `innerAxisChanged`, `ledgerAChanged`);
 - `totals`: `lineTax`, `taxRate`, `valueTaxRate`, `quantityTimesPrice`;
 - `actions`: the backend calls a submit makes (`purchase` and `sale`, on
   account or, when the party is `Cash`, paid at once; `transfer`,
   `purchaseOrder`, `salesOrder`, `orderReceipt`, `quotation`);
-- `reports`: `trialBalance`, `balanceSheet`, `belowReorder`, `storageSpace`, `aged`, `reminders`, `statement`, `sales`, `cashFlow`, `businessConfiguration` (a row can carry a class, `mark`, and cells classes, `marks`);
+- `reports`: `trialBalance`, `balanceSheet`, `belowReorder`, `storageSpace`, `aged`, `reminders`, `statement`, `sales`, `cashFlow`, `businessConfiguration`, `stockOutRisk`, `journalEntries`, `compareLedgers`, and for `drill` `profitAndLossByAxis`, `stockMovement`, `inventoryListing` (a row can carry a class, `mark`, and cells classes, `marks`);
+- `formInitials`, `formActions`, `previews`: a `forms` screen's forms
+  (`pageSize`, `formats`; `savePageSize`, `saveFormats`, `changePassword`;
+  `formats`);
 - `records`: what a screen lists (`quotations`), and `commands`: what its
   record buttons do (`markSent`, `accept`, `reject`, `sendReminder`, `resetReminder`). A validation
   failure throws `Invalid`, whose message is shown.
@@ -284,7 +318,7 @@ differ, and that difference lives in one place per front end:
 build output ignored by git. The TUI's Menu opens a link's generated
 screen when its route has one. The generator prints the screens it did
 not make for the TUI and why: a template the TUI has no form for yet
-(tiles, compose, pivot, not-implemented) or a part its form does not do
+(tiles, compose, pivot, forms, not-implemented) or a part its form does not do
 yet (listed Records, Commands).
 
 ### Hand-written screens: debt
@@ -354,9 +388,12 @@ Hand-written TUI screens (`tui/src/screens`, by file):
 
 The TUI screens generated today: AP Purchase, AR Sale, Cash Purchase,
 Cash Sale, Purchase Order, Sales Order, Stock Receipt and Transfer Items
-(transaction), and Aged, Balance Sheet, Below Reorder, Business
-Configuration, Cash Flow Forecast, Sales, Statement, Storage Space and
-Trial Balance (report).
+(transaction); Aged, Balance Sheet, Below Reorder, Business
+Configuration, Cash Flow Forecast, Sales, Statement, Storage Space, Trial
+Balance, Stock-Out Risk, Journal Entries and Compare Ledgers (report);
+and Profit and Loss, Stock Movement Report and Inventory Listing (drill,
+drawn by the TUI's report form, every section open). Inventory Listing's
+levels are edited on the web only.
 
 ## The ASCII form (`backend/src/entities/entities-text.ts`)
 
