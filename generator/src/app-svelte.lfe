@@ -206,8 +206,11 @@
 (defun records? (s id) (=/= (val s id #"Records") 'undefined))
 
 ;; The Paged trait: a list longer than the user's page size shows a page at
-;; a time, with the shared page buttons. On unless the screen says Paged=no.
-(defun paged? (s id) (=/= (val s id #"Paged" #"yes") #"no"))
+;; a time, with the shared page buttons. On unless the screen says Paged=no;
+;; Paged=server asks the report for one page at a time (limit and offset)
+;; and pages by the total it returns.
+(defun paged? (s id) (not (lists:member (val s id #"Paged" #"yes") (list #"no" #"server"))))
+(defun server-paged? (s id) (== (val s id #"Paged" #"yes") #"server"))
 
 (defun records-script (s id)
   (list
@@ -424,7 +427,7 @@
       #"  import { session, translations } from '$lib/state.svelte';\n"
       #"  import { getLedgers, asBusinessName, ApiError } from '$lib/api';\n"
       #"  import { todayIsoDate } from '$lib/format';\n"
-      (if (paged? s id) #"  import PageButtons from '$lib/PageButtons.svelte';\n  import { pageRows, pageCount, movePage, pageSize } from '$lib/pagination';\n" #"")
+      (if (orelse (paged? s id) (server-paged? s id)) #"  import PageButtons from '$lib/PageButtons.svelte';\n  import { pageRows, pageCount, movePage, pageSize } from '$lib/pagination';\n" #"")
       #"  import { reports, " (if (== commands '()) #"" #"commands, ") (if (== chooses '()) #"" #"sources, filters, type Choice, ")
       #"type Report } from '$lib/screen-runtime';\n\n"
       (if (== chooses '()) #""
@@ -445,11 +448,16 @@
       #"  let open = $state(new Set<string>());\n"
       #"  const shown = (group: Report['columns'][number]['groups'][number]) => group.rows.filter((r) => r.ancestors.every((a) => open.has(a)));\n"
       (if (paged? s id) #"  let pages: Record<string, number> = $state({});\n" #"")
+      (if (server-paged? s id) #"  let serverPage = $state(0);\n" #"")
       #"  const toggle = (key: string) => {\n    const next = new Set(open);\n    if (next.has(key)) next.delete(key);\n    else next.add(key);\n    open = next;\n  };\n"
       #"  let latest = 0;\n"
       #"  async function load() {\n"
       #"    const request = ++latest;\n    loading = true;\n    error = '';\n"
-      #"    try {\n      const result = await reports." (val s id #"Report") #"({ business, ledger, party: '' }, $state.snapshot(values));\n"
+      #"    try {\n      const result = await reports." (val s id #"Report") #"({ business, ledger, party: '' }, "
+      (if (server-paged? s id)
+        #"{ ...$state.snapshot(values), limit: String(pageSize()), offset: String(serverPage * pageSize()) }"
+        #"$state.snapshot(values)")
+      #");\n"
       #"      if (request === latest) {\n        report = result;\n" (if (paged? s id) #"        pages = {};\n" #"") #"      }\n"
       #"    } catch (e) {\n      if (request === latest) error = e instanceof ApiError ? e.message : 'Failed to load.';\n"
       #"    } finally {\n      if (request === latest) loading = false;\n    }\n  }\n"
@@ -493,7 +501,11 @@
       #"  {#if message}<p class='success'>{message}</p>{/if}\n"
       #"  {#if loading && !report}\n    <p class='center-text'>Loading&hellip;</p>\n"
       #"  {:else if error}\n    <p class='error'>{error}</p>\n"
-      #"  {:else if report && report.columns.every((c) => c.groups.length === 0)}\n    <p class='dim'>" (t (val s id #"Empty Text" #"None")) #"</p>\n"
+      #"  {:else if report && report.columns.every((c) => c.groups.length === 0)}\n    <p class='dim'>" (t (val s id #"Empty Text" #"None"))
+      (case (val s id #"Empty Link")
+        ('undefined #"")
+        (link (list #" <a href=" (js (val s id #"Empty Href" #"/")) #">" (t link) #"</a>")))
+      #"</p>\n"
       #"  {:else if report}\n"
       #"    <div class='report-columns' style='--columns: {report.columns.length}'>\n"
       #"      {#each report.columns as column, ci}\n        <div class='report-column'>\n"
@@ -505,6 +517,9 @@
       #"            </fieldset>\n          {/each}\n"
       #"          {#if column.summary}<p class='report-summary'><strong>{column.summary.label}</strong> <span class='num mono'>{column.summary.value}</span></p>{/if}\n"
       #"        </div>\n      {/each}\n    </div>\n"
+      (if (server-paged? s id)
+        #"    {#if (report.total ?? 0) > pageSize()}<PageButtons page={serverPage} totalPages={pageCount(report.total ?? 0)} go={(to) => { serverPage = movePage(serverPage, report?.total ?? 0, to); load(); }} />{/if}\n"
+        #"")
       #"    {#if report.status}<p class='status report-status' class:balanced={report.status.ok}>{report.status.text}</p>{/if}\n"
       #"    {#if report.note}<p class='dim'>{report.note}</p>{/if}\n"
       #"  {/if}\n"
@@ -568,10 +583,12 @@
           #"}<button class='btn secondary small" (case (val s c #"Style") ('undefined #"") (st (list #" " st)))
           #"' onclick={(e) => { e.stopPropagation(); run(" (js (val s c #"Command")) #", row.cells); }}>" (t (val s c #"Label")) #"</button>{/if}\n")))
 
-;; The intro; {NAME} in it stands for the business or ledger (Intro Name).
+;; The intro, if any; {NAME} in it stands for the business or ledger (Intro Name).
 (defun intro-line (s id)
   (case (val s id #"Intro Name")
-    ('undefined (list #"  <p class='intro'>" (t (val s id #"Intro")) #"</p>\n"))
+    ('undefined (case (val s id #"Intro")
+                  ('undefined #"")
+                  (intro (list #"  <p class='intro'>" (t intro) #"</p>\n"))))
     (who (list #"  {#each [t(" (js (val s id #"Intro")) #").split('{NAME}')] as parts}"
                #"<p class='intro'>{parts[0]}<strong>{" who #"}</strong>{parts[1] ?? ''}</p>{/each}\n"))))
 
@@ -589,6 +606,10 @@
 (defun report-cell (s e)
   (let ((n (val s e #"Name")))
     (case (val s e #"Control")
+      ;; Control=link: the cell links to its Href, where {name} stands for
+      ;; the row's cell of that name.
+      (#"link" (list #"<td><a href={`" (re:replace (val s e #"Href") #"{([A-Za-z]+)}" #"${row.cells['\\1']}" (list 'global (tuple 'return 'binary)))
+                     #"`}>{row.cells['" n #"'] ?? ''}</a>{#if row.badge} <span class='badge' title={row.badgeTitle}>{row.badge}</span>{/if}</td>"))
       (#"tree" (list #"<td style='padding-inline-start: {row.depth * 1.2}rem'>{#if row.parent}<span class='disclosure'>{open.has(row.key) ? '\\u25BE' : '\\u25B8'}</span>{/if}{row.cells['" n #"'] ?? ''}"
                      #"{#if row.badge} <span class='badge' title={row.badgeTitle}>{row.badge}</span>{/if}</td>"))
       (_ (list #"<td" (report-class s e n #"row.contra") #">{row.cells['" n #"'] ?? ''}</td>")))))

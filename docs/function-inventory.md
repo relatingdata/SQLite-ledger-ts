@@ -21,7 +21,7 @@ It uses the TypeScript compiler, not a text search. A prototype is printed by th
 ## Summary
 
 - **Backend:** 1215 functions (1031 exported); 850 are called from production code; 46 only from tests or tooling; 319 from nowhere the compiler could find.
-- **Frontend library:** 391 functions (318 exported); 303 are called from production code; 2 only from tests or tooling; 86 from nowhere the compiler could find.
+- **Frontend library:** 393 functions (320 exported); 300 are called from production code; 2 only from tests or tooling; 91 from nowhere the compiler could find.
 
 ### Backend: functions with no callers found
 
@@ -64,9 +64,10 @@ Candidates to review, not proof of dead code: a function may be reached in a way
 
 Candidates to review, not proof of dead code: a function may be reached in a way the limits above cannot see.
 
-- `frontend/src/lib/api.ts`: `getCashFlowForecast`, `getTrialBalance`, `getSalesReport`, `getBalanceSheet`, `getProfitAndLoss`, `getProfitAndLossByHierarchy`, `getProfitAndLossByHierarchyTree`, `getLedgerDateRange`, `createProfitCenter`, `setSessionProfitCenter`, `getBusinessConfigurationReport`, `stagePurchaseOrder`, `postPurchaseOrder`, `stageOrderReceipt`, `postOrderReceipt`, `stageSalesOrder`, `postSalesOrder`, `listQuotations`, `getQuotation`, `createQuotation`, `createRfq`, `markQuotationSent`, `acceptQuotation`, `rejectQuotation`, `postOnAccountInvoice`, `getAgedInvoices`, `getAgedSummary`, `getCustomerStatement`, `getReminderCandidates`, `sendReminder`, `resetReminder`, `openStorageContainer`, `getItemLocation`, `receiveItems`, `transferItems`, `closeBooks`, `getStorageSpaceReport`
+- `frontend/src/lib/api.ts`: `getCashFlowForecast`, `getTrialBalance`, `getSalesReport`, `getBalanceSheet`, `getProfitAndLoss`, `getProfitAndLossByHierarchy`, `getProfitAndLossByHierarchyTree`, `getLedgerDateRange`, `createProfitCenter`, `setSessionProfitCenter`, `getBusinessConfigurationReport`, `listJournalEntries`, `stagePurchaseOrder`, `postPurchaseOrder`, `stageOrderReceipt`, `postOrderReceipt`, `stageSalesOrder`, `postSalesOrder`, `listQuotations`, `getQuotation`, `createQuotation`, `createRfq`, `markQuotationSent`, `acceptQuotation`, `rejectQuotation`, `postOnAccountInvoice`, `getAgedInvoices`, `getAgedSummary`, `getCustomerStatement`, `getReminderCandidates`, `sendReminder`, `resetReminder`, `openStorageContainer`, `getItemLocation`, `receiveItems`, `transferItems`, `getStockOutRiskReport`, `closeBooks`, `getStorageSpaceReport`
 - `frontend/src/lib/matrix-api.ts`: `getStockOnHandMatrix`, `getCube`, `getAxisValues`
-- `frontend/src/lib/screen-runtime.ts`: `sources.itemHierarchies`, `sources.locations`, `sources.items`, `sources.providers`, `sources.customers`, `sources.postableAccounts`, `filters.sameCityAsFrom`, `reactions.orderStatus`, `reactions.onHand`, `reactions.fromLocationChanged`, `reactions.itemSources`, `reactions.providerPrice`, `totals.lineTax`, `totals.quantityTimesPrice`, `totals.valueTaxRate`, `totals.taxRate`, `actions.purchase`, `actions.sale`, `actions.transfer`, `actions.orderReceipt`, `actions.salesOrder`, `actions.quotation`, `actions.purchaseOrder`, `records.quotations`, `commands.sendReminder`, `commands.resetReminder`, `commands.markSent`, `commands.accept`, `commands.reject`, `reports.aged`, `reports.businessConfiguration`, `reports.cashFlow`, `reports.sales`, `reports.statement`, `reports.reminders`, `reports.belowReorder`, `reports.storageSpace`, `reports.trialBalance`, `reports.balanceSheet`
+- `frontend/src/lib/pagination.ts`: `createPaginator`
+- `frontend/src/lib/screen-runtime.ts`: `sources.itemHierarchies`, `sources.locations`, `sources.items`, `sources.providers`, `sources.customers`, `sources.postableAccounts`, `filters.sameCityAsFrom`, `reactions.orderStatus`, `reactions.onHand`, `reactions.fromLocationChanged`, `reactions.itemSources`, `reactions.providerPrice`, `totals.lineTax`, `totals.quantityTimesPrice`, `totals.valueTaxRate`, `totals.taxRate`, `actions.purchase`, `actions.sale`, `actions.transfer`, `actions.orderReceipt`, `actions.salesOrder`, `actions.quotation`, `actions.purchaseOrder`, `records.quotations`, `commands.sendReminder`, `commands.resetReminder`, `commands.markSent`, `commands.accept`, `commands.reject`, `reports.aged`, `reports.businessConfiguration`, `reports.cashFlow`, `reports.sales`, `reports.statement`, `reports.reminders`, `reports.belowReorder`, `reports.journalEntries`, `reports.stockOutRisk`, `reports.storageSpace`, `reports.trialBalance`, `reports.balanceSheet`
 - `frontend/src/lib/state.svelte.ts`: `auth.set`, `hasUnsavedEdit.set`, `menuTree.set`, `screenTitle`, `session.set`, `session.clear`, `translations.set`
 
 ## Backend
@@ -9917,7 +9918,7 @@ Called from: production: db.ts (postBomComponents ×1)
 asBusinessName(name: string): BusinessName
 ```
 
-Called from: production: state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, CashTransaction.svelte ×4, PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/arap/quotations ×1, and 26 more
+Called from: production: state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, CashTransaction.svelte ×4, PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/arap/quotations ×1, and 28 more
 
 **`asLedgerName`** *(exported)*
 
@@ -10557,7 +10558,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/new-busi
 getLedgers(businessName: string): Promise<{ id: number; name: string; }[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, and 21 more
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, and 23 more
 
 **`getActiveLedger`** *(exported)*
 
@@ -10677,7 +10678,7 @@ Called from: production: api.ts (getJournalEntry ×1, listJournalEntries (as a v
 listJournalEntries(business: BusinessName, ledger: LedgerName, limit?: number, offset?: number): Promise<{ rows: JournalSummary[]; totalCount: number; }>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/journal ×1
+Called from: nowhere the compiler could find.
 
 **`getJournalEntry`** *(exported)*
 
@@ -11741,7 +11742,7 @@ Called from: Svelte pages (by name in the file's imports): routes/stock/restock 
 getStockOutRiskReport(windowDays?: number): Promise<StockOutRiskRow[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/stock-out-risk ×1
+Called from: nowhere the compiler could find.
 
 **`getRestockPickingList`** *(exported)*
 
@@ -12075,7 +12076,7 @@ Called from: tests: 2 call(s) in 1 file(s) · Svelte pages (by name in the file'
 todayIsoDate(): string
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/aged ×1, routes/reports/balance-sheet ×1, routes/reports/below-reorder ×0, routes/reports/business-configuration ×0, routes/reports/cash-flow-forecast ×1, routes/reports/new-stock-on-hand ×0, routes/reports/reminders ×1, routes/reports/sales ×2, and 4 more
+Called from: Svelte pages (by name in the file's imports): routes/journal ×0, routes/reports/aged ×1, routes/reports/balance-sheet ×1, routes/reports/below-reorder ×0, routes/reports/business-configuration ×0, routes/reports/cash-flow-forecast ×1, routes/reports/new-stock-on-hand ×0, routes/reports/reminders ×1, and 6 more
 
 **`scaleFor`**
 
@@ -12099,7 +12100,7 @@ Called from: production: format.ts (formatAmount ×1)
 formatAmount(smallestUnits: number, numberFormat: string, unitCode?: string): string
 ```
 
-Called from: tests: 16 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): AxisPLNode.svelte ×1, CashTransaction.svelte ×1, HierarchyGroupPLNode.svelte ×1, PivotGrid.svelte ×1, ProfitAndLossTable.svelte ×1, routes/account/password ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, and 24 more
+Called from: tests: 16 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): AxisPLNode.svelte ×1, CashTransaction.svelte ×1, HierarchyGroupPLNode.svelte ×1, PivotGrid.svelte ×1, ProfitAndLossTable.svelte ×1, routes/account/password ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, and 23 more
 
 **`formatDate`** *(exported)*
 
@@ -12445,7 +12446,7 @@ Called from: production: pagination.ts (createPaginator ×1, load ×1)
 createPaginator<T>(fetchPage: (limit: number, offset: number) => Promise<FetchPageResult<T>>, pageSize?: number): Paginator<T>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/journal ×0
+Called from: nowhere the compiler could find.
 
 **`pageSize`** *(exported)*
 
@@ -12453,7 +12454,7 @@ Called from: Svelte pages (by name in the file's imports): routes/journal ×0
 pageSize(): number
 ```
 
-Called from: production: pagination.ts (movePage ×1, pageCount ×1, pageRows ×1) · Svelte pages (by name in the file's imports): routes/arap/quotations ×1, routes/arap/rfq ×1, routes/invoices ×0, routes/reports/aged ×2, routes/reports/below-reorder ×1, routes/reports/business-configuration ×3, routes/reports/cash-flow-forecast ×1, routes/reports/reminders ×1, and 3 more
+Called from: production: pagination.ts (movePage ×1, pageCount ×1, pageRows ×1) · Svelte pages (by name in the file's imports): routes/arap/quotations ×1, routes/arap/rfq ×1, routes/invoices ×0, routes/journal ×3, routes/reports/aged ×2, routes/reports/below-reorder ×1, routes/reports/business-configuration ×3, routes/reports/cash-flow-forecast ×1, and 5 more
 
 **`pageCount`** *(exported)*
 
@@ -12461,7 +12462,7 @@ Called from: production: pagination.ts (movePage ×1, pageCount ×1, pageRows ×
 pageCount(rows: number, size?: number): number
 ```
 
-Called from: production: pagination.ts (movePage ×1, pageRows ×1) · Svelte pages (by name in the file's imports): routes/arap/quotations ×2, routes/arap/rfq ×2, routes/reports/aged ×4, routes/reports/below-reorder ×2, routes/reports/business-configuration ×6, routes/reports/cash-flow-forecast ×2, routes/reports/reminders ×2, routes/reports/sales ×4, and 2 more
+Called from: production: pagination.ts (movePage ×1, pageRows ×1) · Svelte pages (by name in the file's imports): routes/arap/quotations ×2, routes/arap/rfq ×2, routes/journal ×1, routes/reports/aged ×4, routes/reports/below-reorder ×2, routes/reports/business-configuration ×6, routes/reports/cash-flow-forecast ×2, routes/reports/reminders ×2, and 4 more
 
 **`pageRows`** *(exported)*
 
@@ -12469,7 +12470,7 @@ Called from: production: pagination.ts (movePage ×1, pageRows ×1) · Svelte pa
 pageRows<T>(rows: T[], page: number, size?: number): T[]
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/arap/quotations ×1, routes/arap/rfq ×1, routes/reports/aged ×2, routes/reports/below-reorder ×1, routes/reports/business-configuration ×3, routes/reports/cash-flow-forecast ×1, routes/reports/reminders ×1, routes/reports/sales ×2, and 2 more
+Called from: Svelte pages (by name in the file's imports): routes/arap/quotations ×1, routes/arap/rfq ×1, routes/journal ×0, routes/reports/aged ×2, routes/reports/below-reorder ×1, routes/reports/business-configuration ×3, routes/reports/cash-flow-forecast ×1, routes/reports/reminders ×1, and 4 more
 
 **`movePage`** *(exported)*
 
@@ -12477,7 +12478,7 @@ Called from: Svelte pages (by name in the file's imports): routes/arap/quotation
 movePage(page: number, rows: number, to: "first" | "previous" | "next" | "last", size?: number): number
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/arap/quotations ×1, routes/arap/rfq ×1, routes/reports/aged ×2, routes/reports/below-reorder ×1, routes/reports/business-configuration ×3, routes/reports/cash-flow-forecast ×1, routes/reports/reminders ×1, routes/reports/sales ×2, and 2 more
+Called from: Svelte pages (by name in the file's imports): routes/arap/quotations ×1, routes/arap/rfq ×1, routes/journal ×1, routes/reports/aged ×2, routes/reports/below-reorder ×1, routes/reports/business-configuration ×3, routes/reports/cash-flow-forecast ×1, routes/reports/reminders ×1, and 4 more
 
 ### `frontend/src/lib/screen-runtime.ts`
 
@@ -12791,7 +12792,7 @@ Called from: nowhere the compiler could find.
 money(minor: number): any
 ```
 
-Called from: production: screen-runtime.ts (amount ×2, reports.aged ×2, reports.balanceSheet ×1, reports.cashFlow ×7, reports.reminders ×1, reports.sales ×4, and 3 more)
+Called from: production: screen-runtime.ts (amount ×2, reports.aged ×2, reports.balanceSheet ×1, reports.cashFlow ×7, reports.journalEntries ×2, reports.reminders ×1, and 4 more)
 
 **`treeRows`**
 
@@ -12815,7 +12816,7 @@ Called from: production: screen-runtime.ts (section ×1)
 line(key: string, cells: Record<string, string>, more?: Partial<ReportRow>): ReportRow
 ```
 
-Called from: production: screen-runtime.ts (lines ×1, reports.aged ×2, reports.belowReorder ×1, reports.businessConfiguration ×2, reports.cashFlow ×1, reports.reminders ×1, and 3 more)
+Called from: production: screen-runtime.ts (lines ×1, reports.aged ×2, reports.belowReorder ×1, reports.businessConfiguration ×2, reports.cashFlow ×1, reports.journalEntries ×1, and 5 more)
 
 **`units`**
 
@@ -12831,7 +12832,7 @@ Called from: production: screen-runtime.ts (reports.storageSpace ×3)
 count(n: number | null | undefined): string
 ```
 
-Called from: production: screen-runtime.ts (reports.belowReorder ×4, reports.sales ×1)
+Called from: production: screen-runtime.ts (reports.belowReorder ×4, reports.sales ×1, reports.stockOutRisk ×2)
 
 **`reminderLevel`**
 
@@ -12893,6 +12894,22 @@ Called from: nowhere the compiler could find.
 
 ```
 reports.belowReorder(): Promise<{ columns: { groups: { title: string; rows: any; }[]; }[]; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`reports.journalEntries`** *(exported)*
+
+```
+reports.journalEntries(c: Context, v: Values): Promise<{ total: any; columns: { groups: { title: string; rows: any; }[]; }[]; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`reports.stockOutRisk`** *(exported)*
+
+```
+reports.stockOutRisk(): Promise<{ columns: { groups: { title: string; rows: any; }[]; }[]; }>
 ```
 
 Called from: nowhere the compiler could find.

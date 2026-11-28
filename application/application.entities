@@ -1681,14 +1681,12 @@ Root
     - :Field Bind=bomUnit Control=select Label=Unit
     - :Action Handler=addBomComponent Label="Add component"
    "/jobs" :Screen Description="A Job differs from a Project in the original SQL-Ledger by tracking materials consumed (Stores Cards) alongside labor (Time Cards) \u2014 relevant for light manufacturing or service work, not yet built." Template=not-implemented Title=Jobs
-   "/journal" :Screen "Calls listJournalEntries">/Root/Application/Calls/listJournalEntries Source="frontend/src/routes/journal/+page.svelte" Title="Journal Entries"
-    - :Heading Text="Journal Entries"
-    - :Column Label=Date
-    - :Column Label=Reference
-    - :Column Label=Description
-    - :Column Label=Debit
-    - :Column Label=Credit
-    - :Use Component>/Root/Application/Components/Pager "Prop paginator"="{journal}"
+   "/journal" :Screen "Empty Href"="/post" "Empty Link"="Post The First One" "Empty Text"="No Entries Yet" Paged=server Report=journalEntries Template=report Title="Journal Entries"
+    - :Entry Label=Date Name=date
+    - :Entry Control=link Href="/journal/{id}/{date}" Label=Reference Name=reference
+    - :Entry Label=Description Name=description
+    - :Entry Control=amount Label=Debit Name=debit
+    - :Entry Control=amount Label=Credit Name=credit
    "/journal/[id]/[date]" :Screen "Calls getJournalEntry">/Root/Application/Calls/getJournalEntry Source="frontend/src/routes/journal/[id]/[date]/+page.svelte" Title="Journal Entry"
     - :Action Handler=reverse
     - :Column Label=Account
@@ -1965,14 +1963,13 @@ Root
     - :Column Label=Location
     - :Column Label=Qty
     - :Column Label=Amount
-   "/reports/stock-out-risk" :Screen "Calls getStockOutRiskReport">/Root/Application/Calls/getStockOutRiskReport Source="frontend/src/routes/reports/stock-out-risk/+page.svelte" Title="Stock-Out Risk"
-    - :Heading Text="Stock-Out Risk"
-    - :Column Label=Item
-    - :Column Label=Locations
-    - :Column Label="On hand"
-    - :Column Label="Daily use"
-    - :Column Label="Days left"
-    - :Column Label="Lead time (days)"
+   "/reports/stock-out-risk" :Screen "Empty Text"="Nothing is genuinely at risk of running out right now." Intro="Every item genuinely on track to run out before a fresh order, placed today, could arrive \u2014 based on real, recent consumption and the shortest known provider lead time, not just a fixed reorder threshold." Report=stockOutRisk Template=report Title="Stock-Out Risk"
+    - :Entry Label=Item Name=item
+    - :Entry Label=Locations Name=location
+    - :Entry Control=amount Label="On hand" Name=onHand
+    - :Entry Control=amount Label="Daily use" Name=dailyUse
+    - :Entry Control=amount Label="Days left" Name=daysLeft
+    - :Entry Control=amount Label="Lead time (days)" Name=leadTime
    "/reports/storage-space" :Screen "Empty Text"="No real storage-space activity yet." Intro="Each real location's own, real, physical storage space \u2014 Installed, Occupied, and Remaining, per real storage unit (cartons, bottles, or whatever a business defines). These accounts live outside the Chart of Accounts, so they never appear on the Trial Balance." Report=storageSpace Template=report Title="Inventory and Storage"
     - :Entry Label="Storage Unit" Name=unit
     - :Entry Control=amount Label=Installed Name=installed

@@ -308,7 +308,6 @@ Hand-written web pages (`frontend/src/routes`, by route):
 - `/hr`
 - `/invoices`
 - `/items`
-- `/journal`
 - `/journal/[id]/[date]`
 - `/locations`
 - `/login`
@@ -318,7 +317,6 @@ Hand-written web pages (`frontend/src/routes`, by route):
 - `/reports/compare`
 - `/reports/profit-and-loss`
 - `/reports/stock-movement`
-- `/reports/stock-out-risk`
 - `/session`
 - `/setup`
 - `/setup/bank-accounts`

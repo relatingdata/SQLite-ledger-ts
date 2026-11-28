@@ -29,6 +29,8 @@ import {
   getOrderStatus,
   getTrialBalance,
   getBelowReorderStock,
+  getStockOutRiskReport,
+  listJournalEntries,
   getAgedInvoices,
   getAgedSummary,
   getReminderCandidates,
@@ -468,6 +470,8 @@ export interface ReportColumn {
 }
 export interface Report {
   columns: ReportColumn[];
+  /** For a report paged on the server (Paged=server): how many rows in all. */
+  total?: number;
   /** A title and intro that differ from the screen's, for these parameters. */
   title?: string;
   intro?: string;
@@ -620,6 +624,37 @@ export const reports: Record<string, (c: Context, v: Values) => Promise<Report>>
         rows: rows.map((r, i) => line(String(i),
           { item: r.item, location: r.location, onHand: count(r.quantity_on_hand), reorder: count(r.reorder_level), min: count(r.min_level), max: count(r.max_level) },
           { mark: r.min_level != null && r.quantity_on_hand <= r.min_level ? 'critical' : undefined })),
+      }],
+    }] };
+  },
+  /** The ledger's journal entries, a page at a time (Paged=server), each
+   * linked to the entry by its id and date, a recurring one marked. */
+  journalEntries: async (c, v) => {
+    const page = await listJournalEntries(asBusinessName(c.business), asLedgerName(c.ledger), Number(v.limit || 100), Number(v.offset || 0));
+    return {
+      total: page.totalCount,
+      columns: [{
+        groups: page.rows.length === 0 ? [] : [{
+          title: '',
+          rows: page.rows.map((tx) => line(`${tx.journal_id}/${tx.occurrence_date}`,
+            { date: tx.occurrence_date ?? '', reference: tx.reference, id: String(tx.journal_id), description: tx.description,
+              debit: money(tx.total_debit_minor), credit: money(tx.total_credit_minor) },
+            { badge: tx.recurrence !== 'once' ? tx.recurrence : undefined, marks: { debit: 'amount-debit', credit: 'amount-credit' } })),
+        }],
+      }],
+    };
+  },
+  /** Every item on track to run out before an order placed today could
+   * arrive: its recent daily use against the shortest provider lead time. */
+  stockOutRisk: async () => {
+    const rows = await getStockOutRiskReport(2);
+    return { columns: [{
+      groups: rows.length === 0 ? [] : [{
+        title: '',
+        rows: rows.map((r, i) => line(String(i),
+          { item: r.item, location: r.location, onHand: count(r.quantity_on_hand), dailyUse: r.daily_consumption_rate.toFixed(1),
+            daysLeft: r.days_until_stockout?.toFixed(1) ?? '', leadTime: count(r.shortest_lead_time_days) },
+          { mark: 'critical' })),
       }],
     }] };
   },
