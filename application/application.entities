@@ -1874,21 +1874,18 @@ Root
     - :Entry Label=Source Name=source
     - :Entry Control=amount Label=Amount Name=amount
     - :Entry Control=amount Label="Running balance" Name=balance
-   "/reports/compare" :Screen "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls getProfitAndLossComparison">/Root/Application/Calls/getProfitAndLossComparison "Calls getTrialBalanceComparison">/Root/Application/Calls/getTrialBalanceComparison Source="frontend/src/routes/reports/compare/+page.svelte" Title="Compare Ledgers"
-    - :Heading Text="Compare Ledgers"
-    - :Heading Text="Ledger A"
-    - :Field Bind=ledgerA Control=select Label="Ledger A"
-    - :Heading Text=Ledger
-    - :Field Bind=compareToLedger Control=select Label=Ledger
-    - :Heading Text="Profit and Loss Statement"
-    - :Column Label=Account
-    - :Column Label=Variance
-    - :Heading Text="Trial Balance"
-    - :Column Label=Account
-    - :Column Label=Debit
-    - :Column Label=Credit
-    - :Column Label=Debit
-    - :Column Label=Credit
+   "/reports/compare" :Screen Intro="Any two ledgers in {NAME} side by side \u2014 Actual against a proposed budget, or two proposed budgets against each other. Not limited to whichever ledger you're currently in." "Intro Name"=business Paged=no Report=compareLedgers Template=report Title="Compare Ledgers"
+    - :Field Choices=ledgers Control=choose Default=first Label="Ledger A" Name=ledgerA Reacts=ledgerAChanged
+    - :Field Choices=ledgers Control=choose Filter=otherThanLedgerA Label="Ledger B" Name=ledgerB
+    - :Entry Label=Account Name=name Table=pl
+    - :Entry Control=amount Name=a Table=pl
+    - :Entry Control=amount Name=b Table=pl
+    - :Entry Control=amount Label=Variance Name=variance Table=pl
+    - :Entry Label=Account Name=name Table=tb
+    - :Entry Control=amount Name=aDebit Table=tb
+    - :Entry Control=amount Name=aCredit Table=tb
+    - :Entry Control=amount Name=bDebit Table=tb
+    - :Entry Control=amount Name=bCredit Table=tb
    "/reports/new-stock-on-hand" :Screen "Axis Chooser"=drag "Column Axis"=Location "Empty Text"="No stock on hand for this combination." Highlight=quantity Intro="Current stock on hand, broken down by any two of Item, Category, Location and the business's own hierarchies \u2014 quantity, what it cost (first in, first out, as the books hold it), and realizable value at current retail price. Drag a field into Rows or Columns; the shading shows, in each row, where stock is lowest (red) and highest (green)." "Row Axis"=Item Template=pivot Title="Stock on Hand"
     - :Entry Control=quantity Label=Qty Name=quantity Source=onHand
     - :Entry Control=amount Formula="cost / quantity" Label=Cost Name=unitCost
@@ -2374,6 +2371,7 @@ Root
    "/vouchers/payable" :Screen Description="Batch approval of accounts payable \u2014 stage several provider bills for a second person to review and approve together, rather than one at a time. A documented, confirmed gap (docs/TODO.md)." Template=not-implemented Title="Payable Batch"
    "/vouchers/payment" :Screen Description="Batch approval of a group of provider payments together, mirroring Payable Batch on the payment side." Template=not-implemented Title="Payment Batch"
   Styles Ordered>/Root/Active
+   - :Rule Selector=".report-table .group-heading td" font-weight=700 padding-top=0.6rem
    - :Rule Selector=.controls align-items=flex-end display=flex flex-wrap=wrap gap=0.8rem justify-content=center margin-bottom=1.2rem
    - :Rule Selector=".controls select" max-width=220px
    - :Rule Selector=".controls .link" background=none border=none color="var(--brass-dark)" cursor=pointer font-size="var(--font-size-base)" padding="0.4rem 0" text-decoration=underline

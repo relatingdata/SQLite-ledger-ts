@@ -314,7 +314,6 @@ Hand-written web pages (`frontend/src/routes`, by route):
 - `/pos`
 - `/post`
 - `/projects`
-- `/reports/compare`
 - `/reports/stock-movement`
 - `/session`
 - `/setup`

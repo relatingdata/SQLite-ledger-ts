@@ -31,6 +31,9 @@ import {
   getBelowReorderStock,
   getStockOutRiskReport,
   listJournalEntries,
+  getLedgers,
+  getTrialBalanceComparison,
+  getProfitAndLossComparison,
   getAgedInvoices,
   getAgedSummary,
   getReminderCandidates,
@@ -46,6 +49,7 @@ import {
   getBalanceSheet,
   type CategoryTreeNode,
   type ProfitAndLoss,
+  type ProfitAndLossComparisonLine,
   postSalesOrder,
   createQuotation,
   createRfq,
@@ -157,6 +161,12 @@ const againstAxis = (choices: Choice[], other: string): Choice[] => {
 export const sources: Record<string, (business: string, ledger: string) => Promise<Choice[]>> = {
   /** Report axes (axisChoices). */
   axes: axisChoices,
+  /** The business's ledgers, the session's own first. */
+  ledgers: async (business, ledger) =>
+    (await getLedgers(asBusinessName(business)))
+      .map((l) => l.name)
+      .sort((a, b) => (a === ledger ? -1 : b === ledger ? 1 : 0))
+      .map((name) => ({ value: name, label: name })),
   /** The business's hierarchies of its items, by name. */
   itemHierarchies: async (business) => named(hierarchiesOf(await getHierarchy(business), 'Items').map((g) => ({ name: g.hierarchy }))),
   locations: async (business) => (await listLocations(asBusinessName(business))).map((l) => ({ value: l.name, label: l.name, city: l.city ?? undefined })),
@@ -174,6 +184,8 @@ export const sources: Record<string, (business: string, ledger: string) => Promi
 // --- filters: a field's choices narrowed by the other values ---------------------
 
 export const filters: Record<string, (choices: Choice[], values: Values) => Choice[]> = {
+  /** Every ledger but the one chosen as ledger A. */
+  otherThanLedgerA: (choices, v) => choices.filter((c) => c.value !== v.ledgerA),
   /** The axes the inner axis allows: on the other side from it. */
   againstInner: (choices, v) => againstAxis(choices, v.innerAxis ?? ''),
   /** The axes the outer axis allows: on the other side from it. */
@@ -208,6 +220,13 @@ async function keepAxesApart(c: Context, v: Values, changed: 'outerAxis' | 'inne
 }
 
 export const reactions: Record<string, (c: Context, v: Values) => Promise<Patch>> = {
+  /** Ledger A changed: ledger B, if empty or now the same, becomes the
+   * first other ledger. */
+  ledgerAChanged: async (c, v) => {
+    if (v.ledgerB && v.ledgerB !== v.ledgerA) return {};
+    const other = (await getLedgers(asBusinessName(c.business))).find((l) => l.name !== v.ledgerA);
+    return { values: { ledgerB: other?.name ?? '' } };
+  },
   /** The outer axis changed: the inner one stays only on the other side. */
   outerAxisChanged: (c, v) => keepAxesApart(c, v, 'outerAxis'),
   /** The inner axis changed: the outer one stays only on the other side. */
@@ -735,6 +754,45 @@ export const reports: Record<string, (c: Context, v: Values) => Promise<Report>>
           { mark: r.min_level != null && r.quantity_on_hand <= r.min_level ? 'critical' : undefined })),
       }],
     }] };
+  },
+  /** Two ledgers side by side (ledgerA, ledgerB): their Profit and Loss
+   * with each line's variance, and their Trial Balances. */
+  compareLedgers: async (c, v) => {
+    if (!v.ledgerA || !v.ledgerB) return { columns: [] };
+    const business = asBusinessName(c.business);
+    const [tb, pl] = await Promise.all([getTrialBalanceComparison(business, v.ledgerA, v.ledgerB), getProfitAndLossComparison(business, v.ledgerA, v.ledgerB)]);
+    const net = (minor: number) => (minor < 0 ? `(${money(Math.abs(minor))})` : money(minor));
+    const sign = (minor: number) => (minor > 0 ? 'amount-credit' : minor < 0 ? 'amount-debit' : '');
+    // A variance is favourable when income is above, or expenses below, ledger B.
+    const plLine = (l: ProfitAndLossComparisonLine, favourable: number) => line(`pl/${l.name}`,
+      { name: t(l.name), a: net(l.a_minor), b: net(l.b_minor), variance: favourable < 0 ? `(${money(Math.abs(l.variance_minor))})` : money(Math.abs(l.variance_minor)) },
+      { marks: { a: l.a_minor < 0 ? 'amount-debit' : '', b: l.b_minor < 0 ? 'amount-debit' : '', variance: sign(favourable) } });
+    const heading = (key: string, name: string) => line(`pl/${key}`, { name: t(name) }, { mark: 'group-heading' });
+    const amount = (minor: number) => (minor ? money(minor) : '');
+    const groups: ReportGroup[] = [
+          {
+            title: `${t('Profit and Loss Statement')} \u2014 ${pl.ledgerA} vs ${pl.ledgerB}`,
+            table: 'pl',
+            labels: { a: pl.ledgerA, b: pl.ledgerB },
+            rows: [
+              heading('income', 'Income'),
+              ...pl.income.map((l) => plLine(l, l.variance_minor)),
+              heading('expenses', 'Expenses'),
+              ...pl.expenses.map((l) => plLine(l, -l.variance_minor)),
+            ],
+            footer: { name: t('Net income'), a: net(pl.a_net_income_minor), b: net(pl.b_net_income_minor),
+              variance: pl.net_income_variance_minor < 0 ? `(${money(Math.abs(pl.net_income_variance_minor))})` : money(Math.abs(pl.net_income_variance_minor)) },
+          },
+          {
+            title: `${t('Trial Balance')} \u2014 ${tb.ledgerA} vs ${tb.ledgerB}`,
+            table: 'tb',
+            labels: { aDebit: `${tb.ledgerA} ${t('Debit')}`, aCredit: `${tb.ledgerA} ${t('Credit')}`, bDebit: `${tb.ledgerB} ${t('Debit')}`, bCredit: `${tb.ledgerB} ${t('Credit')}` },
+            rows: tb.rows.map((r) => line(`tb/${r.id}`,
+              { name: t(r.name), aDebit: amount(r.a_debit_minor), aCredit: amount(r.a_credit_minor), bDebit: amount(r.b_debit_minor), bCredit: amount(r.b_credit_minor) },
+              { marks: { aDebit: 'amount-debit', aCredit: 'amount-credit', bDebit: 'amount-debit', bCredit: 'amount-credit' } })),
+          },
+    ];
+    return { columns: [{ groups }] };
   },
   /** Profit and Loss by two nested axes (outerAxis, innerAxis; either one
    * narrowed to one value as "Axis::value"), over an optional period. */

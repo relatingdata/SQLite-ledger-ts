@@ -424,7 +424,8 @@
          (entries (lists:filter (lambda (p) (== (kind s p) #"Entry")) parts))
          (commands (lists:filter (lambda (p) (== (kind s p) #"Command")) parts))
          (queries (lists:filter (lambda (f) (=/= (val s f #"Query") 'undefined)) params))
-         (chooses (lists:filter (lambda (f) (== (val s f #"Control") #"choose")) params)))
+         (chooses (lists:filter (lambda (f) (== (val s f #"Control") #"choose")) params))
+         (reacting (lists:filter (lambda (f) (=/= (val s f #"Reacts") 'undefined)) params)))
     (list
       #"<script lang='ts'>\n" (header s id)
       #"  import { onMount } from 'svelte';\n"
@@ -434,6 +435,7 @@
       #"  import { todayIsoDate } from '$lib/format';\n"
       (if (orelse (paged? s id) (server-paged? s id)) #"  import PageButtons from '$lib/PageButtons.svelte';\n  import { pageRows, pageCount, movePage, pageSize } from '$lib/pagination';\n" #"")
       #"  import { reports, " (if (== commands '()) #"" #"commands, ") (if (== chooses '()) #"" #"sources, filters, type Choice, ")
+      (if (== reacting '()) #"" #"reactions, type Patch, ")
       #"type Report } from '$lib/screen-runtime';\n\n"
       (if (== chooses '()) #""
         #"  let choices: Record<string, Choice[]> = $state({});\n  let narrowed: Record<string, Choice[] | undefined> = $state({});\n  let showAll: Record<string, boolean> = $state({});\n")
@@ -450,6 +452,11 @@
                                                        ((tuple _ d) (js d)))))
                                    params))
       #" });\n"
+      ;; A parameter that Reacts runs its reaction when its value changes.
+      (if (== reacting '()) #""
+        (list #"  const context = () => ({ business, ledger, party: '' });\n"
+              #"  const apply = (patch: Patch) => {\n    if (patch.values) Object.assign(values, patch.values);\n  };\n"
+              (lists:map (lambda (f) (reaction s f)) reacting)))
       #"  let open = $state(new Set<string>());\n"
       #"  const shown = (group: Report['columns'][number]['groups'][number]) => group.rows.filter((r) => r.ancestors.every((a) => open.has(a)));\n"
       (if (paged? s id) #"  let pages: Record<string, number> = $state({});\n" #"")
