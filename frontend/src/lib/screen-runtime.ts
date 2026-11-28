@@ -79,6 +79,14 @@ import {
   asCustomerName,
   asItemName,
   type EntityNode,
+  previewCloseBooks,
+  resolveRolloverLines,
+  stageLine,
+  postJournalEntry,
+  createLedger,
+  getReportingPeriods,
+  type CloseBooksPreview,
+  type ResolvedRollover,
 } from '$lib/api';
 import { getCube, getAxes, getProfitAndLossByAxis, type ProfitAndLossByAxisNode } from '$lib/matrix-api';
 import { parseMinorUnits, parseQuantity } from '$lib/money';
@@ -200,6 +208,25 @@ export const sources: Record<string, (business: string, ledger: string) => Promi
       .map((l) => l.name)
       .sort((a, b) => (a === ledger ? -1 : b === ledger ? 1 : 0))
       .map((name) => ({ value: name, label: name })),
+  /** The business's reporting periods, from its financial-year start and
+   * reporting frequency (none when it has not stored them). */
+  reportingPeriods: async (business) => {
+    try {
+      return (await getReportingPeriods(asBusinessName(business))).map((p) => ({ value: p.label, label: `${p.label} (${t('ends')} ${p.endDate})` }));
+    } catch {
+      return [];
+    }
+  },
+  /** The postable accounts under Equity, Owner's Equity first. */
+  equityAccounts: async () => {
+    const entities = await getEntityTree();
+    const byId = new Map(entities.map((e) => [e.id, e]));
+    const underEquity = (e: EntityNode | undefined): boolean => !!e && (e.name === 'Equity' || underEquity(e.parent_id !== null ? byId.get(e.parent_id) : undefined));
+    return entities
+      .filter((e) => e.is_postable_account && underEquity(e))
+      .sort((a, b) => (a.name === "Owner's Equity" ? -1 : b.name === "Owner's Equity" ? 1 : 0))
+      .map((e) => ({ value: e.name, label: e.name }));
+  },
   /** The business's hierarchies of its items, by name. */
   itemHierarchies: async (business) => named(hierarchiesOf(await getHierarchy(business), 'Items').map((g) => ({ name: g.hierarchy }))),
   locations: async (business) => (await listLocations(asBusinessName(business))).map((l) => ({ value: l.name, label: l.name, city: l.city ?? undefined })),
@@ -253,6 +280,13 @@ async function keepAxesApart(c: Context, v: Values, changed: 'outerAxis' | 'inne
 }
 
 export const reactions: Record<string, (c: Context, v: Values) => Promise<Patch>> = {
+  /** A reporting period chosen: the as-of date becomes its end, and a new
+   * ledger not yet named is named "Actual <period>". */
+  periodChosen: async (c, v) => {
+    const period = (await getReportingPeriods(asBusinessName(c.business))).find((p) => p.label === v.period);
+    if (!period) return {};
+    return { values: { asOfDate: period.endDate, ...(!v.newLedger && !(v.newLedgerName ?? '').trim() ? { newLedgerName: `Actual ${period.label}` } : {}) } };
+  },
   /** Ledger A changed: ledger B, if empty or now the same, becomes the
    * first other ledger. */
   ledgerAChanged: async (c, v) => {
@@ -1240,6 +1274,143 @@ export const formActions: Record<string, (c: Context, v: Values) => Promise<Valu
 export const previews: Record<string, (v: Values) => string> = {
   /** An amount and a date in the chosen formats. */
   formats: (v) => `Preview: ${formatAmount(123456789, v.numberFormat ?? '')} \u00b7 ${formatDate('2027-08-03', v.dateFormat ?? '')}`,
+};
+
+// --- proposals -----------------------------------------------------------------
+//
+// A review screen's sections each propose a journal entry from the
+// screen's values (proposals), shown for review; accepting it posts it
+// (accepts) and shows what was done. An Error's message is shown in the
+// section.
+
+/** A line of a proposed entry, its amounts written out. */
+export interface ProposalRow {
+  account: string;
+  debit: string;
+  credit: string;
+}
+/** A heading and the items under it. */
+export interface Listing {
+  heading: string;
+  items: string[];
+}
+/** A proposed entry: its lines, figures under them, listings, and what
+ * accepting it needs (data). */
+export interface Proposal {
+  rows: ProposalRow[];
+  summary?: { label: string; value: string }[];
+  lists?: Listing[];
+  data?: unknown;
+}
+/** What accepting a proposal did. */
+export interface Outcome {
+  title: string;
+  lines: { label: string; value: string }[];
+  lists?: Listing[];
+  note?: string;
+}
+
+const amount = (minor: number) => formatAmount(minor, auth.current?.user.number_format ?? '1 000.00');
+const proposalRows = (lines: { account: string; amount_minor: number }[]): ProposalRow[] =>
+  lines.map((l) => ({ account: l.account, debit: l.amount_minor > 0 ? amount(l.amount_minor) : '', credit: l.amount_minor < 0 ? amount(-l.amount_minor) : '' }));
+const breakdown = (heading: string, groups: { group: string | null; netIncomeMinor: number }[]): Listing[] =>
+  groups.length > 0 ? [{ heading, items: groups.map((d) => `${d.group ?? t('(no division)')}: ${amount(d.netIncomeMinor)}`) }] : [];
+// The ledger a rollover goes into: the one chosen, or the new one named.
+const rolloverTarget = (v: Values) => v.newLedger || (v.newLedgerName ?? '').trim();
+
+/** An entry to review before it is posted. */
+export const proposals: Record<string, (c: Context, v: Values) => Promise<Proposal>> = {
+  /** Closing the books as of a date: every income and expense account
+   * zeroed into the retained earnings account, with the net income by
+   * location and the business's location hierarchies. */
+  closeBooks: async (c, v) => {
+    if (!v.retainedEarnings) throw new Error(t('Retained earnings account'));
+    let hierarchyPath = ['Location'];
+    try {
+      const ofLocations = hierarchiesOf(await getHierarchy(asBusinessName(c.business)), 'Locations');
+      if (ofLocations.length > 0) hierarchyPath = ['Location', ...ofLocations.map((h) => h.hierarchy)];
+    } catch {
+      // the close still works with just a Location breakdown
+    }
+    const preview = await previewCloseBooks({ business: asBusinessName(c.business), ledger: asLedgerName(c.ledger), asOfDate: v.asOfDate, retainedEarningsAccount: asAccountName(v.retainedEarnings), hierarchyPath });
+    return {
+      rows: proposalRows(preview.lines),
+      summary: [{ label: t('Net income'), value: amount(preview.netIncomeMinor) }],
+      lists: breakdown(`${t('Summary by division/location (informational — every division rolls into the one, combined Retained Earnings line above)')}:`, preview.groupBreakdown),
+      data: preview,
+    };
+  },
+  /** Rolling the balance-sheet accounts over into a ledger (created when
+   * new) as its opening balances, as of a date. */
+  rollover: async (c, v) => {
+    const target = rolloverTarget(v);
+    if (!target) throw new Error(t('Name the new ledger first.'));
+    if (!v.newLedger) {
+      try {
+        await createLedger(asBusinessName(c.business), asLedgerName(target));
+      } catch (e) {
+        // rolling into a ledger made by a half-finished attempt is fine
+        if (!(e instanceof ApiError)) throw e;
+      }
+    }
+    const resolved = await resolveRolloverLines({ business: asBusinessName(c.business), oldLedger: asLedgerName(c.ledger), newLedger: asLedgerName(target), asOfDate: v.asOfDate });
+    return { rows: proposalRows(resolved.lines), data: resolved };
+  },
+};
+
+/** Posting an accepted proposal. */
+export const accepts: Record<string, (c: Context, v: Values, p: Proposal) => Promise<Outcome>> = {
+  /** Posts the proposed close as one entry, CLOSE-<ledger>-<date>. */
+  closeBooks: async (c, v, p) => {
+    const preview = p.data as CloseBooksPreview;
+    const reference = `CLOSE-${c.ledger}-${v.asOfDate}`;
+    for (const line of preview.lines) {
+      await stageLine({
+        reference,
+        business: asBusinessName(c.business),
+        ledger: asLedgerName(c.ledger),
+        transdate: v.asOfDate,
+        account: asAccountName(line.account),
+        accountId: line.accountId,
+        amount_minor: line.amount_minor,
+        memo: line.account === v.retainedEarnings ? 'Year-end close — net income retained' : 'Year-end close',
+      });
+    }
+    await postJournalEntry(reference, asBusinessName(c.business), asLedgerName(c.ledger));
+    return {
+      title: `${t('Closed')}: ${reference}`,
+      lines: [
+        { label: t('Net income'), value: amount(preview.netIncomeMinor) },
+        { label: t('Accounts zeroed'), value: String(preview.accountsZeroed) },
+      ],
+      lists: breakdown(`${t('By division/location profit center')}:`, preview.groupBreakdown),
+      note: t("Every real balance-sheet account — Inventory, Cash, Accounts Receivable/Payable — is unchanged and needs no further action: its real, current balance is already the new period's opening balance."),
+    };
+  },
+  /** Posts the opening balances into the new ledger. */
+  rollover: async (c, v, p) => {
+    const resolved = p.data as ResolvedRollover;
+    const target = asLedgerName(rolloverTarget(v));
+    for (const line of resolved.lines) {
+      await stageLine({
+        reference: resolved.reference,
+        business: asBusinessName(c.business),
+        ledger: target,
+        transdate: v.asOfDate,
+        account: asAccountName(line.account),
+        amount_minor: line.amount_minor,
+        memo: `Opening balance carried forward from ${c.ledger}`,
+      });
+    }
+    await postJournalEntry(resolved.reference, asBusinessName(c.business), target);
+    return {
+      title: `${t('Rolled over')}: ${resolved.reference}`,
+      lines: [
+        { label: t('New ledger'), value: target },
+        { label: t('Accounts carried forward'), value: String(resolved.accountsCarriedForward) },
+      ],
+    };
+  },
 };
 
 /** A forms screen's status line, reloaded after each form is saved. */

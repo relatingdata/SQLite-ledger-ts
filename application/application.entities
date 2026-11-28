@@ -2171,30 +2171,14 @@ Root
     - :Heading Text="This business prefers:"
     - :Field Control=select Label="This business prefers:"
     - :Action Handler="() => save(concept)" Label=Save
-   "/setup/yearend" :Screen "Calls createLedger">/Root/Application/Calls/createLedger "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getHierarchy">/Root/Application/Calls/getHierarchy "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls getReportingPeriods">/Root/Application/Calls/getReportingPeriods "Calls postJournalEntry">/Root/Application/Calls/postJournalEntry "Calls previewCloseBooks">/Root/Application/Calls/previewCloseBooks "Calls resolveRolloverLines">/Root/Application/Calls/resolveRolloverLines "Calls stageLine">/Root/Application/Calls/stageLine Source="frontend/src/routes/setup/yearend/+page.svelte" Title="Year End Close"
-    - :Heading Text="Year End Close"
-    - :Heading Text="Reporting Period"
-    - :Field Bind=selectedPeriodLabel Control=select Label="Reporting Period"
-    - :Heading Text="As of date"
-    - :Field Bind=asOfDate Control=input Label="As of date" Type=date
-    - :Heading Text="Retained earnings account"
-    - :Field Bind=retainedEarningsAccount Control=select Label="Retained earnings account"
-    - :Action Handler=fetchPreview Label="Preview the close"
-    - :Column Label=Account
-    - :Column Label=Debit
-    - :Column Label=Credit
-    - :Action Handler=reject Label=Reject
-    - :Action Handler=acceptAndClose Label="Accept and close"
-    - :Heading Text="Roll over to a new period"
-    - :Heading Text="New ledger"
-    - :Field Bind=selectedLedgerOption Control=select Label="New ledger"
-    - :Field Bind=newLedgerName Control=input Label="New ledger" Placeholder="{translations.current['New ledger name'] ?? 'New ledger name'}" Type=text
-    - :Action Handler=resolveRollover Label="Resolve opening balances"
-    - :Column Label=Account
-    - :Column Label=Debit
-    - :Column Label=Credit
-    - :Action Handler=rejectRollover Label=Reject
-    - :Action Handler=acceptRollover Label="Accept and roll over"
+   "/setup/yearend" :Screen Intro="A real, one-time close: zeros every real income and expense account, posting the real, net difference into a real equity account as one, single, balanced entry." "Intro Note"="Real balance-sheet accounts \u2014 Cash, Inventory, Accounts Receivable/Payable, and every other real asset/liability \u2014 are never touched by this process at all. Their real, ending balance simply carries forward as-is, automatically becoming the new period's own opening balance, since a real balance-sheet account is a genuine, persistent running total, not something that resets each period the way income and expense do." Template=review Title="Year End Close"
+    - :Field Choices=reportingPeriods Control=select Empty="Pick a period\u2026" Hint="Computed from this business's own financial-year start date and reporting frequency \u2014 pick one to fill in the as-of date (and, below, a suggested new ledger name) instead of working it out by hand." Label="Reporting Period" Name=period Reacts=periodChosen
+    - :Field Control=date Default=today Label="As of date" Name=asOfDate
+    - :Field Choices=equityAccounts Control=select Label="Retained earnings account" Name=retainedEarnings
+    - :Section Accept=closeBooks "Accept Label"="Accept and close" Hint="Nothing posts yet \u2014 the next step shows the real, proposed general journal entry for you to review, before anything is actually closed." Name=close "Proposal Title"="Proposed general journal entry" Propose=closeBooks "Propose Label"="Preview the close" Title="Close the books"
+    - :Section Accept=rollover "Accept Label"="Accept and roll over" Intro="Carries every real, non-zero Balance Sheet account \u2014 Cash, Inventory, Accounts Receivable/Payable, and every other real asset/liability/equity \u2014 forward into a new ledger as that ledger's own opening balance, as of the date above. Run this after closing the books above, since a real rollover should only ever carry forward real Balance Sheet accounts once Income/Expense have already been closed into Retained Earnings." Name=rollover "Proposal Title"="Proposed opening-balance entry" Propose=rollover "Propose Label"="Resolve opening balances" Title="Roll over to a new period"
+     a0 :Field Choices=ledgers Control=select Empty="+ New ledger\u2026" Label="New ledger" Name=newLedger
+     a1 :Field Control=text Label="New ledger name" Name=newLedgerName Placeholder="New ledger name" "When Empty"=newLedger
    "/shipping" :Screen Description="Freight, carrier details, and shipment tracking attached to a Stock Dispatch." Template=not-implemented Title=Shipping
    "/stock" :Screen Intro="Purchase and Sales Orders are commitments only \u2014 placing one never touches a real account. Fulfilling one (a Stock Receipt or Dispatch) is what actually posts to the ledger." Template=tiles Title="Stock / Orders"
     - :Tile Description="Commit to buying from a provider \u2014 memo only, until a Stock Receipt fulfills it." Href="/stock/po" Title="Purchase Order"
@@ -2351,6 +2335,22 @@ Root
    - :Rule Selector=".report-table .group-heading td" font-weight=700 padding-top=0.6rem
    - :Rule Selector=.form-status background="var(--paper-dim, #f2ede1)" border-radius=4px margin="0 0 1rem" padding="0.6rem 0.9rem"
    - :Rule Selector=.preview font-family="var(--font-mono)" font-size="var(--font-size-medium)" margin=0
+   - :Rule Selector=.review-card background="var(--paper)" border="1px solid var(--rule-strong, #ccc)" border-radius=8px box-sizing=border-box margin="0 auto 1.2rem" max-width=720px padding="1.2rem 1.3rem" width="100%"
+   - :Rule Selector=.fields-row display=flex flex-wrap=wrap gap=1rem
+   - :Rule Selector=".fields-row > fieldset" flex="1 1 12rem"
+   - :Rule Selector=.field-note color="var(--ink-soft)" font-size="var(--font-size-small)" margin="0.3rem 0 0"
+   - :Rule Selector=.hint color="var(--ink-soft)" font-size="var(--font-size-base)" margin="0.6rem 0"
+   - :Rule Selector=.proposal background="#fdf6e8" border="1px solid #d9a441" border-radius=6px color="#6b4c14" margin="1rem 0" padding="0.8rem 1rem"
+   - :Rule Selector=.proposal-heading font-weight=600 margin="0 0 0.5rem"
+   - :Rule Selector=".proposal-table th, .proposal-table td" border-bottom="1px solid var(--rule)" padding="0.35rem 0.5rem" text-align=left
+   - :Rule Selector=".proposal-table th.num, .proposal-table td.num" font-variant-numeric=tabular-nums text-align=right
+   - :Rule Selector=.proposal-net font-size="var(--font-size-medium)" margin="0.6rem 0 0"
+   - :Rule Selector=.decision-row display=flex gap=0.6rem margin-top=0.8rem
+   - :Rule Selector=.outcome background="#eaf5ea" border-radius=5px color="#2a5c2a" margin="0.8rem 0" padding="0.6rem 0.8rem"
+   - :Rule Selector=".outcome p" margin="0.15rem 0"
+   - :Rule Selector=.outcome-note font-style=italic margin-top=0.6rem
+   - :Rule Selector=.group-heading font-weight=600 margin-top=0.6rem
+   - :Rule Selector=.group-list font-size="var(--font-size-medium)" margin="0.2rem 0 0" padding-left=1.2rem
    - :Rule Selector=.controls align-items=flex-end display=flex flex-wrap=wrap gap=0.8rem justify-content=center margin-bottom=1.2rem
    - :Rule Selector=".controls select" max-width=220px
    - :Rule Selector=".controls .link" background=none border=none color="var(--brass-dark)" cursor=pointer font-size="var(--font-size-base)" padding="0.4rem 0" text-decoration=underline

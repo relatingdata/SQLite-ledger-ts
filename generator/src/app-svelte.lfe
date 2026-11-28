@@ -25,6 +25,7 @@
     (#"report" (report s id))
     (#"drill" (drill s id))
     (#"forms" (forms s id))
+    (#"review" (review s id))
     (#"pivot" (pivot s id))
     (other (error (tuple 'no-template other (app-entities:name s id))))))
 
@@ -895,3 +896,153 @@
       (case (val s sec #"Preview")
         ('undefined #"")
         (preview (list #"  <p class='preview'>{previews." preview #"(Object.fromEntries(Object.entries(" (form-values s sec) #").map(([k, x]) => [k, String(x)])))}</p>\n"))))))
+;; --- the review template -----------------------------------------------------
+;;
+;; The screen's Fields, its parameters, in a card; then a card per Section:
+;; its Title, Intro and own Fields, and its Propose Label button, which
+;; asks the runtime's proposals for an entry (Propose) and shows it under
+;; its Proposal Title, account by account, with its figures and listings,
+;; to Reject or accept (Accept Label: the runtime's accepts posts it and
+;; says what was done). Changing any value drops what was proposed or done.
+;;
+;; A select's choices come from its Choices source, after its Empty
+;; choice if it has one; one without an Empty always holds one of its
+;; choices. A Field with Reacts runs that reaction when changed; a Field
+;; with When Empty names a field it is shown only while that one is empty.
+
+(defun review (s id)
+  (let* ((sections (lists:filter (lambda (p) (== (kind s p) #"Section")) (app-view:things s id)))
+         (shared (lists:filter (lambda (p) (== (kind s p) #"Field")) (app-view:things s id)))
+         (fields (lists:append (list shared (lists:append (lists:map (lambda (sec) (app-view:things s sec)) sections)))))
+         (chosen (lists:filter (lambda (f) (=/= (val s f #"Choices") 'undefined)) fields)))
+    (list
+      #"<script lang='ts'>\n" (header s id)
+      #"  import { onMount } from 'svelte';\n"
+      #"  import '$lib/generated.css';\n"
+      #"  import { session, translations } from '$lib/state.svelte';\n"
+      #"  import { todayIsoDate } from '$lib/format';\n"
+      #"  import { accepts, proposals, reactions, sources, type Choice, type Outcome, type Proposal, type Values } from '$lib/screen-runtime';\n\n"
+      #"  const t = (word: string) => translations.current[word] ?? word;\n"
+      #"  const context = () => ({ business: session.current?.businessName ?? '', ledger: session.current?.ledgerName ?? '', party: '' });\n"
+      #"  let values: Values = $state({ "
+      (lists:join #", " (lists:map (lambda (f) (list (val s f #"Name") #": " (report-default s f))) fields))
+      #" });\n"
+      #"  let choices: Record<string, Choice[]> = $state({});\n"
+      #"  let proposed: Record<string, Proposal | null> = $state({});\n"
+      #"  let outcome: Record<string, Outcome | null> = $state({});\n"
+      #"  let failed: Record<string, string> = $state({});\n"
+      #"  let busy: Record<string, boolean> = $state({});\n"
+      #"  const message = (e: unknown) => (e instanceof Error ? e.message : t('Could not complete.'));\n\n"
+      #"  // The choices, again after anything is posted; a select with no empty\n"
+      #"  // choice always holds one of its choices.\n"
+      #"  const optional = new Set([" (lists:join #", " (lists:map (lambda (f) (js (val s f #"Name"))) (lists:filter (lambda (f) (=/= (val s f #"Empty") 'undefined)) chosen))) #"]);\n"
+      #"  async function load() {\n"
+      #"    const { business, ledger } = context();\n"
+      #"    const named: [string, (b: string, l: string) => Promise<Choice[]>][] = ["
+      (lists:join #", " (lists:map (lambda (f) (list #"[" (js (val s f #"Name")) #", sources." (val s f #"Choices") #"]")) chosen))
+      #"];\n"
+      #"    for (const [name, source] of named) {\n"
+      #"      try {\n        choices[name] = await source(business, ledger);\n      } catch {\n        choices[name] = [];\n      }\n"
+      #"      const all = choices[name];\n"
+      #"      if (!optional.has(name) && all.length > 0 && !all.some((c) => c.value === values[name])) values[name] = all[0].value;\n"
+      #"    }\n  }\n"
+      #"  onMount(load);\n\n"
+      #"  function changed() {\n    proposed = {};\n    outcome = {};\n    failed = {};\n  }\n"
+      #"  async function react(name: string) {\n"
+      #"    try {\n      const patch = await reactions[name](context(), { ...values });\n"
+      #"      for (const [field, value] of Object.entries(patch.values ?? {})) values[field] = value;\n"
+      #"    } catch {\n      /* nothing changes */\n    }\n  }\n"
+      #"  async function propose(section: string, by: string) {\n"
+      #"    changed();\n    busy[section] = true;\n"
+      #"    try {\n      proposed[section] = await proposals[by](context(), { ...values });\n"
+      #"    } catch (e) {\n      failed[section] = message(e);\n    } finally {\n      busy[section] = false;\n    }\n"
+      #"    await load();\n  }\n"
+      #"  async function accept(section: string, by: string) {\n"
+      #"    const proposal = proposed[section];\n    if (!proposal) return;\n"
+      #"    busy[section] = true;\n    failed[section] = '';\n"
+      #"    try {\n      outcome[section] = await accepts[by](context(), { ...values }, proposal);\n      proposed[section] = null;\n"
+      #"    } catch (e) {\n      failed[section] = message(e);\n    } finally {\n      busy[section] = false;\n    }\n"
+      #"    await load();\n  }\n"
+      #"  function reject(section: string) {\n    proposed[section] = null;\n    failed[section] = '';\n  }\n"
+      #"</script>\n\n"
+      #"<svelte:head><title>{t(" (js (val s id #"Title")) #")}</title></svelte:head>\n\n"
+      #"<fieldset class='page-title generated'>\n"
+      #"  <legend>{t(" (js (val s id #"Title")) #")}</legend>\n"
+      (intro-line s id)
+      (case (val s id #"Intro Note") ('undefined #"") (n (list #"  <p class='intro'>" (t n) #"</p>\n")))
+      (if (== shared '()) #""
+        (list #"  <div class='card review-card'>\n"
+              #"    <p class='context-line'><strong>{session.current?.businessName ?? ''}</strong> {'\\u2014'} {session.current?.ledgerName ?? ''}</p>\n"
+              #"    <div class='fields-row'>\n"
+              (lists:map (lambda (f) (review-field s f #"      ")) shared)
+              #"    </div>\n  </div>\n"))
+      (lists:map (lambda (sec) (review-section s sec)) sections)
+      #"</fieldset>\n")))
+
+(defun review-field (s f pad)
+  (let* ((name (val s f #"Name"))
+         (bound (list #"values." name))
+         (on (case (val s f #"Reacts")
+               ('undefined #"changed")
+               (r (list #"() => { changed(); react(" (js r) #"); }"))))
+         (control
+           (case (val s f #"Control" #"text")
+             (#"select"
+              (list pad #"  <select bind:value={" bound #"} onchange={" on #"}>"
+                    (case (val s f #"Empty") ('undefined #"") (e (list #"<option value=''>" (t e) #"</option>")))
+                    #"{#each choices." name #" ?? [] as c}<option value={c.value}>{t(c.label)}</option>{/each}</select>\n"))
+             (control
+              (list pad #"  <input type=" (js control) #" bind:value={" bound #"} oninput={" on #"}"
+                    (case (val s f #"Placeholder") ('undefined #"") (ph (list #" placeholder={t(" (js ph) #")}")))
+                    #" />\n"))))
+         (inner (case (val s f #"Label")
+                  ('undefined control)
+                  (label (list pad #"<fieldset>\n" pad #"  <legend>" (t label) #"</legend>\n" control
+                               (case (val s f #"Hint") ('undefined #"") (h (list pad #"  <p class='field-note'>" (t h) #"</p>\n")))
+                               pad #"</fieldset>\n")))))
+    (case (val s f #"When Empty")
+      ('undefined inner)
+      (other (list pad #"{#if !values." other #"}\n" inner pad #"{/if}\n")))))
+
+(defun review-section (s sec)
+  (let* ((name (js (val s sec #"Name")))
+         (at (list #"[" name #"]"))
+         (by (js (val s sec #"Propose")))
+         (accept (js (val s sec #"Accept"))))
+    (list
+      #"  <div class='card review-card'>\n"
+      #"    <h3>" (t (val s sec #"Title")) #"</h3>\n"
+      (case (val s sec #"Intro") ('undefined #"") (i (list #"    <p class='intro'>" (t i) #"</p>\n")))
+      (lists:map (lambda (f) (review-field s f #"    ")) (app-view:things s sec))
+      #"    {#if !proposed" at #" && !outcome" at #"}\n"
+      (case (val s sec #"Hint") ('undefined #"") (h (list #"      <p class='hint'>" (t h) #"</p>\n")))
+      #"      {#if failed" at #"}<p class='error'>{failed" at #"}</p>{/if}\n"
+      #"      <button class='btn' onclick={() => propose(" name #", " by #")} disabled={busy" at #"}>{busy" at #" ? t('Loading') + '\\u2026' : t(" (js (val s sec #"Propose Label")) #")}</button>\n"
+      #"    {/if}\n"
+      #"    {#if proposed" at #"}\n"
+      #"      {@const p = proposed" at #"}\n"
+      #"      <div class='proposal'>\n"
+      #"        <p class='proposal-heading'>" (t (val s sec #"Proposal Title")) #"</p>\n"
+      #"        <table class='proposal-table'>\n"
+      #"          <thead><tr><th>{t('Account')}</th><th class='num'>{t('Debit')}</th><th class='num'>{t('Credit')}</th></tr></thead>\n"
+      #"          <tbody>{#each p.rows as r}<tr><td>{r.account}</td><td class='num'>{r.debit}</td><td class='num'>{r.credit}</td></tr>{/each}</tbody>\n"
+      #"        </table>\n"
+      #"        {#each p.summary ?? [] as line}<p class='proposal-net'>{line.label}: <strong>{line.value}</strong></p>{/each}\n"
+      #"        {#each p.lists ?? [] as list}<p class='group-heading'>{list.heading}</p><ul class='group-list'>{#each list.items as item}<li>{item}</li>{/each}</ul>{/each}\n"
+      #"        {#if failed" at #"}<p class='error'>{failed" at #"}</p>{/if}\n"
+      #"        <div class='decision-row'>\n"
+      #"          <button class='btn secondary' onclick={() => reject(" name #")} disabled={busy" at #"}>{t('Reject')}</button>\n"
+      #"          <button class='btn' onclick={() => accept(" name #", " accept #")} disabled={busy" at #"}>{busy" at #" ? t('Loading') + '\\u2026' : t(" (js (val s sec #"Accept Label")) #")}</button>\n"
+      #"        </div>\n"
+      #"      </div>\n"
+      #"    {/if}\n"
+      #"    {#if outcome" at #"}\n"
+      #"      {@const o = outcome" at #"}\n"
+      #"      <div class='outcome'>\n"
+      #"        <p><strong>{o.title}</strong></p>\n"
+      #"        {#each o.lines as line}<p>{line.label}: {line.value}</p>{/each}\n"
+      #"        {#each o.lists ?? [] as list}<p class='group-heading'>{list.heading}</p><ul class='group-list'>{#each list.items as item}<li>{item}</li>{/each}</ul>{/each}\n"
+      #"        {#if o.note}<p class='outcome-note'>{o.note}</p>{/if}\n"
+      #"      </div>\n"
+      #"    {/if}\n"
+      #"  </div>\n")))

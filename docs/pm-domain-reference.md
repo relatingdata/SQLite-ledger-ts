@@ -1142,8 +1142,8 @@ labelling each `"2026-27"` (annual), `"H1 2026-27"` (biannual),
 `setup/new-business/+page.svelte` has a date field and a frequency
 choice beside the free-text `financialYearLabel`, which names the
 Budget ledger. The Close Books/Rollover screen
-(`setup/yearend/+page.svelte`) shows a "Reporting period" picker when
-the business has periods (`getReportingPeriods`,
+(`/setup/yearend`) has a "Reporting period" picker offering the
+business's periods (`getReportingPeriods`,
 `call-dispatch/businesses.ts`); picking one fills in `asOfDate` and
 suggests the new ledger name `Actual <period label>`, which the person
 can change. `closeBooks` accepts any date, not only a period boundary.
@@ -1315,7 +1315,7 @@ design, then, is a short wizard — likely a new step on
 3. Shows the business's current `Owner's Equity` balance and proposes
    (never auto-posts) a journal entry zeroing it into the new
    partners' Capital accounts in whatever split the person enters —
-   the same stage-then-preview pattern `setup/yearend/+page.svelte`'s
+   the same stage-then-preview pattern `/setup/yearend`'s
    Close Books already uses, reused rather than reinvented.
 4. Leaves the old `Owner's Equity` account exactly where it is
    afterward (never deleted — this system never deletes real,

@@ -64,7 +64,7 @@ build output, ignored by git, written by `make generate`.
 
 ### Templates
 
-51 of the 81 routes are generated. Each screen names its template, or
+52 of the 81 routes are generated. Each screen names its template, or
 takes its base screen's (Variants, below):
 
 | Template | Screens | Reads |
@@ -73,6 +73,7 @@ takes its base screen's (Variants, below):
 | `report` | Trial Balance, Balance Sheet, Below Reorder, Inventory and Storage, Aged Receivables/Payables, Reminders, Customer Statement, Sales Report, Cash Flow Forecast, Business Configuration Report, Stock-Out Risk, Journal Entries, Compare Ledgers | `Title`, `Intro` (`{NAME}` in it is the business or ledger, by `Intro Name`; optional), `Report`, `Clear Label`, `Empty Text` with an `Empty Link` to `Empty Href`; parameter `Field`s (`Control=ledger` chooses the ledger); one `Entry` per column |
 | `drill` | Profit and Loss, Stock Movement Report, Inventory Listing | `Title`, `Intro`, `Report`, `Title Line`, `Empty Text`, `Clear Label`; parameter `Field`s in a row of controls |
 | `forms` | Account Settings, Accounting Periods | `Title`, `Intro`, `Status`; one `Section` per form (`Title`, `Action`, `Submit Label`, `Initial`, `Preview`), its `Field`s under it |
+| `review` | Year End Close | `Title`, `Intro`, `Intro Note`; parameter `Field`s; one `Section` per entry proposed (`Title`, `Intro`, `Hint`, `Propose`, `Propose Label`, `Proposal Title`, `Accept`, `Accept Label`), its own `Field`s under it |
 | `pivot` | Stock on Hand (`/reports/new-stock-on-hand`), Sales and Margin (`/reports/sales-margin`) | `Title`, `Intro`, `Row Axis`, `Column Axis`, `Axis Chooser` (`drag` or `select`), `Highlight`, `Highlight Across`, `Empty Text`, `Clear Label`; date `Field`s `fromDate`/`toDate`; one `Entry` per measure |
 | `tiles` | AR / AP, Stock, Reports (section index pages) | `Title`, `Intro`; one `Tile` (`Href`, `Title`, `Description`) per link |
 | `compose` | AP Payment, AR Receipt | One `Use` per component, its props as `Prop <name>` |
@@ -138,6 +139,22 @@ by its `Action` (`formActions`), started from its `Initial`
 names a line (`statuses`: `periodStatus`) shown above its forms and
 reloaded after each is saved; a `Section` with no fields is its button
 (Reopen period).
+
+In `review`, the screen's `Field`s are parameters in a card at the top
+(`Control` `select`, `date` or `text`; `Label`, `Hint`, `Placeholder`,
+`Default`). Each `Section` is a card with its own fields and a button
+(`Propose Label`) that asks `proposals` for an entry (its `Propose`),
+shown under its `Proposal Title` account by account (debit, credit),
+with the proposal's figures and listings, to Reject or accept (`Accept
+Label`): `accepts` (its `Accept`) posts it and returns what was done, a
+title, lines, listings and a note. An error is shown in the section
+(class `error`). Changing any value drops what was proposed or done; the
+choices are reloaded after each proposal and acceptance. A `select`'s
+choices come from its `Choices` source after its `Empty` choice; one
+with no `Empty` always holds one of its choices. A field with `Reacts`
+runs that reaction when changed; one with `When Empty` naming another
+field is shown only while that one is empty (the new ledger's name,
+while no existing ledger is chosen).
 
 ### The general report cube, and the `pivot` template
 
@@ -252,14 +269,15 @@ hand, in the runtime module:
 
 - `sources`: a choose field's choices, given the business and ledger
   (`locations`, `items`, `providers`, `customers`, `postableAccounts`,
-  `axes`, `ledgers`, `stockGroupings`, `numberFormats`, `dateFormats`);
+  `axes`, `ledgers`, `stockGroupings`, `numberFormats`, `dateFormats`,
+  `reportingPeriods`, `equityAccounts`);
   a choice can name its `group`;
 - `filters`: narrowing one field's choices by the others (`sameCityAsFrom`,
   `againstInner`, `againstOuter`, `otherThanLedgerA`);
 - `reactions`: run when a field changes, returning a patch of values,
   narrowed choices and an information line (`onHand`,
   `fromLocationChanged`, `itemSources`, `providerPrice`, `orderStatus`,
-  `outerAxisChanged`, `innerAxisChanged`, `ledgerAChanged`);
+  `outerAxisChanged`, `innerAxisChanged`, `ledgerAChanged`, `periodChosen`);
 - `totals`: `lineTax`, `taxRate`, `valueTaxRate`, `quantityTimesPrice`;
 - `actions`: the backend calls a submit makes (`purchase` and `sale`, on
   account or, when the party is `Cash`, paid at once; `transfer`,
@@ -269,6 +287,8 @@ hand, in the runtime module:
   (`pageSize`, `formats`, `closeThrough`; `savePageSize`, `saveFormats`,
   `changePassword`, `closePeriod`, `reopenPeriod`; `formats`), and
   `statuses` (`periodStatus`);
+- `proposals`, `accepts`: a `review` screen's entries proposed and
+  posted (`closeBooks`, `rollover`);
 - `records`: what a screen lists (`quotations`), and `commands`: what its
   record buttons do (`markSent`, `accept`, `reject`, `sendReminder`, `resetReminder`). A validation
   failure throws `Invalid`, whose message is shown.
@@ -363,7 +383,6 @@ Hand-written web pages (`frontend/src/routes`, by route):
 - `/setup/tree`
 - `/setup/users`
 - `/setup/vocabulary`
-- `/setup/yearend`
 - `/stock/restock`
 - `/stock/stock-dispatch`
 - `/stock/stock-take`

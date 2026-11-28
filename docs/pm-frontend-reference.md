@@ -634,25 +634,33 @@ A combination item's price comes from the server
 never falls back to the item's base retail price or to 0. A scan tries
 an exact UPC match first, then the first item found by name.
 
-## `frontend/src/routes/setup/yearend/+page.svelte` — Close Books and Rollover
+## `/setup/yearend` — Close Books and Rollover
 
-**The close-books breakdown** is by Location, then by the business's
-location hierarchies; if those fail to load, by Location only.
+The page is generated from the review template (*Application
+Configuration*, "Templates"); its behaviour is in
+`$lib/screen-runtime`.
 
-**Close Books** posts `previewCloseBooks`'s `preview.lines` with
-`stageLine`/`postJournalEntry` (`acceptAndClose`); nothing is
+**Parameters**: a reporting period (the `reportingPeriods` source;
+offers only "Pick a period…" when the business has stored no
+financial-year start and frequency), the as-of date (today) and the
+retained earnings account (`equityAccounts`: the postable accounts
+under Equity, Owner's Equity first and chosen). Picking a period
+(`periodChosen`) sets the as-of date to its end and, when the rollover
+goes into a new ledger not yet named, names it `Actual <period label>`,
+which the person can change (*Core Domain Reference*, "Reporting
+periods").
+
+**Close Books** (`proposals.closeBooks`, `accepts.closeBooks`): the
+proposal is `previewCloseBooks`'s lines, broken down by Location and
+then the business's location hierarchies (by Location only if those
+fail to load). Accepting posts exactly those lines with
+`stageLine`/`postJournalEntry` as `CLOSE-<ledger>-<date>`; nothing is
 recomputed.
 
-**Rollover**: `resolveRolloverLines` creates each carried-forward
-account under the new ledger and returns the opening-balance lines,
-which the screen posts the same way. The new ledger may already exist
-from an earlier, unfinished rollover; rolling into it works.
-
-**Reporting period**: when `getReportingPeriods` returns periods, a
-picker fills in `asOfDate` from the period's `endDate`
-(`applySelectedPeriod`) and, when the rollover target is a new ledger
-with no name yet, suggests `Actual <period label>`, which the person
-can change (*Core Domain Reference*, "Reporting periods").
+**Rollover** (`proposals.rollover`, `accepts.rollover`): into a ledger
+chosen, or a new one named (created first; one left by an earlier,
+unfinished rollover is used as it is). `resolveRolloverLines` returns
+the opening-balance lines, which accepting posts the same way.
 
 Tests (*Testing: Unit*, "Running the tests"):
 - "year-end-close-and-rollover" (`shared-fixtures/tests/year-end-close-and-rollover.csv`)
