@@ -36,7 +36,8 @@ Two mechanisms answer to "project".
 dispatched by `call-dispatch/projects.ts` as `clockInToProject`,
 `clockOutOfProject` and `getOpenProjectClock`) take a project as the
 name of an Expense account (`projectExpenseAccount: AccountName`). The
-page is `frontend/src/routes/projects/`: pick an employee and an
+page is `/projects` (generated, forms template: `states.projectClock`,
+`formActions.clockIn`/`clockOut`): pick an employee and an
 account, clock in or out.
 
 - The employee is a vendor selling their time: clocking in stages a

@@ -21,7 +21,7 @@ It uses the TypeScript compiler, not a text search. A prototype is printed by th
 ## Summary
 
 - **Backend:** 1215 functions (1031 exported); 850 are called from production code; 46 only from tests or tooling; 319 from nowhere the compiler could find.
-- **Frontend library:** 477 functions (392 exported); 272 are called from production code; 3 only from tests or tooling; 202 from nowhere the compiler could find.
+- **Frontend library:** 482 functions (397 exported); 269 are called from production code; 3 only from tests or tooling; 210 from nowhere the compiler could find.
 
 ### Backend: functions with no callers found
 
@@ -64,10 +64,10 @@ Candidates to review, not proof of dead code: a function may be reached in a way
 
 Candidates to review, not proof of dead code: a function may be reached in a way the limits above cannot see.
 
-- `frontend/src/lib/api.ts`: `getBankAccounts`, `getCashPosition`, `getCashFlowForecast`, `registerBankAccount`, `unregisterBankAccount`, `getTrialBalance`, `getSalesReport`, `getBalanceSheet`, `getProfitAndLoss`, `getProfitAndLossByHierarchy`, `getProfitAndLossByHierarchyTree`, `getLedgerDateRange`, `setLanguageDirection`, `getConceptsWithAlternates`, `getVocabularyWords`, `deleteVocabularyWord`, `setVocabularyPreference`, `deleteVocabularyPreference`, `setTranslation`, `getProductShapes`, `defineProductShape`, `saveHierarchyPrototype`, `createProfitCenter`, `setSessionProfitCenter`, `getReportingPeriods`, `getBusinessConfigurationReport`, `listJournalEntries`, `getTrialBalanceComparison`, `getProfitAndLossComparison`, `getUsers`, `getRoles`, `createUserAccount`, `setUserRolesApi`, `setUserActiveApi`, `changeUserPassword`, `getUserRoleMatrix`, `setUserRoleInBusiness`, `unsetUserRoleInBusiness`, `stagePurchaseOrder`, `postPurchaseOrder`, `stageOrderReceipt`, `postOrderReceipt`, `stageSalesOrder`, `postSalesOrder`, `listQuotations`, `getQuotation`, `createQuotation`, `createRfq`, `markQuotationSent`, `acceptQuotation`, `rejectQuotation`, `closePeriod`, `reopenPeriod`, `changeOwnPassword`, `setOwnPageSize`, `setOwnNumberFormat`, `setOwnDateFormat`, `postOnAccountInvoice`, `getAgedInvoices`, `getAgedSummary`, `getCustomerStatement`, `getReminderCandidates`, `sendReminder`, `resetReminder`, `openStorageContainer`, `getItemLocation`, `setItemLocationLevels`, `receiveItems`, `transferItems`, `getStockOutRiskReport`, `closeBooks`, `previewCloseBooks`, `resolveRolloverLines`, `createLedger`, `getInventoryListingByLocation`, `getStorageSpaceReport`, `getStockMovementReport`
+- `frontend/src/lib/api.ts`: `getBankAccounts`, `getCashPosition`, `getCashFlowForecast`, `registerBankAccount`, `unregisterBankAccount`, `getTrialBalance`, `getSalesReport`, `getBalanceSheet`, `getProfitAndLoss`, `getProfitAndLossByHierarchy`, `getProfitAndLossByHierarchyTree`, `getLedgerDateRange`, `setLanguageDirection`, `getConceptsWithAlternates`, `getVocabularyWords`, `deleteVocabularyWord`, `setVocabularyPreference`, `deleteVocabularyPreference`, `setTranslation`, `getProductShapes`, `defineProductShape`, `saveHierarchyPrototype`, `createProfitCenter`, `setSessionProfitCenter`, `getReportingPeriods`, `getBusinessConfigurationReport`, `listJournalEntries`, `getTrialBalanceComparison`, `getProfitAndLossComparison`, `getUsers`, `getRoles`, `createUserAccount`, `setUserRolesApi`, `setUserActiveApi`, `changeUserPassword`, `getUserRoleMatrix`, `setUserRoleInBusiness`, `unsetUserRoleInBusiness`, `stagePurchaseOrder`, `postPurchaseOrder`, `stageOrderReceipt`, `postOrderReceipt`, `stageSalesOrder`, `postSalesOrder`, `listQuotations`, `getQuotation`, `createQuotation`, `createRfq`, `markQuotationSent`, `acceptQuotation`, `rejectQuotation`, `closePeriod`, `reopenPeriod`, `changeOwnPassword`, `setOwnPageSize`, `setOwnNumberFormat`, `setOwnDateFormat`, `postOnAccountInvoice`, `getAgedInvoices`, `getAgedSummary`, `getCustomerStatement`, `getReminderCandidates`, `sendReminder`, `resetReminder`, `clockInToProject`, `clockOutOfProject`, `getOpenProjectClock`, `openStorageContainer`, `getItemLocation`, `setItemLocationLevels`, `receiveItems`, `transferItems`, `getStockOutRiskReport`, `closeBooks`, `previewCloseBooks`, `resolveRolloverLines`, `createLedger`, `getInventoryListingByLocation`, `getStorageSpaceReport`, `getStockMovementReport`
 - `frontend/src/lib/matrix-api.ts`: `getStockOnHandMatrix`, `getProfitAndLossByAxis`, `getCube`, `getAxisValues`, `getAxes`
 - `frontend/src/lib/pagination.ts`: `createPaginator`
-- `frontend/src/lib/screen-runtime.ts`: `sources.numberFormats`, `sources.dateFormats`, `sources.stockGroupings`, `sources.ledgers`, `sources.reportingPeriods`, `sources.bankAccountCandidates`, `sources.bankScopes`, `sources.roles`, `sources.businesses`, `sources.languages`, `sources.hierarchyPrototypes`, `sources.equityAccounts`, `sources.itemHierarchies`, `sources.locations`, `sources.items`, `sources.providers`, `sources.customers`, `sources.postableAccounts`, `filters.otherThanLedgerA`, `filters.otherThanReference`, `filters.againstInner`, `filters.againstOuter`, `filters.sameCityAsFrom`, `reactions.periodChosen`, `reactions.ledgerAChanged`, `reactions.outerAxisChanged`, `reactions.innerAxisChanged`, `reactions.orderStatus`, `reactions.onHand`, `reactions.fromLocationChanged`, `reactions.itemSources`, `reactions.providerPrice`, `totals.lineTax`, `totals.quantityTimesPrice`, `totals.valueTaxRate`, `totals.taxRate`, `actions.purchase`, `actions.sale`, `actions.transfer`, `actions.orderReceipt`, `actions.salesOrder`, `actions.quotation`, `actions.purchaseOrder`, `records.hierarchies`, `records.vocabularyWords`, `records.languages`, `records.hierarchyValues`, `records.bankAccounts`, `records.quotations`, `commands.deleteVocabularyWord`, `commands.removeLanguage`, `commands.deleteHierarchy`, `commands.deleteHierarchyValue`, `commands.unregisterBankAccount`, `commands.sendReminder`, `commands.resetReminder`, `commands.markSent`, `commands.accept`, `commands.reject`, `reports.aged`, `reports.businessConfiguration`, `reports.cashFlow`, `reports.sales`, `reports.statement`, `reports.reminders`, `reports.belowReorder`, `reports.stockMovement`, `reports.inventoryListing`, `reports.compareLedgers`, `reports.profitAndLossByAxis`, `reports.journalEntries`, `reports.stockOutRisk`, `reports.storageSpace`, `reports.trialBalance`, `reports.balanceSheet`, `formInitials.closeThrough`, `formInitials.pageSize`, `formInitials.formats`, `formActions.closePeriod`, `formActions.reopenPeriod`, `formActions.saveVocabulary`, `formActions.createUser`, `formActions.addVocabularyWord`, `formActions.addLanguage`, `formActions.setTranslation`, `formActions.createHierarchy`, `formActions.createHierarchyValue`, `formActions.saveHierarchyPrototype`, `formActions.createHierarchyFromPrototype`, `formActions.registerBankAccount`, `formActions.savePageSize`, `formActions.saveFormats`, `formActions.changePassword`, `grids.users`, `grids.businessRoles`, `gridToggles.userRole`, `gridToggles.businessRole`, `rowActions.reactivateUser`, `rowActions.deactivateUser`, `rowActions.resetPassword`, `cards.productShapes`, `lineActions.defineProductShape`, `tables.cashPosition`, `formRecords.wordTranslations`, `formRecords.wordsToTranslate`, `formRecords.vocabularyConcepts`, `previews.formats`, `proposals.closeBooks`, `proposals.rollover`, `accepts.closeBooks`, `accepts.rollover`, `statuses.periodStatus`
+- `frontend/src/lib/screen-runtime.ts`: `sources.numberFormats`, `sources.dateFormats`, `sources.stockGroupings`, `sources.ledgers`, `sources.reportingPeriods`, `sources.bankAccountCandidates`, `sources.bankScopes`, `sources.employees`, `sources.expenseAccounts`, `sources.roles`, `sources.businesses`, `sources.languages`, `sources.hierarchyPrototypes`, `sources.equityAccounts`, `sources.itemHierarchies`, `sources.locations`, `sources.items`, `sources.providers`, `sources.customers`, `sources.postableAccounts`, `filters.otherThanLedgerA`, `filters.otherThanReference`, `filters.againstInner`, `filters.againstOuter`, `filters.sameCityAsFrom`, `reactions.periodChosen`, `reactions.ledgerAChanged`, `reactions.outerAxisChanged`, `reactions.innerAxisChanged`, `reactions.orderStatus`, `reactions.onHand`, `reactions.fromLocationChanged`, `reactions.itemSources`, `reactions.providerPrice`, `totals.lineTax`, `totals.quantityTimesPrice`, `totals.valueTaxRate`, `totals.taxRate`, `actions.purchase`, `actions.sale`, `actions.transfer`, `actions.orderReceipt`, `actions.salesOrder`, `actions.quotation`, `actions.purchaseOrder`, `records.hierarchies`, `records.vocabularyWords`, `records.languages`, `records.hierarchyValues`, `records.bankAccounts`, `records.quotations`, `commands.deleteVocabularyWord`, `commands.removeLanguage`, `commands.deleteHierarchy`, `commands.deleteHierarchyValue`, `commands.unregisterBankAccount`, `commands.sendReminder`, `commands.resetReminder`, `commands.markSent`, `commands.accept`, `commands.reject`, `reports.aged`, `reports.businessConfiguration`, `reports.cashFlow`, `reports.sales`, `reports.statement`, `reports.reminders`, `reports.belowReorder`, `reports.stockMovement`, `reports.inventoryListing`, `reports.compareLedgers`, `reports.profitAndLossByAxis`, `reports.journalEntries`, `reports.stockOutRisk`, `reports.storageSpace`, `reports.trialBalance`, `reports.balanceSheet`, `formInitials.closeThrough`, `formInitials.pageSize`, `formInitials.formats`, `formActions.closePeriod`, `formActions.reopenPeriod`, `formActions.saveVocabulary`, `formActions.createUser`, `formActions.clockIn`, `formActions.clockOut`, `formActions.addVocabularyWord`, `formActions.addLanguage`, `formActions.setTranslation`, `formActions.createHierarchy`, `formActions.createHierarchyValue`, `formActions.saveHierarchyPrototype`, `formActions.createHierarchyFromPrototype`, `formActions.registerBankAccount`, `formActions.savePageSize`, `formActions.saveFormats`, `formActions.changePassword`, `grids.users`, `grids.businessRoles`, `gridToggles.userRole`, `gridToggles.businessRole`, `rowActions.reactivateUser`, `rowActions.deactivateUser`, `rowActions.resetPassword`, `cards.productShapes`, `lineActions.defineProductShape`, `tables.cashPosition`, `formRecords.wordTranslations`, `formRecords.wordsToTranslate`, `formRecords.vocabularyConcepts`, `previews.formats`, `proposals.closeBooks`, `proposals.rollover`, `accepts.closeBooks`, `accepts.rollover`, `states.projectClock`, `statuses.periodStatus`
 - `frontend/src/lib/state.svelte.ts`: `auth.set`, `hasUnsavedEdit.set`, `menuTree.set`, `screenTitle`, `session.set`, `session.clear`, `translations.set`
 
 ## Backend
@@ -9918,7 +9918,7 @@ Called from: production: db.ts (postBomComponents ×1)
 asBusinessName(name: string): BusinessName
 ```
 
-Called from: production: state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, CashTransaction.svelte ×4, PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/arap/quotations ×1, and 28 more
+Called from: production: state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, CashTransaction.svelte ×4, PaymentReceipt.svelte ×5, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/arap/quotations ×1, and 27 more
 
 **`asLedgerName`** *(exported)*
 
@@ -9926,7 +9926,7 @@ Called from: production: state.svelte.ts (loadStoredSession ×1) · Svelte pages
 asLedgerName(name: string): LedgerName
 ```
 
-Called from: production: state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): CashTransaction.svelte ×2, PaymentReceipt.svelte ×5, routes/items ×1, routes/locations ×1, routes/post ×4, routes/projects ×2, routes/session ×1, routes/stock/stock-dispatch ×2, and 1 more
+Called from: production: state.svelte.ts (loadStoredSession ×1) · Svelte pages (by name in the file's imports): CashTransaction.svelte ×2, PaymentReceipt.svelte ×5, routes/items ×1, routes/locations ×1, routes/post ×4, routes/session ×1, routes/stock/stock-dispatch ×2, routes/stock/write-offs ×0
 
 **`asAccountName`** *(exported)*
 
@@ -9934,7 +9934,7 @@ Called from: production: state.svelte.ts (loadStoredSession ×1) · Svelte pages
 asAccountName(name: string): AccountName
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/items ×1, routes/locations ×2, routes/pos ×1, routes/post ×2, routes/projects ×1, routes/stock/stock-take ×1, routes/stock/write-offs ×1
+Called from: Svelte pages (by name in the file's imports): routes/items ×1, routes/locations ×2, routes/pos ×1, routes/post ×2, routes/stock/stock-take ×1, routes/stock/write-offs ×1
 
 **`asLocationName`** *(exported)*
 
@@ -9950,7 +9950,7 @@ Called from: Svelte pages (by name in the file's imports): CashTransaction.svelt
 asEmployeeName(name: string): EmployeeName
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/hr ×1, routes/projects ×3, routes/setup/business-setup ×4
+Called from: Svelte pages (by name in the file's imports): routes/hr ×1, routes/setup/business-setup ×4
 
 **`asCustomerName`** *(exported)*
 
@@ -10094,7 +10094,7 @@ Called from: production: api.ts (getEntityTree (as a value))
 getEntityTree(business?: string): Promise<EntityNode[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×1, routes/contacts ×1, routes/editor ×1, routes/hr ×1, routes/invoices ×1, routes/items ×3, routes/locations ×1, routes/post ×1, and 6 more
+Called from: Svelte pages (by name in the file's imports): PaymentReceipt.svelte ×1, routes/contacts ×1, routes/editor ×1, routes/hr ×1, routes/invoices ×1, routes/items ×3, routes/locations ×1, routes/post ×1, and 5 more
 
 **`parseHierarchyLinkPointingAt`**
 
@@ -10534,7 +10534,7 @@ Called from: Svelte pages (by name in the file's imports): BusinessStructurePopu
 getBusinesses(): Promise<{ id: number; name: string; }[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/post ×1, routes/projects ×1, routes/session ×1, routes/stock/stock-dispatch ×1
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/post ×1, routes/session ×1, routes/stock/stock-dispatch ×1
 
 **`getBusinessTypes`** *(exported)*
 
@@ -10558,7 +10558,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/new-busi
 getLedgers(businessName: string): Promise<{ id: number; name: string; }[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, and 21 more
+Called from: Svelte pages (by name in the file's imports): CashTransaction.svelte ×1, PaymentReceipt.svelte ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, routes/arap/cash-purchase ×1, routes/arap/cash-sale ×1, routes/arap/quotations ×1, routes/arap/rfq ×1, and 20 more
 
 **`getActiveLedger`** *(exported)*
 
@@ -11478,7 +11478,7 @@ Called from: production: api.ts (clockInToProject (as a value), getOpenProjectCl
 clockInToProject(employeeName: EmployeeName, projectExpenseAccount: string, business: BusinessName, ledger: LedgerName): Promise<EmployeeClock>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/projects ×1
+Called from: nowhere the compiler could find.
 
 **`clockOutOfProject`** *(exported)*
 
@@ -11486,7 +11486,7 @@ Called from: Svelte pages (by name in the file's imports): routes/projects ×1
 clockOutOfProject(employeeName: EmployeeName, business: BusinessName, ledger: LedgerName): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/projects ×1
+Called from: nowhere the compiler could find.
 
 **`getOpenProjectClock`** *(exported)*
 
@@ -11494,7 +11494,7 @@ Called from: Svelte pages (by name in the file's imports): routes/projects ×1
 getOpenProjectClock(employeeName: EmployeeName): Promise<EmployeeClock>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/projects ×1
+Called from: nowhere the compiler could find.
 
 **`getLocationByName`** *(exported)*
 
@@ -12488,7 +12488,7 @@ Called from: Svelte pages (by name in the file's imports): routes/arap/quotation
 t(word: string): any
 ```
 
-Called from: production: screen-runtime.ts (accepts.closeBooks ×5, accepts.rollover ×3, actions.purchase ×1, actions.sale ×1, actions.transfer ×1, breakdown ×1, and 40 more)
+Called from: production: screen-runtime.ts (accepts.closeBooks ×5, accepts.rollover ×3, actions.purchase ×1, actions.sale ×1, actions.transfer ×1, breakdown ×1, and 42 more)
 
 **`named`**
 
@@ -12590,6 +12590,22 @@ Called from: nowhere the compiler could find.
 
 ```
 sources.bankScopes(business: string): Promise<{ value: string; label: string; }[]>
+```
+
+Called from: nowhere the compiler could find.
+
+**`sources.employees`** *(exported)*
+
+```
+sources.employees(): Promise<any>
+```
+
+Called from: nowhere the compiler could find.
+
+**`sources.expenseAccounts`** *(exported)*
+
+```
+sources.expenseAccounts(): Promise<any>
 ```
 
 Called from: nowhere the compiler could find.
@@ -13378,6 +13394,22 @@ formActions.createUser(_c: Context, v: Values): Promise<void>
 
 Called from: nowhere the compiler could find.
 
+**`formActions.clockIn`** *(exported)*
+
+```
+formActions.clockIn(c: Context, v: Values): Promise<{ message: string; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`formActions.clockOut`** *(exported)*
+
+```
+formActions.clockOut(c: Context, v: Values): Promise<{ message: string; }>
+```
+
+Called from: nowhere the compiler could find.
+
 **`formActions.addVocabularyWord`** *(exported)*
 
 ```
@@ -13638,6 +13670,14 @@ Called from: nowhere the compiler could find.
 
 ```
 accepts.rollover(c: Context, v: Values, p: Proposal): Promise<{ title: string; lines: { label: any; value: any; }[]; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`states.projectClock`** *(exported)*
+
+```
+states.projectClock(_c: Context, v: Values): Promise<{ state: string; lines?: undefined; } | { state: string; lines: { label: any; value: any; }[]; }>
 ```
 
 Called from: nowhere the compiler could find.

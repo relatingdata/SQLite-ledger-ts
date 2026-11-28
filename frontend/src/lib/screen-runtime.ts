@@ -123,6 +123,10 @@ import {
   getUserRoleMatrix,
   setUserRoleInBusiness,
   unsetUserRoleInBusiness,
+  clockInToProject,
+  clockOutOfProject,
+  getOpenProjectClock,
+  asEmployeeName,
 } from '$lib/api';
 import { getCube, getAxes, getProfitAndLossByAxis, type ProfitAndLossByAxisNode } from '$lib/matrix-api';
 import { parseMinorUnits, parseQuantity } from '$lib/money';
@@ -271,6 +275,19 @@ export const sources: Record<string, (business: string, ledger: string) => Promi
       // the business itself is still a scope
     }
     return [business, ...groups].map((name) => ({ value: name, label: name }));
+  },
+  /** The employees, by name. */
+  employees: async () => {
+    const entities = await getEntityTree();
+    const root = entities.find((e) => e.name === 'Employees');
+    return entities.filter((e) => e.parent_id === root?.id).map((e) => ({ value: e.name, label: e.name }));
+  },
+  /** The postable accounts under Expense: what a project is charged to. */
+  expenseAccounts: async () => {
+    const entities = await getEntityTree();
+    const byId = new Map(entities.map((e) => [e.id, e]));
+    const underExpense = (e: EntityNode | undefined): boolean => !!e && (e.name === 'Expense' || underExpense(e.parent_id !== null ? byId.get(e.parent_id) : undefined));
+    return entities.filter((e) => e.is_postable_account && underExpense(e.parent_id !== null ? byId.get(e.parent_id) : undefined)).map((e) => ({ value: e.name, label: e.name }));
   },
   /** The roles, by name. */
   roles: async () => (await getRoles()).map((r) => ({ value: r.name, label: r.name })),
@@ -1399,6 +1416,20 @@ export const formActions: Record<string, (c: Context, v: Values) => Promise<Valu
     }
     await createUserAccount(v.username, v.password, roleNames);
   },
+  /** Clocks the employee chosen (employee) in against a project's expense
+   * account (project): a standing order for their time. */
+  clockIn: async (c, v) => {
+    if (!v.employee || !v.project) throw new Error(t('Select project...'));
+    await clockInToProject(asEmployeeName(v.employee), asAccountName(v.project), asBusinessName(c.business), asLedgerName(c.ledger));
+    return { message: `${v.employee} clocked in against "${v.project}".` };
+  },
+  /** Clocks the employee chosen (employee) out: the hours worked are
+   * posted as due for payment. */
+  clockOut: async (c, v) => {
+    if (!v.employee) return;
+    await clockOutOfProject(asEmployeeName(v.employee), asBusinessName(c.business), asLedgerName(c.ledger));
+    return { message: `${v.employee} clocked out \u2014 the real hours worked have been posted as due for payment.` };
+  },
   /** A new vocabulary word (word). */
   addVocabularyWord: async (_c, v) => {
     if (!(v.word ?? '').trim()) return;
@@ -1814,6 +1845,25 @@ export const accepts: Record<string, (c: Context, v: Values, p: Proposal) => Pro
       lines: [
         { label: t('New ledger'), value: target },
         { label: t('Accounts carried forward'), value: String(resolved.accountsCarriedForward) },
+      ],
+    };
+  },
+};
+
+/** A forms screen's state, from its parameters: a name its sections'
+ * When State matches, and lines to show. */
+export const states: Record<string, (c: Context, v: Values) => Promise<{ state: string; lines?: { label: string; value: string }[] }>> = {
+  /** Whether the employee chosen (employee) is clocked in (in: against
+   * which project, since when) or not (out); nothing until one is. */
+  projectClock: async (_c, v) => {
+    if (!v.employee) return { state: '' };
+    const open = await getOpenProjectClock(asEmployeeName(v.employee)).catch(() => null);
+    if (!open) return { state: 'out' };
+    return {
+      state: 'in',
+      lines: [
+        { label: t('Currently clocked in against'), value: open.project_expense_account },
+        { label: t('Since'), value: new Date(open.clocked_in_at).toLocaleString() },
       ],
     };
   },

@@ -64,7 +64,7 @@ build output, ignored by git, written by `make generate`.
 
 ### Templates
 
-57 of the 81 routes are generated. Each screen names its template, or
+58 of the 81 routes are generated. Each screen names its template, or
 takes its base screen's (Variants, below):
 
 | Template | Screens | Reads |
@@ -72,7 +72,7 @@ takes its base screen's (Variants, below):
 | `transaction` | Cash Purchase, Cash Sale, AP Purchase, AR Sale, Purchase Order, Sales Order, Stock Receipt, Stock Transfer, Quotations, RFQ | `Title`, `Intro`, `Action`, `Totals`, `Total Label`, `Party` / `Party Label`, `Submit Label`, `Fail Text`; its `Field` and `Column` things |
 | `report` | Trial Balance, Balance Sheet, Below Reorder, Inventory and Storage, Aged Receivables/Payables, Reminders, Customer Statement, Sales Report, Cash Flow Forecast, Business Configuration Report, Stock-Out Risk, Journal Entries, Compare Ledgers | `Title`, `Intro` (`{NAME}` in it is the business or ledger, by `Intro Name`; optional), `Report`, `Clear Label`, `Empty Text` with an `Empty Link` to `Empty Href`; parameter `Field`s (`Control=ledger` chooses the ledger); one `Entry` per column |
 | `drill` | Profit and Loss, Stock Movement Report, Inventory Listing | `Title`, `Intro`, `Report`, `Title Line`, `Empty Text`, `Clear Label`; parameter `Field`s in a row of controls |
-| `forms` | Account Settings, Accounting Periods, Vocabulary | `Title`, `Intro`, `Status`; one `Section` per form (`Title`, `Action`, `Submit Label`, `Initial`, `Preview`; or `Each`, `Empty Text`: a form per record), its `Field`s under it |
+| `forms` | Account Settings, Accounting Periods, Vocabulary, Projects | `Title`, `Intro`, `Status`, `State`, parameter `Field`s; one `Section` per form (`When State`) (`Title`, `Action`, `Submit Label`, `Initial`, `Preview`; or `Each`, `Empty Text`: a form per record), its `Field`s under it |
 | `list` | Bank Accounts, Hierarchies, Translations, Users | `Title`, `Intro`, `Records`, `Key`, `Insert`, `Delete`, `List Title`, `Hint`, `Empty Text`, `Lists Title`, `Lists Class`, `Modes`, `Needs Role`; `Entry` columns, `Field`s of the insert form; `Section`s with `Records` (more lists, `Of` another), `Table`, `Button`, `Cards`, `Lines`, `Each`, `Search`, `Pickers`, `Grid`, `Form Of`, or an always-open `Card` form |
 | `review` | Year End Close | `Title`, `Intro`, `Intro Note`; parameter `Field`s; one `Section` per entry proposed (`Title`, `Intro`, `Hint`, `Propose`, `Propose Label`, `Proposal Title`, `Accept`, `Accept Label`), its own `Field`s under it |
 | `pivot` | Stock on Hand (`/reports/new-stock-on-hand`), Sales and Margin (`/reports/sales-margin`) | `Title`, `Intro`, `Row Axis`, `Column Axis`, `Axis Chooser` (`drag` or `select`), `Highlight`, `Highlight Across`, `Empty Text`, `Clear Label`; date `Field`s `fromDate`/`toDate`; one `Entry` per measure |
@@ -144,6 +144,13 @@ runtime's `formRecords` returns (`key`, `title`, `note`, `values`, and
 the `options` of each select), its fields a form of that record; saving
 passes the record's `key` with the values, and the records are reloaded
 after each save. With no records it shows its `Empty Text`.
+A screen's own `Field`s are its parameters, choices in a row above
+the forms (`Choices`, `Empty`), passed to every form's action. Its
+`State` names a state (`states`) worked out from the parameters and
+reloaded as they change and after each save: a name, and lines shown
+above the forms; a `Section` with `When State` is shown only in that
+state. A select field's `Empty` is its first choice, nothing chosen
+yet; an action returning a `message` shows it under the forms.
 
 In `list`, records are selectable lists
 (`$lib/components/SelectableListEditor`), a line per record with its
@@ -339,7 +346,8 @@ hand, in the runtime module:
   (`locations`, `items`, `providers`, `customers`, `postableAccounts`,
   `axes`, `ledgers`, `stockGroupings`, `numberFormats`, `dateFormats`,
   `reportingPeriods`, `equityAccounts`, `bankAccountCandidates`,
-  `bankScopes`, `hierarchyPrototypes`, `languages`, `roles`, `businesses`);
+  `bankScopes`, `hierarchyPrototypes`, `languages`, `roles`, `businesses`,
+  `employees`, `expenseAccounts`);
   a choice can name its `group`;
 - `filters`: narrowing one field's choices by the others (`sameCityAsFrom`,
   `againstInner`, `againstOuter`, `otherThanLedgerA`, `otherThanReference`);
@@ -357,11 +365,12 @@ hand, in the runtime module:
   `changePassword`, `closePeriod`, `reopenPeriod`, `saveVocabulary`,
   `registerBankAccount`, `createHierarchy`, `createHierarchyValue`,
   `saveHierarchyPrototype`, `createHierarchyFromPrototype`,
-  `addVocabularyWord`, `addLanguage`, `setTranslation`, `createUser`;
+  `addVocabularyWord`, `addLanguage`, `setTranslation`, `createUser`,
+  `clockIn`, `clockOut`;
   `formats`),
   `formRecords` (`vocabularyConcepts`, `wordTranslations`,
   `wordsToTranslate`), and
-  `statuses` (`periodStatus`);
+  `statuses` (`periodStatus`), `states` (`projectClock`);
 - `proposals`, `accepts`: a `review` screen's entries proposed and
   posted (`closeBooks`, `rollover`);
 - `grids`, `gridToggles`, `rowActions`: a list screen's grids (`users`,
@@ -454,7 +463,6 @@ Hand-written web pages (`frontend/src/routes`, by route):
 - `/login`
 - `/pos`
 - `/post`
-- `/projects`
 - `/session`
 - `/setup`
 - `/setup/business-setup`

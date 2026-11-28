@@ -828,19 +828,28 @@
 ;; reloaded after each is saved. A Section with no fields is its button.
 
 (defun forms (s id)
-  (let ((sections (lists:filter (lambda (p) (== (kind s p) #"Section")) (app-view:things s id))))
+  (let ((sections (lists:filter (lambda (p) (== (kind s p) #"Section")) (app-view:things s id)))
+        (params (lists:filter (lambda (p) (== (kind s p) #"Field")) (app-view:things s id))))
     (list
       #"<script lang='ts'>\n" (header s id)
       #"  import { onMount } from 'svelte';\n"
       #"  import '$lib/generated.css';\n"
       #"  import { session, translations } from '$lib/state.svelte';\n"
       #"  import Form from '$lib/components/Form.svelte';\n"
-      #"  import { formActions, formInitials, formRecords, previews, sources, statuses, type FormRecord, type Values } from '$lib/screen-runtime';\n\n"
+      #"  import { formActions, formInitials, formRecords, previews, sources, states, statuses, type Choice, type FormRecord, type Values } from '$lib/screen-runtime';\n\n"
       #"  const t = (word: string) => translations.current[word] ?? word;\n"
       #"  const context = () => ({ business: session.current?.businessName ?? '', ledger: session.current?.ledgerName ?? '', party: '' });\n"
       #"  let options: Record<string, string[]> = $state({});\n"
       #"  let status = $state('');\n"
+      #"  let params: Values = $state(" (blank s params) #");\n"
+      #"  let paramChoices: Record<string, Choice[]> = $state({});\n"
+      #"  let screenState = $state('');\n"
+      #"  let stateLines: { label: string; value: string }[] = $state([]);\n"
+      #"  let done = $state('');\n"
       #"  async function refresh() {\n"
+      (case (val s id #"State")
+        ('undefined #"")
+        (name (list #"    try {\n      const now = await states." name #"(context(), { ...params });\n      screenState = now.state;\n      stateLines = now.lines ?? [];\n    } catch {\n      screenState = '';\n      stateLines = [];\n    }\n")))
       (case (val s id #"Status")
         ('undefined #"")
         (name (list #"    try {\n      status = await statuses." name #"(context());\n    } catch {\n      status = '';\n    }\n")))
@@ -851,7 +860,10 @@
                  sections)
       #"  }\n"
       (lists:map (lambda (sec) (form-state s sec)) sections)
+      (if (== params '()) #"" #"  $effect(() => {\n    JSON.stringify(params);\n    refresh();\n  });\n")
       #"  onMount(async () => {\n    await refresh();\n"
+      (lists:map (lambda (f) (list #"    try {\n      paramChoices." (val s f #"Name") #" = await sources." (val s f #"Choices") #"(context().business, context().ledger);\n    } catch {\n      /* nothing to choose */\n    }\n"))
+                 (lists:filter (lambda (f) (=/= (val s f #"Choices") 'undefined)) params))
       (lists:map (lambda (f) (list #"    try {\n      options." (val s f #"Name") #" = (await sources." (val s f #"Choices")
                                    #"(context().business, context().ledger)).map((c) => c.value);\n    } catch {\n      /* the field offers nothing to choose */\n    }\n"))
                  (lists:filter (lambda (f) (=/= (val s f #"Choices") 'undefined)) (lists:append (lists:map (lambda (sec) (app-view:things s sec)) sections))))
@@ -862,7 +874,19 @@
       #"  <legend>{t(" (js (val s id #"Title")) #")}</legend>\n"
       (intro-line s id)
       (if (== (val s id #"Status") 'undefined) #"" #"  {#if status}<p class='status form-status'>{status}</p>{/if}\n")
-      (lists:map (lambda (sec) (form-section s sec)) sections)
+      (if (== params '()) #""
+        (list #"  <div class='controls'>\n"
+              (lists:map (lambda (f) (list #"    <fieldset><legend>" (t (val s f #"Label" (val s f #"Name"))) #"</legend><select bind:value={params." (val s f #"Name") #"}>"
+                                           (case (val s f #"Empty") ('undefined #"") (e (list #"<option value=''>" (t e) #"</option>")))
+                                           #"{#each paramChoices." (val s f #"Name") #" ?? [] as c}<option value={c.value}>{t(c.label)}</option>{/each}</select></fieldset>\n"))
+                         params)
+              #"  </div>\n"))
+      (if (== (val s id #"State") 'undefined) #"" #"  {#each stateLines as line}<p class='state-line'>{line.label}: <strong>{line.value}</strong></p>{/each}\n")
+      (lists:map (lambda (sec) (case (val s sec #"When State")
+                                 ('undefined (form-section s sec))
+                                 (w (list #"  {#if screenState === " (js w) #"}\n" (form-section s sec) #"  {/if}\n"))))
+                 sections)
+      #"  {#if done}<p class='success'>{done}</p>{/if}\n"
       #"</fieldset>\n")))
 
 (defun form-values (s sec) (list #"values_" (val s sec #"Name")))
@@ -935,6 +959,7 @@
                    (list #"      { name: " (js (val s f #"Name")) #", label: " (js (val s f #"Label" (val s f #"Name")))
                          #", type: " (js (val s f #"Control" #"text"))
                          (if (=/= (val s f #"Choices") 'undefined) (list #", options: options." (val s f #"Name") #" ?? []") #"")
+                         (case (val s f #"Empty") ('undefined #"") (e (list #", empty: " (js e))))
                          (case (val s f #"Min") ('undefined #"") (n (list #", min: " n)))
                          (case (val s f #"Max") ('undefined #"") (n (list #", max: " n)))
                          (case (val s f #"Autocomplete") ('undefined #"") (a (list #", autocomplete: " (js a))))
@@ -944,8 +969,9 @@
       #"    ]}\n"
       #"    bind:values={" (form-values s sec) #"}\n"
       #"    onSubmit={async (v) => {\n"
-      #"      const next = await formActions." (val s sec #"Action") #"(context(), Object.fromEntries(Object.entries(v).map(([k, x]) => [k, String(x)])) as Values);\n"
-      #"      if (next) " (form-values s sec) #" = next;\n"
+      #"      done = '';\n"
+      #"      const next = await formActions." (val s sec #"Action") #"(context(), { ...params, ...(Object.fromEntries(Object.entries(v).map(([k, x]) => [k, String(x)])) as Values) });\n"
+      #"      if (next?.message) done = next.message;\n      else if (next) " (form-values s sec) #" = next;\n"
       #"      await refresh();\n"
       #"    }}\n"
       #"    submitLabel=" (js (val s sec #"Submit Label" #"Save")) #"\n"

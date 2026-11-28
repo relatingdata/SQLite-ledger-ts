@@ -9,6 +9,8 @@
     type: 'text' | 'number' | 'select' | 'password' | 'date' | 'multiselect';
     /** Required for type: 'select' or 'multiselect'. */
     options?: string[];
+    /** A select's first, empty choice: nothing chosen yet. */
+    empty?: string;
     min?: number; // passed straight through, never reinterpreted
     max?: number;
     step?: number;
@@ -93,6 +95,7 @@
       {#if field.hint}<p class="hint">{translations.current[field.hint] ?? field.hint}</p>{/if}
       {#if field.type === 'select'}
         <select bind:value={values[field.name]}>
+          {#if field.empty !== undefined}<option value="">{translations.current[field.empty] ?? field.empty}</option>{/if}
           {#each field.options ?? [] as opt}<option value={opt}>{translations.current[opt] ?? opt}</option>{/each}
         </select>
       {:else if field.type === 'multiselect'}

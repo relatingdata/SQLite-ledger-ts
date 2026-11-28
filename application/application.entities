@@ -1819,15 +1819,11 @@ Root
     - :Field Bind=row.credit Control=input Label="General Journal" Placeholder=0.00
     - :Action Handler=save Label=Save
     - :Action Handler=cancel Label=Cancel
-   "/projects" :Screen "Calls clockInToProject">/Root/Application/Calls/clockInToProject "Calls clockOutOfProject">/Root/Application/Calls/clockOutOfProject "Calls getBusinesses">/Root/Application/Calls/getBusinesses "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getLedgers">/Root/Application/Calls/getLedgers "Calls getOpenProjectClock">/Root/Application/Calls/getOpenProjectClock Source="frontend/src/routes/projects/+page.svelte" Title=Projects
-    - :Heading Text=Projects
-    - :Heading Text=Employee
-    - :Field Bind=employeeName Control=select Label=Employee
-    - :Heading Text="Currently clocked in against"
-    - :Action Handler=clockOut Label="Clock out"
-    - :Heading Text="Project (expense account)"
-    - :Field Bind=projectExpenseAccount Control=select Label="Project (expense account)"
-    - :Action Handler=clockIn Label="Clock in"
+   "/projects" :Screen Intro="Clocking in is placing a real, standing order for an employee's own product \u2014 their time, at their own real price per hour. Clocking out completes its real delivery, rendering the hours worked genuinely due for payment." State=projectClock Template=forms Title=Projects
+    - :Field Choices=employees Empty="Select employee..." Label=Employee Name=employee
+    - :Section Action=clockIn Name=clockIn "Submit Label"="Clock in" "When State"=out
+     a0 :Field Choices=expenseAccounts Control=select Empty="Select project..." Label="Project (expense account)" Name=project
+    - :Section Action=clockOut Name=clockOut "Submit Label"="Clock out" "When State"=in
    "/reconciliation" :Screen Description="Matching posted bank-account transactions against a real bank statement \u2014 a documented, confirmed gap (docs/TODO.md). Bank reconciliation itself, not the currency-conversion clearing accounts already built." Template=not-implemented Title=Reconciliation
    "/recurring" :Screen Description="Scheduling a journal entry (a lease payment, a subscription) to post automatically on a repeating basis. The underlying self-healing migration infrastructure already treats &quot;recurring journals&quot; as a real concept; no user-facing screen exists yet." Template=not-implemented Title="Recurring Transactions"
    "/reports" :Screen Template=tiles Title=Reports
