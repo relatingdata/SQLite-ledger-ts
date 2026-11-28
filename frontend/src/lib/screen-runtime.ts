@@ -90,6 +90,10 @@ import {
   getConceptsWithAlternates,
   setVocabularyPreference,
   deleteVocabularyPreference,
+  getBankAccounts,
+  getCashPosition,
+  registerBankAccount,
+  unregisterBankAccount,
 } from '$lib/api';
 import { getCube, getAxes, getProfitAndLossByAxis, type ProfitAndLossByAxisNode } from '$lib/matrix-api';
 import { parseMinorUnits, parseQuantity } from '$lib/money';
@@ -219,6 +223,25 @@ export const sources: Record<string, (business: string, ledger: string) => Promi
     } catch {
       return [];
     }
+  },
+  /** The postable asset accounts not yet registered as bank accounts. */
+  bankAccountCandidates: async (business, ledger) => {
+    const [entities, registered] = await Promise.all([getEntityTree(), getBankAccounts(asBusinessName(business), asLedgerName(ledger))]);
+    const byId = new Map(entities.map((e) => [e.id, e]));
+    const underAsset = (e: EntityNode | undefined): boolean => !!e && (e.name === 'Asset' || underAsset(e.parent_id !== null ? byId.get(e.parent_id) : undefined));
+    const taken = new Set(registered.map((a) => a.name));
+    return entities.filter((e) => e.is_postable_account && underAsset(e) && !taken.has(e.name)).map((e) => ({ value: e.name, label: e.name }));
+  },
+  /** What a bank account can belong to: the business, or any group of its
+   * locations. */
+  bankScopes: async (business) => {
+    let groups: string[] = [];
+    try {
+      groups = hierarchiesOf(await getHierarchy(asBusinessName(business)), 'Locations').flatMap((h) => h.values);
+    } catch {
+      // the business itself is still a scope
+    }
+    return [business, ...groups].map((name) => ({ value: name, label: name }));
   },
   /** The postable accounts under Equity, Owner's Equity first. */
   equityAccounts: async () => {
@@ -550,6 +573,17 @@ export const actions: Record<string, (c: Context, v: Values, lines: Line[]) => P
 
 /** The records a screen lists below its form, refreshed after each action. */
 export const records: Record<string, (c: Context) => Promise<Row[]>> = {
+  /** The registered bank accounts: account (its name), name (as shown),
+   * scope, currency, balance and overdraft limit. */
+  bankAccounts: async (c) =>
+    (await getBankAccounts(asBusinessName(c.business), asLedgerName(c.ledger))).map((a) => ({
+      account: a.name,
+      name: t(a.name),
+      scope: a.scope,
+      currency: a.currency ?? '',
+      balance: amount(a.balance_minor),
+      overdraft: a.overdraft_limit_minor === null ? '\u2014' : amount(a.overdraft_limit_minor),
+    })),
   quotations: async (c) =>
     (await listQuotations(asBusinessName(c.business), asLedgerName(c.ledger), c.side === 'AP' ? 'AP' : 'AR')).map((q) => ({
       reference: q.reference,
@@ -562,6 +596,11 @@ export const records: Record<string, (c: Context) => Promise<Row[]>> = {
 
 /** What a listed record's buttons do; each returns the message to show. */
 export const commands: Record<string, (c: Context, row: Row) => Promise<string>> = {
+  /** Unregisters a bank account (row.account); the account itself stays. */
+  unregisterBankAccount: async (_c, row) => {
+    await unregisterBankAccount(row.account);
+    return '';
+  },
   sendReminder: async (_c, row) => {
     const { new_level } = await sendReminder(row.party);
     return `Sent level ${new_level} reminder to ${row.party}.`;
@@ -1256,6 +1295,13 @@ export const formActions: Record<string, (c: Context, v: Values) => Promise<Valu
     else await setVocabularyPreference(v.key, 'business', business.id, v.preferred);
     window.location.reload();
   },
+  /** Registers an account as a bank account of a scope, with an optional
+   * overdraft limit. */
+  registerBankAccount: async (c, v) => {
+    if (!v.account || !v.scope) throw new Error('Account and scope are both required.');
+    const limitMinor = v.overdraftLimit === '' || v.overdraftLimit == null ? null : Math.round(Number(v.overdraftLimit) * 100);
+    await registerBankAccount(v.account, asBusinessName(c.business), v.scope, limitMinor);
+  },
   /** The user's page size: a whole number from 5 to 200. */
   savePageSize: async (_c, v) => {
     const pageSize = Number(v.pageSize);
@@ -1281,6 +1327,36 @@ export const formActions: Record<string, (c: Context, v: Values) => Promise<Valu
     }
     return { currentPassword: '', newPassword: '', confirmPassword: '' };
   },
+};
+
+/** A table of figures a screen shows: its columns, and its rows' cells
+ * with any cell's class (classes). */
+export interface Table {
+  columns: { name: string; label: string; numeric?: boolean }[];
+  rows: { cells: Row; classes?: Record<string, string> }[];
+}
+
+/** The tables a list screen shows above its list. */
+export const tables: Record<string, (c: Context) => Promise<Table>> = {
+  /** Cash by currency: balance, overdraft limit, and headroom (warn when
+   * below zero). */
+  cashPosition: async (c) => ({
+    columns: [
+      { name: 'currency', label: t('Currency') },
+      { name: 'balance', label: t('Balance'), numeric: true },
+      { name: 'overdraft', label: t('Overdraft limit'), numeric: true },
+      { name: 'headroom', label: t('Headroom'), numeric: true },
+    ],
+    rows: (await getCashPosition(asBusinessName(c.business), asLedgerName(c.ledger))).map((r) => ({
+      cells: {
+        currency: r.currency ?? c.business,
+        balance: amount(r.total_balance_minor),
+        overdraft: r.total_overdraft_limit_minor === null ? '\u2014' : amount(r.total_overdraft_limit_minor),
+        headroom: r.headroom_minor === null ? t('unknown') : amount(r.headroom_minor),
+      },
+      classes: (r.headroom_minor !== null && r.headroom_minor < 0 ? { headroom: 'warn' } : {}) as Record<string, string>,
+    })),
+  }),
 };
 
 /** A record a forms Section with Each shows as its own form. */

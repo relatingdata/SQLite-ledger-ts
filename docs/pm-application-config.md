@@ -64,7 +64,7 @@ build output, ignored by git, written by `make generate`.
 
 ### Templates
 
-53 of the 81 routes are generated. Each screen names its template, or
+54 of the 81 routes are generated. Each screen names its template, or
 takes its base screen's (Variants, below):
 
 | Template | Screens | Reads |
@@ -73,6 +73,7 @@ takes its base screen's (Variants, below):
 | `report` | Trial Balance, Balance Sheet, Below Reorder, Inventory and Storage, Aged Receivables/Payables, Reminders, Customer Statement, Sales Report, Cash Flow Forecast, Business Configuration Report, Stock-Out Risk, Journal Entries, Compare Ledgers | `Title`, `Intro` (`{NAME}` in it is the business or ledger, by `Intro Name`; optional), `Report`, `Clear Label`, `Empty Text` with an `Empty Link` to `Empty Href`; parameter `Field`s (`Control=ledger` chooses the ledger); one `Entry` per column |
 | `drill` | Profit and Loss, Stock Movement Report, Inventory Listing | `Title`, `Intro`, `Report`, `Title Line`, `Empty Text`, `Clear Label`; parameter `Field`s in a row of controls |
 | `forms` | Account Settings, Accounting Periods, Vocabulary | `Title`, `Intro`, `Status`; one `Section` per form (`Title`, `Action`, `Submit Label`, `Initial`, `Preview`; or `Each`, `Empty Text`: a form per record), its `Field`s under it |
+| `list` | Bank Accounts | `Title`, `Intro`, `Records`, `Key`, `Insert`, `Delete`, `List Title`, `Hint`, `Empty Text`; `Entry` columns, `Field`s of the insert form, a `Section` per `Table` above the list |
 | `review` | Year End Close | `Title`, `Intro`, `Intro Note`; parameter `Field`s; one `Section` per entry proposed (`Title`, `Intro`, `Hint`, `Propose`, `Propose Label`, `Proposal Title`, `Accept`, `Accept Label`), its own `Field`s under it |
 | `pivot` | Stock on Hand (`/reports/new-stock-on-hand`), Sales and Margin (`/reports/sales-margin`) | `Title`, `Intro`, `Row Axis`, `Column Axis`, `Axis Chooser` (`drag` or `select`), `Highlight`, `Highlight Across`, `Empty Text`, `Clear Label`; date `Field`s `fromDate`/`toDate`; one `Entry` per measure |
 | `tiles` | AR / AP, Stock, Reports (section index pages) | `Title`, `Intro`; one `Tile` (`Href`, `Title`, `Description`) per link |
@@ -143,6 +144,17 @@ runtime's `formRecords` returns (`key`, `title`, `note`, `values`, and
 the `options` of each select), its fields a form of that record; saving
 passes the record's `key` with the values, and the records are reloaded
 after each save. With no records it shows its `Empty Text`.
+
+In `list`, the screen's records (`records`, its `Records`) are a
+selectable list (`$lib/components/SelectableListEditor`) under its `List
+Title`, a line per record with its `Entry` columns (`Control=amount`: a
+figure, right-aligned), each record identified by its `Key`. Insert
+opens a form of the screen's `Field`s (`Choices`: a source; `Step` for a
+number) saved by its `Insert` (`formActions`); Delete runs its `Delete`
+(`commands`) on the selected record. A `Section` with `Table` is a table
+of figures under its `Title`, above the list, from the runtime's
+`tables` (columns, and rows of cells with any cell's class), shown when
+it has rows. Everything is reloaded after each change.
 
 In `review`, the screen's `Field`s are parameters in a card at the top
 (`Control` `select`, `date` or `text`; `Label`, `Hint`, `Placeholder`,
@@ -274,7 +286,8 @@ hand, in the runtime module:
 - `sources`: a choose field's choices, given the business and ledger
   (`locations`, `items`, `providers`, `customers`, `postableAccounts`,
   `axes`, `ledgers`, `stockGroupings`, `numberFormats`, `dateFormats`,
-  `reportingPeriods`, `equityAccounts`);
+  `reportingPeriods`, `equityAccounts`, `bankAccountCandidates`,
+  `bankScopes`);
   a choice can name its `group`;
 - `filters`: narrowing one field's choices by the others (`sameCityAsFrom`,
   `againstInner`, `againstOuter`, `otherThanLedgerA`);
@@ -289,12 +302,15 @@ hand, in the runtime module:
 - `reports`: `trialBalance`, `balanceSheet`, `belowReorder`, `storageSpace`, `aged`, `reminders`, `statement`, `sales`, `cashFlow`, `businessConfiguration`, `stockOutRisk`, `journalEntries`, `compareLedgers`, and for `drill` `profitAndLossByAxis`, `stockMovement`, `inventoryListing` (a row can carry a class, `mark`, and cells classes, `marks`);
 - `formInitials`, `formActions`, `previews`: a `forms` screen's forms
   (`pageSize`, `formats`, `closeThrough`; `savePageSize`, `saveFormats`,
-  `changePassword`, `closePeriod`, `reopenPeriod`; `formats`), and
+  `changePassword`, `closePeriod`, `reopenPeriod`, `saveVocabulary`,
+  `registerBankAccount`; `formats`), `formRecords` (`vocabularyConcepts`), and
   `statuses` (`periodStatus`);
 - `proposals`, `accepts`: a `review` screen's entries proposed and
   posted (`closeBooks`, `rollover`);
-- `records`: what a screen lists (`quotations`), and `commands`: what its
-  record buttons do (`markSent`, `accept`, `reject`, `sendReminder`, `resetReminder`). A validation
+- `tables`: a list screen's tables of figures (`cashPosition`);
+- `records`: what a screen lists (`quotations`, `bankAccounts`), and `commands`: what its
+  record buttons do (`markSent`, `accept`, `reject`, `sendReminder`, `resetReminder`,
+  `unregisterBankAccount`). A validation
   failure throws `Invalid`, whose message is shown.
 
 ### Styling
@@ -377,7 +393,6 @@ Hand-written web pages (`frontend/src/routes`, by route):
 - `/projects`
 - `/session`
 - `/setup`
-- `/setup/bank-accounts`
 - `/setup/business-setup`
 - `/setup/business-structure`
 - `/setup/chart-of-accounts`

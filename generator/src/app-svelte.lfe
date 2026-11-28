@@ -26,6 +26,7 @@
     (#"drill" (drill s id))
     (#"forms" (forms s id))
     (#"review" (review s id))
+    (#"list" (list-screen s id))
     (#"pivot" (pivot s id))
     (other (error (tuple 'no-template other (app-entities:name s id))))))
 
@@ -920,6 +921,7 @@
           (list #", options: " from #"." (val s f #"Name") #" ?? []") #"")
         (case (val s f #"Min") ('undefined #"") (n (list #", min: " n)))
         (case (val s f #"Max") ('undefined #"") (n (list #", max: " n)))
+        (case (val s f #"Step") ('undefined #"") (n (list #", step: " n)))
         (case (val s f #"Autocomplete") ('undefined #"") (a (list #", autocomplete: " (js a))))
         (case (val s f #"Hint") ('undefined #"") (h (list #", hint: " (js h))))
         #" }"))
@@ -1101,3 +1103,114 @@
       #"      </div>\n"
       #"    {/if}\n"
       #"  </div>\n")))
+;; --- the list template -------------------------------------------------------
+;;
+;; A screen's records (the runtime's records: Records) as a selectable list
+;; ($lib/components/SelectableListEditor) under its List Title, a line per
+;; record with its Entry columns (Control=amount: a figure), keyed by its
+;; Key. Insert opens a form of the screen's Fields (Choices: a source)
+;; that saves with its Insert (formActions); Delete runs its Delete
+;; (commands) on the selected record. A Section with Table is a table of
+;; figures (the runtime's tables) under its Title, above the list, shown
+;; when it has rows. Everything is reloaded after each change.
+
+(defun list-screen (s id)
+  (let* ((parts (app-view:things s id))
+         (entries (lists:filter (lambda (p) (== (kind s p) #"Entry")) parts))
+         (fields (lists:filter (lambda (p) (== (kind s p) #"Field")) parts))
+         (tables (lists:filter (lambda (p) (andalso (== (kind s p) #"Section") (=/= (val s p #"Table") 'undefined))) parts))
+         (key (val s id #"Key"))
+         (blank (list #"{ " (lists:join #", " (lists:map (lambda (f) (list (val s f #"Name") #": ''")) fields)) #" }")))
+    (list
+      #"<script lang='ts'>\n" (header s id)
+      #"  import '$lib/generated.css';\n"
+      #"  import { session, translations } from '$lib/state.svelte';\n"
+      #"  import Form from '$lib/components/Form.svelte';\n"
+      #"  import SelectableListEditor from '$lib/components/SelectableListEditor.svelte';\n"
+      #"  import { commands, formActions, records, sources, tables, type Row, type Table, type Values } from '$lib/screen-runtime';\n\n"
+      #"  const t = (word: string) => translations.current[word] ?? word;\n"
+      #"  const context = () => ({ business: session.current?.businessName ?? '', ledger: session.current?.ledgerName ?? '', party: '' });\n"
+      #"  const message = (e: unknown) => (e instanceof Error ? e.message : t('Could not complete.'));\n"
+      #"  let rows: Row[] = $state([]);\n"
+      #"  let shown: Record<string, Table> = $state({});\n"
+      #"  let options: Record<string, string[]> = $state({});\n"
+      #"  let loading = $state(true);\n"
+      #"  let error = $state('');\n"
+      #"  let selected: string | null = $state(null);\n"
+      #"  let inserting = $state(false);\n"
+      #"  let values: Record<string, string | number | string[]> = $state(" blank #");\n\n"
+      #"  let latest = 0;\n"
+      #"  async function load() {\n"
+      #"    const request = ++latest;\n"
+      #"    const { business, ledger } = context();\n"
+      #"    error = '';\n"
+      #"    try {\n"
+      #"      const loaded = await records." (val s id #"Records") #"(context());\n"
+      #"      const loadedTables: Record<string, Table> = {};\n"
+      (lists:map (lambda (sec) (list #"      loadedTables." (val s sec #"Table") #" = await tables." (val s sec #"Table") #"(context());\n")) tables)
+      #"      const loadedOptions: Record<string, string[]> = {};\n"
+      (lists:map (lambda (f) (list #"      loadedOptions." (val s f #"Name") #" = (await sources." (val s f #"Choices") #"(business, ledger)).map((c) => c.value);\n"))
+                 (lists:filter (lambda (f) (=/= (val s f #"Choices") 'undefined)) fields))
+      #"      if (request !== latest) return;\n"
+      #"      rows = loaded;\n      shown = loadedTables;\n      options = loadedOptions;\n"
+      #"    } catch (e) {\n      if (request === latest) error = message(e);\n"
+      #"    } finally {\n      if (request === latest) loading = false;\n    }\n  }\n"
+      #"  $effect(() => {\n    if (session.current) load();\n  });\n\n"
+      #"  function closeInsert() {\n    inserting = false;\n    values = " blank #";\n  }\n"
+      #"  async function insert(v: Record<string, string | number | string[]>) {\n"
+      #"    await formActions." (val s id #"Insert") #"(context(), Object.fromEntries(Object.entries(v).map(([k, x]) => [k, String(x ?? '')])) as Values);\n"
+      #"    closeInsert();\n    await load();\n  }\n"
+      #"  async function remove(row: Row) {\n"
+      #"    try {\n      await commands." (val s id #"Delete") #"(context(), row);\n"
+      #"      if (selected === row." key #") selected = null;\n      await load();\n"
+      #"    } catch (e) {\n      error = message(e);\n    }\n  }\n"
+      #"</script>\n\n"
+      #"<svelte:head><title>{t(" (js (val s id #"Title")) #")}</title></svelte:head>\n\n"
+      #"<fieldset class='page-title generated'>\n"
+      #"  <legend>{t(" (js (val s id #"Title")) #")}</legend>\n"
+      (intro-line s id)
+      #"  {#if loading}\n    <p class='center-text'>{t('Loading')}{'\\u2026'}</p>\n  {:else}\n"
+      #"    {#if error}<p class='error'>{error}</p>{/if}\n"
+      (lists:map (lambda (sec)
+                   (let ((tb (list #"shown." (val s sec #"Table"))))
+                     (list #"    {#if " tb #" && " tb #".rows.length > 0}\n"
+                           #"      <div class='card summary-card'>\n"
+                           #"        <h3>" (t (val s sec #"Title")) #"</h3>\n"
+                           #"        <table class='summary-table'>\n"
+                           #"          <thead><tr>{#each " tb #".columns as c}<th class:num={c.numeric}>{c.label}</th>{/each}</tr></thead>\n"
+                           #"          <tbody>{#each " tb #".rows as r}<tr>{#each " tb #".columns as c}<td class={`${c.numeric ? 'num mono' : ''} ${r.classes?.[c.name] ?? ''}`}>{r.cells[c.name] ?? ''}</td>{/each}</tr>{/each}</tbody>\n"
+                           #"        </table>\n"
+                           #"      </div>\n    {/if}\n")))
+                 tables)
+      #"    <div class='list-wrap'>\n"
+      #"      {#if rows.length > 0}\n        <div class='list-row list-header'>"
+      (lists:map (lambda (e) (list #"<span" (list-cell-class s e #"") #">" (t (val s e #"Label" #"")) #"</span>")) entries)
+      #"</div>\n      {/if}\n"
+      #"      <SelectableListEditor\n"
+      #"        legend={t(" (js (val s id #"List Title" (val s id #"Title"))) #")}\n"
+      #"        hintText={t(" (js (val s id #"Hint" #"")) #")}\n"
+      #"        items={rows}\n"
+      #"        getId={(r) => r." key #"}\n"
+      #"        selectedId={selected}\n"
+      #"        onSelect={(r) => (selected = r." key #")}\n"
+      #"        onInsert={() => (inserting = true)}\n"
+      #"        onDelete={remove}\n"
+      #"        {inserting}\n"
+      #"        emptyText={t(" (js (val s id #"Empty Text" #"None")) #")}\n"
+      #"      >\n"
+      #"        {#snippet form()}\n"
+      #"          <Form\n            fields={[\n"
+      (lists:map (lambda (f) (list #"              " (form-field s f #"options") #",\n")) fields)
+      #"            ]}\n"
+      #"            bind:values\n            onSubmit={insert}\n            showSubmitButton={false}\n            onCancel={closeInsert}\n          />\n"
+      #"        {/snippet}\n"
+      #"        {#snippet row(r)}\n          <div class='list-row'>"
+      (lists:map (lambda (e) (list #"<span" (list-cell-class s e #" mono") #">{r." (val s e #"Name") #" ?? ''}</span>")) entries)
+      #"</div>\n        {/snippet}\n"
+      #"      </SelectableListEditor>\n"
+      #"    </div>\n"
+      #"  {/if}\n"
+      #"</fieldset>\n")))
+
+(defun list-cell-class (s e figure)
+  (case (val s e #"Control") (#"amount" (list #" class='cell num" figure #"'")) (_ #" class='cell'")))

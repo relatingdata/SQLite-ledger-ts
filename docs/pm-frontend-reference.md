@@ -366,9 +366,10 @@ Tests (*Testing: Unit*, "Running the tests"):
   Item, Location and Consolidated, plus the business's hierarchies once
   they load (*Core Domain Reference*, "Hierarchies and
   multi-dimensional reporting").
-- **`setup/bank-accounts/+page.svelte`**: a bank account can be
-  registered for the business or for any value of its location
-  hierarchies.
+- **`/setup/bank-accounts`** (generated, list template): a bank account
+  can be registered for the business or for any value of its location
+  hierarchies (`bankScopes`), from the postable asset accounts not yet
+  registered (`bankAccountCandidates`).
 - **`lib/treeAdapter.ts`**: converts the flat, `parent_id`-based entity
   list into the dot-separated path format `@keenmate/svelte-treeview`
   expects (`"1"`, `"1.1"`, `"1.1.2"`, ...), assigning each node's
@@ -825,7 +826,8 @@ default snippet.
 
 ## `frontend/src/lib/components/SelectableListEditor.svelte` — the shared flat-list+Insert/Delete shell
 
-The same shell for flat lists (`bank-accounts`, `hierarchy`'s
+The same shell for flat lists (the list template, as for
+`bank-accounts`; `hierarchy`'s
 hierarchies and values, `translations`' words and languages,
 `locations`' main list), keyed by `getId: (item: T) => string | number`.
 As with `TreeEditor.svelte`, the caller owns the selection

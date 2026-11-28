@@ -1981,15 +1981,16 @@ Root
     - :Heading Text="System default language"
     - :Field Bind=defaultLanguage Control=select Label=Configuration
     - :Action Handler=saveDefaultLanguage Label=Saving
-   "/setup/bank-accounts" :Screen "Calls getBankAccounts">/Root/Application/Calls/getBankAccounts "Calls getCashPosition">/Root/Application/Calls/getCashPosition "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getHierarchy">/Root/Application/Calls/getHierarchy "Calls registerBankAccount">/Root/Application/Calls/registerBankAccount "Calls unregisterBankAccount">/Root/Application/Calls/unregisterBankAccount Source="frontend/src/routes/setup/bank-accounts/+page.svelte" Title="Bank Accounts"
-    - :Heading Text="Bank Accounts"
-    - :Heading Text="Current cash position"
-    - :Column Label=Currency
-    - :Column Label=Balance
-    - :Column Label="Overdraft limit"
-    - :Column Label=Headroom
-    - :Use Component>/Root/Application/Components/SelectableListEditor "Prop emptyText"="{translations.current['No bank accounts registered yet.'] ?? 'No bank accounts registered yet.'}" "Prop getId"="{(a) => a.name}" "Prop hintText"="{translations.current['Insert registers a bank account. Delete unregisters the selected one.'] ?? 'Insert registers a bank account. Delete unregisters the selected one.'}" "Prop inserting"="{inserting}" "Prop items"="{bankAccounts}" "Prop legend"="{translations.current['Registered bank accounts'] ?? 'Registered bank accounts'}" "Prop onDelete"="{(a) => unregister(a.name)}" "Prop onInsert"="{openInsert}" "Prop onSelect"="{(a) => (selectedAccountName = a.name)}" "Prop selectedId"="{selectedAccountName}"
-    - :Use Component>/Root/Application/Components/Form "Prop fields"="{[\n            { name: 'account', label: 'Account', type: 'select', options: candidateAccounts.map((acc) => acc.name) },\n            {\n              name: 'scope',\n              label: 'Scope (business or group)',\n              type: 'select',\n              options: [...(session.current ? [session.current.businessName] : []), ...groupNames],\n            },\n            { name: 'overdraftLimit', label: 'Overdraft limit (optional)', type: 'number', step: 0.01 },\n          ]}" "Prop onCancel"="{closeInsert}" "Prop onSubmit"="{register}" "Prop showSubmitButton"="{false}"
+   "/setup/bank-accounts" :Screen Delete=unregisterBankAccount "Empty Text"="No bank accounts registered yet." Hint="Insert registers a bank account. Delete unregisters the selected one." Insert=registerBankAccount Intro="Registering which real accounts represent actual cash/bank accounts \u2014 distinct from the broader Chart of Accounts, since Inventory or Accounts Receivable also sit under Asset but are genuinely not cash. Each real bank account has its own real business or division scope (a division may bank with a different bank from another) and its own real, optional overdraft limit." Key=account "List Title"="Registered bank accounts" Records=bankAccounts Template=list Title="Bank Accounts"
+    - :Section Table=cashPosition Title="Current cash position"
+    - :Entry Label=Account Name=name
+    - :Entry Label=Scope Name=scope
+    - :Entry Label=Currency Name=currency
+    - :Entry Control=amount Label=Balance Name=balance
+    - :Entry Control=amount Label="Overdraft limit" Name=overdraft
+    - :Field Choices=bankAccountCandidates Control=select Label=Account Name=account
+    - :Field Choices=bankScopes Control=select Label="Scope (business or group)" Name=scope
+    - :Field Control=number Label="Overdraft limit (optional)" Name=overdraftLimit Step=0.01
    "/setup/business-setup" :Screen "Calls createEmployeeContact">/Root/Application/Calls/createEmployeeContact "Calls createEntity">/Root/Application/Calls/createEntity "Calls createHierarchyValue">/Root/Application/Calls/createHierarchyValue "Calls deleteHierarchyTag">/Root/Application/Calls/deleteHierarchyTag "Calls getContact">/Root/Application/Calls/getContact "Calls getEmployeeSchedule">/Root/Application/Calls/getEmployeeSchedule "Calls getEntityTree">/Root/Application/Calls/getEntityTree "Calls getHierarchy">/Root/Application/Calls/getHierarchy "Calls getHierarchyTag">/Root/Application/Calls/getHierarchyTag "Calls getLocationByName">/Root/Application/Calls/getLocationByName "Calls getLocationOpenHours">/Root/Application/Calls/getLocationOpenHours "Calls getOrganizationChart">/Root/Application/Calls/getOrganizationChart "Calls revokeEntity">/Root/Application/Calls/revokeEntity "Calls saveLocation">/Root/Application/Calls/saveLocation "Calls setContact">/Root/Application/Calls/setContact "Calls setEmployeeSchedule">/Root/Application/Calls/setEmployeeSchedule "Calls setEntityRelationship">/Root/Application/Calls/setEntityRelationship "Calls setHierarchyTag">/Root/Application/Calls/setHierarchyTag "Calls setLocationOpenHours">/Root/Application/Calls/setLocationOpenHours Source="frontend/src/routes/setup/business-setup/+page.svelte" Title="Business Setup"
     - :Heading Text="Business Setup"
     - :Use Component>/Root/Application/Components/TreeEditor "Prop hintText"="{hintText}" "Prop legend"="{`${chart.business} \u2014 ${translations.current[locationHierarchyName] ?? locationHierarchyName} ${translations.current['for Locations'] ?? 'for Locations'}`}" "Prop onDelete"="{handleDelete}" "Prop onInsert"="{handleInsert}"
@@ -2336,6 +2337,15 @@ Root
    - :Rule Selector=.review-card background="var(--paper)" border="1px solid var(--rule-strong, #ccc)" border-radius=8px box-sizing=border-box margin="0 auto 1.2rem" max-width=720px padding="1.2rem 1.3rem" width="100%"
    - :Rule Selector=.cards display=flex flex-wrap=wrap gap=1rem justify-content=center
    - :Rule Selector=.record-card display=flex flex-direction=column gap=0.6rem padding="1.1rem 1.2rem 1.3rem" width=320px
+   - :Rule Selector=.summary-card background="#fdf6e8" border="1px solid #d9a441" border-radius=8px box-sizing=border-box margin="0 auto 1.2rem" max-width=900px padding="1.2rem 1.3rem" width="100%"
+   - :Rule Selector=".summary-card h3" margin-top=0
+   - :Rule Selector=".summary-table th, .summary-table td" border-bottom="1px solid var(--rule)" padding="0.4rem 0.6rem" text-align=left
+   - :Rule Selector=".summary-table .num" text-align=right
+   - :Rule Selector=.list-wrap margin="0 auto 1.2rem" max-width=900px width="100%"
+   - :Rule Selector=.list-row align-items=center display=flex gap=0.6rem
+   - :Rule Selector=".list-row .cell" flex="1 1 0"
+   - :Rule Selector=".list-row .cell.num" flex="0 0 8rem" text-align=right
+   - :Rule Selector=.list-header color="var(--ink-soft)" font-weight=bold padding="0 0.7rem 0.4rem"
    - :Rule Selector=".record-card h3" margin=0
    - :Rule Selector=.fields-row display=flex flex-wrap=wrap gap=1rem
    - :Rule Selector=".fields-row > fieldset" flex="1 1 12rem"
