@@ -21,7 +21,7 @@ It uses the TypeScript compiler, not a text search. A prototype is printed by th
 ## Summary
 
 - **Backend:** 1215 functions (1031 exported); 850 are called from production code; 46 only from tests or tooling; 319 from nowhere the compiler could find.
-- **Frontend library:** 453 functions (371 exported); 282 are called from production code; 3 only from tests or tooling; 168 from nowhere the compiler could find.
+- **Frontend library:** 467 functions (382 exported); 281 are called from production code; 3 only from tests or tooling; 183 from nowhere the compiler could find.
 
 ### Backend: functions with no callers found
 
@@ -64,10 +64,10 @@ Candidates to review, not proof of dead code: a function may be reached in a way
 
 Candidates to review, not proof of dead code: a function may be reached in a way the limits above cannot see.
 
-- `frontend/src/lib/api.ts`: `getBankAccounts`, `getCashPosition`, `getCashFlowForecast`, `registerBankAccount`, `unregisterBankAccount`, `getTrialBalance`, `getSalesReport`, `getBalanceSheet`, `getProfitAndLoss`, `getProfitAndLossByHierarchy`, `getProfitAndLossByHierarchyTree`, `getLedgerDateRange`, `getConceptsWithAlternates`, `setVocabularyPreference`, `deleteVocabularyPreference`, `getProductShapes`, `defineProductShape`, `saveHierarchyPrototype`, `createProfitCenter`, `setSessionProfitCenter`, `getReportingPeriods`, `getBusinessConfigurationReport`, `listJournalEntries`, `getTrialBalanceComparison`, `getProfitAndLossComparison`, `stagePurchaseOrder`, `postPurchaseOrder`, `stageOrderReceipt`, `postOrderReceipt`, `stageSalesOrder`, `postSalesOrder`, `listQuotations`, `getQuotation`, `createQuotation`, `createRfq`, `markQuotationSent`, `acceptQuotation`, `rejectQuotation`, `closePeriod`, `reopenPeriod`, `changeOwnPassword`, `setOwnPageSize`, `setOwnNumberFormat`, `setOwnDateFormat`, `postOnAccountInvoice`, `getAgedInvoices`, `getAgedSummary`, `getCustomerStatement`, `getReminderCandidates`, `sendReminder`, `resetReminder`, `openStorageContainer`, `getItemLocation`, `setItemLocationLevels`, `receiveItems`, `transferItems`, `getStockOutRiskReport`, `closeBooks`, `previewCloseBooks`, `resolveRolloverLines`, `createLedger`, `getInventoryListingByLocation`, `getStorageSpaceReport`, `getStockMovementReport`
+- `frontend/src/lib/api.ts`: `getBankAccounts`, `getCashPosition`, `getCashFlowForecast`, `registerBankAccount`, `unregisterBankAccount`, `getTrialBalance`, `getSalesReport`, `getBalanceSheet`, `getProfitAndLoss`, `getProfitAndLossByHierarchy`, `getProfitAndLossByHierarchyTree`, `getLedgerDateRange`, `setLanguageDirection`, `getConceptsWithAlternates`, `getVocabularyWords`, `deleteVocabularyWord`, `setVocabularyPreference`, `deleteVocabularyPreference`, `setTranslation`, `getProductShapes`, `defineProductShape`, `saveHierarchyPrototype`, `createProfitCenter`, `setSessionProfitCenter`, `getReportingPeriods`, `getBusinessConfigurationReport`, `listJournalEntries`, `getTrialBalanceComparison`, `getProfitAndLossComparison`, `stagePurchaseOrder`, `postPurchaseOrder`, `stageOrderReceipt`, `postOrderReceipt`, `stageSalesOrder`, `postSalesOrder`, `listQuotations`, `getQuotation`, `createQuotation`, `createRfq`, `markQuotationSent`, `acceptQuotation`, `rejectQuotation`, `closePeriod`, `reopenPeriod`, `changeOwnPassword`, `setOwnPageSize`, `setOwnNumberFormat`, `setOwnDateFormat`, `postOnAccountInvoice`, `getAgedInvoices`, `getAgedSummary`, `getCustomerStatement`, `getReminderCandidates`, `sendReminder`, `resetReminder`, `openStorageContainer`, `getItemLocation`, `setItemLocationLevels`, `receiveItems`, `transferItems`, `getStockOutRiskReport`, `closeBooks`, `previewCloseBooks`, `resolveRolloverLines`, `createLedger`, `getInventoryListingByLocation`, `getStorageSpaceReport`, `getStockMovementReport`
 - `frontend/src/lib/matrix-api.ts`: `getStockOnHandMatrix`, `getProfitAndLossByAxis`, `getCube`, `getAxisValues`, `getAxes`
 - `frontend/src/lib/pagination.ts`: `createPaginator`
-- `frontend/src/lib/screen-runtime.ts`: `sources.numberFormats`, `sources.dateFormats`, `sources.stockGroupings`, `sources.ledgers`, `sources.reportingPeriods`, `sources.bankAccountCandidates`, `sources.bankScopes`, `sources.hierarchyPrototypes`, `sources.equityAccounts`, `sources.itemHierarchies`, `sources.locations`, `sources.items`, `sources.providers`, `sources.customers`, `sources.postableAccounts`, `filters.otherThanLedgerA`, `filters.againstInner`, `filters.againstOuter`, `filters.sameCityAsFrom`, `reactions.periodChosen`, `reactions.ledgerAChanged`, `reactions.outerAxisChanged`, `reactions.innerAxisChanged`, `reactions.orderStatus`, `reactions.onHand`, `reactions.fromLocationChanged`, `reactions.itemSources`, `reactions.providerPrice`, `totals.lineTax`, `totals.quantityTimesPrice`, `totals.valueTaxRate`, `totals.taxRate`, `actions.purchase`, `actions.sale`, `actions.transfer`, `actions.orderReceipt`, `actions.salesOrder`, `actions.quotation`, `actions.purchaseOrder`, `records.hierarchies`, `records.hierarchyValues`, `records.bankAccounts`, `records.quotations`, `commands.deleteHierarchy`, `commands.deleteHierarchyValue`, `commands.unregisterBankAccount`, `commands.sendReminder`, `commands.resetReminder`, `commands.markSent`, `commands.accept`, `commands.reject`, `reports.aged`, `reports.businessConfiguration`, `reports.cashFlow`, `reports.sales`, `reports.statement`, `reports.reminders`, `reports.belowReorder`, `reports.stockMovement`, `reports.inventoryListing`, `reports.compareLedgers`, `reports.profitAndLossByAxis`, `reports.journalEntries`, `reports.stockOutRisk`, `reports.storageSpace`, `reports.trialBalance`, `reports.balanceSheet`, `formInitials.closeThrough`, `formInitials.pageSize`, `formInitials.formats`, `formActions.closePeriod`, `formActions.reopenPeriod`, `formActions.saveVocabulary`, `formActions.createHierarchy`, `formActions.createHierarchyValue`, `formActions.saveHierarchyPrototype`, `formActions.createHierarchyFromPrototype`, `formActions.registerBankAccount`, `formActions.savePageSize`, `formActions.saveFormats`, `formActions.changePassword`, `cards.productShapes`, `lineActions.defineProductShape`, `tables.cashPosition`, `formRecords.vocabularyConcepts`, `previews.formats`, `proposals.closeBooks`, `proposals.rollover`, `accepts.closeBooks`, `accepts.rollover`, `statuses.periodStatus`
+- `frontend/src/lib/screen-runtime.ts`: `sources.numberFormats`, `sources.dateFormats`, `sources.stockGroupings`, `sources.ledgers`, `sources.reportingPeriods`, `sources.bankAccountCandidates`, `sources.bankScopes`, `sources.languages`, `sources.hierarchyPrototypes`, `sources.equityAccounts`, `sources.itemHierarchies`, `sources.locations`, `sources.items`, `sources.providers`, `sources.customers`, `sources.postableAccounts`, `filters.otherThanLedgerA`, `filters.otherThanReference`, `filters.againstInner`, `filters.againstOuter`, `filters.sameCityAsFrom`, `reactions.periodChosen`, `reactions.ledgerAChanged`, `reactions.outerAxisChanged`, `reactions.innerAxisChanged`, `reactions.orderStatus`, `reactions.onHand`, `reactions.fromLocationChanged`, `reactions.itemSources`, `reactions.providerPrice`, `totals.lineTax`, `totals.quantityTimesPrice`, `totals.valueTaxRate`, `totals.taxRate`, `actions.purchase`, `actions.sale`, `actions.transfer`, `actions.orderReceipt`, `actions.salesOrder`, `actions.quotation`, `actions.purchaseOrder`, `records.hierarchies`, `records.vocabularyWords`, `records.languages`, `records.hierarchyValues`, `records.bankAccounts`, `records.quotations`, `commands.deleteVocabularyWord`, `commands.removeLanguage`, `commands.deleteHierarchy`, `commands.deleteHierarchyValue`, `commands.unregisterBankAccount`, `commands.sendReminder`, `commands.resetReminder`, `commands.markSent`, `commands.accept`, `commands.reject`, `reports.aged`, `reports.businessConfiguration`, `reports.cashFlow`, `reports.sales`, `reports.statement`, `reports.reminders`, `reports.belowReorder`, `reports.stockMovement`, `reports.inventoryListing`, `reports.compareLedgers`, `reports.profitAndLossByAxis`, `reports.journalEntries`, `reports.stockOutRisk`, `reports.storageSpace`, `reports.trialBalance`, `reports.balanceSheet`, `formInitials.closeThrough`, `formInitials.pageSize`, `formInitials.formats`, `formActions.closePeriod`, `formActions.reopenPeriod`, `formActions.saveVocabulary`, `formActions.addVocabularyWord`, `formActions.addLanguage`, `formActions.setTranslation`, `formActions.createHierarchy`, `formActions.createHierarchyValue`, `formActions.saveHierarchyPrototype`, `formActions.createHierarchyFromPrototype`, `formActions.registerBankAccount`, `formActions.savePageSize`, `formActions.saveFormats`, `formActions.changePassword`, `cards.productShapes`, `lineActions.defineProductShape`, `tables.cashPosition`, `formRecords.wordTranslations`, `formRecords.wordsToTranslate`, `formRecords.vocabularyConcepts`, `previews.formats`, `proposals.closeBooks`, `proposals.rollover`, `accepts.closeBooks`, `accepts.rollover`, `statuses.periodStatus`
 - `frontend/src/lib/state.svelte.ts`: `auth.set`, `hasUnsavedEdit.set`, `menuTree.set`, `screenTitle`, `session.set`, `session.clear`, `translations.set`
 
 ## Backend
@@ -10126,7 +10126,7 @@ Called from: production: api.ts (createEntity (as a value), supersedeEntity (as 
 createEntity(data: { name: string; parent?: string | null; parentId?: number | null; relation?: string | null; accountnumber?: string | null; }): Promise<EntityNode>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/editor ×1, routes/items ×2, routes/locations ×1, routes/setup/business-setup ×1, routes/setup/chart-of-accounts ×1, routes/setup/translations ×2
+Called from: Svelte pages (by name in the file's imports): routes/editor ×1, routes/items ×2, routes/locations ×1, routes/setup/business-setup ×1, routes/setup/chart-of-accounts ×1
 
 **`setEntityRelationship`** *(exported)*
 
@@ -10174,7 +10174,7 @@ Called from: Svelte pages (by name in the file's imports): routes/editor ×1, ro
 revokeEntity(id: number): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/editor ×1, routes/items ×1, routes/setup/business-setup ×1, routes/setup/chart-of-accounts ×1, routes/setup/translations ×1
+Called from: Svelte pages (by name in the file's imports): routes/editor ×1, routes/items ×1, routes/setup/business-setup ×1, routes/setup/chart-of-accounts ×1
 
 **`getBankAccounts`** *(exported)*
 
@@ -10310,7 +10310,7 @@ Called from: nowhere the compiler could find.
 getLanguages(): Promise<{ id: number; name: string; }[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/contacts ×1, routes/customer-terminal ×1, routes/login ×1, routes/session ×1, routes/setup ×1, routes/setup/translations ×3
+Called from: Svelte pages (by name in the file's imports): routes/contacts ×1, routes/customer-terminal ×1, routes/login ×1, routes/session ×1, routes/setup ×1
 
 **`getLanguageDirection`** *(exported)*
 
@@ -10318,7 +10318,7 @@ Called from: Svelte pages (by name in the file's imports): routes/contacts ×1, 
 getLanguageDirection(language: string): Promise<{ direction: "LTR" | "RTL"; }>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/+layout.svelte ×1, routes/login ×1, routes/session ×1, routes/setup/translations ×1
+Called from: Svelte pages (by name in the file's imports): routes/+layout.svelte ×1, routes/login ×1, routes/session ×1
 
 **`setLanguageDirection`** *(exported)*
 
@@ -10326,7 +10326,7 @@ Called from: Svelte pages (by name in the file's imports): routes/+layout.svelte
 setLanguageDirection(language: string, direction: "LTR" | "RTL" | null): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/setup/translations ×1
+Called from: nowhere the compiler could find.
 
 **`getDefaultLanguage`** *(exported)*
 
@@ -10366,7 +10366,7 @@ Called from: nowhere the compiler could find.
 getVocabularyWords(): Promise<VocabularyWord[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/setup/translations ×3
+Called from: nowhere the compiler could find.
 
 **`deleteVocabularyWord`** *(exported)*
 
@@ -10374,7 +10374,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/translat
 deleteVocabularyWord(word: string): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/setup/translations ×1
+Called from: nowhere the compiler could find.
 
 **`setVocabularyPreference`** *(exported)*
 
@@ -10398,7 +10398,7 @@ Called from: nowhere the compiler could find.
 setTranslation(entity: string, language: string, text: string): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/setup/translations ×2
+Called from: nowhere the compiler could find.
 
 **`getHierarchy`** *(exported)*
 
@@ -12488,7 +12488,7 @@ Called from: Svelte pages (by name in the file's imports): routes/arap/quotation
 t(word: string): any
 ```
 
-Called from: production: screen-runtime.ts (accepts.closeBooks ×5, accepts.rollover ×3, actions.purchase ×1, actions.sale ×1, actions.transfer ×1, breakdown ×1, and 35 more)
+Called from: production: screen-runtime.ts (accepts.closeBooks ×5, accepts.rollover ×3, actions.purchase ×1, actions.sale ×1, actions.transfer ×1, breakdown ×1, and 38 more)
 
 **`named`**
 
@@ -12594,6 +12594,14 @@ sources.bankScopes(business: string): Promise<{ value: string; label: string; }[
 
 Called from: nowhere the compiler could find.
 
+**`sources.languages`** *(exported)*
+
+```
+sources.languages(): Promise<any>
+```
+
+Called from: nowhere the compiler could find.
+
 **`sources.hierarchyPrototypes`** *(exported)*
 
 ```
@@ -12662,6 +12670,14 @@ Called from: nowhere the compiler could find.
 
 ```
 filters.otherThanLedgerA(choices: Choice[], v: Values): Choice[]
+```
+
+Called from: nowhere the compiler could find.
+
+**`filters.otherThanReference`** *(exported)*
+
+```
+filters.otherThanReference(choices: Choice[], v: Values): Choice[]
 ```
 
 Called from: nowhere the compiler could find.
@@ -12906,10 +12922,50 @@ actions.purchaseOrder(c: Context, v: Values): Promise<string>
 
 Called from: nowhere the compiler could find.
 
+**`allWords`**
+
+```
+allWords(): any
+```
+
+Called from: production: screen-runtime.ts (formRecords.wordsToTranslate ×1, formRecords.wordTranslations ×1, records.vocabularyWords ×1)
+
+**`forgetWords`**
+
+```
+forgetWords(): void
+```
+
+Called from: production: screen-runtime.ts (commands.deleteVocabularyWord ×1, commands.removeLanguage ×1, formActions.addLanguage ×1, formActions.addVocabularyWord ×1, formActions.setTranslation ×1)
+
+**`directionOf`**
+
+```
+directionOf(language: string): any
+```
+
+Called from: production: screen-runtime.ts (formRecords.wordsToTranslate ×1, formRecords.wordTranslations ×1)
+
 **`records.hierarchies`** *(exported)*
 
 ```
 records.hierarchies(c: Context): Promise<any>
+```
+
+Called from: nowhere the compiler could find.
+
+**`records.vocabularyWords`** *(exported)*
+
+```
+records.vocabularyWords(): Promise<any>
+```
+
+Called from: nowhere the compiler could find.
+
+**`records.languages`** *(exported)*
+
+```
+records.languages(): Promise<any>
 ```
 
 Called from: nowhere the compiler could find.
@@ -12934,6 +12990,22 @@ Called from: nowhere the compiler could find.
 
 ```
 records.quotations(c: Context): Promise<any>
+```
+
+Called from: nowhere the compiler could find.
+
+**`commands.deleteVocabularyWord`** *(exported)*
+
+```
+commands.deleteVocabularyWord(_c: Context, row: Row): Promise<string>
+```
+
+Called from: nowhere the compiler could find.
+
+**`commands.removeLanguage`** *(exported)*
+
+```
+commands.removeLanguage(_c: Context, row: Row): Promise<string>
 ```
 
 Called from: nowhere the compiler could find.
@@ -13282,6 +13354,30 @@ formActions.saveVocabulary(c: Context, v: Values): Promise<void>
 
 Called from: nowhere the compiler could find.
 
+**`formActions.addVocabularyWord`** *(exported)*
+
+```
+formActions.addVocabularyWord(_c: Context, v: Values): Promise<void>
+```
+
+Called from: nowhere the compiler could find.
+
+**`formActions.addLanguage`** *(exported)*
+
+```
+formActions.addLanguage(_c: Context, v: Values): Promise<void>
+```
+
+Called from: nowhere the compiler could find.
+
+**`formActions.setTranslation`** *(exported)*
+
+```
+formActions.setTranslation(_c: Context, v: Values): Promise<void>
+```
+
+Called from: nowhere the compiler could find.
+
 **`formActions.createHierarchy`** *(exported)*
 
 ```
@@ -13366,6 +13462,22 @@ Called from: nowhere the compiler could find.
 
 ```
 tables.cashPosition(c: Context): Promise<{ columns: ({ name: string; label: any; numeric?: undefined; } | { name: string; label: any; numeric: true; })[]; rows: any; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`formRecords.wordTranslations`** *(exported)*
+
+```
+formRecords.wordTranslations(_c: Context, parent: Row): Promise<any>
+```
+
+Called from: nowhere the compiler could find.
+
+**`formRecords.wordsToTranslate`** *(exported)*
+
+```
+formRecords.wordsToTranslate(_c: Context, _parent: Row, v: Values): Promise<any>
 ```
 
 Called from: nowhere the compiler could find.

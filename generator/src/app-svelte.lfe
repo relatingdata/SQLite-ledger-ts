@@ -1145,16 +1145,22 @@
          (buttons (sections-with s id #"Button"))
          (cardss (sections-with s id #"Cards"))
          (liness (sections-with s id #"Lines"))
-         (forms (lists:append lists buttons))
+         (eaches (sections-with s id #"Each"))
+         (pickers (sections-with s id #"Pickers"))
+         (panels (lists:filter (lambda (p) (panel? s p)) (sections-with s id #"Action")))
+         (layout (lists:filter (lambda (p) (orelse (lists:any (lambda (r) (=/= (val s p r) 'undefined)) (list #"Records" #"Each" #"Search")) (lists:member p panels)))
+                               (lists:filter (lambda (p) (== (kind s p) #"Section")) (app-view:things s id))))
+         (forms (lists:append (list lists buttons panels pickers)))
          (fields (lists:append (lists:map (lambda (l) (list-fields s l)) (lists:append forms liness))))
-         (chosen (lists:filter (lambda (f) (=/= (val s f #"Choices") 'undefined)) fields)))
+         (chosen (lists:filter (lambda (f) (=/= (val s f #"Choices") 'undefined)) fields))
+         (modes (case (val s id #"Modes") ('undefined '()) (m (binary:split m #" " '(global trim_all))))))
     (list
       #"<script lang='ts'>\n" (header s id)
       #"  import '$lib/generated.css';\n"
       #"  import { session, translations } from '$lib/state.svelte';\n"
       #"  import Form from '$lib/components/Form.svelte';\n"
       #"  import SelectableListEditor from '$lib/components/SelectableListEditor.svelte';\n"
-      #"  import { cards, commands, formActions, lineActions, records, sources, tables, type Card, type Choice, type Row, type Table, type Values } from '$lib/screen-runtime';\n\n"
+      #"  import { cards, commands, filters, formActions, formRecords, lineActions, records, sources, tables, type Card, type Choice, type FormRecord, type Row, type Table, type Values } from '$lib/screen-runtime';\n\n"
       #"  const t = (word: string) => translations.current[word] ?? word;\n"
       #"  const context = () => ({ business: session.current?.businessName ?? '', ledger: session.current?.ledgerName ?? '', party: '' });\n"
       #"  const message = (e: unknown) => (e instanceof Error ? e.message : t('Could not complete.'));\n"
@@ -1166,12 +1172,15 @@
       #"  let failures: Record<string, string> = $state({});\n"
       #"  let shown: Record<string, Table> = $state({});\n"
       #"  let cardSets: Record<string, Card[]> = $state({});\n"
+      #"  let eachRecords: Record<string, FormRecord[]> = $state({});\n"
       #"  let choices: Record<string, Choice[]> = $state({});\n"
       #"  const options = $derived(Object.fromEntries(Object.entries(choices).map(([k, cs]) => [k, cs.map((c) => c.value)])));\n"
       #"  let loading = $state(true);\n"
       #"  let error = $state('');\n"
+      #"  let search = $state('');\n"
+      #"  let mode = $state(" (case modes ('() #"''") ((cons m _) (js (car (binary:split m #"="))))) #");\n"
       #"  let values: Record<string, Record<string, string | number | string[]>> = $state({ "
-      (lists:join #", " (lists:map (lambda (l) (list (list-name s id l) #": " (blank s (list-fields s l)))) forms))
+      (lists:join #", " (lists:map (lambda (l) (list (list-name s id l) #": " (blank-defaults s (list-fields s l)))) forms))
       #" });\n"
       #"  let lines: Record<string, Values[]> = $state({ "
       (lists:join #", " (lists:map (lambda (l) (list (val s l #"Name") #": [" (blank s (list-fields s l)) #"]")) liness))
@@ -1180,10 +1189,17 @@
       #"  const keys: Record<string, string> = { "
       (lists:join #", " (lists:map (lambda (l) (list (list-name s id l) #": " (js (val s l #"Key")))) lists))
       #" };\n"
-      #"  const rowOf = (list: string) => (rows[list] ?? []).find((r) => r[keys[list]] === selected[list]);\n\n"
-      (lists:map (lambda (l) (list-functions s id l lists)) lists)
-      (lists:map (lambda (b) (button-function s b)) buttons)
+      #"  const rowOf = (list: string) => (rows[list] ?? []).find((r) => String(r[keys[list]]) === selected[list]);\n"
+      #"  const found = (list: string, field: string) => {\n"
+      #"    const wanted = search.trim().toLowerCase();\n"
+      #"    return wanted ? (rows[list] ?? []).filter((r) => (r[field] ?? '').toLowerCase().includes(wanted)) : (rows[list] ?? []);\n  };\n"
+      #"  const pickerValues = (): Values => ({ "
+      (lists:map (lambda (p) (list #"..." (stringify (list #"values." (val s p #"Name"))) #", ")) pickers)
+      #"search });\n\n"
+      (lists:map (lambda (l) (list-functions s id l (lists:append lists eaches))) lists)
+      (lists:map (lambda (b) (button-function s b)) (lists:append buttons panels))
       (lists:map (lambda (l) (lines-function s l)) liness)
+      (lists:map (lambda (e) (each-functions s id e)) eaches)
       #"  let latest = 0;\n"
       #"  async function load() {\n"
       #"    const request = ++latest;\n"
@@ -1198,25 +1214,43 @@
       (lists:map (lambda (sec) (list #"      shown." (val s sec #"Table") #" = table_" (val s sec #"Table") #";\n")) tables)
       (lists:map (lambda (sec) (list #"      cardSets." (val s sec #"Cards") #" = cards_" (val s sec #"Cards") #";\n")) cardss)
       (lists:map (lambda (f) (list #"      choices." (val s f #"Name") #" = choices_" (val s f #"Name") #";\n")) chosen)
-      (lists:map (lambda (f) (list #"      if (!values." (field-form s f forms) #"." (val s f #"Name") #" && choices_" (val s f #"Name") #".length > 0) values." (field-form s f forms) #"." (val s f #"Name") #" = choices_" (val s f #"Name") #"[0].value;\n"))
+      (lists:map (lambda (f) (let* ((form (field-form s f forms))
+                                    (all (list #"choices_" (val s f #"Name")))
+                                    (offered (case (val s f #"Filter") ('undefined all) (x (list #"filters." x #"(" all #", " (stringify (list #"values." form)) #")")))))
+                               (list #"      if (!values." form #"." (val s f #"Name") #") values." form #"." (val s f #"Name") #" = " offered #"[0]?.value ?? '';\n")))
                  (lists:filter (lambda (f) (andalso (== (val s f #"Default") #"first") (=/= (field-form s f forms) 'undefined))) chosen))
+      (lists:map (lambda (e) (list #"      await load_" (val s e #"Name") #"();\n")) eaches)
       #"    } catch (e) {\n      if (request === latest) error = message(e);\n"
       #"    } finally {\n      if (request === latest) loading = false;\n    }\n  }\n"
       #"  $effect(() => {\n    if (session.current) load();\n  });\n"
+      (lists:map (lambda (e) (list #"  $effect(() => {\n    JSON.stringify(pickerValues());\n    if (!loading) load_" (val s e #"Name") #"().catch((err) => (error = message(err)));\n  });\n"))
+                 (lists:filter (lambda (e) (== (val s e #"Of") 'undefined)) eaches))
       #"</script>\n\n"
       #"<svelte:head><title>{t(" (js (val s id #"Title")) #")}</title></svelte:head>\n\n"
       #"<fieldset class='page-title generated'>\n"
       #"  <legend>{t(" (js (val s id #"Title")) #")}</legend>\n"
       (intro-line s id)
       #"  {#if error}<p class='error'>{error}</p>{/if}\n"
+      (case modes
+        ('() #"")
+        (ms (list #"  <fieldset class='mode-toggle'>\n    <legend>{t('Mode')}</legend>\n    <div class='mode-buttons'>\n"
+                  (lists:map (lambda (m) (let (((list v l) (binary:split m #"=")))
+                                           (list #"      <button class='btn' class:selected={mode === " (js v) #"} onclick={() => (mode = " (js v) #")}>" (t (binary:replace l #"_" #" " '(global))) #"</button>\n")))
+                             ms)
+                  #"    </div>\n"
+                  (lists:map (lambda (p) (moded s p (list #"    <div class='pickers'>\n"
+                                                         (lists:map (lambda (f) (inline-control s f (val s p #"Name") 'none 'none #"      ")) (list-fields s p))
+                                                         #"    </div>\n")))
+                             pickers)
+                  #"  </fieldset>\n")))
       #"  {#if loading}\n    <p class='center-text'>{t('Loading')}{'\\u2026'}</p>\n  {:else}\n"
       (lists:map (lambda (sec) (table-block s sec)) tables)
       (if (== (val s id #"Records") 'undefined) #"" (list #"    <div class='list-wrap'>\n" (list-block s id id) #"    </div>\n"))
-      (case (sections-with s id #"Records")
+      (case layout
         ('() #"")
         (ls (list (case (val s id #"Lists Title") ('undefined #"") (lt (list #"    <h3>" (t lt) #"</h3>\n")))
                   #"    <div class='lists" (case (val s id #"Lists Class") ('undefined #"") (c (list #" " c))) #"'>\n"
-                  (lists:map (lambda (l) (list-block s id l)) ls)
+                  (lists:map (lambda (l) (moded s l (layout-block s id l))) ls)
                   #"    </div>\n")))
       (case buttons
         ('() #"")
@@ -1225,6 +1259,89 @@
       (lists:map (lambda (l) (lines-block s l)) liness)
       #"  {/if}\n"
       #"</fieldset>\n")))
+
+;; A section with Action, a Card and no Button: a form always open.
+(defun panel? (s p)
+  (andalso (=/= (val s p #"Card") 'undefined) (== (val s p #"Button") 'undefined) (== (val s p #"Lines") 'undefined)
+           (== (val s p #"Each") 'undefined) (== (val s p #"Records") 'undefined)))
+
+(defun blank-defaults (s fields)
+  (list #"{ " (lists:join #", " (lists:map (lambda (f) (list (val s f #"Name") #": "
+                                                             (case (val s f #"Default") ('undefined #"''") (#"first" #"''") (d (js d)))))
+                                           fields)) #" }"))
+
+;; Shown only in its Mode, when it has one.
+(defun moded (s sec body)
+  (case (val s sec #"Mode")
+    ('undefined body)
+    (m (list #"    {#if mode === " (js m) #"}\n" body #"    {/if}\n"))))
+
+;; One section of the side-by-side layout, in its Card when it has one.
+(defun layout-block (s id l)
+  (let ((inner (cond ((=/= (val s l #"Records") 'undefined)
+                      (list (search-box s l (list-name s id l) (val s l #"Search On" (val s l #"Key"))) (list-block s id l)
+                            (case (val s l #"Limit") ('undefined #"")
+                              (n (list #"        {#if found(" (js (list-name s id l)) #", " (js (val s l #"Search On" (val s l #"Key"))) #").length > " n #"}<p class='hint'>{'\\u2026'} +{found(" (js (list-name s id l)) #", " (js (val s l #"Search On" (val s l #"Key"))) #").length - " n #"}</p>{/if}\n")))))
+                     ((=/= (val s l #"Each") 'undefined) (each-block s id l))
+                     ((=/= (val s l #"Search") 'undefined) (search-box s l (val s l #"Counts") (val s l #"Search On" #"name")))
+                     ('true (panel-block s l)))))
+    (case (val s l #"Card")
+      ('undefined inner)
+      (c (list #"      <div class='card " c #"'>\n"
+               (case (val s l #"Card Title") ('undefined #"") (ct (list #"        <h3>" (t ct) #"</h3>\n")))
+               inner #"      </div>\n")))))
+
+;; The search box over a list, and how many of its rows it finds.
+(defun search-box (s sec list field)
+  (case (val s sec #"Search")
+    ('undefined #"")
+    (ph (list #"        <fieldset><legend>{t('Search')}</legend><input bind:value={search} placeholder={t(" (js ph) #")} /></fieldset>\n"
+              #"        <p class='hint'>{found(" (js list) #", " (js field) #").length} / {(rows." list #" ?? []).length}</p>\n"))))
+
+;; A form always open: its Title, its fields, its Submit Label.
+(defun panel-block (s p)
+  (let ((n (val s p #"Name")))
+    (list (case (val s p #"Title") ('undefined #"") (ti (list #"        <h3>" (t ti) #"</h3>\n")))
+          (lists:map (lambda (f) (inline-control s f n (list #"act_" n #"()") #"void 0" #"        ")) (list-fields s p))
+          #"        <button class='btn' onclick={act_" n #"}>" (t (val s p #"Submit Label" #"Save")) #"</button>\n"
+          #"        {#if failures." n #"}<p class='error small'>{failures." n #"}</p>{/if}\n")))
+
+;; A form per record (formRecords: Each), each saved on its own (Action,
+;; with the record's key and the parent's selected key). With Of: the
+;; records of the row selected there, under its Show, or the Empty Text
+;; until one is; otherwise from the pickers and the search, reloaded as
+;; they change. Rows: a line per record; otherwise a fieldset per record.
+(defun each-functions (s id e)
+  (let ((n (val s e #"Name")))
+    (list
+      #"  async function load_" n #"() {\n"
+      (case (val s e #"Of")
+        ('undefined (list #"    eachRecords." n #" = await formRecords." (val s e #"Each") #"(context(), undefined, pickerValues());\n"))
+        (o (list #"    const parent = rowOf(" (js o) #");\n    eachRecords." n #" = parent ? await formRecords." (val s e #"Each") #"(context(), parent, pickerValues()) : [];\n")))
+      #"  }\n"
+      #"  async function save_" n #"(record: FormRecord) {\n"
+      #"    busy[" (js n) #" + record.key] = true;\n    error = '';\n"
+      #"    try {\n      await formActions." (val s e #"Action") #"(context(), { ...record.values, key: record.key"
+      (case (val s e #"Of") ('undefined #"") (o (list #", parent: selected." o #" ?? ''")))
+      #" });\n      await load();\n"
+      #"    } catch (err) {\n      error = message(err);\n    } finally {\n      busy[" (js n) #" + record.key] = false;\n    }\n  }\n")))
+
+(defun each-block (s id e)
+  (let* ((n (val s e #"Name"))
+         (fields (list-fields s e))
+         (inputs (lists:map (lambda (f) (list #"<input bind:value={record.values." (val s f #"Name") #"} dir={record.dir ?? 'ltr'} />")) fields))
+         (save (list #"<button class='btn' onclick={() => save_" n #"(record)} disabled={busy[" (js n) #" + record.key]}>{busy[" (js n) #" + record.key] ? t('Saving') + '\\u2026' : t('Save')}</button>"))
+         (records (list #"eachRecords." n #" ?? []"))
+         (body (list
+                 #"        {#each " records #" as record (record.key)}\n"
+                 (if (=/= (val s e #"Rows") 'undefined)
+                   (list #"          <div class='each-row'><div class='each-title' dir={record.dir ?? 'ltr'}>{record.title}</div>" inputs save #"</div>\n")
+                   (list #"          <fieldset><legend>{record.title}</legend><div class='each-line'>" inputs save #"</div></fieldset>\n"))
+                 #"        {/each}\n")))
+    (case (val s e #"Of")
+      ('undefined (list #"        {#if (" records #").length === 0}<p class='hint'>" (t (val s e #"Empty Text" #"None")) #"</p>{/if}\n" body))
+      (o (list #"        {#if !selected." o #"}\n          <p class='hint'>" (t (val s e #"Empty Text" #"None")) #"</p>\n        {:else}\n"
+               #"          <h3>{rowOf(" (js o) #")?." (val s e #"Show" #"name") #" ?? ''}</h3>\n" body #"        {/if}\n")))))
 
 ;; The form (list or button section) a field belongs to, by name.
 (defun field-form (s f forms)
@@ -1237,20 +1354,27 @@
 
 ;; A field as a plain control bound to values.<form>.
 (defun inline-control (s f form submit cancel pad)
-  (let ((bound (list #"values." form #"." (val s f #"Name")))
-        (keys (keydown submit cancel)))
-    (case (val s f #"Control" #"text")
-      (#"select"
-       (list pad #"<select name=" (js (val s f #"Name")) #" bind:value={" bound #"} onkeydown={" keys #"}>"
-             (case (val s f #"Options")
-               ('undefined (list #"{#each choices." (val s f #"Name") #" ?? [] as c}<option value={c.value}>{t(c.label)}</option>{/each}"))
-               (opts (lists:map (lambda (o) (let (((list v l) (binary:split o #"="))) (list #"<option value=" (js v) #">" (t (binary:replace l #"_" #" " '(global))) #"</option>")))
-                                (binary:split opts #" " '(global trim_all)))))
-             #"</select>\n"))
-      (control
-       (list pad #"<input type=" (js control) #" name=" (js (val s f #"Name")) #" bind:value={" bound #"}"
-             (case (val s f #"Placeholder") ('undefined #"") (ph (list #" placeholder={t(" (js ph) #")}")))
-             #" onkeydown={" keys #"} />\n")))))
+  (let* ((bound (list #"values." form #"." (val s f #"Name")))
+         (keys (if (== submit 'none) #"" (list #" onkeydown={" (keydown submit cancel) #"}")))
+         (offered (case (val s f #"Filter")
+                    ('undefined (list #"choices." (val s f #"Name") #" ?? []"))
+                    (x (list #"filters." x #"(choices." (val s f #"Name") #" ?? [], " (stringify (list #"values." form)) #")"))))
+         (control
+           (case (val s f #"Control" #"text")
+             (#"select"
+              (list pad #"<select name=" (js (val s f #"Name")) #" bind:value={" bound #"}" keys #">"
+                    (case (val s f #"Options")
+                      ('undefined (list #"{#each " offered #" as c}<option value={c.value}>{t(c.label)}</option>{/each}"))
+                      (opts (lists:map (lambda (o) (let (((list v l) (binary:split o #"="))) (list #"<option value=" (js v) #">" (t (binary:replace l #"_" #" " '(global))) #"</option>")))
+                                       (binary:split opts #" " '(global trim_all)))))
+                    #"</select>\n"))
+             (control
+              (list pad #"<input type=" (js control) #" name=" (js (val s f #"Name")) #" bind:value={" bound #"}"
+                    (case (val s f #"Placeholder") ('undefined #"") (ph (list #" placeholder={t(" (js ph) #")}")))
+                    keys #" />\n")))))
+    (case (val s f #"Label")
+      ('undefined control)
+      (label (list pad #"<fieldset>\n" pad #"  <legend>" (t label) #"</legend>\n" control pad #"</fieldset>\n")))))
 
 (defun list-functions (s id l lists)
   (let* ((n (list-name s id l))
@@ -1264,7 +1388,7 @@
         (list #"    const parent = rowOf(" (js (list-name s id parent)) #");\n"
               #"    rows." n #" = parent ? await records." (val s l #"Records") #"(context(), parent) : [];\n"))
       #"  }\n"
-      #"  function select_" n #"(r: Row) {\n    selected." n #" = r." (val s l #"Key") #";\n"
+      #"  function select_" n #"(r: Row) {\n    selected." n #" = String(r." (val s l #"Key") #");\n"
       (lists:map (lambda (c) (let ((cn (list-name s id c))) (list #"    selected." cn #" = null;\n    inserting." cn #" = false;\n    load_" cn #"();\n"))) children)
       #"  }\n"
       #"  function close_" n #"() {\n    inserting." n #" = false;\n    values." n #" = " blank-values #";\n  }\n"
@@ -1300,7 +1424,10 @@
              #"      <SelectableListEditor\n"
              #"        legend={" legend #"}\n"
              #"        hintText={t(" (js (val s l #"Hint" #"")) #")}\n"
-             #"        items={rows." n #" ?? []}\n"
+             #"        items={" (case (val s l #"Search")
+                         ('undefined (list #"rows." n #" ?? []"))
+                         (_ (list #"found(" (js n) #", " (js (val s l #"Search On" (val s l #"Key"))) #")"
+                                  (case (val s l #"Limit") ('undefined #"") (lim (list #".slice(0, " lim #")")))))) #"}\n"
              #"        getId={(r) => r." (val s l #"Key") #"}\n"
              #"        selectedId={selected." n #" ?? null}\n"
              #"        onSelect={select_" n #"}\n"

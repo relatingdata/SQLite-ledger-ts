@@ -695,20 +695,30 @@ payment posts: a failed allocation does not undo the payment. Each
 allocation has its own reference, since the payment's reference is
 already used by its journal entry.
 
-## `frontend/src/routes/setup/translations/+page.svelte` — the translator screen
+## `/setup/translations` — the translator screen
 
-**Pending edits** are kept per language, apart from `words`, and only
-for the words the translator has changed; any other word shows its
-current translation, or a copy of the reference text to start from.
-A saved value is shown at once, without reloading.
+The page is generated from the list template, in two modes. **Edit one
+word**: the words (`records.vocabularyWords`), searched by name, the
+first 200 shown; the selected word's text in each language
+(`formRecords.wordTranslations`), each saved on its own
+(`formActions.setTranslation`); and the languages
+(`records.languages`), added with a text direction (`addLanguage`) or
+removed (`removeLanguage`). **Translate between languages**: for the
+first 200 words found, the reference language's text beside the target
+language's (`formRecords.wordsToTranslate`), each saved on its own.
 
-**Text direction** comes from each language's own setting, loaded
-with the language list, for every input and reference column (no
-language is special-cased).
+**Every word** is loaded once and kept, since searching filters it as
+each letter is typed, until a word, translation or language changes.
+After a save the page reloads it, so the saved value is shown.
+
+**Text direction** comes from each language's own setting, for every
+input and reference column (no language is special-cased).
 
 **Reference language** is whichever language the translator reads
-while working, falling back to English (itself a translation under the
-`English` language) when it has no translation of a word.
+while working (English to start with), falling back to English (itself
+a translation under the `English` language) when it has no translation
+of a word; the target language starts on the first other language
+(`filters.otherThanReference`).
 
 Tests (*Testing: Unit*, "Running the tests"):
 - "help-text-in-german" (`shared-fixtures/tests/help-text-in-german.csv`)

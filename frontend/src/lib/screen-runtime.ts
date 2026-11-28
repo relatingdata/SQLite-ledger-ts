@@ -104,6 +104,15 @@ import {
   saveHierarchyPrototype,
   createHierarchyFromPrototype,
   type HierarchyKind,
+  getVocabularyWords,
+  getLanguages,
+  getLanguageDirection,
+  setLanguageDirection,
+  setTranslation,
+  createEntity,
+  revokeEntity,
+  deleteVocabularyWord,
+  type VocabularyWord,
 } from '$lib/api';
 import { getCube, getAxes, getProfitAndLossByAxis, type ProfitAndLossByAxisNode } from '$lib/matrix-api';
 import { parseMinorUnits, parseQuantity } from '$lib/money';
@@ -253,6 +262,8 @@ export const sources: Record<string, (business: string, ledger: string) => Promi
     }
     return [business, ...groups].map((name) => ({ value: name, label: name }));
   },
+  /** The languages, by name. */
+  languages: async () => (await getLanguages()).map((l) => ({ value: l.name, label: l.name })),
   /** The saved hierarchy prototypes: what each groups and how many values. */
   hierarchyPrototypes: async () =>
     (await listHierarchyPrototypes()).map((p) => ({ value: p.prototype, label: `${t(p.prototype)} (${t(p.of === 'Items' ? 'Of items' : 'Of locations')}, ${p.values})` })),
@@ -285,6 +296,8 @@ export const sources: Record<string, (business: string, ledger: string) => Promi
 export const filters: Record<string, (choices: Choice[], values: Values) => Choice[]> = {
   /** Every ledger but the one chosen as ledger A. */
   otherThanLedgerA: (choices, v) => choices.filter((c) => c.value !== v.ledgerA),
+  /** Every language but the reference language. */
+  otherThanReference: (choices, v) => choices.filter((c) => c.value !== v.referenceLanguage),
   /** The axes the inner axis allows: on the other side from it. */
   againstInner: (choices, v) => againstAxis(choices, v.innerAxis ?? ''),
   /** The axes the outer axis allows: on the other side from it. */
@@ -585,6 +598,16 @@ export const actions: Record<string, (c: Context, v: Values, lines: Line[]) => P
 // --- records -------------------------------------------------------------------
 
 /** The records a screen lists below its form, refreshed after each action. */
+// Every vocabulary word with its translations, kept until something
+// changes one (forgetWords), since searching filters it as each letter is
+// typed; and each language's text direction.
+let wordsKept: Promise<VocabularyWord[]> | null = null;
+const allWords = () => (wordsKept ??= getVocabularyWords().catch((e) => { wordsKept = null; throw e; }));
+const forgetWords = () => { wordsKept = null; };
+const directions: Record<string, Promise<'ltr' | 'rtl'>> = {};
+const directionOf = (language: string) =>
+  (directions[language] ??= getLanguageDirection(language).then((d): 'ltr' | 'rtl' => (d.direction === 'RTL' ? 'rtl' : 'ltr'), (): 'ltr' | 'rtl' => 'ltr'));
+
 /** What a list screen lists; a detail list's records are those of the
  * row selected in its parent list (parent). */
 export const records: Record<string, (c: Context, parent?: Row) => Promise<Row[]>> = {
@@ -598,6 +621,10 @@ export const records: Record<string, (c: Context, parent?: Row) => Promise<Row[]
       of: g.of ?? '',
       detail: `(${g.of ? `${t(g.of)}, ` : ''}${g.values.length})`,
     })),
+  /** Every vocabulary word: word (its name) and name (as shown). */
+  vocabularyWords: async () => (await allWords()).map((w) => ({ word: w.name, name: t(w.name) })),
+  /** The languages: id, language (its name) and name (as shown). */
+  languages: async () => (await getLanguages()).map((l) => ({ id: String(l.id), language: l.name, name: t(l.name) })),
   /** The values of the hierarchy selected (parent.hierarchy). */
   hierarchyValues: async (c, parent) =>
     ((await getHierarchy(asBusinessName(c.business))).find((g) => g.hierarchy === parent?.hierarchy)?.values ?? []).map((v) => ({
@@ -628,6 +655,18 @@ export const records: Record<string, (c: Context, parent?: Row) => Promise<Row[]
 
 /** What a listed record's buttons do; each returns the message to show. */
 export const commands: Record<string, (c: Context, row: Row) => Promise<string>> = {
+  /** Deletes a vocabulary word (row.word). */
+  deleteVocabularyWord: async (_c, row) => {
+    await deleteVocabularyWord(row.word);
+    forgetWords();
+    return '';
+  },
+  /** Removes a language (row.id). */
+  removeLanguage: async (_c, row) => {
+    await revokeEntity(Number(row.id));
+    forgetWords();
+    return '';
+  },
   /** Deletes a hierarchy (row.hierarchy). */
   deleteHierarchy: async (c, row) => {
     await deleteHierarchy(c.business, row.hierarchy);
@@ -1337,6 +1376,30 @@ export const formActions: Record<string, (c: Context, v: Values) => Promise<Valu
     else await setVocabularyPreference(v.key, 'business', business.id, v.preferred);
     window.location.reload();
   },
+  /** A new vocabulary word (word). */
+  addVocabularyWord: async (_c, v) => {
+    if (!(v.word ?? '').trim()) return;
+    await createEntity({ name: v.word.trim(), parent: 'Vocabulary' });
+    forgetWords();
+  },
+  /** A new language (language) written left to right or right to left
+   * (direction). */
+  addLanguage: async (_c, v) => {
+    const name = (v.language ?? '').trim();
+    if (!name) return;
+    await createEntity({ name, parent: 'Languages' });
+    await setLanguageDirection(name, v.direction === 'RTL' ? 'RTL' : 'LTR');
+    forgetWords();
+  },
+  /** A word's (parent, or key when translating many) text (text) in a
+   * language (key, or targetLanguage); a blank text changes nothing. */
+  setTranslation: async (_c, v) => {
+    const text = (v.text ?? '').trim();
+    if (!text) return;
+    if (v.parent) await setTranslation(v.parent, v.key, text);
+    else await setTranslation(v.key, v.targetLanguage, text);
+    forgetWords();
+  },
   /** A new hierarchy (name) of items or of locations (of). */
   createHierarchy: async (c, v) => {
     if (!(v.name ?? '').trim()) return;
@@ -1457,10 +1520,33 @@ export interface FormRecord {
   values: Values;
   /** Each select's options. */
   options: Record<string, string[]>;
+  /** Its inputs' text direction. */
+  dir?: 'ltr' | 'rtl';
 }
 
 /** The records of a forms Section with Each. */
-export const formRecords: Record<string, (c: Context) => Promise<FormRecord[]>> = {
+export const formRecords: Record<string, (c: Context, parent?: Row, v?: Values) => Promise<FormRecord[]>> = {
+  /** The selected word's (parent.word) text in each language. */
+  wordTranslations: async (_c, parent) => {
+    const word = (await allWords()).find((w) => w.name === parent?.word);
+    if (!word) return [];
+    return Promise.all(
+      (await getLanguages()).map(async (l) => ({ key: l.name, title: t(l.name), values: { text: word.translations[l.name] ?? '' }, options: {}, dir: await directionOf(l.name) }))
+    );
+  },
+  /** The first 200 words found (search), each with its text in the
+   * reference language (referenceLanguage) and, to change, in the target
+   * language (targetLanguage); none until a target is chosen. */
+  wordsToTranslate: async (_c, _parent, v) => {
+    if (!v?.targetLanguage) return [];
+    const wanted = (v.search ?? '').trim().toLowerCase();
+    const reference = (w: VocabularyWord) => w.translations[v.referenceLanguage] ?? w.translations['English'] ?? w.name;
+    const dir = await directionOf(v.targetLanguage);
+    return (await allWords())
+      .filter((w) => !wanted || w.name.toLowerCase().includes(wanted))
+      .slice(0, 200)
+      .map((w) => ({ key: w.name, title: reference(w), values: { text: w.translations[v.targetLanguage] ?? reference(w) }, options: {}, dir }));
+  },
   /** Each concept with more than one name, on the name the business sees
    * now: the alternate whose translation is what its default shows. */
   vocabularyConcepts: async () =>

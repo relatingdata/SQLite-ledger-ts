@@ -64,7 +64,7 @@ build output, ignored by git, written by `make generate`.
 
 ### Templates
 
-55 of the 81 routes are generated. Each screen names its template, or
+56 of the 81 routes are generated. Each screen names its template, or
 takes its base screen's (Variants, below):
 
 | Template | Screens | Reads |
@@ -73,7 +73,7 @@ takes its base screen's (Variants, below):
 | `report` | Trial Balance, Balance Sheet, Below Reorder, Inventory and Storage, Aged Receivables/Payables, Reminders, Customer Statement, Sales Report, Cash Flow Forecast, Business Configuration Report, Stock-Out Risk, Journal Entries, Compare Ledgers | `Title`, `Intro` (`{NAME}` in it is the business or ledger, by `Intro Name`; optional), `Report`, `Clear Label`, `Empty Text` with an `Empty Link` to `Empty Href`; parameter `Field`s (`Control=ledger` chooses the ledger); one `Entry` per column |
 | `drill` | Profit and Loss, Stock Movement Report, Inventory Listing | `Title`, `Intro`, `Report`, `Title Line`, `Empty Text`, `Clear Label`; parameter `Field`s in a row of controls |
 | `forms` | Account Settings, Accounting Periods, Vocabulary | `Title`, `Intro`, `Status`; one `Section` per form (`Title`, `Action`, `Submit Label`, `Initial`, `Preview`; or `Each`, `Empty Text`: a form per record), its `Field`s under it |
-| `list` | Bank Accounts, Hierarchies | `Title`, `Intro`, `Records`, `Key`, `Insert`, `Delete`, `List Title`, `Hint`, `Empty Text`, `Lists Title`, `Lists Class`; `Entry` columns, `Field`s of the insert form; `Section`s with `Records` (more lists, `Of` another), `Table`, `Button`, `Cards` or `Lines` |
+| `list` | Bank Accounts, Hierarchies, Translations | `Title`, `Intro`, `Records`, `Key`, `Insert`, `Delete`, `List Title`, `Hint`, `Empty Text`, `Lists Title`, `Lists Class`, `Modes`; `Entry` columns, `Field`s of the insert form; `Section`s with `Records` (more lists, `Of` another), `Table`, `Button`, `Cards`, `Lines`, `Each`, `Search`, `Pickers`, or an always-open `Card` form |
 | `review` | Year End Close | `Title`, `Intro`, `Intro Note`; parameter `Field`s; one `Section` per entry proposed (`Title`, `Intro`, `Hint`, `Propose`, `Propose Label`, `Proposal Title`, `Accept`, `Accept Label`), its own `Field`s under it |
 | `pivot` | Stock on Hand (`/reports/new-stock-on-hand`), Sales and Margin (`/reports/sales-margin`) | `Title`, `Intro`, `Row Axis`, `Column Axis`, `Axis Chooser` (`drag` or `select`), `Highlight`, `Highlight Across`, `Empty Text`, `Clear Label`; date `Field`s `fromDate`/`toDate`; one `Entry` per measure |
 | `tiles` | AR / AP, Stock, Reports (section index pages) | `Title`, `Intro`; one `Tile` (`Href`, `Title`, `Description`) per link |
@@ -174,7 +174,24 @@ whose `Selected Has` is set. A `Section` with `Cards` shows groups of
 items (`cards`) under its `Title` and `Hint`, or its `Empty Text`; one
 with `Lines` is growable rows of its `Field`s (`Add Label` adds one),
 saved together by its `Action` (`lineActions`) with its `Submit Label`.
-A choice field with `Default=first` starts on its first choice.
+A choice field with `Default=first` starts on its first choice (of
+those its `Filter` leaves), any other `Default` on that value; a field
+with a `Label` is in a fieldset under it.
+
+A list `Section` with `Search` has a search box (that placeholder)
+filtering it by its `Search On` field, with how many it finds, showing
+at most its `Limit`; a `Section` with `Search` alone is that box
+counting its `Counts` list. A `Section` with `Each` is a form per
+record (`formRecords`), each saved on its own by its `Action` with the
+record's `key` (and the selected key of its `Of` list as `parent`): with
+`Of`, the selected row's records under its `Show`, or the `Empty Text`
+until one is selected; otherwise records from the pickers' values and
+the search, reloaded as they change, a line each with `Rows`. A
+`Section` with an `Action` and a `Card` but no `Button` is a form always
+open under its `Title`. `Card` puts a section in a card of that class
+(`Card Title` above it). The screen's `Modes` (`value=Label ...`) are
+buttons choosing what is shown: a `Section` with `Mode` is shown only
+in that mode, and one with `Pickers` holds that mode's choices.
 Everything is reloaded after each change.
 
 In `review`, the screen's `Field`s are parameters in a card at the top
@@ -308,10 +325,10 @@ hand, in the runtime module:
   (`locations`, `items`, `providers`, `customers`, `postableAccounts`,
   `axes`, `ledgers`, `stockGroupings`, `numberFormats`, `dateFormats`,
   `reportingPeriods`, `equityAccounts`, `bankAccountCandidates`,
-  `bankScopes`, `hierarchyPrototypes`);
+  `bankScopes`, `hierarchyPrototypes`, `languages`);
   a choice can name its `group`;
 - `filters`: narrowing one field's choices by the others (`sameCityAsFrom`,
-  `againstInner`, `againstOuter`, `otherThanLedgerA`);
+  `againstInner`, `againstOuter`, `otherThanLedgerA`, `otherThanReference`);
 - `reactions`: run when a field changes, returning a patch of values,
   narrowed choices and an information line (`onHand`,
   `fromLocationChanged`, `itemSources`, `providerPrice`, `orderStatus`,
@@ -325,7 +342,10 @@ hand, in the runtime module:
   (`pageSize`, `formats`, `closeThrough`; `savePageSize`, `saveFormats`,
   `changePassword`, `closePeriod`, `reopenPeriod`, `saveVocabulary`,
   `registerBankAccount`, `createHierarchy`, `createHierarchyValue`,
-  `saveHierarchyPrototype`, `createHierarchyFromPrototype`; `formats`), `formRecords` (`vocabularyConcepts`), and
+  `saveHierarchyPrototype`, `createHierarchyFromPrototype`,
+  `addVocabularyWord`, `addLanguage`, `setTranslation`; `formats`),
+  `formRecords` (`vocabularyConcepts`, `wordTranslations`,
+  `wordsToTranslate`), and
   `statuses` (`periodStatus`);
 - `proposals`, `accepts`: a `review` screen's entries proposed and
   posted (`closeBooks`, `rollover`);
@@ -333,9 +353,10 @@ hand, in the runtime module:
   (`cashPosition`), groups of items (`productShapes`), and growable rows
   saved together (`defineProductShape`);
 - `records`: what a screen lists (`quotations`, `bankAccounts`,
-  `hierarchies`, `hierarchyValues`), and `commands`: what its
+  `hierarchies`, `hierarchyValues`, `vocabularyWords`, `languages`), and `commands`: what its
   record buttons do (`markSent`, `accept`, `reject`, `sendReminder`, `resetReminder`,
-  `unregisterBankAccount`, `deleteHierarchy`, `deleteHierarchyValue`). A validation
+  `unregisterBankAccount`, `deleteHierarchy`, `deleteHierarchyValue`,
+  `deleteVocabularyWord`, `removeLanguage`). A validation
   failure throws `Invalid`, whose message is shown.
 
 ### Styling
@@ -422,7 +443,6 @@ Hand-written web pages (`frontend/src/routes`, by route):
 - `/setup/business-structure`
 - `/setup/chart-of-accounts`
 - `/setup/new-business`
-- `/setup/translations`
 - `/setup/tree`
 - `/setup/users`
 - `/stock/restock`

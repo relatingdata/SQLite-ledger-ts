@@ -2119,41 +2119,27 @@ Root
      a0 :Field Control=date Label="Close through date" Name=throughDate
     - :Section Action=reopenPeriod Name=reopen "Submit Label"="Reopen period" Title="Reopen period"
    "/setup/taxes" :Screen Description="Configuring real tax rates and jurisdictions as their own maintained list, rather than the current fixed Sales Tax Payable account used throughout the simulation." Template=not-implemented Title=Taxes
-   "/setup/translations" :Screen "Calls createEntity">/Root/Application/Calls/createEntity "Calls deleteVocabularyWord">/Root/Application/Calls/deleteVocabularyWord "Calls getLanguageDirection">/Root/Application/Calls/getLanguageDirection "Calls getLanguages">/Root/Application/Calls/getLanguages "Calls getVocabularyWords">/Root/Application/Calls/getVocabularyWords "Calls revokeEntity">/Root/Application/Calls/revokeEntity "Calls setLanguageDirection">/Root/Application/Calls/setLanguageDirection "Calls setTranslation">/Root/Application/Calls/setTranslation Source="frontend/src/routes/setup/translations/+page.svelte" Title=Translations
-    - :Heading Text=Translations
-    - :Heading Text=Mode
-    - :Action Handler="() => (mode = 'single')" Label="Edit one word"
-    - :Action Handler="() => (mode = 'translate')" Label="Translate between languages"
-    - :Heading Text="Reference language"
-    - :Field Bind=referenceLanguage Control=select Label="Reference language"
-    - :Heading Text="Target language"
-    - :Field Bind=targetLanguage Control=select Label="Target language"
-    - :Heading Text=Search
-    - :Field Bind=search Control=input Label=Search Placeholder="e.g. Provider"
-    - :Field Control=input Label=Translations
-    - :Action Handler="() => saveTranslateRow(word)" Label=Save
-    - :Heading Text="Add a new word"
-    - :Heading Text=Name
-    - :Field Bind=newWordName Control=input Label=Name Placeholder="e.g. Balance Sheet"
-    - :Action Handler=addWord Label="Add word"
-    - :Heading Text="Add a new language"
-    - :Heading Text=Name
-    - :Field Bind=newLanguageName Control=input Label=Name Placeholder="e.g. Spanish"
-    - :Heading Text="Text Direction"
-    - :Field Bind=newLanguageDirection Control=select Label="Text Direction"
-    - :Action Handler=addLanguage Label="Add language"
-    - :Heading Text=Search
-    - :Field Bind=search Control=input Label=Search Placeholder="e.g. Provider"
-    - :Use Component>/Root/Application/Components/SelectableListEditor "Prop emptyText"="{translations.current['No matching words.'] ?? 'No matching words.'}" "Prop getId"="{(w) => w.name}" "Prop hintText"="{translations.current['Insert adds a word. Delete removes the selected word.'] ?? 'Insert adds a word. Delete removes the selected word.'}" "Prop inserting"="{insertingWord}" "Prop items"="{filteredWords.slice(0, 200)}" "Prop legend"="{translations.current['Words'] ?? 'Words'}" "Prop onDelete"="{deleteWord}" "Prop onInsert"="{openInsertWord}" "Prop onSelect"="{select}" "Prop selectedId"="{selectedWord?.name ?? null}"
-    - :Field Bind=newWordName Control=input Label=Translations Placeholder="e.g. Balance Sheet" Type=text
-    - :Field Bind="editValues[lang.name]" Control=input Label=Translations
-    - :Action Handler="() => saveTranslation(lang.name)" Label=Save
-    - :Heading Text=Languages
-    - :Use Component>/Root/Application/Components/SelectableListEditor "Prop emptyText"="{translations.current['No real languages yet.'] ?? 'No real languages yet.'}" "Prop getId"="{(l) => l.id}" "Prop hintText"="{translations.current['Insert adds a language. Delete removes the selected language.'] ?? 'Insert adds a language. Delete removes the selected language.'}" "Prop inserting"="{insertingLanguage}" "Prop items"="{languages}" "Prop legend"="{translations.current['Languages'] ?? 'Languages'}" "Prop onDelete"="{deleteLanguage}" "Prop onInsert"="{openInsertLanguage}" "Prop onSelect"="{selectLanguage}" "Prop selectedId"="{selectedLanguageId}"
-    - :Heading Text=Name
-    - :Field Bind=newLanguageName Control=input Label=Name Placeholder="e.g. Spanish" Type=text
-    - :Heading Text="Text Direction"
-    - :Field Bind=newLanguageDirection Control=select Label="Text Direction"
+   "/setup/translations" :Screen Intro="Every real word or phrase this application uses, and its own, current translation into each real, existing language \u2014 add a new language below, or edit any word directly." "Lists Class"=layout Modes="single=Edit_one_word translate=Translate_between_languages" Template=list Title=Translations
+    - :Section Mode=translate Name=pickers Pickers=yes
+     a0 :Field Choices=languages Control=select Default=English Label="Reference language" Name=referenceLanguage
+     a1 :Field Choices=languages Control=select Default=first Filter=otherThanReference Label="Target language" Name=targetLanguage
+    - :Section Card=word-list-card Confirm=yes Delete=deleteVocabularyWord "Empty Text"="No matching words." Hint="Insert adds a word. Delete removes the selected word." Inline=yes Insert=addVocabularyWord Key=word Limit=200 "List Title"=Words Mode=single Name=words Records=vocabularyWords Search="e.g. Provider" "Search On"=word Show=name
+     a0 :Entry Name=name
+     a1 :Field Control=text Name=word Placeholder="e.g. Balance Sheet"
+    - :Section Action=setTranslation Card=edit-card Each=wordTranslations "Empty Text"="Select a word on the left to see and edit its own, real translations." Mode=single Name=wordEditor Of=words Show=name
+     a0 :Field Control=text Name=text
+    - :Section Card=new-language-card "Card Title"=Languages Confirm=yes Delete=removeLanguage "Empty Text"="No real languages yet." Hint="Insert adds a language. Delete removes the selected language." Inline=yes Insert=addLanguage Key=id "List Title"=Languages Mode=single Name=languages Records=languages Show=name
+     a0 :Entry Name=name
+     a1 :Field Control=text Label=Name Name=language Placeholder="e.g. Spanish"
+     a2 :Field Control=select Default=LTR Label="Text Direction" Name=direction Options="LTR=Left_to_right_(LTR) RTL=Right_to_left_(RTL)"
+    - :Section Card=word-list-card Counts=words Mode=translate Name=wordSearch Search="e.g. Provider" "Search On"=word
+    - :Section Action=setTranslation Card=translate-card Each=wordsToTranslate "Empty Text"="Choose a target language above to start translating into it." Mode=translate Name=translate Rows=yes
+     a0 :Field Control=text Name=text
+    - :Section Action=addVocabularyWord Card=new-word-card Mode=translate Name=newWord "Submit Label"="Add word" Title="Add a new word"
+     a0 :Field Control=text Label=Name Name=word Placeholder="e.g. Balance Sheet"
+    - :Section Action=addLanguage Card=new-language-card Mode=translate Name=newLanguage "Submit Label"="Add language" Title="Add a new language"
+     a0 :Field Control=text Label=Name Name=language Placeholder="e.g. Spanish"
+     a1 :Field Control=select Default=LTR Label="Text Direction" Name=direction Options="LTR=Left_to_right_(LTR) RTL=Right_to_left_(RTL)"
    "/setup/tree" :Screen "Calls getEntityTree">/Root/Application/Calls/getEntityTree Source="frontend/src/routes/setup/tree/+page.svelte" Title="Entity Tree"
     - :Heading Text="Entity Tree"
     - :Use Component>/Root/Application/Components/Tree "Prop data"="{treeData}" "Prop displayValueMember"=name "Prop idMember"=path "Prop pathMember"=path
@@ -2360,6 +2346,21 @@ Root
    - :Rule Selector=.add-row align-items=center display=flex gap=0.4rem
    - :Rule Selector=".add-row input" flex=1 min-width=0
    - :Rule Selector=.line-actions display=flex justify-content=space-between margin-top=0.4rem
+   - :Rule Selector=.layout justify-content=center
+   - :Rule Selector=".lists .card h3" margin-top=0
+   - :Rule Selector=.mode-toggle margin="0 auto 1.2rem" max-width=70ch padding="0.8rem 1rem"
+   - :Rule Selector=.mode-buttons display=flex gap=0.5rem
+   - :Rule Selector=".mode-buttons .btn.selected" background="var(--brass, #c9a24b)" color=white
+   - :Rule Selector=.pickers display=flex flex-wrap=wrap gap=1rem margin-top=0.8rem
+   - :Rule Selector=.each-row align-items=center display=grid gap=0.6rem grid-template-columns="1fr 1fr auto" margin-bottom=6px
+   - :Rule Selector=.each-title background="var(--paper-dim, #f2ede1)" border-radius=4px line-height=1.3 padding="0.4rem 0.5rem"
+   - :Rule Selector=.each-line display=flex gap=0.5rem
+   - :Rule Selector=".each-line input" flex=1
+   - :Rule Selector=.word-list-card padding=1rem width=320px
+   - :Rule Selector=".word-list-card .sub-block > div[role=toolbar]" max-height=500px overflow-y=auto
+   - :Rule Selector=.edit-card padding="1.1rem 1.2rem 1.3rem" width=420px
+   - :Rule Selector=".new-language-card, .new-word-card" padding="1.1rem 1.2rem 1.3rem" width=260px
+   - :Rule Selector=.translate-card max-height=650px max-width=900px overflow-y=auto padding="1rem 1.2rem" width="100%"
    - :Rule Selector=".record-card h3" margin=0
    - :Rule Selector=.fields-row display=flex flex-wrap=wrap gap=1rem
    - :Rule Selector=".fields-row > fieldset" flex="1 1 12rem"
