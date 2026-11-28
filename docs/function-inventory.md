@@ -21,7 +21,7 @@ It uses the TypeScript compiler, not a text search. A prototype is printed by th
 ## Summary
 
 - **Backend:** 1215 functions (1031 exported); 850 are called from production code; 46 only from tests or tooling; 319 from nowhere the compiler could find.
-- **Frontend library:** 442 functions (360 exported); 285 are called from production code; 3 only from tests or tooling; 154 from nowhere the compiler could find.
+- **Frontend library:** 453 functions (371 exported); 282 are called from production code; 3 only from tests or tooling; 168 from nowhere the compiler could find.
 
 ### Backend: functions with no callers found
 
@@ -64,10 +64,10 @@ Candidates to review, not proof of dead code: a function may be reached in a way
 
 Candidates to review, not proof of dead code: a function may be reached in a way the limits above cannot see.
 
-- `frontend/src/lib/api.ts`: `getBankAccounts`, `getCashPosition`, `getCashFlowForecast`, `registerBankAccount`, `unregisterBankAccount`, `getTrialBalance`, `getSalesReport`, `getBalanceSheet`, `getProfitAndLoss`, `getProfitAndLossByHierarchy`, `getProfitAndLossByHierarchyTree`, `getLedgerDateRange`, `getConceptsWithAlternates`, `setVocabularyPreference`, `deleteVocabularyPreference`, `createProfitCenter`, `setSessionProfitCenter`, `getReportingPeriods`, `getBusinessConfigurationReport`, `listJournalEntries`, `getTrialBalanceComparison`, `getProfitAndLossComparison`, `stagePurchaseOrder`, `postPurchaseOrder`, `stageOrderReceipt`, `postOrderReceipt`, `stageSalesOrder`, `postSalesOrder`, `listQuotations`, `getQuotation`, `createQuotation`, `createRfq`, `markQuotationSent`, `acceptQuotation`, `rejectQuotation`, `closePeriod`, `reopenPeriod`, `changeOwnPassword`, `setOwnPageSize`, `setOwnNumberFormat`, `setOwnDateFormat`, `postOnAccountInvoice`, `getAgedInvoices`, `getAgedSummary`, `getCustomerStatement`, `getReminderCandidates`, `sendReminder`, `resetReminder`, `openStorageContainer`, `getItemLocation`, `setItemLocationLevels`, `receiveItems`, `transferItems`, `getStockOutRiskReport`, `closeBooks`, `previewCloseBooks`, `resolveRolloverLines`, `createLedger`, `getInventoryListingByLocation`, `getStorageSpaceReport`, `getStockMovementReport`
+- `frontend/src/lib/api.ts`: `getBankAccounts`, `getCashPosition`, `getCashFlowForecast`, `registerBankAccount`, `unregisterBankAccount`, `getTrialBalance`, `getSalesReport`, `getBalanceSheet`, `getProfitAndLoss`, `getProfitAndLossByHierarchy`, `getProfitAndLossByHierarchyTree`, `getLedgerDateRange`, `getConceptsWithAlternates`, `setVocabularyPreference`, `deleteVocabularyPreference`, `getProductShapes`, `defineProductShape`, `saveHierarchyPrototype`, `createProfitCenter`, `setSessionProfitCenter`, `getReportingPeriods`, `getBusinessConfigurationReport`, `listJournalEntries`, `getTrialBalanceComparison`, `getProfitAndLossComparison`, `stagePurchaseOrder`, `postPurchaseOrder`, `stageOrderReceipt`, `postOrderReceipt`, `stageSalesOrder`, `postSalesOrder`, `listQuotations`, `getQuotation`, `createQuotation`, `createRfq`, `markQuotationSent`, `acceptQuotation`, `rejectQuotation`, `closePeriod`, `reopenPeriod`, `changeOwnPassword`, `setOwnPageSize`, `setOwnNumberFormat`, `setOwnDateFormat`, `postOnAccountInvoice`, `getAgedInvoices`, `getAgedSummary`, `getCustomerStatement`, `getReminderCandidates`, `sendReminder`, `resetReminder`, `openStorageContainer`, `getItemLocation`, `setItemLocationLevels`, `receiveItems`, `transferItems`, `getStockOutRiskReport`, `closeBooks`, `previewCloseBooks`, `resolveRolloverLines`, `createLedger`, `getInventoryListingByLocation`, `getStorageSpaceReport`, `getStockMovementReport`
 - `frontend/src/lib/matrix-api.ts`: `getStockOnHandMatrix`, `getProfitAndLossByAxis`, `getCube`, `getAxisValues`, `getAxes`
 - `frontend/src/lib/pagination.ts`: `createPaginator`
-- `frontend/src/lib/screen-runtime.ts`: `sources.numberFormats`, `sources.dateFormats`, `sources.stockGroupings`, `sources.ledgers`, `sources.reportingPeriods`, `sources.bankAccountCandidates`, `sources.bankScopes`, `sources.equityAccounts`, `sources.itemHierarchies`, `sources.locations`, `sources.items`, `sources.providers`, `sources.customers`, `sources.postableAccounts`, `filters.otherThanLedgerA`, `filters.againstInner`, `filters.againstOuter`, `filters.sameCityAsFrom`, `reactions.periodChosen`, `reactions.ledgerAChanged`, `reactions.outerAxisChanged`, `reactions.innerAxisChanged`, `reactions.orderStatus`, `reactions.onHand`, `reactions.fromLocationChanged`, `reactions.itemSources`, `reactions.providerPrice`, `totals.lineTax`, `totals.quantityTimesPrice`, `totals.valueTaxRate`, `totals.taxRate`, `actions.purchase`, `actions.sale`, `actions.transfer`, `actions.orderReceipt`, `actions.salesOrder`, `actions.quotation`, `actions.purchaseOrder`, `records.bankAccounts`, `records.quotations`, `commands.unregisterBankAccount`, `commands.sendReminder`, `commands.resetReminder`, `commands.markSent`, `commands.accept`, `commands.reject`, `reports.aged`, `reports.businessConfiguration`, `reports.cashFlow`, `reports.sales`, `reports.statement`, `reports.reminders`, `reports.belowReorder`, `reports.stockMovement`, `reports.inventoryListing`, `reports.compareLedgers`, `reports.profitAndLossByAxis`, `reports.journalEntries`, `reports.stockOutRisk`, `reports.storageSpace`, `reports.trialBalance`, `reports.balanceSheet`, `formInitials.closeThrough`, `formInitials.pageSize`, `formInitials.formats`, `formActions.closePeriod`, `formActions.reopenPeriod`, `formActions.saveVocabulary`, `formActions.registerBankAccount`, `formActions.savePageSize`, `formActions.saveFormats`, `formActions.changePassword`, `tables.cashPosition`, `formRecords.vocabularyConcepts`, `previews.formats`, `proposals.closeBooks`, `proposals.rollover`, `accepts.closeBooks`, `accepts.rollover`, `statuses.periodStatus`
+- `frontend/src/lib/screen-runtime.ts`: `sources.numberFormats`, `sources.dateFormats`, `sources.stockGroupings`, `sources.ledgers`, `sources.reportingPeriods`, `sources.bankAccountCandidates`, `sources.bankScopes`, `sources.hierarchyPrototypes`, `sources.equityAccounts`, `sources.itemHierarchies`, `sources.locations`, `sources.items`, `sources.providers`, `sources.customers`, `sources.postableAccounts`, `filters.otherThanLedgerA`, `filters.againstInner`, `filters.againstOuter`, `filters.sameCityAsFrom`, `reactions.periodChosen`, `reactions.ledgerAChanged`, `reactions.outerAxisChanged`, `reactions.innerAxisChanged`, `reactions.orderStatus`, `reactions.onHand`, `reactions.fromLocationChanged`, `reactions.itemSources`, `reactions.providerPrice`, `totals.lineTax`, `totals.quantityTimesPrice`, `totals.valueTaxRate`, `totals.taxRate`, `actions.purchase`, `actions.sale`, `actions.transfer`, `actions.orderReceipt`, `actions.salesOrder`, `actions.quotation`, `actions.purchaseOrder`, `records.hierarchies`, `records.hierarchyValues`, `records.bankAccounts`, `records.quotations`, `commands.deleteHierarchy`, `commands.deleteHierarchyValue`, `commands.unregisterBankAccount`, `commands.sendReminder`, `commands.resetReminder`, `commands.markSent`, `commands.accept`, `commands.reject`, `reports.aged`, `reports.businessConfiguration`, `reports.cashFlow`, `reports.sales`, `reports.statement`, `reports.reminders`, `reports.belowReorder`, `reports.stockMovement`, `reports.inventoryListing`, `reports.compareLedgers`, `reports.profitAndLossByAxis`, `reports.journalEntries`, `reports.stockOutRisk`, `reports.storageSpace`, `reports.trialBalance`, `reports.balanceSheet`, `formInitials.closeThrough`, `formInitials.pageSize`, `formInitials.formats`, `formActions.closePeriod`, `formActions.reopenPeriod`, `formActions.saveVocabulary`, `formActions.createHierarchy`, `formActions.createHierarchyValue`, `formActions.saveHierarchyPrototype`, `formActions.createHierarchyFromPrototype`, `formActions.registerBankAccount`, `formActions.savePageSize`, `formActions.saveFormats`, `formActions.changePassword`, `cards.productShapes`, `lineActions.defineProductShape`, `tables.cashPosition`, `formRecords.vocabularyConcepts`, `previews.formats`, `proposals.closeBooks`, `proposals.rollover`, `accepts.closeBooks`, `accepts.rollover`, `statuses.periodStatus`
 - `frontend/src/lib/state.svelte.ts`: `auth.set`, `hasUnsavedEdit.set`, `menuTree.set`, `screenTitle`, `session.set`, `session.clear`, `translations.set`
 
 ## Backend
@@ -10406,7 +10406,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/translat
 getHierarchy(business: string): Promise<HierarchyWithValues[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×3, routes/items ×1, routes/locations ×1, routes/setup/business-setup ×1, routes/setup/hierarchy ×1
+Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×3, routes/items ×1, routes/locations ×1, routes/setup/business-setup ×1
 
 **`hierarchiesOf`** *(exported)*
 
@@ -10422,7 +10422,7 @@ Called from: Svelte pages (by name in the file's imports): BusinessStructurePopu
 getProductShapes(business: string): Promise<[string, string][][]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/setup/hierarchy ×1
+Called from: nowhere the compiler could find.
 
 **`createHierarchy`** *(exported)*
 
@@ -10430,7 +10430,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/hierarch
 createHierarchy(business: string, hierarchyName: string, of: HierarchyKind): Promise<{ name: string; }>
 ```
 
-Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×2, routes/items ×1, routes/setup/business-setup ×1, routes/setup/hierarchy ×1
+Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×2, routes/items ×1, routes/setup/business-setup ×1
 
 **`createHierarchyValue`** *(exported)*
 
@@ -10438,7 +10438,7 @@ Called from: Svelte pages (by name in the file's imports): BusinessStructurePopu
 createHierarchyValue(business: string, hierarchyName: string, valueName: string, parentValueName?: string | null): Promise<{ name: string; }>
 ```
 
-Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×3, routes/items ×2, routes/setup/business-setup ×2, routes/setup/hierarchy ×1
+Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×3, routes/items ×2, routes/setup/business-setup ×2
 
 **`defineProductShape`** *(exported)*
 
@@ -10446,7 +10446,7 @@ Called from: Svelte pages (by name in the file's imports): BusinessStructurePopu
 defineProductShape(business: string, dimensions: [string, string][]): Promise<{ dimensions: [string, string][]; }>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/setup/hierarchy ×0
+Called from: nowhere the compiler could find.
 
 **`deleteHierarchy`** *(exported)*
 
@@ -10454,7 +10454,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/hierarch
 deleteHierarchy(business: string, hierarchyName: string): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, routes/setup/hierarchy ×1
+Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1
 
 **`deleteHierarchyValue`** *(exported)*
 
@@ -10462,7 +10462,7 @@ Called from: Svelte pages (by name in the file's imports): BusinessStructurePopu
 deleteHierarchyValue(business: string, hierarchyName: string, valueName: string): Promise<any>
 ```
 
-Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×3, routes/items ×1, routes/setup/hierarchy ×1
+Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×3, routes/items ×1
 
 **`setHierarchyTag`** *(exported)*
 
@@ -10510,7 +10510,7 @@ Called from: Svelte pages (by name in the file's imports): BusinessStructurePopu
 listHierarchyPrototypes(): Promise<HierarchyPrototype[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, routes/setup/business-setup ×1, routes/setup/hierarchy ×2
+Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, routes/setup/business-setup ×1
 
 **`saveHierarchyPrototype`** *(exported)*
 
@@ -10518,7 +10518,7 @@ Called from: Svelte pages (by name in the file's imports): BusinessStructurePopu
 saveHierarchyPrototype(business: string, hierarchyName: string, prototypeName: string): Promise<string>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/setup/hierarchy ×1
+Called from: nowhere the compiler could find.
 
 **`createHierarchyFromPrototype`** *(exported)*
 
@@ -10526,7 +10526,7 @@ Called from: Svelte pages (by name in the file's imports): routes/setup/hierarch
 createHierarchyFromPrototype(business: string, prototypeName: string, hierarchyName: string): Promise<string>
 ```
 
-Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, routes/setup/business-setup ×1, routes/setup/hierarchy ×1
+Called from: Svelte pages (by name in the file's imports): BusinessStructurePopup.svelte ×1, routes/setup/business-setup ×1
 
 **`getBusinesses`** *(exported)*
 
@@ -12488,7 +12488,7 @@ Called from: Svelte pages (by name in the file's imports): routes/arap/quotation
 t(word: string): any
 ```
 
-Called from: production: screen-runtime.ts (accepts.closeBooks ×5, accepts.rollover ×3, actions.purchase ×1, actions.sale ×1, actions.transfer ×1, breakdown ×1, and 31 more)
+Called from: production: screen-runtime.ts (accepts.closeBooks ×5, accepts.rollover ×3, actions.purchase ×1, actions.sale ×1, actions.transfer ×1, breakdown ×1, and 35 more)
 
 **`named`**
 
@@ -12590,6 +12590,14 @@ Called from: nowhere the compiler could find.
 
 ```
 sources.bankScopes(business: string): Promise<{ value: string; label: string; }[]>
+```
+
+Called from: nowhere the compiler could find.
+
+**`sources.hierarchyPrototypes`** *(exported)*
+
+```
+sources.hierarchyPrototypes(): Promise<any>
 ```
 
 Called from: nowhere the compiler could find.
@@ -12898,6 +12906,22 @@ actions.purchaseOrder(c: Context, v: Values): Promise<string>
 
 Called from: nowhere the compiler could find.
 
+**`records.hierarchies`** *(exported)*
+
+```
+records.hierarchies(c: Context): Promise<any>
+```
+
+Called from: nowhere the compiler could find.
+
+**`records.hierarchyValues`** *(exported)*
+
+```
+records.hierarchyValues(c: Context, parent: Row): Promise<any>
+```
+
+Called from: nowhere the compiler could find.
+
 **`records.bankAccounts`** *(exported)*
 
 ```
@@ -12910,6 +12934,22 @@ Called from: nowhere the compiler could find.
 
 ```
 records.quotations(c: Context): Promise<any>
+```
+
+Called from: nowhere the compiler could find.
+
+**`commands.deleteHierarchy`** *(exported)*
+
+```
+commands.deleteHierarchy(c: Context, row: Row): Promise<string>
+```
+
+Called from: nowhere the compiler could find.
+
+**`commands.deleteHierarchyValue`** *(exported)*
+
+```
+commands.deleteHierarchyValue(c: Context, row: Row): Promise<string>
 ```
 
 Called from: nowhere the compiler could find.
@@ -13242,6 +13282,38 @@ formActions.saveVocabulary(c: Context, v: Values): Promise<void>
 
 Called from: nowhere the compiler could find.
 
+**`formActions.createHierarchy`** *(exported)*
+
+```
+formActions.createHierarchy(c: Context, v: Values): Promise<void>
+```
+
+Called from: nowhere the compiler could find.
+
+**`formActions.createHierarchyValue`** *(exported)*
+
+```
+formActions.createHierarchyValue(c: Context, v: Values): Promise<void>
+```
+
+Called from: nowhere the compiler could find.
+
+**`formActions.saveHierarchyPrototype`** *(exported)*
+
+```
+formActions.saveHierarchyPrototype(c: Context, v: Values): Promise<{ message: string; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`formActions.createHierarchyFromPrototype`** *(exported)*
+
+```
+formActions.createHierarchyFromPrototype(c: Context, v: Values): Promise<{ select: string; }>
+```
+
+Called from: nowhere the compiler could find.
+
 **`formActions.registerBankAccount`** *(exported)*
 
 ```
@@ -13270,6 +13342,22 @@ Called from: nowhere the compiler could find.
 
 ```
 formActions.changePassword(_c: Context, v: Values): Promise<{ currentPassword: string; newPassword: string; confirmPassword: string; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`cards.productShapes`** *(exported)*
+
+```
+cards.productShapes(c: Context): Promise<any>
+```
+
+Called from: nowhere the compiler could find.
+
+**`lineActions.defineProductShape`** *(exported)*
+
+```
+lineActions.defineProductShape(c: Context, lines: Values[]): Promise<void>
 ```
 
 Called from: nowhere the compiler could find.

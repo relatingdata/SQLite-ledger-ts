@@ -1105,112 +1105,314 @@
       #"  </div>\n")))
 ;; --- the list template -------------------------------------------------------
 ;;
-;; A screen's records (the runtime's records: Records) as a selectable list
-;; ($lib/components/SelectableListEditor) under its List Title, a line per
-;; record with its Entry columns (Control=amount: a figure), keyed by its
-;; Key. Insert opens a form of the screen's Fields (Choices: a source)
-;; that saves with its Insert (formActions); Delete runs its Delete
-;; (commands) on the selected record. A Section with Table is a table of
-;; figures (the runtime's tables) under its Title, above the list, shown
-;; when it has rows. Everything is reloaded after each change.
+;; Lists of records ($lib/components/SelectableListEditor), each a line per
+;; record with its Entry columns (Control=amount: a figure; Control=hint:
+;; a note), selected by its Key. The screen's own Records is a list on its
+;; own; a Section with Records is one of the lists drawn side by side
+;; (the screen's Lists Title above them, Lists Class on them); one with Of
+;; lists the records of the row selected in that list, titled with its
+;; Show. Insert opens a form of the list's Fields, saved by its Insert
+;; (formActions; a detail list's parent key as `parent`): a Form, or with
+;; Inline plain controls that save on Enter and close on Escape. Delete
+;; runs its Delete (commands), after asking when it has Confirm.
+;;
+;; A Section with Table is a table of figures (tables) shown when it has
+;; rows; one with Button opens a small form (its Class) whose Action
+;; (formActions, with the selected key of its When Selected list as
+;; `selected`) may return a message, or a key to select in its Selects
+;; list; it is offered while its When Choices field has choices, or while
+;; its When Selected list has a selection whose Selected Has is set. A
+;; Section with Cards lists groups of items (cards) under its Title and
+;; Hint; one with Lines is growable rows of its Fields saved together by
+;; its Action (lineActions). Everything is reloaded after each change.
+
+(defun sections-with (s id rel)
+  (lists:filter (lambda (p) (andalso (== (kind s p) #"Section") (=/= (val s p rel) 'undefined))) (app-view:things s id)))
+
+(defun list-name (s id l) (if (== l id) #"main" (val s l #"Name")))
+(defun list-fields (s l) (lists:filter (lambda (p) (== (kind s p) #"Field")) (app-view:things s l)))
+(defun list-entries (s l) (lists:filter (lambda (p) (== (kind s p) #"Entry")) (app-view:things s l)))
+(defun blank (s fields) (list #"{ " (lists:join #", " (lists:map (lambda (f) (list (val s f #"Name") #": ''")) fields)) #" }"))
+(defun of-list (s id l)
+  (case (val s l #"Of")
+    ('undefined 'undefined)
+    (name (car (lists:filter (lambda (x) (== (val s x #"Name") name)) (sections-with s id #"Records"))))))
+(defun stringify (v) (list #"Object.fromEntries(Object.entries(" v #").map(([k, x]) => [k, String(x ?? '')])) as Values"))
 
 (defun list-screen (s id)
-  (let* ((parts (app-view:things s id))
-         (entries (lists:filter (lambda (p) (== (kind s p) #"Entry")) parts))
-         (fields (lists:filter (lambda (p) (== (kind s p) #"Field")) parts))
-         (tables (lists:filter (lambda (p) (andalso (== (kind s p) #"Section") (=/= (val s p #"Table") 'undefined))) parts))
-         (key (val s id #"Key"))
-         (blank (list #"{ " (lists:join #", " (lists:map (lambda (f) (list (val s f #"Name") #": ''")) fields)) #" }")))
+  (let* ((lists (lists:append (if (== (val s id #"Records") 'undefined) '() (list id)) (sections-with s id #"Records")))
+         (tables (sections-with s id #"Table"))
+         (buttons (sections-with s id #"Button"))
+         (cardss (sections-with s id #"Cards"))
+         (liness (sections-with s id #"Lines"))
+         (forms (lists:append lists buttons))
+         (fields (lists:append (lists:map (lambda (l) (list-fields s l)) (lists:append forms liness))))
+         (chosen (lists:filter (lambda (f) (=/= (val s f #"Choices") 'undefined)) fields)))
     (list
       #"<script lang='ts'>\n" (header s id)
       #"  import '$lib/generated.css';\n"
       #"  import { session, translations } from '$lib/state.svelte';\n"
       #"  import Form from '$lib/components/Form.svelte';\n"
       #"  import SelectableListEditor from '$lib/components/SelectableListEditor.svelte';\n"
-      #"  import { commands, formActions, records, sources, tables, type Row, type Table, type Values } from '$lib/screen-runtime';\n\n"
+      #"  import { cards, commands, formActions, lineActions, records, sources, tables, type Card, type Choice, type Row, type Table, type Values } from '$lib/screen-runtime';\n\n"
       #"  const t = (word: string) => translations.current[word] ?? word;\n"
       #"  const context = () => ({ business: session.current?.businessName ?? '', ledger: session.current?.ledgerName ?? '', party: '' });\n"
       #"  const message = (e: unknown) => (e instanceof Error ? e.message : t('Could not complete.'));\n"
-      #"  let rows: Row[] = $state([]);\n"
+      #"  let rows: Record<string, Row[]> = $state({});\n"
+      #"  let selected: Record<string, string | null> = $state({});\n"
+      #"  let inserting: Record<string, boolean> = $state({});\n"
+      #"  let open: Record<string, boolean> = $state({});\n"
+      #"  let notes: Record<string, string> = $state({});\n"
+      #"  let failures: Record<string, string> = $state({});\n"
       #"  let shown: Record<string, Table> = $state({});\n"
-      #"  let options: Record<string, string[]> = $state({});\n"
+      #"  let cardSets: Record<string, Card[]> = $state({});\n"
+      #"  let choices: Record<string, Choice[]> = $state({});\n"
+      #"  const options = $derived(Object.fromEntries(Object.entries(choices).map(([k, cs]) => [k, cs.map((c) => c.value)])));\n"
       #"  let loading = $state(true);\n"
       #"  let error = $state('');\n"
-      #"  let selected: string | null = $state(null);\n"
-      #"  let inserting = $state(false);\n"
-      #"  let values: Record<string, string | number | string[]> = $state(" blank #");\n\n"
+      #"  let values: Record<string, Record<string, string | number | string[]>> = $state({ "
+      (lists:join #", " (lists:map (lambda (l) (list (list-name s id l) #": " (blank s (list-fields s l)))) forms))
+      #" });\n"
+      #"  let lines: Record<string, Values[]> = $state({ "
+      (lists:join #", " (lists:map (lambda (l) (list (val s l #"Name") #": [" (blank s (list-fields s l)) #"]")) liness))
+      #" });\n"
+      #"  let busy: Record<string, boolean> = $state({});\n"
+      #"  const keys: Record<string, string> = { "
+      (lists:join #", " (lists:map (lambda (l) (list (list-name s id l) #": " (js (val s l #"Key")))) lists))
+      #" };\n"
+      #"  const rowOf = (list: string) => (rows[list] ?? []).find((r) => r[keys[list]] === selected[list]);\n\n"
+      (lists:map (lambda (l) (list-functions s id l lists)) lists)
+      (lists:map (lambda (b) (button-function s b)) buttons)
+      (lists:map (lambda (l) (lines-function s l)) liness)
       #"  let latest = 0;\n"
       #"  async function load() {\n"
       #"    const request = ++latest;\n"
       #"    const { business, ledger } = context();\n"
       #"    error = '';\n"
       #"    try {\n"
-      #"      const loaded = await records." (val s id #"Records") #"(context());\n"
-      #"      const loadedTables: Record<string, Table> = {};\n"
-      (lists:map (lambda (sec) (list #"      loadedTables." (val s sec #"Table") #" = await tables." (val s sec #"Table") #"(context());\n")) tables)
-      #"      const loadedOptions: Record<string, string[]> = {};\n"
-      (lists:map (lambda (f) (list #"      loadedOptions." (val s f #"Name") #" = (await sources." (val s f #"Choices") #"(business, ledger)).map((c) => c.value);\n"))
-                 (lists:filter (lambda (f) (=/= (val s f #"Choices") 'undefined)) fields))
+      (lists:map (lambda (l) (list #"      await load_" (list-name s id l) #"();\n")) lists)
+      (lists:map (lambda (sec) (list #"      const table_" (val s sec #"Table") #" = await tables." (val s sec #"Table") #"(context());\n")) tables)
+      (lists:map (lambda (sec) (list #"      const cards_" (val s sec #"Cards") #" = await cards." (val s sec #"Cards") #"(context());\n")) cardss)
+      (lists:map (lambda (f) (list #"      const choices_" (val s f #"Name") #" = await sources." (val s f #"Choices") #"(business, ledger);\n")) chosen)
       #"      if (request !== latest) return;\n"
-      #"      rows = loaded;\n      shown = loadedTables;\n      options = loadedOptions;\n"
+      (lists:map (lambda (sec) (list #"      shown." (val s sec #"Table") #" = table_" (val s sec #"Table") #";\n")) tables)
+      (lists:map (lambda (sec) (list #"      cardSets." (val s sec #"Cards") #" = cards_" (val s sec #"Cards") #";\n")) cardss)
+      (lists:map (lambda (f) (list #"      choices." (val s f #"Name") #" = choices_" (val s f #"Name") #";\n")) chosen)
+      (lists:map (lambda (f) (list #"      if (!values." (field-form s f forms) #"." (val s f #"Name") #" && choices_" (val s f #"Name") #".length > 0) values." (field-form s f forms) #"." (val s f #"Name") #" = choices_" (val s f #"Name") #"[0].value;\n"))
+                 (lists:filter (lambda (f) (andalso (== (val s f #"Default") #"first") (=/= (field-form s f forms) 'undefined))) chosen))
       #"    } catch (e) {\n      if (request === latest) error = message(e);\n"
       #"    } finally {\n      if (request === latest) loading = false;\n    }\n  }\n"
-      #"  $effect(() => {\n    if (session.current) load();\n  });\n\n"
-      #"  function closeInsert() {\n    inserting = false;\n    values = " blank #";\n  }\n"
-      #"  async function insert(v: Record<string, string | number | string[]>) {\n"
-      #"    await formActions." (val s id #"Insert") #"(context(), Object.fromEntries(Object.entries(v).map(([k, x]) => [k, String(x ?? '')])) as Values);\n"
-      #"    closeInsert();\n    await load();\n  }\n"
-      #"  async function remove(row: Row) {\n"
-      #"    try {\n      await commands." (val s id #"Delete") #"(context(), row);\n"
-      #"      if (selected === row." key #") selected = null;\n      await load();\n"
-      #"    } catch (e) {\n      error = message(e);\n    }\n  }\n"
+      #"  $effect(() => {\n    if (session.current) load();\n  });\n"
       #"</script>\n\n"
       #"<svelte:head><title>{t(" (js (val s id #"Title")) #")}</title></svelte:head>\n\n"
       #"<fieldset class='page-title generated'>\n"
       #"  <legend>{t(" (js (val s id #"Title")) #")}</legend>\n"
       (intro-line s id)
+      #"  {#if error}<p class='error'>{error}</p>{/if}\n"
       #"  {#if loading}\n    <p class='center-text'>{t('Loading')}{'\\u2026'}</p>\n  {:else}\n"
-      #"    {#if error}<p class='error'>{error}</p>{/if}\n"
-      (lists:map (lambda (sec)
-                   (let ((tb (list #"shown." (val s sec #"Table"))))
-                     (list #"    {#if " tb #" && " tb #".rows.length > 0}\n"
-                           #"      <div class='card summary-card'>\n"
-                           #"        <h3>" (t (val s sec #"Title")) #"</h3>\n"
-                           #"        <table class='summary-table'>\n"
-                           #"          <thead><tr>{#each " tb #".columns as c}<th class:num={c.numeric}>{c.label}</th>{/each}</tr></thead>\n"
-                           #"          <tbody>{#each " tb #".rows as r}<tr>{#each " tb #".columns as c}<td class={`${c.numeric ? 'num mono' : ''} ${r.classes?.[c.name] ?? ''}`}>{r.cells[c.name] ?? ''}</td>{/each}</tr>{/each}</tbody>\n"
-                           #"        </table>\n"
-                           #"      </div>\n    {/if}\n")))
-                 tables)
-      #"    <div class='list-wrap'>\n"
-      #"      {#if rows.length > 0}\n        <div class='list-row list-header'>"
-      (lists:map (lambda (e) (list #"<span" (list-cell-class s e #"") #">" (t (val s e #"Label" #"")) #"</span>")) entries)
-      #"</div>\n      {/if}\n"
-      #"      <SelectableListEditor\n"
-      #"        legend={t(" (js (val s id #"List Title" (val s id #"Title"))) #")}\n"
-      #"        hintText={t(" (js (val s id #"Hint" #"")) #")}\n"
-      #"        items={rows}\n"
-      #"        getId={(r) => r." key #"}\n"
-      #"        selectedId={selected}\n"
-      #"        onSelect={(r) => (selected = r." key #")}\n"
-      #"        onInsert={() => (inserting = true)}\n"
-      #"        onDelete={remove}\n"
-      #"        {inserting}\n"
-      #"        emptyText={t(" (js (val s id #"Empty Text" #"None")) #")}\n"
-      #"      >\n"
-      #"        {#snippet form()}\n"
-      #"          <Form\n            fields={[\n"
-      (lists:map (lambda (f) (list #"              " (form-field s f #"options") #",\n")) fields)
-      #"            ]}\n"
-      #"            bind:values\n            onSubmit={insert}\n            showSubmitButton={false}\n            onCancel={closeInsert}\n          />\n"
-      #"        {/snippet}\n"
-      #"        {#snippet row(r)}\n          <div class='list-row'>"
-      (lists:map (lambda (e) (list #"<span" (list-cell-class s e #" mono") #">{r." (val s e #"Name") #" ?? ''}</span>")) entries)
-      #"</div>\n        {/snippet}\n"
-      #"      </SelectableListEditor>\n"
-      #"    </div>\n"
+      (lists:map (lambda (sec) (table-block s sec)) tables)
+      (if (== (val s id #"Records") 'undefined) #"" (list #"    <div class='list-wrap'>\n" (list-block s id id) #"    </div>\n"))
+      (case (sections-with s id #"Records")
+        ('() #"")
+        (ls (list (case (val s id #"Lists Title") ('undefined #"") (lt (list #"    <h3>" (t lt) #"</h3>\n")))
+                  #"    <div class='lists" (case (val s id #"Lists Class") ('undefined #"") (c (list #" " c))) #"'>\n"
+                  (lists:map (lambda (l) (list-block s id l)) ls)
+                  #"    </div>\n")))
+      (case buttons
+        ('() #"")
+        (bs (list #"    <div class='action-bar'>\n" (lists:map (lambda (b) (button-block s b)) bs) #"    </div>\n")))
+      (lists:map (lambda (c) (cards-block s c)) cardss)
+      (lists:map (lambda (l) (lines-block s l)) liness)
       #"  {/if}\n"
       #"</fieldset>\n")))
 
+;; The form (list or button section) a field belongs to, by name.
+(defun field-form (s f forms)
+  (case (lists:filter (lambda (l) (lists:member f (list-fields s l))) forms)
+    ((cons l _) (if (== (kind s l) #"Section") (val s l #"Name") #"main"))
+    ('() 'undefined)))
+
+(defun keydown (submit cancel)
+  (list #"(e) => { if (e.key === 'Enter') { e.preventDefault(); " submit #"; } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); " cancel #"; } }"))
+
+;; A field as a plain control bound to values.<form>.
+(defun inline-control (s f form submit cancel pad)
+  (let ((bound (list #"values." form #"." (val s f #"Name")))
+        (keys (keydown submit cancel)))
+    (case (val s f #"Control" #"text")
+      (#"select"
+       (list pad #"<select name=" (js (val s f #"Name")) #" bind:value={" bound #"} onkeydown={" keys #"}>"
+             (case (val s f #"Options")
+               ('undefined (list #"{#each choices." (val s f #"Name") #" ?? [] as c}<option value={c.value}>{t(c.label)}</option>{/each}"))
+               (opts (lists:map (lambda (o) (let (((list v l) (binary:split o #"="))) (list #"<option value=" (js v) #">" (t (binary:replace l #"_" #" " '(global))) #"</option>")))
+                                (binary:split opts #" " '(global trim_all)))))
+             #"</select>\n"))
+      (control
+       (list pad #"<input type=" (js control) #" name=" (js (val s f #"Name")) #" bind:value={" bound #"}"
+             (case (val s f #"Placeholder") ('undefined #"") (ph (list #" placeholder={t(" (js ph) #")}")))
+             #" onkeydown={" keys #"} />\n")))))
+
+(defun list-functions (s id l lists)
+  (let* ((n (list-name s id l))
+         (parent (of-list s id l))
+         (children (lists:filter (lambda (c) (== (of-list s id c) l)) lists))
+         (blank-values (blank s (list-fields s l))))
+    (list
+      #"  async function load_" n #"() {\n"
+      (if (== parent 'undefined)
+        (list #"    rows." n #" = await records." (val s l #"Records") #"(context());\n")
+        (list #"    const parent = rowOf(" (js (list-name s id parent)) #");\n"
+              #"    rows." n #" = parent ? await records." (val s l #"Records") #"(context(), parent) : [];\n"))
+      #"  }\n"
+      #"  function select_" n #"(r: Row) {\n    selected." n #" = r." (val s l #"Key") #";\n"
+      (lists:map (lambda (c) (let ((cn (list-name s id c))) (list #"    selected." cn #" = null;\n    inserting." cn #" = false;\n    load_" cn #"();\n"))) children)
+      #"  }\n"
+      #"  function close_" n #"() {\n    inserting." n #" = false;\n    values." n #" = " blank-values #";\n  }\n"
+      #"  async function insert_" n #"(v: Record<string, string | number | string[]>) {\n"
+      #"    await formActions." (val s l #"Insert") #"(context(), { ..." (stringify #"v")
+      (if (== parent 'undefined) #"" (list #", parent: selected." (list-name s id parent) #" ?? ''"))
+      #" });\n    close_" n #"();\n    await load();\n  }\n"
+      #"  async function remove_" n #"(row: Row) {\n"
+      (case (val s l #"Confirm")
+        ('undefined #"")
+        (_ (list #"    if (!confirm(`${t('Delete')} \"${row." (val s l #"Show" (val s l #"Key")) #"}\"? ${t(\"This can't be undone.\")}`)) return;\n")))
+      #"    error = '';\n"
+      #"    try {\n      await commands." (val s l #"Delete") #"(context(), row);\n"
+      #"      if (selected." n #" === row." (val s l #"Key") #") selected." n #" = null;\n      await load();\n"
+      #"    } catch (e) {\n      error = message(e);\n    }\n  }\n")))
+
+(defun list-block (s id l)
+  (let* ((n (list-name s id l))
+         (entries (list-entries s l))
+         (fields (list-fields s l))
+         (parent (of-list s id l))
+         (legend (case parent
+                   ('undefined (list #"t(" (js (val s l #"List Title" (val s l #"Title"))) #")"))
+                   (p (list #"`${t(" (js (val s l #"List Title" (val s l #"Title"))) #")} \"${rowOf(" (js (list-name s id p)) #")?." (val s l #"Show" #"name") #" ?? ''}\"`"))))
+         (labelled (lists:any (lambda (e) (=/= (val s e #"Label") 'undefined)) entries))
+         (editor
+           (list
+             (if labelled
+               (list #"      {#if (rows." n #" ?? []).length > 0}\n        <div class='list-row list-header'>"
+                     (lists:map (lambda (e) (list #"<span" (list-cell-class s e #"") #">" (t (val s e #"Label" #"")) #"</span>")) entries)
+                     #"</div>\n      {/if}\n")
+               #"")
+             #"      <SelectableListEditor\n"
+             #"        legend={" legend #"}\n"
+             #"        hintText={t(" (js (val s l #"Hint" #"")) #")}\n"
+             #"        items={rows." n #" ?? []}\n"
+             #"        getId={(r) => r." (val s l #"Key") #"}\n"
+             #"        selectedId={selected." n #" ?? null}\n"
+             #"        onSelect={select_" n #"}\n"
+             #"        onInsert={() => (inserting." n #" = true)}\n"
+             #"        onDelete={remove_" n #"}\n"
+             #"        inserting={inserting." n #" ?? false}\n"
+             #"        emptyText={t(" (js (val s l #"Empty Text" #"None")) #")}\n"
+             #"      >\n"
+             #"        {#snippet form()}\n"
+             (if (=/= (val s l #"Inline") 'undefined)
+               (lists:map (lambda (f) (inline-control s f n
+                                                      (list #"insert_" n #"(values." n #").catch((err) => (error = message(err)))")
+                                                      (list #"close_" n #"()") #"          ")) fields)
+               (list #"          <Form\n            fields={[\n"
+                     (lists:map (lambda (f) (list #"              " (form-field s f #"options") #",\n")) fields)
+                     #"            ]}\n"
+                     #"            bind:values={values." n #"}\n            onSubmit={insert_" n #"}\n            showSubmitButton={false}\n            onCancel={close_" n #"}\n          />\n"))
+             #"        {/snippet}\n"
+             #"        {#snippet row(r)}\n          <div class='list-row'>"
+             (lists:map (lambda (e) (list #"<span" (list-cell-class s e #" mono") #">{r." (val s e #"Name") #" ?? ''}</span>")) entries)
+             #"</div>\n        {/snippet}\n"
+             #"      </SelectableListEditor>\n")))
+    (case parent
+      ('undefined editor)
+      (p (list #"      {#if selected." (list-name s id p) #"}\n" editor #"      {/if}\n")))))
+
 (defun list-cell-class (s e figure)
-  (case (val s e #"Control") (#"amount" (list #" class='cell num" figure #"'")) (_ #" class='cell'")))
+  (case (val s e #"Control")
+    (#"amount" (list #" class='cell num" figure #"'"))
+    (#"hint" #" class='cell hint'")
+    (_ #" class='cell'")))
+
+(defun table-block (s sec)
+  (let ((tb (list #"shown." (val s sec #"Table"))))
+    (list #"    {#if " tb #" && " tb #".rows.length > 0}\n"
+          #"      <div class='card summary-card'>\n"
+          #"        <h3>" (t (val s sec #"Title")) #"</h3>\n"
+          #"        <table class='summary-table'>\n"
+          #"          <thead><tr>{#each " tb #".columns as c}<th class:num={c.numeric}>{c.label}</th>{/each}</tr></thead>\n"
+          #"          <tbody>{#each " tb #".rows as r}<tr>{#each " tb #".columns as c}<td class={`${c.numeric ? 'num mono' : ''} ${r.classes?.[c.name] ?? ''}`}>{r.cells[c.name] ?? ''}</td>{/each}</tr>{/each}</tbody>\n"
+          #"        </table>\n"
+          #"      </div>\n    {/if}\n")))
+
+(defun button-function (s b)
+  (let ((n (val s b #"Name")))
+    (list
+      #"  async function act_" n #"() {\n"
+      #"    failures." n #" = '';\n"
+      #"    try {\n"
+      #"      const result = await formActions." (val s b #"Action") #"(context(), { ..." (stringify (list #"values." n))
+      (case (val s b #"When Selected") ('undefined #"") (w (list #", selected: selected." w #" ?? ''")))
+      #" });\n"
+      #"      open." n #" = false;\n"
+      #"      values." n #" = " (blank s (list-fields s b)) #";\n"
+      #"      if (result?.message) notes." n #" = result.message;\n"
+      #"      await load();\n"
+      (case (val s b #"Selects") ('undefined #"") (l (list #"      if (result?.select) select_" l #"({ [keys." l #"]: result.select });\n")))
+      #"    } catch (e) {\n      failures." n #" = message(e);\n    }\n  }\n")))
+
+(defun button-block (s b)
+  (let* ((n (val s b #"Name"))
+         (when (case (tuple (val s b #"When Choices") (val s b #"When Selected"))
+                 ((tuple 'undefined 'undefined) #"true")
+                 ((tuple c 'undefined) (list #"(choices." c #" ?? []).length > 0"))
+                 ((tuple _ l) (case (val s b #"Selected Has")
+                                ('undefined (list #"!!rowOf(" (js l) #")"))
+                                (has (list #"!!rowOf(" (js l) #")?." has))))))
+         (cancel (list #"open." n #" = false")))
+    (list
+      #"      {#if open." n #"}\n"
+      #"        <div class=" (js (val s b #"Class" #"action-form")) #">\n"
+      (lists:map (lambda (f) (inline-control s f n (list #"act_" n #"()") cancel #"          ")) (list-fields s b))
+      (case (val s b #"Submit Label") ('undefined #"") (l (list #"          <button type='button' class='btn small' onclick={act_" n #"}>" (t l) #"</button>\n")))
+      (case (val s b #"Cancel Label") ('undefined #"") (l (list #"          <button type='button' class='btn secondary small' onclick={() => (" cancel #")}>" (t l) #"</button>\n")))
+      #"        </div>\n"
+      #"      {:else if " when #"}\n"
+      #"        <button type='button' class='btn secondary small' onclick={() => { open." n #" = true; failures." n #" = ''; notes." n #" = ''; }}>" (t (val s b #"Button")) #"</button>\n"
+      #"      {/if}\n"
+      #"      {#if failures." n #"}<p class='error small'>{failures." n #"}</p>{/if}\n"
+      #"      {#if notes." n #"}<p class='success small'>{notes." n #"}</p>{/if}\n")))
+
+(defun cards-block (s c)
+  (let ((set (list #"cardSets." (val s c #"Cards"))))
+    (list
+      #"    <h3>" (t (val s c #"Title")) #"</h3>\n"
+      (case (val s c #"Hint") ('undefined #"") (h (list #"    <p class='hint'>" (t h) #"</p>\n")))
+      #"    {#if (" set #" ?? []).length === 0}\n      <p class='empty'>" (t (val s c #"Empty Text" #"None")) #"</p>\n"
+      #"    {:else}\n      <div class='cards'>\n        {#each " set #" ?? [] as card}\n"
+      #"          <div class='card'><ol class='card-list'>{#each card as item}<li>{item.text} <span class='hint'>{item.note ?? ''}</span></li>{/each}</ol></div>\n"
+      #"        {/each}\n      </div>\n    {/if}\n")))
+
+(defun lines-function (s l)
+  (let ((n (val s l #"Name")))
+    (list
+      #"  async function save_" n #"() {\n"
+      #"    busy." n #" = true;\n    error = '';\n"
+      #"    try {\n      await lineActions." (val s l #"Action") #"(context(), lines." n #");\n"
+      #"      lines." n #" = [" (blank s (list-fields s l)) #"];\n      await load();\n"
+      #"    } catch (e) {\n      error = message(e);\n    } finally {\n      busy." n #" = false;\n    }\n  }\n")))
+
+(defun lines-block (s l)
+  (let ((n (val s l #"Name")))
+    (list
+      #"    <div class='new-lines'>\n"
+      #"      {#each lines." n #" as line, i}\n        <div class='add-row'>\n"
+      (lists:map (lambda (f) (list #"          <input type='text'"
+                                   (case (val s f #"Placeholder") ('undefined #"") (ph (list #" placeholder={t(" (js ph) #")}")))
+                                   #" bind:value={line." (val s f #"Name") #"} />\n"))
+                 (list-fields s l))
+      #"          {#if lines." n #".length > 1}<button class='btn-secondary' onclick={() => (lines." n #" = lines." n #".filter((_, j) => j !== i))}>{'\\u00d7'}</button>{/if}\n"
+      #"        </div>\n      {/each}\n"
+      #"      <div class='line-actions'>\n"
+      #"        <button class='btn-secondary' onclick={() => (lines." n #" = [...lines." n #", " (blank s (list-fields s l)) #"])}>" (t (val s l #"Add Label" #"Add")) #"</button>\n"
+      #"        <button class='btn' onclick={save_" n #"} disabled={busy." n #"}>{busy." n #" ? '\\u2026' : t(" (js (val s l #"Submit Label" #"Save")) #")}</button>\n"
+      #"      </div>\n    </div>\n")))

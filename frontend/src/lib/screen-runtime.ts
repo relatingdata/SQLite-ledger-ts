@@ -94,6 +94,16 @@ import {
   getCashPosition,
   registerBankAccount,
   unregisterBankAccount,
+  createHierarchy,
+  createHierarchyValue,
+  deleteHierarchy,
+  deleteHierarchyValue,
+  getProductShapes,
+  defineProductShape,
+  listHierarchyPrototypes,
+  saveHierarchyPrototype,
+  createHierarchyFromPrototype,
+  type HierarchyKind,
 } from '$lib/api';
 import { getCube, getAxes, getProfitAndLossByAxis, type ProfitAndLossByAxisNode } from '$lib/matrix-api';
 import { parseMinorUnits, parseQuantity } from '$lib/money';
@@ -243,6 +253,9 @@ export const sources: Record<string, (business: string, ledger: string) => Promi
     }
     return [business, ...groups].map((name) => ({ value: name, label: name }));
   },
+  /** The saved hierarchy prototypes: what each groups and how many values. */
+  hierarchyPrototypes: async () =>
+    (await listHierarchyPrototypes()).map((p) => ({ value: p.prototype, label: `${t(p.prototype)} (${t(p.of === 'Items' ? 'Of items' : 'Of locations')}, ${p.values})` })),
   /** The postable accounts under Equity, Owner's Equity first. */
   equityAccounts: async () => {
     const entities = await getEntityTree();
@@ -572,7 +585,26 @@ export const actions: Record<string, (c: Context, v: Values, lines: Line[]) => P
 // --- records -------------------------------------------------------------------
 
 /** The records a screen lists below its form, refreshed after each action. */
-export const records: Record<string, (c: Context) => Promise<Row[]>> = {
+/** What a list screen lists; a detail list's records are those of the
+ * row selected in its parent list (parent). */
+export const records: Record<string, (c: Context, parent?: Row) => Promise<Row[]>> = {
+  /** The business's hierarchies: hierarchy (its name), name (as shown),
+   * of (Items or Locations, or none for the application's own), and
+   * detail: what it groups and how many values it has. */
+  hierarchies: async (c) =>
+    (await getHierarchy(asBusinessName(c.business))).map((g) => ({
+      hierarchy: g.hierarchy,
+      name: t(g.hierarchy),
+      of: g.of ?? '',
+      detail: `(${g.of ? `${t(g.of)}, ` : ''}${g.values.length})`,
+    })),
+  /** The values of the hierarchy selected (parent.hierarchy). */
+  hierarchyValues: async (c, parent) =>
+    ((await getHierarchy(asBusinessName(c.business))).find((g) => g.hierarchy === parent?.hierarchy)?.values ?? []).map((v) => ({
+      value: v,
+      name: t(v),
+      hierarchy: parent?.hierarchy ?? '',
+    })),
   /** The registered bank accounts: account (its name), name (as shown),
    * scope, currency, balance and overdraft limit. */
   bankAccounts: async (c) =>
@@ -596,6 +628,16 @@ export const records: Record<string, (c: Context) => Promise<Row[]>> = {
 
 /** What a listed record's buttons do; each returns the message to show. */
 export const commands: Record<string, (c: Context, row: Row) => Promise<string>> = {
+  /** Deletes a hierarchy (row.hierarchy). */
+  deleteHierarchy: async (c, row) => {
+    await deleteHierarchy(c.business, row.hierarchy);
+    return '';
+  },
+  /** Deletes a value (row.value) of its hierarchy (row.hierarchy). */
+  deleteHierarchyValue: async (c, row) => {
+    await deleteHierarchyValue(c.business, row.hierarchy, row.value);
+    return '';
+  },
   /** Unregisters a bank account (row.account); the account itself stays. */
   unregisterBankAccount: async (_c, row) => {
     await unregisterBankAccount(row.account);
@@ -1295,6 +1337,32 @@ export const formActions: Record<string, (c: Context, v: Values) => Promise<Valu
     else await setVocabularyPreference(v.key, 'business', business.id, v.preferred);
     window.location.reload();
   },
+  /** A new hierarchy (name) of items or of locations (of). */
+  createHierarchy: async (c, v) => {
+    if (!(v.name ?? '').trim()) return;
+    await createHierarchy(c.business, v.name.trim(), (v.of || 'Items') as HierarchyKind);
+  },
+  /** A new value (value) of the hierarchy selected (parent). */
+  createHierarchyValue: async (c, v) => {
+    if (!(v.value ?? '').trim()) return;
+    await createHierarchyValue(c.business, v.parent, v.value.trim());
+  },
+  /** Saves the selected hierarchy (selected) as a prototype
+   * (prototypeName) any business can start from. */
+  saveHierarchyPrototype: async (c, v) => {
+    const name = (v.prototypeName ?? '').trim();
+    if (!name || !v.selected) return;
+    await saveHierarchyPrototype(c.business, v.selected, name);
+    return { message: `${t('Saved as prototype')}: ${name}` };
+  },
+  /** A new hierarchy (hierarchyName) started from a prototype
+   * (prototype); it is then selected. */
+  createHierarchyFromPrototype: async (c, v) => {
+    const name = (v.hierarchyName ?? '').trim();
+    if (!v.prototype || !name) return;
+    await createHierarchyFromPrototype(c.business, v.prototype, name);
+    return { select: name };
+  },
   /** Registers an account as a bank account of a scope, with an optional
    * overdraft limit. */
   registerBankAccount: async (c, v) => {
@@ -1335,6 +1403,28 @@ export interface Table {
   columns: { name: string; label: string; numeric?: boolean }[];
   rows: { cells: Row; classes?: Record<string, string> }[];
 }
+
+/** A card's items: a text and a note beside it. */
+export type Card = { text: string; note?: string }[];
+
+/** Groups of items a list screen shows as cards. */
+export const cards: Record<string, (c: Context) => Promise<Card[]>> = {
+  /** Each product shape: its dimensions in order, each with its
+   * hierarchy. */
+  productShapes: async (c) =>
+    (await getProductShapes(c.business)).map((shape) => shape.map(([dimension, hierarchy]) => ({ text: dimension, note: `\u2192 ${hierarchy}` }))),
+};
+
+/** Saving a list screen's growable rows together. */
+export const lineActions: Record<string, (c: Context, lines: Values[]) => Promise<void>> = {
+  /** A product shape from the rows with both a dimension and a hierarchy,
+   * in order. */
+  defineProductShape: async (c, lines) => {
+    const dimensions: [string, string][] = lines.filter((l) => (l.dimension ?? '').trim() && (l.hierarchy ?? '').trim()).map((l) => [l.dimension.trim(), l.hierarchy.trim()]);
+    if (dimensions.length === 0) return;
+    await defineProductShape(c.business, dimensions);
+  },
+};
 
 /** The tables a list screen shows above its list. */
 export const tables: Record<string, (c: Context) => Promise<Table>> = {

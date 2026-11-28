@@ -351,12 +351,12 @@ Tests (*Testing: Unit*, "Running the tests"):
 - **`setup/users/+page.svelte`**: the per-business User × Role matrix
   is kept beside the global roles and never changes them
   (`docs/user-business-role-matrix-design.md`).
-- **`setup/hierarchy/+page.svelte`**: "Save as prototype" saves the
+- **`/setup/hierarchy`** (generated, list template): "Save as prototype" saves the
   selected hierarchy's tree of values (`saveHierarchyPrototype`), and
   "From a prototype" (`.prototype-form`, shown once a prototype exists)
   creates a hierarchy from one under a name the business gives it
   (`createHierarchyFromPrototype`).
-- **`setup/hierarchy/+page.svelte`**: a new shape is entered as a list
+- **`/setup/hierarchy`**: a new shape is entered as a list
   of (dimension name, hierarchy name) rows, the shape
   `defineProductShape` takes.
 - **`reports/storage-space/+page.svelte`**: storage space is counted in

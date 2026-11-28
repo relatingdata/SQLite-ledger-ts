@@ -59,6 +59,7 @@ frontend/src/routes/setup/periods/+page.svelte
 frontend/src/routes/setup/yearend/+page.svelte
 frontend/src/routes/setup/vocabulary/+page.svelte
 frontend/src/routes/setup/bank-accounts/+page.svelte
+frontend/src/routes/setup/hierarchy/+page.svelte
 frontend/src/routes/arap/cash-sale/+page.svelte
 frontend/src/routes/arap/quotations/+page.svelte
 frontend/src/routes/arap/rfq/+page.svelte
