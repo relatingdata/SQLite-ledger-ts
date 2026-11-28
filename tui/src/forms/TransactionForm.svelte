@@ -106,7 +106,7 @@
   };
 
   for (const f of spec.fields.filter((f) => f.choices)) {
-    sources[f.choices!](businessName)
+    sources[f.choices!](businessName, ledgerName)
       .then((rows) => {
         loaded[f.name] = rows;
         if (f.default === 'first' && !chosen[f.name] && rows.length > 0) chosen[f.name] = rows[0].value;

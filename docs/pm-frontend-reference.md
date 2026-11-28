@@ -743,10 +743,15 @@ Tests (*Testing: Unit*, "Running the tests"):
 - "contact-addresses-by-keyboard" (`shared-fixtures/tests/contact-addresses-by-keyboard.csv`)
 - "contact-persons" (`shared-fixtures/tests/contact-persons.csv`)
 
-## `frontend/src/routes/reports/profit-and-loss/+page.svelte` — the two-axis P&L breakdown
+## `/reports/profit-and-loss` — the two-axis P&L breakdown (generated)
 
-**Each axis is one dropdown**: Consolidated, then each axis as a
-heading with its values beneath. The value `Location` groups by every
+Generated from its description (`application/application.entities`,
+template `drill`; docs/pm-application-config.md, "One description, two
+front ends"); its behaviour is in `frontend/src/lib/screen-runtime.ts`.
+
+**Each axis is one dropdown** (`sources.axes`, `axisChoices`):
+Consolidated, then each axis as a heading with its values beneath
+(`Grouped=yes`, `groupsOf`). The value `Location` groups by every
 location; `Location::Riverside Cellars` shows that location only, still
 grouped by location so drill-down works. If the values fail to load,
 only the headings are offered.
@@ -754,19 +759,18 @@ only the headings are offered.
 **One axis from each side.** Location and the business's location
 hierarchies are one side, where a sale happened; Item and its item
 hierarchies are the other, what was sold (`getAxes`'s `groups` says
-which side each hierarchy is on). Crossing two axes from
-the same side adds nothing, so each dropdown offers only the other
-side's axes. When a change would leave the other dropdown on an axis
-from the same side, that one resets to Consolidated. The guard is a
-function called on change, not a reactive statement, which Svelte
-would reject as circular (`outerAxis` depends on `outerSelection`,
-which the guard sets).
+which side each hierarchy is on). Crossing two axes from the same side
+adds nothing, so each dropdown offers only the other side's axes
+(`filters.againstInner`, `filters.againstOuter`, `againstAxis`). When a
+change would leave the other dropdown on an axis from the same side,
+that one resets to Consolidated (`reactions.outerAxisChanged`,
+`reactions.innerAxisChanged`, `keepAxesApart`).
 
-`allowedOuterAxes` and `allowedInnerAxes` are `$derived` from
-`opposingHierarchyAxes`, which reads `itemHierarchy`,
-`locationHierarchy` and `groupableAxes` (themselves `$derived` from
-`axisValues` and `axisGroups`), so a hierarchy becomes selectable as
-soon as the axis values load.
+The report (`reports.profitAndLossByAxis`) returns one section per
+outer value, each with its statement (`statementRows`: income, costs of
+goods sold, other operating expenses, profit or loss) and a section per
+inner value; `$lib/DrillSection.svelte` draws each section, closed
+unless the outer axis is Consolidated, and the total line follows.
 
 Tests (*Testing: Unit*, "Running the tests"):
 - "profit-and-loss-by-division-and-category" (`shared-fixtures/tests/profit-and-loss-by-division-and-category.csv`)

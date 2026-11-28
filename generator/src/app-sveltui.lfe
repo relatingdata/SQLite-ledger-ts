@@ -9,7 +9,7 @@
 ;;; reports), which the TUI build compiles from frontend/src/lib.
 ;;;
 ;;; A screen is generated for the TUI only when its template is one the
-;;; TUI has (transaction, report) and it uses nothing the TUI form does
+;;; TUI has (transaction, report, drill) and it uses nothing the TUI form does
 ;;; not do yet (listed Records, Commands); `screen` returns `skip` with
 ;;; the reason otherwise. The templates are ASCII only.
 
@@ -34,10 +34,14 @@
        (cond ((=/= (val s id #"Records") 'undefined) (tuple 'skip #"lists Records"))
              ((lists:member #"Command" kinds) (tuple 'skip #"has Commands"))
              ('true (component s id #"TransactionForm" (transaction s id parts)))))
-      (#"report"
-       (cond ((lists:member #"Command" kinds) (tuple 'skip #"has Commands"))
-             ('true (component s id #"ReportForm" (report s id parts)))))
+      (#"report" (report-screen s id parts kinds))
+      (#"drill" (report-screen s id parts kinds))
       (other (tuple 'skip (list #"template " other))))))
+
+(defun report-screen (s id parts kinds)
+  (if (lists:member #"Command" kinds)
+    (tuple 'skip #"has Commands")
+    (component s id #"ReportForm" (report s id parts))))
 
 (defun component (s id form spec)
   (list

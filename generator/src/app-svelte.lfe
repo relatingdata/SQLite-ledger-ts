@@ -23,6 +23,7 @@
     (#"tiles" (tiles s id))
     (#"compose" (compose s id))
     (#"report" (report s id))
+    (#"drill" (drill s id))
     (#"pivot" (pivot s id))
     (other (error (tuple 'no-template other (app-entities:name s id))))))
 
@@ -285,7 +286,7 @@
 
 (defun load-choices (s f)
   (let ((n (val s f #"Name")))
-    (list #"      choices." n #" = await sources." (val s f #"Choices") #"(business);\n"
+    (list #"      choices." n #" = await sources." (val s f #"Choices") #"(business, ledger);\n"
           (if (== (val s f #"Default") #"first")
             (list #"      if (!values." n #" && choices." n #".length > 0) values." n #" = choices." n #"[0].value;\n")
             #""))))
@@ -338,7 +339,11 @@
       (#"choose"
        (list open #"\n        <select bind:value={" n #"}>"
              (case (val s f #"Empty") ('undefined #"") (e (list #"<option value=''>" (t e) #"</option>")))
-             #"{#each " (shown s f) #" as choice}<option value={t(choice.value)}>{t(choice.label)}</option>{/each}</select>\n"
+             (if (== (val s f #"Grouped") #"yes")
+               ;; Grouped=yes: each choice under its group, as an optgroup.
+               (list #"{#each groupsOf(" (shown s f) #") as g}{#if g.label}<optgroup label={t(g.label)}>{#each g.choices as choice}<option value={choice.value}>{t(choice.label)}</option>{/each}</optgroup>"
+                     #"{:else}{#each g.choices as choice}<option value={choice.value}>{t(choice.label)}</option>{/each}{/if}{/each}</select>\n")
+               (list #"{#each " (shown s f) #" as choice}<option value={t(choice.value)}>{t(choice.label)}</option>{/each}</select>\n"))
              (case (val s f #"Show All Label")
                ('undefined #"")
                (label (let ((n (val s f #"Name")))
@@ -708,5 +713,79 @@
       (case (val s id #"Highlight") ('undefined #"") (h (list #" highlight={" (js h) #"}")))
       (case (val s id #"Highlight Across") ('undefined #"") (a (list #" across={" (js a) #"}")))
       #" emptyText={" (js (val s id #"Empty Text" #"No activity for this combination.")) #"} />\n"
+      #"  {/if}\n"
+      #"</fieldset>\n")))
+
+;; --- the drill template ------------------------------------------------------
+;;
+;; A drillable report: its parameter fields in a row of controls (a choice
+;; Reacts and is Filtered as on a transaction, Grouped=yes shows its
+;; choices under headings), a title block naming the business, then the
+;; sections the screen's Report returns, each opening to its table and the
+;; sections under it ($lib/DrillSection), and the report's total line.
+
+(defun drill (s id)
+  (let* ((parts (app-view:things s id))
+         (fields (lists:filter (lambda (p) (== (kind s p) #"Field")) parts))
+         (dates (lists:filter (lambda (f) (== (val s f #"Control") #"date")) fields))
+         (chooses (lists:filter (lambda (f) (== (val s f #"Control") #"choose")) fields)))
+    (list
+      #"<script lang='ts'>\n" (header s id)
+      #"  import { onMount } from 'svelte';\n"
+      #"  import '$lib/generated.css';\n"
+      #"  import { session, translations } from '$lib/state.svelte';\n"
+      #"  import { ApiError } from '$lib/api';\n"
+      #"  import DrillSection from '$lib/DrillSection.svelte';\n"
+      #"  import { reports, sources, filters, reactions, groupsOf, type Choice, type Patch, type Report } from '$lib/screen-runtime';\n\n"
+      #"  const t = (word: string) => translations.current[word] ?? word;\n"
+      #"  let business = $state('');\n  let ledger = $state('');\n"
+      #"  let ready = $state(false);\n  let loading = $state(true);\n  let error = $state('');\n"
+      #"  let report: Report | null = $state(null);\n"
+      #"  let values: Record<string, string> = $state({ "
+      (lists:join #", " (lists:map (lambda (f) (list (val s f #"Name") #": " (js (val s f #"Default" #"")))) fields))
+      #" });\n"
+      #"  let choices: Record<string, Choice[]> = $state({});\n"
+      #"  let narrowed: Record<string, Choice[] | undefined> = $state({});\n"
+      #"  let showAll: Record<string, boolean> = $state({});\n"
+      #"  const context = () => ({ business, ledger, party: '' });\n"
+      #"  const apply = (patch: Patch) => {\n    if (patch.values) Object.assign(values, patch.values);\n  };\n"
+      (lists:map (lambda (f) (reaction s f)) (lists:filter (lambda (f) (=/= (val s f #"Reacts") 'undefined)) fields))
+      #"  let latest = 0;\n"
+      #"  async function load() {\n"
+      #"    const request = ++latest;\n    loading = true;\n    error = '';\n"
+      #"    try {\n      const result = await reports." (val s id #"Report") #"(context(), $state.snapshot(values));\n"
+      #"      if (request === latest) report = result;\n"
+      #"    } catch (e) {\n      if (request === latest) error = e instanceof ApiError ? e.message : 'Failed to load.';\n"
+      #"    } finally {\n      if (request === latest) loading = false;\n    }\n  }\n"
+      #"  $effect(() => {\n    JSON.stringify(values);\n    if (ready) load();\n  });\n"
+      #"  onMount(async () => {\n    if (!session.current) return;\n"
+      #"    business = session.current.businessName;\n    ledger = session.current.ledgerName;\n"
+      #"    try {\n" (lists:map (lambda (f) (list #"  " (load-choices s f))) chooses)
+      #"    } catch {\n      /* each choice still shows its current value */\n    }\n"
+      #"    ready = true;\n  });\n"
+      #"</script>\n\n"
+      #"<svelte:head><title>" (t (val s id #"Title")) #"</title></svelte:head>\n\n"
+      #"<fieldset class='page-title generated'>\n"
+      #"  <legend>" (t (val s id #"Title")) #"</legend>\n"
+      (intro-line s id)
+      #"  <div class='controls'>\n"
+      (lists:map (lambda (f) (field s f)) fields)
+      (case (val s id #"Clear Label")
+        ('undefined #"")
+        (label (list #"    {#if " (lists:join #" || " (lists:map (lambda (d) (list #"values." (val s d #"Name"))) dates)) #"}"
+                     #"<button type='button' class='link' onclick={() => { "
+                     (lists:map (lambda (d) (list #"values." (val s d #"Name") #" = ''; ")) dates)
+                     #"}}>" (t label) #"</button>{/if}\n")))
+      #"  </div>\n\n"
+      #"  {#if loading && !report}\n    <p class='center-text'>Loading&hellip;</p>\n"
+      #"  {:else if error}\n    <p class='error center-text'>{error}</p>\n"
+      #"  {:else if report}\n"
+      #"    <div class='report-wrap'>\n      <div class='report card'>\n"
+      #"        <div class='title-block'>\n          <p class='title-line'>" (t (val s id #"Title Line" (val s id #"Title"))) #"</p>\n"
+      #"          <p class='title-line company'>{business}</p>\n        </div>\n"
+      #"        {#if (report.sections ?? []).length === 0}\n          <p class='empty'>" (t (val s id #"Empty Text" #"None")) #"</p>\n"
+      #"        {:else}\n          {#each report.sections ?? [] as section (section.key)}<DrillSection {section} />{/each}\n"
+      #"          {#if report.grandTotal}<div class='grand-total' class:negative={report.grandTotal.negative}><span>{report.grandTotal.label}</span><span>{report.grandTotal.value}</span></div>{/if}\n"
+      #"        {/if}\n      </div>\n    </div>\n"
       #"  {/if}\n"
       #"</fieldset>\n")))

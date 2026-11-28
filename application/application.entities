@@ -1894,16 +1894,11 @@ Root
     - :Entry Control=amount Formula="cost / quantity" Label=Cost Name=unitCost
     - :Entry Control=amount Label=Value Name=cost Source=stockValue Summary=yes
     - :Entry Control=amount Label=Realizable Name=realizable Source="onHandAt:retail" Summary=yes
-   "/reports/profit-and-loss" :Screen Source="frontend/src/routes/reports/profit-and-loss/+page.svelte" Title="Profit and Loss"
-    - :Heading Text="Profit and Loss"
-    - :Heading Text="Outer hierarchy"
-    - :Field Bind=outerSelection Control=select Label="Outer hierarchy"
-    - :Heading Text="Inner hierarchy"
-    - :Field Bind=innerSelection Control=select Label="Inner hierarchy"
-    - :Use Component>/Root/Application/Components/FromToDateFields "Prop onchange"="{load}"
-    - :Action Handler="() => { fromDate = ''; toDate = ''; load(); }" Label="Clear (show all time)"
-    - :Use Component>/Root/Application/Components/AxisPLNode "Prop node"="{node}" "Prop openByDefault"="{true}"
-    - :Use Component>/Root/Application/Components/AxisPLNode "Prop node"="{node}"
+   "/reports/profit-and-loss" :Screen "Clear Label"="Clear (show all time)" "Empty Text"="No real activity for this combination." Intro="A P&L statement, in the same vertical, drillable layout as the original \u2014 but broken down by two independent, nested hierarchies at once. Pick what each level breaks down by, or narrow either one down to a single value directly." Report=profitAndLossByAxis Template=drill Title="Profit and Loss" "Title Line"="Profit and Loss for:"
+    - :Field Choices=axes Control=choose Default=Location Filter=againstInner Grouped=yes Label="Outer hierarchy" Name=outerAxis Reacts=outerAxisChanged
+    - :Field Choices=axes Control=choose Default=Item Filter=againstOuter Grouped=yes Label="Inner hierarchy" Name=innerAxis Reacts=innerAxisChanged
+    - :Field Control=date Label=From Name=fromDate
+    - :Field Control=date Label=To Name=toDate
    "/reports/reminders" :Screen "Command Fail Text"="Could not send." "Empty Text"="No overdue customers." Intro="Customers with an overdue balance right now. Sending a reminder advances their level (up to 3, the firmest) \u2014 the next one for the same customer is already pre-set to the following level." Report=reminders Template=report Title=Reminders
     - :Field Control=date Default=today Label="As of date" Name=asOfDate
     - :Entry Label=Customer Name=party
@@ -2379,6 +2374,17 @@ Root
    "/vouchers/payable" :Screen Description="Batch approval of accounts payable \u2014 stage several provider bills for a second person to review and approve together, rather than one at a time. A documented, confirmed gap (docs/TODO.md)." Template=not-implemented Title="Payable Batch"
    "/vouchers/payment" :Screen Description="Batch approval of a group of provider payments together, mirroring Payable Batch on the payment side." Template=not-implemented Title="Payment Batch"
   Styles Ordered>/Root/Active
+   - :Rule Selector=.controls align-items=flex-end display=flex flex-wrap=wrap gap=0.8rem justify-content=center margin-bottom=1.2rem
+   - :Rule Selector=".controls select" max-width=220px
+   - :Rule Selector=".controls .link" background=none border=none color="var(--brass-dark)" cursor=pointer font-size="var(--font-size-base)" padding="0.4rem 0" text-decoration=underline
+   - :Rule Selector=.report-wrap display=flex justify-content=center
+   - :Rule Selector=".report-wrap .report" max-width=720px padding="1.2rem 1.6rem 1.4rem" width="100%"
+   - :Rule Selector=.title-block margin-bottom=1rem text-align=center
+   - :Rule Selector=.title-line margin="0.15rem 0"
+   - :Rule Selector=.title-line.company font-size="var(--font-size-large)" font-weight=700
+   - :Rule Selector=".report-wrap .empty" color="var(--ink-soft)" font-style=italic text-align=center
+   - :Rule Selector=.grand-total border-top="2px solid var(--ink)" display=flex font-size="var(--font-size-large)" font-variant-numeric=tabular-nums font-weight=700 justify-content=space-between margin-top=0.4rem padding="0.8rem 0.2rem 0.2rem"
+   - :Rule Selector=.grand-total.negative color="var(--debit)"
    - :Rule Selector=.tiles display=grid gap=1rem grid-template-columns="repeat(auto-fill, minmax(220px, 1fr))"
    - :Rule Selector=.tile color="var(--ink)" display=block padding="1.1rem 1.2rem" text-decoration=none
    - :Rule Selector=.tile border-color="var(--brass)"

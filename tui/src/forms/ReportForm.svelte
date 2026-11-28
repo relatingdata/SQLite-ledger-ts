@@ -38,7 +38,7 @@
   import { translations } from '$lib/state.svelte';
   import { ApiError, getLedgers, asBusinessName } from '$lib/api';
   import { todayIsoDate } from '$lib/format';
-  import { reports, sources, filters, type Choice, type Report, type ReportGroup } from '$lib/screen-runtime';
+  import { reports, sources, filters, reactions, type Choice, type Patch, type Report, type ReportGroup, type ReportSection } from '$lib/screen-runtime';
   import Panel from '../components/Panel.svelte';
   import TextInput from '../components/TextInput.svelte';
   import { brass, ink, inkSoft } from '../theme.ts';
@@ -69,7 +69,7 @@
     .then((rows) => (ledgers = rows.map((l) => ({ value: l.name, label: l.name }))))
     .catch(() => {});
   for (const f of spec.fields.filter((f) => f.choices)) {
-    sources[f.choices!](businessName)
+    sources[f.choices!](businessName, ledgerName)
       .then((rows) => {
         loaded[f.name] = rows;
         if (f.default === 'first' && !chosen[f.name] && rows.length > 0) chosen[f.name] = rows[0].value;
@@ -83,6 +83,25 @@
     return f.empty !== undefined && f.empty !== '' ? [{ value: '', label: f.empty }, ...shown] : shown;
   };
   const valueOf = (f: FieldSpec) => (f.control === 'ledger' ? ledger : values[f.name]);
+  // A choice in a group shows its group ("Division › South Australia").
+  const labelOf = (c: Choice) => (c.group && c.value !== c.group ? `${t(c.group)} › ${t(c.label)}` : t(c.label));
+
+  // A field that Reacts runs its reaction whenever its value changes.
+  const apply = (patch: Patch) => {
+    for (const [name, value] of Object.entries(patch.values ?? {})) {
+      if (name in typed) typed[name] = value;
+      else chosen[name] = value;
+    }
+  };
+  for (const f of spec.fields.filter((f) => f.reacts)) {
+    let last = '';
+    $effect(() => {
+      const now = values[f.name] ?? '';
+      if (now === last) return;
+      last = now;
+      reactions[f.reacts!]({ business: businessName, ledger, party: '' }, { ...values }).then(apply).catch(() => {});
+    });
+  }
 
   // --- the report -----------------------------------------------------------
   let report: Report | null = $state(null);
@@ -101,8 +120,7 @@
   });
 
   const tableOf = (group: ReportGroup) => spec.entries.filter((e) => (e.table ?? '') === (group.table ?? ''));
-  function groupText(group: ReportGroup): string {
-    const entries = tableOf(group);
+  function groupText(group: ReportGroup, entries: EntrySpec[] = tableOf(group)): string {
     const cellOf = (row: { depth: number; cells: Record<string, string> }, e: EntrySpec) =>
       e.control === 'tree' ? `${'  '.repeat(row.depth)}${row.cells[e.name] ?? ''}` : row.cells[e.name] ?? '';
     const head = entries.map((e) => t(group.labels?.[e.name] ?? e.label));
@@ -119,11 +137,27 @@
       ...(foot ? [line(foot)] : []),
     ].join('\n');
   }
+  // A drillable report's sections, every one shown open, indented; each
+  // table has an account (a tree), its debit and its credit.
+  const STATEMENT: EntrySpec[] = [
+    { name: 'name', label: '', control: 'tree' },
+    { name: 'debit', label: 'Debit', control: 'amount' },
+    { name: 'credit', label: 'Credit', control: 'amount' },
+  ];
+  function sectionText(section: ReportSection, depth = 0): string {
+    const pad = '  '.repeat(depth);
+    const table = section.rows.length > 0 ? groupText({ title: '', rows: section.rows }, STATEMENT).split('\n').map((l) => pad + '  ' + l) : [];
+    return [`${pad}${section.name.padEnd(40 - pad.length)}${section.figure.padStart(14)}`, ...table, ...section.children.map((c) => sectionText(c, depth + 1))].join('\n');
+  }
   const reportText = $derived(
     error
       ? ''
       : !report
         ? t('Loading') + '…'
+        : report.sections
+          ? report.sections.length === 0
+            ? t(spec.emptyText ?? 'None')
+            : [businessName, ...report.sections.map((sec) => sectionText(sec)), ...(report.grandTotal ? [`${report.grandTotal.label}  ${report.grandTotal.value}`] : [])].join('\n')
         : report.columns.every((c) => c.groups.length === 0)
           ? t(spec.emptyText ?? 'None')
           : report.columns
@@ -177,8 +211,8 @@
 
   const listText = (f: FieldSpec) =>
     stop === f
-      ? choicesOf(f).map((c, i) => `${i === highlighted ? '❯ ' : '  '}${t(c.label)}`).join('\n')
-      : t(choicesOf(f).find((c) => c.value === valueOf(f))?.label ?? valueOf(f) ?? '');
+      ? choicesOf(f).map((c, i) => `${i === highlighted ? '❯ ' : '  '}${labelOf(c)}`).join('\n')
+      : (() => { const c = choicesOf(f).find((c) => c.value === valueOf(f)); return c ? labelOf(c) : t(valueOf(f) ?? ''); })();
   const hint = (f: FieldSpec) => (defaultOf(f) ? `${t('blank keeps')} ${defaultOf(f)}` : f.control === 'date' ? t('blank: all time') : '');
 </script>
 

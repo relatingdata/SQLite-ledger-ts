@@ -21,7 +21,7 @@ It uses the TypeScript compiler, not a text search. A prototype is printed by th
 ## Summary
 
 - **Backend:** 1215 functions (1031 exported); 850 are called from production code; 46 only from tests or tooling; 319 from nowhere the compiler could find.
-- **Frontend library:** 393 functions (320 exported); 300 are called from production code; 2 only from tests or tooling; 91 from nowhere the compiler could find.
+- **Frontend library:** 404 functions (326 exported); 304 are called from production code; 2 only from tests or tooling; 98 from nowhere the compiler could find.
 
 ### Backend: functions with no callers found
 
@@ -65,9 +65,9 @@ Candidates to review, not proof of dead code: a function may be reached in a way
 Candidates to review, not proof of dead code: a function may be reached in a way the limits above cannot see.
 
 - `frontend/src/lib/api.ts`: `getCashFlowForecast`, `getTrialBalance`, `getSalesReport`, `getBalanceSheet`, `getProfitAndLoss`, `getProfitAndLossByHierarchy`, `getProfitAndLossByHierarchyTree`, `getLedgerDateRange`, `createProfitCenter`, `setSessionProfitCenter`, `getBusinessConfigurationReport`, `listJournalEntries`, `stagePurchaseOrder`, `postPurchaseOrder`, `stageOrderReceipt`, `postOrderReceipt`, `stageSalesOrder`, `postSalesOrder`, `listQuotations`, `getQuotation`, `createQuotation`, `createRfq`, `markQuotationSent`, `acceptQuotation`, `rejectQuotation`, `postOnAccountInvoice`, `getAgedInvoices`, `getAgedSummary`, `getCustomerStatement`, `getReminderCandidates`, `sendReminder`, `resetReminder`, `openStorageContainer`, `getItemLocation`, `receiveItems`, `transferItems`, `getStockOutRiskReport`, `closeBooks`, `getStorageSpaceReport`
-- `frontend/src/lib/matrix-api.ts`: `getStockOnHandMatrix`, `getCube`, `getAxisValues`
+- `frontend/src/lib/matrix-api.ts`: `getStockOnHandMatrix`, `getProfitAndLossByAxis`, `getCube`, `getAxisValues`, `getAxes`
 - `frontend/src/lib/pagination.ts`: `createPaginator`
-- `frontend/src/lib/screen-runtime.ts`: `sources.itemHierarchies`, `sources.locations`, `sources.items`, `sources.providers`, `sources.customers`, `sources.postableAccounts`, `filters.sameCityAsFrom`, `reactions.orderStatus`, `reactions.onHand`, `reactions.fromLocationChanged`, `reactions.itemSources`, `reactions.providerPrice`, `totals.lineTax`, `totals.quantityTimesPrice`, `totals.valueTaxRate`, `totals.taxRate`, `actions.purchase`, `actions.sale`, `actions.transfer`, `actions.orderReceipt`, `actions.salesOrder`, `actions.quotation`, `actions.purchaseOrder`, `records.quotations`, `commands.sendReminder`, `commands.resetReminder`, `commands.markSent`, `commands.accept`, `commands.reject`, `reports.aged`, `reports.businessConfiguration`, `reports.cashFlow`, `reports.sales`, `reports.statement`, `reports.reminders`, `reports.belowReorder`, `reports.journalEntries`, `reports.stockOutRisk`, `reports.storageSpace`, `reports.trialBalance`, `reports.balanceSheet`
+- `frontend/src/lib/screen-runtime.ts`: `sources.itemHierarchies`, `sources.locations`, `sources.items`, `sources.providers`, `sources.customers`, `sources.postableAccounts`, `filters.againstInner`, `filters.againstOuter`, `filters.sameCityAsFrom`, `reactions.outerAxisChanged`, `reactions.innerAxisChanged`, `reactions.orderStatus`, `reactions.onHand`, `reactions.fromLocationChanged`, `reactions.itemSources`, `reactions.providerPrice`, `totals.lineTax`, `totals.quantityTimesPrice`, `totals.valueTaxRate`, `totals.taxRate`, `actions.purchase`, `actions.sale`, `actions.transfer`, `actions.orderReceipt`, `actions.salesOrder`, `actions.quotation`, `actions.purchaseOrder`, `records.quotations`, `commands.sendReminder`, `commands.resetReminder`, `commands.markSent`, `commands.accept`, `commands.reject`, `reports.aged`, `reports.businessConfiguration`, `reports.cashFlow`, `reports.sales`, `reports.statement`, `reports.reminders`, `reports.belowReorder`, `reports.profitAndLossByAxis`, `reports.journalEntries`, `reports.stockOutRisk`, `reports.storageSpace`, `reports.trialBalance`, `reports.balanceSheet`
 - `frontend/src/lib/state.svelte.ts`: `auth.set`, `hasUnsavedEdit.set`, `menuTree.set`, `screenTitle`, `session.set`, `session.clear`, `translations.set`
 
 ## Backend
@@ -12100,7 +12100,7 @@ Called from: production: format.ts (formatAmount ×1)
 formatAmount(smallestUnits: number, numberFormat: string, unitCode?: string): string
 ```
 
-Called from: tests: 16 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): AxisPLNode.svelte ×1, CashTransaction.svelte ×1, HierarchyGroupPLNode.svelte ×1, PivotGrid.svelte ×1, ProfitAndLossTable.svelte ×1, routes/account/password ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, and 23 more
+Called from: tests: 16 call(s) in 1 file(s) · Svelte pages (by name in the file's imports): AxisPLNode.svelte ×1, CashTransaction.svelte ×1, HierarchyGroupPLNode.svelte ×1, PivotGrid.svelte ×1, ProfitAndLossTable.svelte ×1, routes/account/password ×1, routes/arap/ap-purchase ×1, routes/arap/ar-sale ×1, and 22 more
 
 **`formatDate`** *(exported)*
 
@@ -12376,7 +12376,7 @@ Called from: production: matrix-api.ts (getProfitAndLossByAxis ×1)
 getProfitAndLossByAxis(business: string, ledger: string, outerAxis: MatrixAxis, innerAxis: MatrixAxis, fromDate?: string, toDate?: string, outerFilter?: string, innerFilter?: string): Promise<ProfitAndLossByAxisNode[]>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/profit-and-loss ×1
+Called from: nowhere the compiler could find.
 
 **`getCube`** *(exported)*
 
@@ -12400,7 +12400,7 @@ Called from: nowhere the compiler could find.
 getAxes(business: string, ledger: string): Promise<{ values: AxisValues; groups: Record<string, string>; }>
 ```
 
-Called from: Svelte pages (by name in the file's imports): routes/reports/profit-and-loss ×1
+Called from: nowhere the compiler could find.
 
 ### `frontend/src/lib/money.ts`
 
@@ -12488,7 +12488,7 @@ Called from: Svelte pages (by name in the file's imports): routes/arap/quotation
 t(word: string): any
 ```
 
-Called from: production: screen-runtime.ts (actions.purchase ×1, actions.sale ×1, actions.transfer ×1, lines ×1, onHandAtFrom ×1, reactions.orderStatus ×2, and 11 more)
+Called from: production: screen-runtime.ts (actions.purchase ×1, actions.sale ×1, actions.transfer ×1, lines ×1, onHandAtFrom ×1, part ×3, and 14 more)
 
 **`named`**
 
@@ -12505,6 +12505,38 @@ under(es: EntityNode[], parentName: string): EntityNode[]
 ```
 
 Called from: production: screen-runtime.ts (sources.customers ×1, sources.providers ×1)
+
+**`axisChoices`**
+
+```
+axisChoices(business: string, ledger: string): Promise<Choice[]>
+```
+
+Called from: production: screen-runtime.ts ((module level) (as a value), keepAxesApart ×1)
+
+**`axisOf`**
+
+```
+axisOf(selection: string): string
+```
+
+Called from: production: screen-runtime.ts (againstAxis ×1, sideOf ×1)
+
+**`groupsOf`** *(exported)*
+
+```
+groupsOf(choices: Choice[]): { label?: string; choices: Choice[]; }[]
+```
+
+Called from: Svelte pages (by name in the file's imports): routes/reports/profit-and-loss ×2
+
+**`againstAxis`**
+
+```
+againstAxis(choices: Choice[], other: string): Choice[]
+```
+
+Called from: production: screen-runtime.ts (filters.againstInner ×1, filters.againstOuter ×1)
 
 **`sources.itemHierarchies`** *(exported)*
 
@@ -12554,6 +12586,22 @@ sources.postableAccounts(): Promise<any>
 
 Called from: nowhere the compiler could find.
 
+**`filters.againstInner`** *(exported)*
+
+```
+filters.againstInner(choices: Choice[], v: Values): Choice[]
+```
+
+Called from: nowhere the compiler could find.
+
+**`filters.againstOuter`** *(exported)*
+
+```
+filters.againstOuter(choices: Choice[], v: Values): Choice[]
+```
+
+Called from: nowhere the compiler could find.
+
 **`filters.sameCityAsFrom`** *(exported)*
 
 ```
@@ -12569,6 +12617,30 @@ onHandAtFrom(v: Values): Promise<string>
 ```
 
 Called from: production: screen-runtime.ts (reactions.fromLocationChanged ×1, reactions.onHand ×1)
+
+**`keepAxesApart`**
+
+```
+keepAxesApart(c: Context, v: Values, changed: "outerAxis" | "innerAxis"): Promise<Patch>
+```
+
+Called from: production: screen-runtime.ts (reactions.innerAxisChanged ×1, reactions.outerAxisChanged ×1)
+
+**`reactions.outerAxisChanged`** *(exported)*
+
+```
+reactions.outerAxisChanged(c: Context, v: Values): Promise<Patch>
+```
+
+Called from: nowhere the compiler could find.
+
+**`reactions.innerAxisChanged`** *(exported)*
+
+```
+reactions.innerAxisChanged(c: Context, v: Values): Promise<Patch>
+```
+
+Called from: nowhere the compiler could find.
 
 **`reactions.orderStatus`** *(exported)*
 
@@ -12792,12 +12864,20 @@ Called from: nowhere the compiler could find.
 money(minor: number): any
 ```
 
-Called from: production: screen-runtime.ts (amount ×2, reports.aged ×2, reports.balanceSheet ×1, reports.cashFlow ×7, reports.journalEntries ×2, reports.reminders ×1, and 4 more)
+Called from: production: screen-runtime.ts (amount ×2, cellOf ×4, cost ×1, reports.aged ×2, reports.balanceSheet ×1, reports.cashFlow ×7, and 8 more)
 
 **`treeRows`**
 
 ```
 treeRows(section: string, nodes: CategoryTreeNode[], cellOf: (n: CategoryTreeNode) => Record<string, string>, ancestors?: string[]): ReportRow[]
+```
+
+Called from: production: screen-runtime.ts (part ×1, section ×1)
+
+**`statementRows`**
+
+```
+statementRows(key: string, pl: ProfitAndLoss): ReportRow[]
 ```
 
 Called from: production: screen-runtime.ts (section ×1)
@@ -12816,7 +12896,7 @@ Called from: production: screen-runtime.ts (section ×1)
 line(key: string, cells: Record<string, string>, more?: Partial<ReportRow>): ReportRow
 ```
 
-Called from: production: screen-runtime.ts (lines ×1, reports.aged ×2, reports.belowReorder ×1, reports.businessConfiguration ×2, reports.cashFlow ×1, reports.journalEntries ×1, and 5 more)
+Called from: production: screen-runtime.ts (lines ×1, part ×3, reports.aged ×2, reports.belowReorder ×1, reports.businessConfiguration ×2, reports.cashFlow ×1, and 8 more)
 
 **`units`**
 
@@ -12894,6 +12974,14 @@ Called from: nowhere the compiler could find.
 
 ```
 reports.belowReorder(): Promise<{ columns: { groups: { title: string; rows: any; }[]; }[]; }>
+```
+
+Called from: nowhere the compiler could find.
+
+**`reports.profitAndLossByAxis`** *(exported)*
+
+```
+reports.profitAndLossByAxis(c: Context, v: Values): Promise<{ columns: any[]; sections: any; grandTotal: { label: any; value: any; negative: boolean; }; }>
 ```
 
 Called from: nowhere the compiler could find.

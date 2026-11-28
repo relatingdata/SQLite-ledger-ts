@@ -45,6 +45,7 @@ import {
   getStorageSpaceReport,
   getBalanceSheet,
   type CategoryTreeNode,
+  type ProfitAndLoss,
   postSalesOrder,
   createQuotation,
   createRfq,
@@ -61,7 +62,7 @@ import {
   asItemName,
   type EntityNode,
 } from '$lib/api';
-import { getCube, getAxes } from '$lib/matrix-api';
+import { getCube, getAxes, getProfitAndLossByAxis, type ProfitAndLossByAxisNode } from '$lib/matrix-api';
 import { parseMinorUnits, parseQuantity } from '$lib/money';
 
 export interface Context {
@@ -84,6 +85,10 @@ export interface Line {
 export interface Choice {
   value: string;
   label: string;
+  /** Shown under this heading (an optgroup on the web). */
+  group?: string;
+  /** For report axes: the side the axis is on (item or location). */
+  side?: string;
   /** For locations: the city, which filters can use. */
   city?: string;
 }
@@ -109,7 +114,49 @@ const t = (word: string) => translations.current[word] ?? word;
 const named = (es: { name: string }[]): Choice[] => es.map((e) => ({ value: e.name, label: e.name }));
 const under = (es: EntityNode[], parentName: string) => es.filter((e) => es.find((p) => p.id === e.parent_id)?.name === parentName);
 
-export const sources: Record<string, (business: string) => Promise<Choice[]>> = {
+/** Report axes as choices: Consolidated, then each axis that can group a
+ * report (Item, Location and the business's hierarchies) under its own
+ * heading, the whole axis first and then each of its values
+ * ("Division::South Australia"). */
+async function axisChoices(business: string, ledger: string): Promise<Choice[]> {
+  let values: Record<string, string[]> = { Item: [], Location: [] };
+  let groups: Record<string, string> = {};
+  try {
+    ({ values, groups } = await getAxes(business, ledger));
+  } catch {
+    // the whole axes still work without their values
+  }
+  const sideOf = (axis: string) => (axis === 'Item' ? 'item' : axis === 'Location' ? 'location' : groups[axis]);
+  const axes = ['Item', ...Object.keys(values).filter((k) => !['Item', 'Location'].includes(k) && groups[k] === 'item'), 'Location', ...Object.keys(values).filter((k) => !['Item', 'Location'].includes(k) && groups[k] === 'location')];
+  return [
+    { value: 'Consolidated', label: 'Consolidated' },
+    ...axes.flatMap((axis) => [
+      { value: axis, label: axis, group: axis, side: sideOf(axis) },
+      ...(values[axis] ?? []).map((v) => ({ value: `${axis}::${v}`, label: v, group: axis, side: sideOf(axis) })),
+    ]),
+  ];
+}
+const axisOf = (selection: string) => selection.split('::')[0];
+/** Choices in their groups, in order: consecutive choices of one group
+ * together; a choice with no group stands alone. */
+export function groupsOf(choices: Choice[]): { label?: string; choices: Choice[] }[] {
+  const out: { label?: string; choices: Choice[] }[] = [];
+  for (const c of choices) {
+    const last = out[out.length - 1];
+    if (last && c.group && last.label === c.group) last.choices.push(c);
+    else out.push({ label: c.group, choices: [c] });
+  }
+  return out;
+}
+/** The axes another axis can be nested with: those on the other side. */
+const againstAxis = (choices: Choice[], other: string): Choice[] => {
+  const side = choices.find((c) => c.value === axisOf(other))?.side;
+  return choices.filter((c) => c.value === 'Consolidated' || !side || c.side !== side);
+};
+
+export const sources: Record<string, (business: string, ledger: string) => Promise<Choice[]>> = {
+  /** Report axes (axisChoices). */
+  axes: axisChoices,
   /** The business's hierarchies of its items, by name. */
   itemHierarchies: async (business) => named(hierarchiesOf(await getHierarchy(business), 'Items').map((g) => ({ name: g.hierarchy }))),
   locations: async (business) => (await listLocations(asBusinessName(business))).map((l) => ({ value: l.name, label: l.name, city: l.city ?? undefined })),
@@ -127,6 +174,10 @@ export const sources: Record<string, (business: string) => Promise<Choice[]>> = 
 // --- filters: a field's choices narrowed by the other values ---------------------
 
 export const filters: Record<string, (choices: Choice[], values: Values) => Choice[]> = {
+  /** The axes the inner axis allows: on the other side from it. */
+  againstInner: (choices, v) => againstAxis(choices, v.innerAxis ?? ''),
+  /** The axes the outer axis allows: on the other side from it. */
+  againstOuter: (choices, v) => againstAxis(choices, v.outerAxis ?? ''),
   /** Other locations in the same city as fromLocation. */
   sameCityAsFrom: (choices, v) => {
     const city = choices.find((c) => c.value === v.fromLocation)?.city;
@@ -146,7 +197,21 @@ async function onHandAtFrom(v: Values): Promise<string> {
   }
 }
 
+/** An axis no longer allowed beside the one just chosen goes back to
+ * Consolidated. */
+async function keepAxesApart(c: Context, v: Values, changed: 'outerAxis' | 'innerAxis'): Promise<Patch> {
+  const other = changed === 'outerAxis' ? 'innerAxis' : 'outerAxis';
+  if (!v[other] || v[other] === 'Consolidated') return {};
+  const choices = await axisChoices(c.business, c.ledger);
+  const sideOf = (sel: string) => choices.find((ch) => ch.value === axisOf(sel))?.side;
+  return sideOf(v[changed]) && sideOf(v[changed]) === sideOf(v[other]) ? { values: { [other]: 'Consolidated' } } : {};
+}
+
 export const reactions: Record<string, (c: Context, v: Values) => Promise<Patch>> = {
+  /** The outer axis changed: the inner one stays only on the other side. */
+  outerAxisChanged: (c, v) => keepAxesApart(c, v, 'outerAxis'),
+  /** The inner axis changed: the outer one stays only on the other side. */
+  innerAxisChanged: (c, v) => keepAxesApart(c, v, 'innerAxis'),
   /** What is still open on the order named in the order field. */
   orderStatus: async (_c, v) => {
     if (!v.order?.trim()) return { info: '' };
@@ -468,8 +533,22 @@ export interface ReportColumn {
   groups: ReportGroup[];
   summary?: { label: string; value: string };
 }
+/** A section of a drillable report: a heading line with its figure, which
+ * opens to show its table (rows, as a group's) and the sections under it. */
+export interface ReportSection {
+  key: string;
+  name: string;
+  figure: string;
+  negative?: boolean;
+  open?: boolean;
+  rows: ReportRow[];
+  children: ReportSection[];
+}
 export interface Report {
   columns: ReportColumn[];
+  /** A drillable report's sections (Template=drill), and its total line. */
+  sections?: ReportSection[];
+  grandTotal?: { label: string; value: string; negative: boolean };
   /** For a report paged on the server (Paged=server): how many rows in all. */
   total?: number;
   /** A title and intro that differ from the screen's, for these parameters. */
@@ -493,6 +572,36 @@ function treeRows(section: string, nodes: CategoryTreeNode[], cellOf: (n: Catego
     };
     return [row, ...(parent ? treeRows(section, n.children, cellOf, [...ancestors, n.name]) : [])];
   });
+}
+
+/** A Profit and Loss statement as rows: income, then costs of goods sold,
+ * then other operating expenses, each a tree of accounts with its total,
+ * then the profit or loss. Rows marked section-head, rule-row or
+ * heavy-rule-row are one cell across the table. */
+function statementRows(key: string, pl: ProfitAndLoss): ReportRow[] {
+  const cellOf = (n: CategoryTreeNode) => ({ debit: n.debit_minor === 0 ? '' : n.is_contra ? `(${money(n.debit_minor)})` : money(n.debit_minor), credit: n.credit_minor === 0 ? '' : n.is_contra ? `(${money(n.credit_minor)})` : money(n.credit_minor) });
+  const rule = (k: string, heavy = true): ReportRow => line(`${key}/${k}`, {}, { mark: heavy ? 'heavy-rule-row' : 'rule-row' });
+  const part = (k: string, title: string, nodes: CategoryTreeNode[], totalCells: Record<string, string>, last: boolean): ReportRow[] => {
+    const rows = treeRows(`${key}/${k}`, nodes, cellOf);
+    return [
+      line(`${key}/${k}/head`, { name: t(title) }, { mark: 'section-head' }),
+      rule(`${k}/top`),
+      ...(rows.length > 0 ? rows : [line(`${key}/${k}/none`, { name: t('None') }, { mark: 'empty' })]),
+      rule(`${k}/bottom`),
+      line(`${key}/${k}/total`, { name: t('Total'), ...totalCells }, { mark: 'total-row' }),
+      ...(last ? [] : [rule(`${k}/gap`, false)]),
+    ];
+  };
+  const cost = (lines: { debit_minor: number; credit_minor: number }[]) => money(lines.reduce((sum, l) => sum + l.debit_minor - l.credit_minor, 0));
+  const net = pl.net_income_minor;
+  return [
+    ...part('income', 'Income from Retail Sales of Goods', pl.income_tree, { credit: money(pl.total_income_minor) }, false),
+    ...part('cogs', 'Less Costs of Goods Sold', pl.cogs_tree, { debit: cost(pl.cogs_expenses) }, false),
+    ...part('operating', 'Less Other Direct Operating Expenses', pl.operating_expenses_tree, { debit: cost(pl.operating_expenses) }, true),
+    rule('net/top'),
+    line(`${key}/net`, { name: t('Total Profit/(Loss)'), credit: net < 0 ? `(${money(-net)})` : money(net) }, { mark: net < 0 ? 'grand-total-row negative' : 'grand-total-row' }),
+    rule('net/bottom'),
+  ];
 }
 
 /** A section total in its debit or credit column, parenthesised when it is
@@ -626,6 +735,29 @@ export const reports: Record<string, (c: Context, v: Values) => Promise<Report>>
           { mark: r.min_level != null && r.quantity_on_hand <= r.min_level ? 'critical' : undefined })),
       }],
     }] };
+  },
+  /** Profit and Loss by two nested axes (outerAxis, innerAxis; either one
+   * narrowed to one value as "Axis::value"), over an optional period. */
+  profitAndLossByAxis: async (c, v) => {
+    const [outer, outerFilter] = (v.outerAxis || 'Consolidated').split('::');
+    const [inner, innerFilter] = (v.innerAxis || 'Consolidated').split('::');
+    const nodes = await getProfitAndLossByAxis(c.business, c.ledger, outer, inner, v.fromDate || undefined, v.toDate || undefined, outerFilter, innerFilter);
+    const signed = (minor: number) => (minor < 0 ? `(${money(-minor)})` : money(minor));
+    const section = (n: ProfitAndLossByAxisNode, path: string, open: boolean): ReportSection => ({
+      key: `${path}/${n.key}`,
+      name: n.key,
+      figure: signed(n.profitAndLoss.net_income_minor),
+      negative: n.profitAndLoss.net_income_minor < 0,
+      open,
+      rows: n.profitAndLoss.total_income_minor !== 0 || n.profitAndLoss.total_expenses_minor !== 0 ? statementRows(`${path}/${n.key}`, n.profitAndLoss) : [],
+      children: n.children.map((child) => section(child, `${path}/${n.key}`, false)),
+    });
+    const total = nodes.reduce((sum, n) => sum + n.profitAndLoss.net_income_minor, 0);
+    return {
+      columns: [],
+      sections: nodes.map((n) => section(n, '', outer === 'Consolidated')),
+      grandTotal: { label: t('Total Profit/(Loss)'), value: signed(total), negative: total < 0 },
+    };
   },
   /** The ledger's journal entries, a page at a time (Paged=server), each
    * linked to the entry by its id and date, a recurring one marked. */
