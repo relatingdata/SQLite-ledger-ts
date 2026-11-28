@@ -5,7 +5,15 @@
   import SelectList from '../components/SelectList.svelte';
   import { inkSoft } from '../theme.ts';
 
-  let { onChosen }: { onChosen: (businessName: string, ledgerName: string) => void } = $props();
+  // `startWith` opens straight at the ledger step of that business (as
+  // after the New Business wizard's "Work in …"); "New Business", the
+  // list's last entry as on the web's session page, opens the wizard.
+  let {
+    onChosen,
+    onNewBusiness,
+    startWith,
+  }: { onChosen: (businessName: string, ledgerName: string) => void; onNewBusiness: () => void; startWith?: string } = $props();
+  const NEW_BUSINESS = '\u0000new';
 
   let step: 'business' | 'ledger' = $state('business');
   let businesses: { id: number; name: string }[] | null = $state(null);
@@ -13,9 +21,11 @@
   let businessName: string | null = $state(null);
   let error: string | null = $state(null);
 
-  getBusinesses()
-    .then((rows) => (businesses = rows))
-    .catch((err) => (error = err instanceof ApiError ? err.message : 'Could not load businesses.'));
+  if (startWith) void chooseBusiness(startWith);
+  else
+    getBusinesses()
+      .then((rows) => (businesses = rows))
+      .catch((err) => (error = err instanceof ApiError ? err.message : 'Could not load businesses.'));
 
   async function chooseBusiness(name: string) {
     businessName = name;
@@ -42,7 +52,11 @@
     <Panel title="Choose a business"><Text text="Loading…" color={inkSoft} /></Panel>
   {:else}
     <Panel title="Choose a business" focused>
-      <SelectList items={businesses.map((b) => ({ label: b.name, value: b.name }))} onSelect={(item) => chooseBusiness(item.value)} />
+      {#if businesses.length === 0}<Text text="No business yet: create the first one." color={inkSoft} />{/if}
+      <SelectList
+        items={[...businesses.map((b) => ({ label: b.name, value: b.name })), { label: 'New Business', value: NEW_BUSINESS }]}
+        onSelect={(item) => (item.value === NEW_BUSINESS ? onNewBusiness() : chooseBusiness(item.value))}
+      />
     </Panel>
   {/if}
 {:else if !ledgers}

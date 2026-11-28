@@ -11,42 +11,40 @@ Every transcript below is real text, captured directly from a live, passing run 
 The same account, the same backend --- just a different, real client of it.
 
 ```
-sql-ledger-ts — text user interface (test implementation: Login, Menu, General
-Journal, Balance Sheet, New Business, Business Structure, Purchase, Cash
-Purchase, Purchase Order, Payment, AR Sale, Cash Sale, Customers, POS Terminal)
-╭──────────────────────────────────────────────────────────────────────────────╮
-│ sql-ledger-ts — Log in                                                       │
-│                                                                              │
-│ Username                                                                     │
-│                                                                              │
-│ Password                                                                     │
-│                                                                              │
-│ Enter on Username moves to Password · Enter on Password logs in              │
-╰──────────────────────────────────────────────────────────────────────────────╯
+sql-ledger-ts — text user interface (SvelTUI: Login, Menu, General Journal, Balance Sheet, New
+Business, Business Structure, Purchase, Cash Purchase, Purchase Order, Payment, AR Sale, Cash Sale,
+Customers, POS Terminal, Items & BOM, Transfer Items)
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ sql-ledger-ts — Log in                                                                           │
+│ Username                                                                                         │
+│                                                                                                  │
+│ Password                                                                                         │
+│                                                                                                  │
+│ Enter on Username moves to Password · Enter on Password logs in                                  │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 ## Choosing a business, then a ledger
 
-An account can work in more than one business, each with its own books, as in the web app; the screen lists every business the account can open:
+An account can work in more than one business, each with its own books, as in the web app; the screen lists every business the account can open, then **New Business**, as the web app's session page has a New Business button:
 
 ```
-╭──────────────────────────────────────────────────────────────────────────────╮
-│ Choose a business                                                            │
-│                                                                              │
-│ ❯ Tutorial Wine Retail Business                                              │
-╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Choose a business                                                                                │
+│ ❯ Tutorial Wine Retail Business                                                                  │
+│   New Business                                                                                   │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 Choosing **Tutorial Wine Retail Business** then offers its own real ledgers --- the Actual ledger this whole tutorial trades in, the Budget ledger created alongside it, and the further Actual ledger rollover created for the following year:
 
 ```
-╭──────────────────────────────────────────────────────────────────────────────╮
-│ Choose a ledger — Tutorial Wine Retail Business                              │
-│                                                                              │
-│ ❯ Actual                                                                     │
-│   Budget 2026-27                                                             │
-│   Actual 2027-28                                                             │
-╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Choose a ledger — Tutorial Wine Retail Business                                                  │
+│ ❯ Actual                                                                                         │
+│   Budget 2026-27                                                                                 │
+│   Actual 2027-28                                                                                 │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 ## The Menu
@@ -54,23 +52,21 @@ Choosing **Tutorial Wine Retail Business** then offers its own real ledgers --- 
 The same real, live, server-computed menu the web app renders, the exact same sections and labels --- this is a direct consequence of this project's own standing rule that the GUI and TUI must line up completely, so the same `screen_name` genuinely drives both. A section with no TUI screen behind any of its links yet (Logistics, Shipping, Vendors/Providers, and others) is still shown here, exactly as it is --- nothing is hidden --- it just says so plainly the moment you actually try to open one of those links.
 
 ```
-╭──────────────────────────────────────────────────────────────────────────────╮
-│ Menu — Tutorial Wine Retail Business                                         │
-│                                                                              │
-│ ❯ General Ledger                                                             │
-│   test                                                                       │
-│   Accounts Receivable (Debtors / Sales)                                      │
-│   Accounts Payable (Creditors / Purchasing)                                  │
-│   Inventory                                                                  │
-│   Cash                                                                       │
-│   Vouchers                                                                   │
-│   HR                                                                         │
-│   Logistics                                                                  │
-│   Shipping                                                                   │
-│   Projects & Jobs                                                            │
-│   Configuration                                                              │
-│ ↑/↓ move · Enter open a section · q quit                                     │
-╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Menu — Tutorial Wine Retail Business                                                             │
+│ ❯ General Ledger                                                                                 │
+│   Accounts Receivable (Debtors / Sales)                                                          │
+│   Accounts Payable (Creditors / Purchasing)                                                      │
+│   Inventory                                                                                      │
+│   Cash                                                                                           │
+│   Vouchers                                                                                       │
+│   HR                                                                                             │
+│   Logistics                                                                                      │
+│   Shipping                                                                                       │
+│   Projects & Jobs                                                                                │
+│   Configuration                                                                                  │
+│ ↑/↓ move · Enter open a section · q quit                                                         │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 ## General Journal
@@ -78,100 +74,90 @@ The same real, live, server-computed menu the web app renders, the exact same se
 The same real journal the web chapter's owner's-capital deposit, rent expense, and year-end entries all post through --- staging a balanced entry line by line, then posting the whole thing in one, final step, same as the web app's own, real convention. Reached fresh, before any line is staged:
 
 ```
-╭──────────────────────────────────────────────────────────────────────────────╮
-│ General Journal — Tutorial Wine Retail Business / Actual                     │
-│                                                                              │
-│ Reference                                                                    │
-│ Enter to continue · Escape back to menu                                      │
-╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ General Journal — Tutorial Wine Retail Business / Actual                                         │
+│ Reference                                                                                        │
+│ Enter to continue · Escape back to menu                                                          │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 ## Balance Sheet
 
-A live report, not a form --- here it is reflecting the real, early state of this business, right after the owner's $5,000.00 capital contribution, the Ice stock bought and sold for cash, and the $100.00 rent expense (the same real figures the web chapter's own screenshots walk through getting to): Cash and Bank at $5,900.00, Ice's own Inventory account still carrying its $1,000.00, and a genuinely balanced Assets = Liabilities + Equity.
+A live report, not a form --- here it is reflecting the real, early state of this business, right after the owner's $5,000.00 capital contribution, the Ice stock bought and sold for cash, and the $100.00 rent expense (the same real figures the web chapter's own screenshots walk through getting to): Cash and Bank at $5,900.00, Retained Earnings of $900.00, and a genuinely balanced Assets = Liabilities + Equity.
 
 ```
-╭──────────────────────────────────────────────────────────────────────────────╮
-│ Balance Sheet — Tutorial Wine Retail Business / Actual                       │
-│                                                                              │
-│ Assets                                                                       │
-│   Cash and Bank                   $5,900.00                                  │
-│   Ice — Main Street Cellar        $1,000.00                                  │
-│   Total Assets                    $6,900.00                                  │
-│                                                                              │
-│ Liabilities                                                                  │
-│   (no accounts with a real balance)                                          │
-│   Total Liabilities               $0.00                                      │
-│                                                                              │
-│ Equity                                                                       │
-│   Owner's Equity                  ($5,000.00)                                │
-│   Retained Earnings               ($1,900.00)                                │
-│   Total Equity                    $6,900.00                                  │
-│                                                                              │
-│ Balanced — Assets = Liabilities + Equity                                     │
-│ Escape back to menu                                                          │
-╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Balance Sheet — Tutorial Wine Retail Business / Actual                                           │
+│ Assets                                                                                           │
+│   Cash and Bank                   $5,900.00                                                      │
+│   Total Assets                    $5,900.00                                                      │
+│ Liabilities                                                                                      │
+│   (no accounts with a real balance)                                                              │
+│   Total Liabilities               $0.00                                                          │
+│ Equity                                                                                           │
+│   Owner's Equity                  ($5,000.00)                                                    │
+│   Retained Earnings               ($900.00)                                                      │
+│   Total Equity                    $5,900.00                                                      │
+│ Balanced — Assets = Liabilities + Equity                                                         │
+│ Escape back to menu                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 ## New Business
 
-The same real wizard, reached the same real way --- shown here only at its own first, real step (naming the new business); this chapter doesn't carry a second business through creation, so as not to disturb the one real Tutorial Wine Retail Business every other screen below is captured against.
+The same real wizard, reached the same real way (and from Choose a business, for an account's first business) --- it asks for the web form's fields in its order: the name, the financial year label, the legal structure and the Chart of Accounts prototype, and Enter on the last of these creates the business. Before that, O opens the form's other settings (financial-year start date, reporting frequency, home currency, additional currencies), which otherwise keep their defaults. Once the business exists, **Work in** it opens its ledgers. It is shown here only at its own first, real step (naming the new business); this chapter doesn't carry a second business through creation, so as not to disturb the one real Tutorial Wine Retail Business every other screen below is captured against.
 
 ```
-╭──────────────────────────────────────────────────────────────────────────────╮
-│ New Business — name                                                          │
-│                                                                              │
-│                                                                              │
-│ Enter continues · Escape cancels                                             │
-╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ New Business — name                                                                              │
+│                                                                                                  │
+│ Enter continues · Escape cancels                                                                 │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 ## Business Structure
 
-The same real, three-step popup the web app has --- Org Chart, Item Categories, and Other Hierarchies --- stepped between here with ←/→ instead of Back/Next buttons. By the time this tutorial's business has grown (per the web chapter's own, full narrative), its Org Chart carries two real locations under the **Adelaide Metro** division, plus a **Warehouse Ops** department:
+The same real, three-step popup the web app has --- Org Chart, Item Categories, and Other Hierarchies --- stepped between here with ←/→ instead of Back/Next buttons. By the time this tutorial's business has grown (per the web chapter's own, full narrative), its Org Chart carries two real locations under the **Adelaide Metro** division and one, Mount Barker Depot, directly in **South Australia**, plus a **Warehouse Ops** department. The terminal's Org Chart lists the divisions side by side: it does not yet show that Adelaide Metro sits inside South Australia, which the web app's Business Setup does:
 
 ```
-╭──────────────────────────────────────────────────────────────────────────────╮
-│ Org Chart — Tutorial Wine Retail Business                                    │
-│                                                                              │
-│ Divisions                                                                    │
-│ › Adelaide Metro (2)                                                         │
-│   Unassigned (no division) (0)                                               │
-│ Departments                                                                  │
-│   Warehouse Ops (1)                                                          │
-│   Unassigned (no department) (1)                                             │
-│ ↑/↓ highlight · Enter open a bucket · I add Location/Division/Department · D │
-│  delete highlighted (not Unassigned) · ←/→ Item Categories / Other           │
-│ Hierarchies · Escape back to menu                                            │
-╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Org Chart — Tutorial Wine Retail Business                                                        │
+│ Divisions                                                                                        │
+│ › Adelaide Metro (2)                                                                             │
+│   South Australia (1)                                                                            │
+│   Unassigned (no division) (0)                                                                   │
+│ Departments                                                                                      │
+│   Warehouse Ops (1)                                                                              │
+│   Unassigned (no department) (1)                                                                 │
+│ ↑/↓ highlight · Enter open a bucket · I add Location/Division/Department · D delete highlighted  │
+│ (not Unassigned) · ←/→ Item Categories / Other Hierarchies · Escape back to menu                 │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 Item Categories, one step over, carries the real **Beer** and **Whiskey** categories the web chapter grows into:
 
 ```
-╭──────────────────────────────────────────────────────────────────────────────╮
-│ Item Categories — Tutorial Wine Retail Business                              │
-│                                                                              │
-│ › Beer                                                                       │
-│   Whiskey                                                                    │
-│ ↑/↓ highlight · Enter drill in · I add a category here · D delete            │
-│ highlighted · ←/→ Org Chart / Other Hierarchies · Escape back to menu        │
-╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Item Categories — Tutorial Wine Retail Business                                                  │
+│ › Beer                                                                                           │
+│   Whiskey                                                                                        │
+│ ↑/↓ highlight · Enter drill in · I add a category here · D delete highlighted · ←/→ Org Chart /  │
+│ Other Hierarchies · Escape back to menu                                                          │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 And Other Hierarchies carries the real OSASCOMP-style hierarchies this tutorial's items are tagged by --- Container, Packaging, Size, Storage:
 
 ```
-╭──────────────────────────────────────────────────────────────────────────────╮
-│ Other Hierarchies — Tutorial Wine Retail Business                            │
-│                                                                              │
-│ › Container (2)                                                              │
-│   Packaging (1)                                                              │
-│   Size (2)                                                                   │
-│   Storage (1)                                                                │
-│ ↑/↓ highlight · Enter open · I add a hierarchy · D delete highlighted · ←/→  │
-│ Org Chart / Item Categories · Escape back to menu                            │
-╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Other Hierarchies — Tutorial Wine Retail Business                                                │
+│ › Container (2)                                                                                  │
+│   Packaging (1)                                                                                  │
+│   Size (2)                                                                                       │
+│   Storage (1)                                                                                    │
+│ ↑/↓ highlight · Enter open · I add a hierarchy · D delete highlighted · ←/→ Org Chart / Item     │
+│ Categories · Escape back to menu                                                                 │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 ## Purchasing
@@ -181,53 +167,48 @@ Four real screens, each shown here exactly as it first opens --- this chapter do
 **Purchase** (on account, from a real provider):
 
 ```
-╭──────────────────────────────────────────────────────────────────────────────╮
-│ AP Purchase — Tutorial Wine Retail Business / Actual                         │
-│                                                                              │
-│ Reference                                                                    │
-│ Enter continues · Escape back to menu                                        │
-╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ AP Purchase — Tutorial Wine Retail Business / Actual                                             │
+│ Reference                                                                                        │
+│ Enter continues · Escape back to menu                                                            │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 **Cash Purchase** (from the 'Cash' provider, posted and paid off in full the same instant) --- already offering this business's own two real locations to receive stock at:
 
 ```
-╭──────────────────────────────────────────────────────────────────────────────╮
-│ Cash Purchase — Tutorial Wine Retail Business / Actual                       │
-│                                                                              │
-│ A purchase from the 'Cash' provider — posted and paid off in full the same   │
-│ instant.                                                                     │
-│ Receive at location                                                          │
-│ ❯ Head Office                                                                │
-│   Main Street Cellar                                                         │
-│ Escape back to menu                                                          │
-╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Cash Purchase — Tutorial Wine Retail Business / Actual                                           │
+│ A purchase from the 'Cash' provider — posted and paid off in full the same instant.              │
+│ Receive at location                                                                              │
+│ ❯ Head Office                                                                                    │
+│   Main Street Cellar                                                                             │
+│   Mount Barker Depot                                                                             │
+│ Escape back to menu                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 **Purchase Order** (a memo-only commitment to buy --- no real ledger effect until a Stock Receipt fulfills it):
 
 ```
-╭──────────────────────────────────────────────────────────────────────────────╮
-│ Purchase Order — Tutorial Wine Retail Business / Actual                      │
-│                                                                              │
-│ Commits to buying from a provider — memo only, no real ledger effect until a │
-│  Stock Receipt fulfills it.                                                  │
-│ Reference                                                                    │
-│ Enter continues · Escape back to menu                                        │
-╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Purchase Order — Tutorial Wine Retail Business / Actual                                          │
+│ Commits to buying from a provider — memo only, no real ledger effect until a Stock Receipt       │
+│ fulfills it.                                                                                     │
+│ Reference                                                                                        │
+│ Enter continues · Escape back to menu                                                            │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 **Payment** (to a provider --- debits their Accounts Payable balance, credits Cash and Bank):
 
 ```
-╭──────────────────────────────────────────────────────────────────────────────╮
-│ AP Payment — Tutorial Wine Retail Business / Actual                          │
-│                                                                              │
-│ A payment to a provider — debits their Accounts Payable balance, credits     │
-│ Cash and Bank.                                                               │
-│ Reference                                                                    │
-│ Enter continues · Escape back to menu                                        │
-╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ AP Payment — Tutorial Wine Retail Business / Actual                                              │
+│ A payment to a provider — debits their Accounts Payable balance, credits Cash and Bank.          │
+│ Reference                                                                                        │
+│ Enter continues · Escape back to menu                                                            │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 ## Sales
@@ -235,43 +216,40 @@ Four real screens, each shown here exactly as it first opens --- this chapter do
 **Sale** (on screen as "Sale," reached from the menu's own **AR Sale** link --- a sale to a customer on credit):
 
 ```
-╭──────────────────────────────────────────────────────────────────────────────╮
-│ AR Sale — Tutorial Wine Retail Business / Actual                             │
-│                                                                              │
-│ A sale to a customer on credit — debits their Accounts Receivable balance,   │
-│ credits Sales Revenue.                                                       │
-│ Reference                                                                    │
-│ Enter continues · Escape back to menu                                        │
-╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ AR Sale — Tutorial Wine Retail Business / Actual                                                 │
+│ A sale to a customer on credit — debits their Accounts Receivable balance, credits Sales         │
+│ Revenue.                                                                                         │
+│ Reference                                                                                        │
+│ Enter continues · Escape back to menu                                                            │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 **Cash Sale** (to the 'Cash' customer, posted and paid off in full the same instant):
 
 ```
-╭──────────────────────────────────────────────────────────────────────────────╮
-│ Cash Sale — Tutorial Wine Retail Business / Actual                           │
-│                                                                              │
-│ A sale to the 'Cash' customer — posted and paid off in full the same         │
-│ instant.                                                                     │
-│ Dispatch from location                                                       │
-│ ❯ Head Office                                                                │
-│   Main Street Cellar                                                         │
-│ Escape back to menu                                                          │
-╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Cash Sale — Tutorial Wine Retail Business / Actual                                               │
+│ A sale to the 'Cash' customer — posted and paid off in full the same instant.                    │
+│ Dispatch from location                                                                           │
+│ ❯ Head Office                                                                                    │
+│   Main Street Cellar                                                                             │
+│   Mount Barker Depot                                                                             │
+│ Escape back to menu                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 **Customers** --- a real, read-only browse of this business's real account-based customers, including **Riverside Restaurant** from the web chapter's own, full narrative. A note right on screen is honest about the one, real limit here: a new named, account-based customer is still only ever created through the Structured Editor or an API-side fixture step, never from this screen itself.
 
 ```
-╭──────────────────────────────────────────────────────────────────────────────╮
-│ Customers — Tutorial Wine Retail Business                                    │
-│                                                                              │
-│ Real, account-based customers — created today only via the Structured Editor │
-│  or an API-side fixture step, not from this screen.                          │
-│ ❯ Cash                                                                       │
-│   Riverside Restaurant                                                       │
-│ Enter opens a customer's details · Escape back to menu                       │
-╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ Customers — Tutorial Wine Retail Business                                                        │
+│ Real, account-based customers — created today only via the Structured Editor or an API-side      │
+│ fixture step, not from this screen.                                                              │
+│ Enter opens a customer's details · Escape back to menu                                           │
+│ ❯ Cash                                                                                           │
+│   Riverside Restaurant                                                                           │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 ## POS Terminal
@@ -279,13 +257,12 @@ Four real screens, each shown here exactly as it first opens --- this chapter do
 The everyday retail register, scoped to a real location of type Retail --- this business's own **Main Street Cellar**:
 
 ```
-╭──────────────────────────────────────────────────────────────────────────────╮
-│ POS Terminal — Tutorial Wine Retail Business / Actual                        │
-│                                                                              │
-│ The everyday retail register — a real location of type 'Retail'.             │
-│ ❯ Main Street Cellar                                                         │
-│ Escape back to menu                                                          │
-╰──────────────────────────────────────────────────────────────────────────────╯
+╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
+│ POS Terminal — Tutorial Wine Retail Business / Actual                                            │
+│ The everyday retail register — a real location of type 'Retail'.                                 │
+│ ❯ Main Street Cellar                                                                             │
+│ Escape back to menu                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
 ## What's still web-only

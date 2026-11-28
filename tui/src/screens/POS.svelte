@@ -174,14 +174,19 @@
   const title = $derived(`POS Terminal — ${businessName} / ${ledgerName}`);
 </script>
 
-{#if step === 'location'}
+<!-- Each state has a Panel of its own: content that appears inside a
+     Panel that stays mounted draws blank (docs/tui-design.md, "Running on
+     Svelte 5.56"). -->
+{#if step === 'location' && locations.length > 0}
   <Panel title={title} focused>
     <Text text="The everyday retail register — a real location of type 'Retail'." color={inkSoft} />
-    {#if locations.length > 0}
-      <SelectList items={locations.map((l) => ({ label: l.name, value: l.name }))} onSelect={(item) => { locationName = item.value; step = 'cart'; }} />
-    {:else}
-      <Text text="No real Retail-type location exists yet." color={inkSoft} />
-    {/if}
+    <SelectList items={locations.map((l) => ({ label: l.name, value: l.name }))} onSelect={(item) => { locationName = item.value; step = 'cart'; }} />
+    <Text text="Escape back to menu" color={inkSoft} dim />
+  </Panel>
+{:else if step === 'location'}
+  <Panel title={title} focused>
+    <Text text="The everyday retail register — a real location of type 'Retail'." color={inkSoft} />
+    <Text text="No real Retail-type location exists yet." color={inkSoft} />
     <Text text="Escape back to menu" color={inkSoft} dim />
   </Panel>
 {:else if step === 'line-item' || step === 'line-qty' || step === 'line-price' || step === 'line-tax'}

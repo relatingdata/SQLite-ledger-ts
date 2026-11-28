@@ -118,8 +118,8 @@ covers). A `screenshot` name with a `/` in it is relative to `docs/`
 to `--screenshot-dir`.
 
 `skip` applies to every path: a row cannot be skipped on `--path text`
-only, which is one reason `make test-e2e-tutorial-text` runs only step
-1 (`--only 1`).
+only, which is one reason `make test-e2e-tutorial-text` runs only the
+steps the terminal UI can already take (`--until 5`).
 
 ### The CLI
 
@@ -132,6 +132,7 @@ step-runner <data.csv> [--screens screens.csv] [options]
   --steps N                   how many steps to show/run at once (default: 1)
   --only N                    run/show only the Nth step (1-indexed)
   --skip N                    skip the first N steps, then proceed
+  --until N                   run/show no step after the Nth
   --non-interactive           run without prompts (needs a .control.csv for verify/screenshot)
   --delay MS                  pause between UI-path steps (default: 5000)
   --ui                        open Playwright's own Inspector (--path ui only)
@@ -352,33 +353,43 @@ presence of two web columns:
   moving down to a highlighted line containing the value
   (`findItemByText`, `backend/scripts/text-driver-helpers.ts`).
 
-`navigateMenuGenerically` (same module) finds the screen by searching
-each top-level Menu section for an item whose text matches
-`screen_name`, and throws when none does. A step fails when the screen
-shows the TUI's runtime-error banner.
+`openScreenGenerically` (same module) opens a screen by its menu label:
+the label of the one menu link (`getMenuTree`) whose href is the
+screen's `ui_path`, or `screen_name` when there is no such link. It
+first waits, for up to five seconds, until the screen stops changing
+and shows no "…" progress text. Then, on a screen other than the Menu
+that lists the label as an item (Choose a business lists "New
+Business"), it selects that item; otherwise `navigateMenuGenerically`
+searches each top-level Menu section for an item matching the label,
+and throws when none does. A step fails when the screen shows the TUI's
+runtime-error banner.
 
-`make test-e2e-tutorial-text` builds the TUI and runs the tutorial's
-first step (`Login`) only.
+`make test-e2e-tutorial-text` removes the TUI's saved session, starts
+the servers (`ensure-servers`, since `reset-db` stops the backend),
+builds the TUI and runs the tutorial's steps 1 to 5 (`--until 5`): Log
+in, Create Business (from Choose a business, through the TUI's New
+Business wizard), Switch Session (the wizard's "Work in …", then the
+ledger), and the two API steps that set up the bank account. It is in
+no gate and not in CI.
 
-**Current status: it fails.** The TUI stops at start-up with a Svelte
-runtime error: `@rlabs-inc/sveltui` 0.1.7 does not run on the Svelte
-that the workspace installs (5.56.8, pinned by `frontend/`), and the
-TUI's own range (`^5.38.7`) resolves to that copy. `test-e2e-tutorial-text`
-is in no gate and not in CI.
+The TUI runs on the Svelte the workspace installs (5.56.8) through a
+start-up workaround for `@rlabs-inc/sveltui` 0.1.7, its latest release
+(`docs/tui-design.md`, "Running on Svelte 5.56").
 
-Past `Login`, `screens.csv` (written against the web screens) does not
+Past step 5, `screens.csv` (written against the web screens) does not
 match the TUI's screens:
 
+- Step 6, `Stage Journal Line`, reaches the TUI's General Journal (its
+  menu label, from `/post`) but its fields do not follow the row's
+  field order, so the step times out.
 - `Select Business` picks a business only; the TUI's `ChooseBusiness`
   picks a business and a ledger (`onChosen(businessName, ledgerName)`).
-- `Create Business` has six fields; the TUI's `NewBusinessWizard` asks
-  for more (reporting frequency, partners, …).
 - `Create Purchase Order` is one call (`createPurchaseOrderInCartons`);
   the TUI's `PurchaseOrder.svelte` stages and then posts
   (`stagePurchaseOrder`, `postPurchaseOrder`).
-- `Stage Journal Line` and `Post Journal Entry` have the TUI's General
-  Journal shape, but the Menu item is "General Journal", which matches
-  neither name.
+- The driver's `TOP_LEVEL_SECTION_COUNT` (12) is more than the Menu
+  shows to a business's administrator, so a screen in no section is
+  looked for past the end of the list.
 
 Closing this is a change to the fixture rows or to the TUI screens, not
 to the driver.

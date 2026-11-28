@@ -200,23 +200,28 @@
       color={ink}
     />
   </Panel>
-{:else}
-  <!--
-    One single, stable Panel for the whole 'list' step, whether items are
-    still loading or already in hand - see Customers.svelte's own,
-    identical note on why this is one Panel rather than a Panel swapped
-    in only once the data resolves.
-  -->
+<!-- Loading, none and the list each have a Panel of its own: content that
+     appears inside a Panel that stays mounted draws blank
+     (docs/tui-design.md, "Running on Svelte 5.56"). -->
+{:else if items === null}
   <Panel title={title} focused>
     <Text text="The real, per-business item catalog — new items aren't created here (no createItem call exists); this only edits ones that already exist." color={inkSoft} />
     <Text text="Enter opens an item's fields and BOM · Escape back to menu" color={inkSoft} dim />
     <Text text={listError ?? error ?? ''} color="red" />
-    {#if items === null}
-      <Text text="Loading…" color={inkSoft} />
-    {:else if items.length === 0}
-      <Text text="None yet." color={inkSoft} />
-    {:else}
-      <SelectList items={items.map((i) => ({ label: i.name, value: i.name }))} onSelect={(item) => void selectItem(item.value)} />
-    {/if}
+    <Text text="Loading…" color={inkSoft} />
+  </Panel>
+{:else if items.length === 0}
+  <Panel title={title} focused>
+    <Text text="The real, per-business item catalog — new items aren't created here (no createItem call exists); this only edits ones that already exist." color={inkSoft} />
+    <Text text="Enter opens an item's fields and BOM · Escape back to menu" color={inkSoft} dim />
+    <Text text={listError ?? error ?? ''} color="red" />
+    <Text text="None yet." color={inkSoft} />
+  </Panel>
+{:else}
+  <Panel title={title} focused>
+    <Text text="The real, per-business item catalog — new items aren't created here (no createItem call exists); this only edits ones that already exist." color={inkSoft} />
+    <Text text="Enter opens an item's fields and BOM · Escape back to menu" color={inkSoft} dim />
+    <Text text={listError ?? error ?? ''} color="red" />
+    <SelectList items={items.map((i) => ({ label: i.name, value: i.name }))} onSelect={(item) => void selectItem(item.value)} />
   </Panel>
 {/if}

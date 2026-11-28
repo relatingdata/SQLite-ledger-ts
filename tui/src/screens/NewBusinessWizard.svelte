@@ -5,6 +5,12 @@
   post-creation bank/currency wizard (nominateBankAccount, then
   buildBankCurrencyStructure). Same endpoints, same payload shapes -
   see tui/src/api.ts.
+
+  The steps ask for the web form's fields in its order (name, financial
+  year label, legal structure, Chart of Accounts prototype), and Enter on
+  the last of them creates the business, as the web form's Create
+  Business button does. The form's other settings keep their defaults
+  unless O on the last step opens them first (docs/tui-design.md).
 -->
 <script lang="ts">
   import { Box, Text } from 'sveltui';
@@ -34,7 +40,6 @@
     | 'partners'
     | 'home-currency'
     | 'secondary-currencies'
-    | 'confirm'
     | 'created'
     | 'bank-name'
     | 'bank-routing'
@@ -76,7 +81,7 @@
     accountNumber: string;
   }
 
-  let { onBack }: { onBack: () => void } = $props();
+  let { onBack, onWorkIn }: { onBack: () => void; onWorkIn: (businessName: string) => void } = $props();
 
   let step: Step = $state('name');
   let error: string | null = $state(null);
@@ -119,6 +124,8 @@
         onBack();
         return true;
       }
+      // the other settings, opened with O, go back to the last step
+      if (step === 'fy-start' || step === 'reporting-frequency' || step === 'home-currency' || step === 'secondary-currencies') { step = 'coa-prototype'; return true; }
       if (step !== 'created' && step !== 'done') onBack();
       return true;
     }
@@ -145,12 +152,14 @@
           return false;
       }
     }
-    if (step === 'done' && event.key === 'Enter') { onBack(); return true; }
+    if (step === 'coa-prototype' && !busy && (event.key === 'o' || event.key === 'O')) { step = 'fy-start'; return true; }
+    if (step === 'done' && event.key === 'Enter') { if (result) onWorkIn(result.business); else onBack(); return true; }
     return false;
   });
   onDestroy(unsubscribe);
 
   async function submitBusiness() {
+    if (busy) return;
     busy = true; error = null;
     try {
       const created = await createBusiness(
@@ -167,7 +176,7 @@
       step = 'created';
     } catch (err) {
       error = err instanceof ApiError ? err.message : 'Could not create business.';
-      step = 'confirm';
+      step = 'coa-prototype';
     } finally { busy = false; }
   }
 
@@ -217,23 +226,26 @@
   </Panel>
 {:else if step === 'fy-label'}
   <Panel title={`New Business — ${businessName} — financial year label`} focused>
-    <TextInput bind:value={fyLabel} focused onSubmit={() => { if (fyLabel.trim()) step = 'fy-start'; }} />
+    <TextInput bind:value={fyLabel} focused onSubmit={() => { if (fyLabel.trim()) step = 'entity-structure'; }} />
     <Text text={'Names the Budget ledger (e.g. "2026-27") · Enter continues · Escape cancels'} color={inkSoft} dim />
   </Panel>
 {:else if step === 'fy-start'}
   <Panel title={`New Business — ${businessName} — financial year start date`} focused>
     <TextInput bind:value={fyStart} focused onSubmit={() => (step = 'reporting-frequency')} />
-    <Text text="YYYY-MM-DD · Enter continues · Escape cancels" color={inkSoft} dim />
+    <Text text="YYYY-MM-DD · Enter continues · Escape goes back" color={inkSoft} dim />
   </Panel>
 {:else if step === 'reporting-frequency'}
   <Panel title={`New Business — ${businessName} — reporting frequency`} focused>
-    <SelectList items={REPORTING_FREQUENCIES} onSelect={(item) => { reportingFrequency = item.value; step = 'coa-prototype'; }} />
-    <Text text="↑/↓ move · Enter select · Escape cancels" color={inkSoft} dim />
+    <SelectList items={REPORTING_FREQUENCIES} onSelect={(item) => { reportingFrequency = item.value; step = 'home-currency'; }} />
+    <Text text="↑/↓ move · Enter select · Escape goes back" color={inkSoft} dim />
   </Panel>
 {:else if step === 'coa-prototype'}
   <Panel title={`New Business — ${businessName} — Chart of Accounts prototype`} focused>
-    <SelectList items={COA_PROTOTYPES} onSelect={(item) => { coaPrototype = item.value; step = 'entity-structure'; }} />
-    <Text text="↑/↓ move · Enter select · Escape cancels" color={inkSoft} dim />
+    <SelectList items={COA_PROTOTYPES} onSelect={(item) => { coaPrototype = item.value; void submitBusiness(); }} />
+    <Text text={`Financial year ${fyLabel}, starting ${fyStart}, ${reportingFrequency} reporting · home currency ${homeCurrency}${secondaryCurrencies.length > 0 ? `, also ${secondaryCurrencies.join(', ')}` : ''}`} color={ink} />
+    {#if error}<Text text={error} color="red" />{/if}
+    {#if busy}<Text text="Creating…" color={inkSoft} />{/if}
+    <Text text="↑/↓ move · Enter creates the business · O changes the settings above first · Escape cancels" color={inkSoft} dim />
   </Panel>
 {:else if step === 'entity-structure'}
   <Panel title={`New Business — ${businessName} — legal structure`} focused>
@@ -243,7 +255,7 @@
         const choice = ENTITY_STRUCTURES.find((s) => s.value === item.value) ?? ENTITY_STRUCTURES[0];
         entityStructure = choice.value;
         needsPartners = choice.needsPartners;
-        step = choice.needsPartners ? 'partners' : 'home-currency';
+        step = choice.needsPartners ? 'partners' : 'coa-prototype';
       }}
     />
     <Text text="↑/↓ move · Enter select · Escape cancels" color={inkSoft} dim />
@@ -262,7 +274,7 @@
           partnerNames = [...partnerNames, name];
           partnerInput = '';
         } else {
-          step = 'home-currency';
+          step = 'coa-prototype';
         }
       }}
     />
@@ -271,7 +283,7 @@
 {:else if step === 'home-currency'}
   <Panel title={`New Business — ${businessName} — home currency`} focused>
     <TextInput bind:value={homeCurrency} focused onSubmit={() => { if (homeCurrency.trim()) step = 'secondary-currencies'; }} />
-    <Text text="e.g. AUD · Enter continues · Escape cancels" color={inkSoft} dim />
+    <Text text="e.g. AUD · Enter continues · Escape goes back" color={inkSoft} dim />
   </Panel>
 {:else if step === 'secondary-currencies'}
   <Panel title={`New Business — ${businessName} — additional currencies (optional)`} focused>
@@ -287,27 +299,11 @@
           secondaryCurrencies = [...secondaryCurrencies, code];
           currencyInput = '';
         } else {
-          step = 'confirm';
+          step = 'coa-prototype';
         }
       }}
     />
-    <Text text="e.g. EUR, press Enter to add another · empty Enter continues · Escape cancels" color={inkSoft} dim />
-  </Panel>
-{:else if step === 'confirm'}
-  <Panel title={`New Business — ${businessName} — review`} focused>
-    <Text text={`Financial year: ${fyLabel} (starts ${fyStart}, ${reportingFrequency})`} color={ink} />
-    <Text text={`Chart of Accounts prototype: ${coaPrototype}`} color={ink} />
-    <Text text={`Legal structure: ${ENTITY_STRUCTURES.find((s) => s.value === entityStructure)?.label}`} color={ink} />
-    {#if needsPartners}
-      <Text text={`Partners: ${partnerNames.join(', ') || '(none entered)'}`} color={ink} />
-    {/if}
-    <Text text={`Home currency: ${homeCurrency}${secondaryCurrencies.length > 0 ? `, also ${secondaryCurrencies.join(', ')}` : ''}`} color={ink} />
-    {#if error}<Text text={error} color="red" />{/if}
-    {#if busy}<Text text="Creating…" color={inkSoft} />{/if}
-    <Box marginTop={1}>
-      <SelectList items={[{ label: 'Create this business', value: 'create' }]} onSelect={() => void submitBusiness()} />
-    </Box>
-    <Text text="Enter creates the business · Escape cancels" color={inkSoft} dim />
+    <Text text="e.g. EUR, press Enter to add another · empty Enter goes back" color={inkSoft} dim />
   </Panel>
 {:else if step === 'created' && result}
   <Panel title={`${result.business} — created`} focused>
@@ -316,9 +312,15 @@
     <Text text={`Username: ${result.businessAdmin.username}`} color={ink} />
     <Text text={`Password: ${result.businessAdmin.password}`} color={ink} />
     <Box marginTop={1}>
-      <SelectList items={[{ label: 'Continue to bank accounts', value: 'go' }]} onSelect={() => (step = 'bank-name')} />
+      <SelectList
+        items={[
+          { label: `Work in ${result.business}`, value: 'work' },
+          { label: 'Set up bank accounts', value: 'banks' },
+        ]}
+        onSelect={(item) => (item.value === 'work' ? onWorkIn(result!.business) : (step = 'bank-name'))}
+      />
     </Box>
-    <Text text="Enter continues to the optional bank/currency wizard" color={inkSoft} dim />
+    <Text text="Enter works in the new business, or continues to the optional bank/currency wizard" color={inkSoft} dim />
   </Panel>
 {:else if step === 'bank-name' || step === 'bank-routing' || step === 'bank-account-number'}
   <Panel title={`${result?.business} — nominate a bank account`} focused>
@@ -370,6 +372,6 @@
 {:else}
   <Panel title={`${result?.business} — ready`} focused>
     <Text text={`${result?.business} is set up and ready to post real transactions in.`} color={brass} bold />
-    <Text text="Enter/Escape back to menu" color={inkSoft} dim />
+    <Text text="Enter works in it · Escape goes back" color={inkSoft} dim />
   </Panel>
 {/if}

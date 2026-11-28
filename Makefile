@@ -402,8 +402,9 @@ test-e2e-project-builder-full: reset-db
 # text` — driving the terminal UI", which says why only one step runs).
 test-e2e-tutorial-text: reset-db
 	@rm -f $(HOME)/.sql-ledger-ts-tui/session.json
+	@$(MAKE) --no-print-directory ensure-servers
 	cd tui && $(RUN_NPM_SCRIPT) build
-	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path text --non-interactive --only 1
+	cd backend && $(RUN_SCRIPT) scripts/step-runner.ts ../shared-fixtures/tutorial-steps.csv --path text --non-interactive --until 5
 
 # The one, real, test-runner-driven way every non-English translation
 # in shared-fixtures/translations.csv is ever loaded into a running
@@ -1231,7 +1232,11 @@ tutorial-section-user-manual: test-e2e-tutorial-browser
 # dependency tutorial-section-user-manual uses above - that would
 # overwrite the real business this target itself just built with the
 # web path's own, separate run.
-tutorial-section-user-manual-tui: test-e2e-tutorial ensure-servers
+# The tutorial is seeded with the legacy middleware: the backend the TUI
+# talks to (ensure-servers) serves the legacy database, not core.sqlite.
+tutorial-section-user-manual-tui:
+	@$(MAKE) --no-print-directory test-e2e-tutorial MIDDLEWARE=legacy
+	@$(MAKE) --no-print-directory ensure-servers
 	@rm -f $(HOME)/.sql-ledger-ts-tui/session.json
 	cd tui && $(RUN_NPM_SCRIPT) build
 	cd backend && $(RUN_SCRIPT) scripts/capture-tui-transcripts.ts
@@ -1250,7 +1255,9 @@ tutorial-section-user-manual-tui: test-e2e-tutorial ensure-servers
 # test-e2e-tutorial (above) or test-e2e-project-builder-tutorial - only
 # one tutorial's own business may be seeded in the database a given
 # capture run actually reads from.
-tutorial-section-user-manual-manufacturing-tui: test-e2e-manufacturing-tutorial ensure-servers
+tutorial-section-user-manual-manufacturing-tui:
+	@$(MAKE) --no-print-directory test-e2e-manufacturing-tutorial MIDDLEWARE=legacy
+	@$(MAKE) --no-print-directory ensure-servers
 	@rm -f $(HOME)/.sql-ledger-ts-tui/session.json
 	cd tui && $(RUN_NPM_SCRIPT) build
 	cd backend && $(RUN_SCRIPT) scripts/capture-manufacturing-tui-transcripts.ts

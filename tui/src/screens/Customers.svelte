@@ -156,23 +156,19 @@
     {#if busy}<Text text="Working…" color={inkSoft} />{/if}
     <Text text="0 payment terms means cash only · blank credit limit means no limit · Enter moves to the next field, saves on the last · Escape back" color={inkSoft} dim />
   </Panel>
+<!-- Loading and the list each have a Panel of its own: content that
+     appears inside a Panel that stays mounted draws blank
+     (docs/tui-design.md, "Running on Svelte 5.56"). -->
+{:else if entities === null}
+  <Panel title={title} focused>
+    <Text text={error ?? 'Loading…'} color={error ? 'red' : inkSoft} />
+  </Panel>
 {:else}
-  <!--
-    One single, stable Panel for the whole 'list' step, whether entities
-    are still loading or already in hand - swapping in a brand new Panel
-    component the instant data arrives (as an outer {#if entities === null}
-    around the whole Panel once did) triggers a genuine sveltui layout bug
-    where a freshly-mounted SelectList renders detached, at terminal row
-    0, instead of inside its Panel. Keeping one Panel instance and only
-    swapping its inner content avoids that same-tick remount entirely.
-  -->
   <Panel title={title} focused>
     <Text text="Real, account-based customers — created today only via the Structured Editor or an API-side fixture step, not from this screen." color={inkSoft} />
     <Text text="Enter opens a customer's details · Escape back to menu" color={inkSoft} dim />
-    <Text text={error ?? ''} color="red" />
-    {#if entities === null}
-      <Text text="Loading…" color={inkSoft} />
-    {:else if customers.length === 0}
+    {#if error}<Text text={error} color="red" />{/if}
+    {#if customers.length === 0}
       <Text text="None yet." color={inkSoft} />
     {:else}
       <SelectList items={customers.map((c) => ({ label: c.name, value: c.name }))} onSelect={(item) => void selectCustomer(item.value)} />

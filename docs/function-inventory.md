@@ -8051,7 +8051,7 @@ Called from: production: call-dispatch/i18n.ts (i18nFunctions.setDefaultLanguage
 getMenuTree(opts?: { businessName?: string; userId?: number; }): MenuSectionRow[]
 ```
 
-Called from: production: call-dispatch/menu.ts (menuFunctions.getMenuTree ×1) · tooling: 2 call(s) in 2 file(s)
+Called from: production: call-dispatch/menu.ts (menuFunctions.getMenuTree ×1) · tooling: 3 call(s) in 3 file(s)
 
 **`setMenuOverride`** *(exported)*
 

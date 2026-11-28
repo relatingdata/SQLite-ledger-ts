@@ -13,7 +13,7 @@ import { getBalanceSheet } from '../src/db-reports.js';
 import { getProfitAndLossByAxis } from '../src/db-matrix-reports.js';
 import * as auth from '../src/auth.js';
 import { unescapeAscii } from '../../shared-fixtures/csv.js';
-import { press, typeAndEnter, findItemByText, navigateMenuGenerically } from './text-driver-helpers.js';
+import { press, typeAndEnter, findItemByText, openScreenGenerically } from './text-driver-helpers.js';
 import { CoreApiClient, runStepViaFrontendApi } from './core-api-client.js';
 import { resetCore } from '../src/core/api.js';
 
@@ -1260,6 +1260,15 @@ export async function runStepViaUi(page: Page, step: Step, screens: Map<string, 
  * "General Journal" menu label, for one). Fails loudly either way —
  * `navigateMenuGenerically` throws rather than guessing, same as every
  * other real failure path here. */
+/** The label the menu shows for a screen: the one menu link whose href
+ * is the screen's ui_path, as getMenuTree gives it; the screen's own
+ * name when no single link has that href. */
+function menuLabelFor(screen: Screen): string {
+  if (!screen.ui_path) return screen.screen_name;
+  const links = db.getMenuTree().flatMap((section) => section.links).filter((l) => l.href === screen.ui_path);
+  return links.length === 1 ? links[0].label : screen.screen_name;
+}
+
 export async function runStepViaText(terminal: TuiTest, step: Step, screens: Map<string, Screen>): Promise<{ ok: boolean; error?: string }> {
   try {
     const screen = screens.get(step.screen_name);
@@ -1267,7 +1276,7 @@ export async function runStepViaText(terminal: TuiTest, step: Step, screens: Map
     if (!screen) return { ok: false, error: `No real screen registry entry for "${step.screen_name}".` };
     if (screen.screen_kind === 'api') return runStepViaApi(step, screens);
     if (screen.screen_kind !== 'session') {
-      await navigateMenuGenerically(terminal, step.screen_name);
+      await openScreenGenerically(terminal, menuLabelFor(screen));
     }
     const realFields = screen.fields.filter((f) => f.field_selector);
     if (!screen.submit_selector && realFields.length > 0) {
@@ -1313,7 +1322,7 @@ async function main() {
   const args = process.argv.slice(2);
   const dataPath = args[0];
   if (!dataPath) {
-    console.error('Usage: step-runner <data.csv> [--screens screens.csv] [--lint] [--pretty] [--path api|ui|text] [--steps N] [--only N] [--skip N] [--non-interactive] [--delay MS] [--ui] [--screenshot-dir DIR] [--verify NAME] [--screenshot NAME] [--fallback-to-api] [--verify-via-recording] [--timing-file FILE] [--list-screenshots]');
+    console.error('Usage: step-runner <data.csv> [--screens screens.csv] [--lint] [--pretty] [--path api|ui|text] [--steps N] [--only N] [--skip N] [--until N] [--non-interactive] [--delay MS] [--ui] [--screenshot-dir DIR] [--verify NAME] [--screenshot NAME] [--fallback-to-api] [--verify-via-recording] [--timing-file FILE] [--list-screenshots]');
     process.exit(1);
   }
   // The one screen registry: beside the data file, else shared-fixtures/screens.csv.
@@ -1324,6 +1333,7 @@ async function main() {
   const nonInteractive = args.includes('--non-interactive');
   const onlyN = args.includes('--only') ? Number(args[args.indexOf('--only') + 1]) : undefined;
   const skipN = args.includes('--skip') ? Number(args[args.indexOf('--skip') + 1]) : 0;
+  const untilN = args.includes('--until') ? Number(args[args.indexOf('--until') + 1]) : undefined;
   const delayMs = args.includes('--delay') ? Number(args[args.indexOf('--delay') + 1]) : 5000;
   const openInspector = args.includes('--ui');
   const screenshotDir = args.includes('--screenshot-dir') ? args[args.indexOf('--screenshot-dir') + 1] : '../docs/manual-images-tutorial';
@@ -1342,6 +1352,7 @@ async function main() {
   const screens = loadScreens(screensPath);
   let allSteps = loadSteps(dataPath);
   if (skipN > 0) allSteps = allSteps.filter((s) => s.index > skipN);
+  if (untilN !== undefined) allSteps = allSteps.filter((s) => s.index <= untilN);
   allSteps = allSteps.filter((s) => !s.skip);
   if (onlyN) allSteps = allSteps.filter((s) => s.index === onlyN);
   if (onlyN && (inlineVerify || inlineScreenshot)) {

@@ -123,14 +123,19 @@
     <Box flexDirection="row"><Box width={14}><Text text="Item" color={brass} /></Box><TextInput bind:value={itemName} focused onSubmit={() => { if (itemName.trim()) step = 'from-location'; }} /></Box>
     <Text text="Type an existing item's exact name · Enter continues · Escape back to menu" color={inkSoft} dim />
   </Panel>
+{:else if step === 'from-location' && locations.length > 0}
+  <!-- Loaded and loading each have a Panel of its own: content that
+       appears inside a Panel that stays mounted draws blank
+       (docs/tui-design.md, "Running on Svelte 5.56"). -->
+  <Panel title={`${title} — ${itemName}`} focused>
+    <Text text="From location" color={brass} />
+    <SelectList items={locations.map((l) => ({ label: l.name, value: l.name }))} onSelect={(sel) => void pickFromLocation(sel.value)} />
+    <Text text="Escape back" color={inkSoft} dim />
+  </Panel>
 {:else if step === 'from-location'}
   <Panel title={`${title} — ${itemName}`} focused>
     <Text text="From location" color={brass} />
-    {#if locations.length > 0}
-      <SelectList items={locations.map((l) => ({ label: l.name, value: l.name }))} onSelect={(sel) => void pickFromLocation(sel.value)} />
-    {:else}
-      <Text text="Loading locations…" color={inkSoft} />
-    {/if}
+    <Text text="Loading locations…" color={inkSoft} />
     <Text text="Escape back" color={inkSoft} dim />
   </Panel>
 {:else if step === 'to-location'}

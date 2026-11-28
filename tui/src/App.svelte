@@ -22,7 +22,8 @@
 
   type ScreenState =
     | { name: 'login' }
-    | { name: 'choose-business' }
+    | { name: 'choose-business'; startWith?: string }
+    | { name: 'first-business' }
     | { name: MenuScreenKey; businessName: string; ledgerName: string }
     | { name: 'menu'; businessName: string; ledgerName: string };
 
@@ -54,7 +55,13 @@
   {#if screen.name === 'login'}
     <Login onLoggedIn={() => (screen = { name: 'choose-business' })} />
   {:else if screen.name === 'choose-business'}
-    <ChooseBusiness onChosen={(businessName, ledgerName) => (screen = { name: 'menu', businessName, ledgerName })} />
+    <ChooseBusiness
+      startWith={screen.startWith}
+      onChosen={(businessName, ledgerName) => (screen = { name: 'menu', businessName, ledgerName })}
+      onNewBusiness={() => (screen = { name: 'first-business' })}
+    />
+  {:else if screen.name === 'first-business'}
+    <NewBusinessWizard onBack={() => (screen = { name: 'choose-business' })} onWorkIn={(businessName) => (screen = { name: 'choose-business', startWith: businessName })} />
   {:else if screen.name === 'menu'}
     <Menu businessName={screen.businessName} onOpenScreen={(key) => (screen = { name: key, businessName: screen.businessName, ledgerName: screen.ledgerName })} />
   {:else if screen.name === 'balance-sheet'}
@@ -64,7 +71,7 @@
   {:else if screen.name === 'business-structure'}
     <BusinessStructure businessName={screen.businessName} onBack={backToMenu} />
   {:else if screen.name === 'new-business-wizard'}
-    <NewBusinessWizard onBack={backToMenu} />
+    <NewBusinessWizard onBack={backToMenu} onWorkIn={(businessName) => (screen = { name: 'choose-business', startWith: businessName })} />
   {:else if screen.name === 'purchase'}
     <Purchase businessName={screen.businessName} ledgerName={screen.ledgerName} onBack={backToMenu} />
   {:else if screen.name === 'cash-purchase'}

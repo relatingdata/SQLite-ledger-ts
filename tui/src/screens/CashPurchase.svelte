@@ -139,15 +139,21 @@
   const title = $derived(`Cash Purchase — ${businessName} / ${ledgerName}`);
 </script>
 
-{#if step === 'location'}
+<!-- Each state has a Panel of its own: content that appears inside a
+     Panel that stays mounted draws blank (docs/tui-design.md, "Running on
+     Svelte 5.56"). -->
+{#if step === 'location' && locations.length > 0}
   <Panel title={title} focused>
     <Text text="A purchase from the 'Cash' provider — posted and paid off in full the same instant." color={inkSoft} />
     <Text text="Receive at location" color={brass} />
-    {#if locations.length > 0}
-      <SelectList items={locations.map((l) => ({ label: l.name, value: l.name }))} onSelect={(item) => { locationName = item.value; step = 'lines'; }} />
-    {:else}
-      <Text text="Loading locations…" color={inkSoft} />
-    {/if}
+    <SelectList items={locations.map((l) => ({ label: l.name, value: l.name }))} onSelect={(item) => { locationName = item.value; step = 'lines'; }} />
+    <Text text="Escape back to menu" color={inkSoft} dim />
+  </Panel>
+{:else if step === 'location'}
+  <Panel title={title} focused>
+    <Text text="A purchase from the 'Cash' provider — posted and paid off in full the same instant." color={inkSoft} />
+    <Text text="Receive at location" color={brass} />
+    <Text text="Loading locations…" color={inkSoft} />
     <Text text="Escape back to menu" color={inkSoft} dim />
   </Panel>
 {:else if step === 'line-item' || step === 'line-qty' || step === 'line-price' || step === 'line-tax'}

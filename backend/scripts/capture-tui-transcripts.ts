@@ -43,6 +43,8 @@ function sleep(ms: number) {
 }
 
 async function dump(terminal: TuiTest, name: string) {
+  // A screen still loading its data is waited for, up to five seconds.
+  for (let waited = 0; waited < 5000 && (await terminal.text()).includes('Loading…'); waited += 200) await sleep(200);
   const text = await terminal.text();
   writeFileSync(`${OUT_DIR}/${name}.txt`, text.replace(/\s+$/gm, '').replace(/\n{3,}/g, '\n\n'));
   console.log(`captured ${name}`);

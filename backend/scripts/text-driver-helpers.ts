@@ -141,3 +141,26 @@ export async function navigateMenuGenerically(terminal: TuiTest, screenLabel: st
     `navigateMenuGenerically: no menu item matching "${screenLabel}" found in any of the ${TOP_LEVEL_SECTION_COUNT} top-level Menu sections. Most likely the TUI's own on-screen label for this screen doesn't match screen_name exactly — see "--path text — driving the terminal UI" in docs/pm-testing-e2e.md.`
   );
 }
+
+/** Opens a screen by its menu label: from the Menu, through
+ * navigateMenuGenerically; from any other screen that lists the label
+ * as one of its own items (Choose a business lists "New Business", as
+ * the web's session page has a New Business button), by selecting it
+ * there. */
+export async function openScreenGenerically(terminal: TuiTest, label: string): Promise<void> {
+  // The last step's screen may still be working (logging in, loading):
+  // wait, for up to five seconds, until the screen stops changing and
+  // shows no "…" progress text.
+  let previous = '';
+  for (let waited = 0; waited < 5000; waited += 300) {
+    const text = await terminal.text();
+    if (text === previous && !text.includes('…')) break;
+    previous = text;
+    await sleep(300);
+  }
+  if (!(await terminal.text()).includes('Menu — ') && (await findItemByText(terminal, label, 20))) {
+    await press(terminal, 'Enter');
+    return;
+  }
+  await navigateMenuGenerically(terminal, label);
+}

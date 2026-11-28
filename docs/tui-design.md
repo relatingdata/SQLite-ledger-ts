@@ -37,7 +37,7 @@ are paired there). The browser frontend's own target is now `make
 web-frontend` for symmetry, now that there are genuinely two, real,
 separate frontends — `make frontend` stays as a working alias to it, so
 old muscle memory keeps working. `make test-e2e-tutorial-text` drives
-this TUI through the exact, same, shared `screens.csv`/
+this TUI through the first five steps of the exact, same, shared `screens.csv`/
 `tutorial-steps.csv` fixture `make test-e2e-tutorial-browser` already
 drives the web frontend through, via `@microsoft/tui-test` (see
 below) — purely generic, no per-screen driver code — reseeding the
@@ -289,8 +289,8 @@ terminals alike.
 
 sveltui 0.1.7 is its latest release. It starts its root with
 `$effect.root` and calls the root component itself, bypassing Svelte's
-own `mount()`. From Svelte 5.56 that leaves two things undone, and
-`tui/src/cli.ts` does them before handing the root to sveltui:
+own `mount()`. Five things need doing, three of them from Svelte 5.56
+on, and `tui/src/cli.ts` does them before handing the root to sveltui:
 
 - Svelte initialises its DOM operations only inside its own `mount()`,
   so the empty component `tui/src/components/Nothing.svelte` is mounted
@@ -299,6 +299,35 @@ own `mount()`. From Svelte 5.56 that leaves two things undone, and
   passes, so the root `App` is called with a comment anchor in a
   detached element. sveltui draws from its own state, not from these
   nodes.
+- sveltui keeps each component in a numbered slot and hands a destroyed
+  component's slot to the next component created. On Svelte 5.56 the
+  component given a reused slot is not drawn: after a screen change,
+  rows of a list went missing (the Menu without "Accounts Payable", a
+  section without its first item). `cli.ts` replaces sveltui's free list
+  with one that stays empty, so every component gets a new slot. With
+  slots never reused, the list rows draw.
+- sveltui's `mount` registers an Escape handler, which clears sveltui's
+  own focus, ahead of every screen's handler, and that handler consumes
+  the key: no screen ever saw Escape. The TUI does not use sveltui's
+  focus (each screen passes `focused` itself), so `cli.ts` leaves that
+  one registration out while `mount` runs.
+- sveltui reads each chunk of terminal input as one key. Keys pressed
+  while a screen is busy (Customers parsing the entity tree) arrive
+  together in one chunk: six Escapes came as `"\x1b\x1b\x1b\x1b\x1b\x1b"`,
+  which matches no key. `cli.ts` splits each chunk into its keys
+  (`splitKeys`: an escape sequence, a lone Escape, or one character)
+  before sveltui sees it.
+
+One problem has no workaround in `cli.ts`: content that appears inside
+a Panel that stays mounted (an inner `{#if}` whose branch changes once
+data arrives) is placed after the Panel's other content and draws as a
+blank row. The new Text's text is set; the row stays blank. A Panel
+created whole draws correctly, so a screen whose content changes with
+its state gives each state a Panel of its own, as the Menu, Customers,
+POS Terminal, Cash Purchase, Cash Sale, Transfer Items (its
+from-location step) and Items & BOM do. Smaller inner `{#if}`s (an
+error line, "Working…") are still inside stable Panels and may draw
+blank.
 
 Pinning an older Svelte does not help: releases up to 5.56.0 cannot
 compile sveltui's TypeScript.
@@ -438,25 +467,22 @@ the browser), purely from `screens.csv`'s existing columns:
   (e.g. "Post Journal Entry") is a pure finalize action — one,
   standalone Enter press at the screen's own list.
 
-**Proven live** (`make test-e2e-tutorial-text`, `--only 1`): `Login`
-runs end to end exactly from this generic mechanism, with zero
-screen-specific code — it fails loudly within 10s with no backend
-running, and passes against a real one.
+**Proven live** (`make test-e2e-tutorial-text`, `--until 5`): Log in,
+Create Business, Switch Session and the two API steps after them run
+end to end from this generic mechanism. Create Business opens from the
+Choose a business screen, whose last entry is "New Business" as on the
+web's session page; the New Business wizard asks for the web form's
+fields in its order (name, financial year label, legal structure,
+Chart of Accounts prototype), and Enter on the last of them creates the
+business with the form's other settings at their defaults. O on that
+last step first opens those settings: financial-year start date,
+reporting frequency, home currency and additional currencies. After the
+business is created, "Work in …" opens its ledger choice, which is how
+Switch Session continues.
 
-**The real, current limit, found by running the whole fixture live**:
-beyond `Login`, the mechanism depends on `screens.csv`'s own
-`screen_name`s and field lists matching the TUI's own on-screen menu
-labels and step sequences exactly — and for several rows, they don't
-(see *Testing: The Test-Runner*, "`--path text` — driving the terminal UI"
-in `docs/pm-testing-e2e.md`). Running the full, 75-step fixture
-confirms this concretely: step 2, `Create Business`, fails. After
-`Login` the TUI shows its Choose a business screen, and on a fresh
-database there is no business to choose; the TUI's own
-`NewBusinessWizard` is opened from the Menu, which needs a business,
-and has more real steps (financial-year start date, reporting
-frequency, …) than `screens.csv`'s flat field list for this row has
-values for. Every later row then fails loudly waiting for `Menu — `,
-since the session never leaves Choose a business. None of this is a step-runner bug: it's
+**The real, current limit**: from step 6, `Stage Journal Line`, the
+fixture's field order does not match the TUI's General Journal, and
+every later row fails waiting for its screen. None of this is a step-runner bug: it's
 `screens.csv`/`tutorial-steps.csv`'s own row design (written against
 the web frontend first) genuinely not lining up with the TUI's own
 screens yet, for several rows. Closing that gap is a real, further

@@ -13,12 +13,11 @@ Every transcript below is real text, captured directly from a live, passing run 
 The same account, the same backend --- just a different, real client of it.
 
 ```
-sql-ledger-ts — text user interface (test implementation: Login, Menu, General Journal, Balance
-Sheet, New Business, Business Structure, Purchase, Cash Purchase, Purchase Order, Payment, AR Sale,
-Cash Sale, Customers, POS Terminal)
+sql-ledger-ts — text user interface (SvelTUI: Login, Menu, General Journal, Balance Sheet, New
+Business, Business Structure, Purchase, Cash Purchase, Purchase Order, Payment, AR Sale, Cash Sale,
+Customers, POS Terminal, Items & BOM, Transfer Items)
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ sql-ledger-ts — Log in                                                                           │
-│                                                                                                  │
 │ Username                                                                                         │
 │                                                                                                  │
 │ Password                                                                                         │
@@ -34,8 +33,8 @@ Cash Sale, Customers, POS Terminal)
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Choose a business                                                                                │
-│                                                                                                  │
 │ ❯ Tutorial Window & Door Manufacturing                                                           │
+│   New Business                                                                                   │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -44,7 +43,6 @@ Choosing it offers its own real ledgers --- the Actual ledger this tutorial trad
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Choose a ledger — Tutorial Window & Door Manufacturing                                           │
-│                                                                                                  │
 │ ❯ Actual                                                                                         │
 │   Budget 2026-27                                                                                 │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
@@ -57,9 +55,7 @@ The same real, live, server-computed menu the web app renders --- same sections,
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Menu — Tutorial Window & Door Manufacturing                                                      │
-│                                                                                                  │
 │ ❯ General Ledger                                                                                 │
-│   test                                                                                           │
 │   Accounts Receivable (Debtors / Sales)                                                          │
 │   Accounts Payable (Creditors / Purchasing)                                                      │
 │   Inventory                                                                                      │
@@ -81,7 +77,6 @@ The same real journal every one of this tutorial's own entries posts through ---
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ General Journal — Tutorial Window & Door Manufacturing / Actual                                  │
-│                                                                                                  │
 │ Reference                                                                                        │
 │ Enter to continue · Escape back to menu                                                          │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
@@ -94,7 +89,6 @@ A live report, not a form --- here it is reflecting the real, final state after 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Balance Sheet — Tutorial Window & Door Manufacturing / Actual                                    │
-│                                                                                                  │
 │ Assets                                                                                           │
 │   Aluminum Extrusion              $7,532.00                                                      │
 │   Aluminum Sill                   $80.00                                                         │
@@ -112,16 +106,13 @@ A live report, not a form --- here it is reflecting the real, final state after 
 │   Timber Stile                    $18,048.00                                                     │
 │   Weatherseal Kit                 $50.00                                                         │
 │   Total Assets                    $29,488.00                                                     │
-│                                                                                                  │
 │ Liabilities                                                                                      │
 │   (no accounts with a real balance)                                                              │
 │   Total Liabilities               $0.00                                                          │
-│                                                                                                  │
 │ Equity                                                                                           │
 │   Owner's Equity                  ($20,000.00)                                                   │
 │   Current Year Earnings           ($9,488.00)                                                    │
 │   Total Equity                    $29,488.00                                                     │
-│                                                                                                  │
 │ Balanced — Assets = Liabilities + Equity                                                         │
 │ Escape back to menu                                                                              │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
@@ -137,7 +128,6 @@ The same real wizard, reached the same real way --- shown here only at its own f
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ New Business — name                                                                              │
 │                                                                                                  │
-│                                                                                                  │
 │ Enter continues · Escape cancels                                                                 │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
@@ -151,7 +141,6 @@ The same real, three-step popup Chapter 3b documents --- Org Chart, Item Categor
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Org Chart — Tutorial Window & Door Manufacturing                                                 │
-│                                                                                                  │
 │ Divisions                                                                                        │
 │ › Production (1)                                                                                 │
 │   Warehousing (2)                                                                                │
@@ -160,11 +149,11 @@ The same real, three-step popup Chapter 3b documents --- Org Chart, Item Categor
 │   Aluminum Assembly (1)                                                                          │
 │   Aluminum Cutting (1)                                                                           │
 │   Door Framing & Lock Fitting (2)                                                                │
-│   Glass Cutting (1)                                                                               │
+│   Glass Cutting (1)                                                                              │
 │   Glazing (1)                                                                                    │
 │   Packaging (2)                                                                                  │
 │   Wood Assembly (1)                                                                              │
-│   Wood Cutting (1)                                                                                │
+│   Wood Cutting (1)                                                                               │
 │   Unassigned (no department) (0)                                                                 │
 │ ↑/↓ highlight · Enter open a bucket · I add Location/Division/Department · D delete highlighted  │
 │ (not Unassigned) · ←/→ Item Categories / Other Hierarchies · Escape back to menu                 │
@@ -178,7 +167,6 @@ Door Framing & Lock Fitting and Packaging both carry two real employees (a craft
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Item Categories — Tutorial Window & Door Manufacturing                                           │
-│                                                                                                  │
 │ › Bulk Lengths                                                                                   │
 │   Complete Units                                                                                 │
 │   Frame Assemblies                                                                               │
@@ -194,8 +182,7 @@ And Other Hierarchies carries a real **Process** hierarchy --- which production 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Other Hierarchies — Tutorial Window & Door Manufacturing                                         │
-│                                                                                                  │
-│ › Process (4)                                                                                     │
+│ › Process (4)                                                                                    │
 │ ↑/↓ highlight · Enter open · I add a hierarchy · D delete highlighted · ←/→ Org Chart / Item     │
 │ Categories · Escape back to menu                                                                 │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
@@ -210,7 +197,6 @@ Four real screens, each shown here exactly as it first opens --- this chapter do
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ AP Purchase — Tutorial Window & Door Manufacturing / Actual                                      │
-│                                                                                                  │
 │ Reference                                                                                        │
 │ Enter continues · Escape back to menu                                                            │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
@@ -221,7 +207,6 @@ Four real screens, each shown here exactly as it first opens --- this chapter do
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Cash Purchase — Tutorial Window & Door Manufacturing / Actual                                    │
-│                                                                                                  │
 │ A purchase from the 'Cash' provider — posted and paid off in full the same instant.              │
 │ Receive at location                                                                              │
 │ ❯ Factory                                                                                        │
@@ -236,7 +221,6 @@ Four real screens, each shown here exactly as it first opens --- this chapter do
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Purchase Order — Tutorial Window & Door Manufacturing / Actual                                   │
-│                                                                                                  │
 │ Commits to buying from a provider — memo only, no real ledger effect until a Stock Receipt       │
 │ fulfills it.                                                                                     │
 │ Reference                                                                                        │
@@ -249,7 +233,6 @@ Four real screens, each shown here exactly as it first opens --- this chapter do
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ AP Payment — Tutorial Window & Door Manufacturing / Actual                                       │
-│                                                                                                  │
 │ A payment to a provider — debits their Accounts Payable balance, credits Cash and Bank.          │
 │ Reference                                                                                        │
 │ Enter continues · Escape back to menu                                                            │
@@ -263,7 +246,6 @@ Four real screens, each shown here exactly as it first opens --- this chapter do
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ AR Sale — Tutorial Window & Door Manufacturing / Actual                                          │
-│                                                                                                  │
 │ A sale to a customer on credit — debits their Accounts Receivable balance, credits Sales         │
 │ Revenue.                                                                                         │
 │ Reference                                                                                        │
@@ -276,7 +258,6 @@ Four real screens, each shown here exactly as it first opens --- this chapter do
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Cash Sale — Tutorial Window & Door Manufacturing / Actual                                        │
-│                                                                                                  │
 │ A sale to the 'Cash' customer — posted and paid off in full the same instant.                    │
 │ Dispatch from location                                                                           │
 │ ❯ Factory                                                                                        │
@@ -291,13 +272,12 @@ Four real screens, each shown here exactly as it first opens --- this chapter do
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ Customers — Tutorial Window & Door Manufacturing                                                 │
-│                                                                                                  │
 │ Real, account-based customers — created today only via the Structured Editor or an API-side      │
 │ fixture step, not from this screen.                                                              │
+│ Enter opens a customer's details · Escape back to menu                                           │
 │ ❯ BuildRight Constructions Pty Ltd                                                               │
 │   Cash                                                                                           │
 │   Coastal Home Builders Pty Ltd                                                                  │
-│ Enter opens a customer's details · Escape back to menu                                           │
 ╰──────────────────────────────────────────────────────────────────────────────────────────────────╯
 ```
 
@@ -308,7 +288,6 @@ The everyday retail register, scoped to a real location of type Retail --- this 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────────────────────────╮
 │ POS Terminal — Tutorial Window & Door Manufacturing / Actual                                     │
-│                                                                                                  │
 │ The everyday retail register — a real location of type 'Retail'.                                 │
 │ No real Retail-type location exists yet.                                                         │
 │ Escape back to menu                                                                              │
